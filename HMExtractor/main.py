@@ -24,14 +24,15 @@ class OZY(object):
             temperature = 'K'
         )
 
-        self.simulation = SimulationAttributes()
-        self.yt_dataset = ds
+        self.simulation  = SimulationAttributes()
+        self.yt_dataset  = ds
         
-        self.nhalos    = 0
-        self.ngalaxies = 0
-        self.nclouds   = 0
-        self.halos     = []
-        self.galaxies  = []
+        self.nhalos      = 0
+        self.ngalaxies   = 0
+        self.nclouds     = 0
+        self.halos       = []
+        self.galaxies    = []
+        self.clouds      = []
         self.group_types = []
 
     @property
@@ -44,23 +45,16 @@ class OZY(object):
                             'on the snapshot.')
         return self._ds
     @property
-    def _any_galaxies(self):
+    def _has_galaxies(self):
         """Check if the dataset has galaxies."""
         if self.ngalaxies > 0:
             return True
         else:
             return False
     @property
-    def _any_gasclouds(self):
+    def _has_clouds(self):
         """Check if the dataset has gas clouds."""
         if self.nclouds > 0:
-            return True
-        else:
-            return False
-    @property
-    def _any_galaxies(self):
-        """Check if the dataset has galaxies."""
-        if self.ngalaxies > 0:
             return True
         else:
             return False
