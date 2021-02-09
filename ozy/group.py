@@ -7,6 +7,10 @@ grouptypes = dict(
     cloud='clouds'
 )
 
+info_blacklist = [
+    'obj', 'halo', 'galaxies','clouds', 'satellites',
+    'galaxy_index_list_end', 'galaxy_index_list_start','cloud_index_list_end','cloud_index_list_start']
+
 class Group(object):
     """This is the parent class from which the rest of groups are derived."""
     

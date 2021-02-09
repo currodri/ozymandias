@@ -10,7 +10,7 @@ class OZY(object):
     It can be saved as a portable, standalone HDF5 file which allows
     general analysis without requiring the original snapshot.
     """
-    def __init__(self, ds = 0, *args, *kwargs):
+    def __init__(self, ds = 0, *args, **kwargs):
         self._args   = args
         self._kwargs = kwargs
         self._dtman  = 0
@@ -90,7 +90,7 @@ class OZY(object):
         from ozy.saver_tool import save
         save(self, filename)
     
-    def build_HaloMaker(self, *args, *kwargs):
+    def build_HaloMaker(self, *args, **kwargs):
         """This is the central function of the OZY class for the HALOMAKER catalogues.
 
         This method is reponsible for:
@@ -104,6 +104,9 @@ class OZY(object):
         import ozy.group_assignment as assign
         import ozy.group_linking as link
         import ozy.read_HaloMaker as read_HM
+        
+        self._args = args
+        self._kwargs = kwargs
 
         # TODO: Add the option to run HaloMaker if the brick files do not exist
         # import ozy.run_halomaker as run
@@ -126,15 +129,15 @@ class OZY(object):
 
     def galaxies_summary(self, top=10):
         """Method to briefly print information for the most massive galaxies in the catalogue."""
-        from ozy.tools import info_printer
+        from ozy.utils import info_printer
         info_printer(self, 'galaxy', top)
 
     def halos_summary(self, top=10):
         """Method to briefly print information for the most massive halos in the catalogue."""
-        from ozy.tools import info_printer
+        from ozy.utils import info_printer
         info_printer(self, 'halo', top)
 
     def clouds_summary(self, top=10):
         """Method to briefly print information for the most massive clouds in the catalogue."""
-        from ozy.tools import info_printer
+        from ozy.utils import info_printer
         info_printer(self, 'cloud', top)

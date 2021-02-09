@@ -6,9 +6,10 @@ def galaxies_to_halos(obj):
     
     This function finds the closest halo to a particular galaxy.
     """
-    
-    init_linking_l = obj.init_linking_l['galaxy_halo']
-    max_linking_l = obj.max_linking_l['galaxy_halo']
+    if 'linking_var' in obj._args:
+        linking_variable = obj.linking_var
+    else:
+        linking_variable = 'radius'
     
     if not obj._has_galaxies:
         # Check that the OZY object includes galaxies.
@@ -22,7 +23,7 @@ def galaxies_to_halos(obj):
             halo           = obj.halos[i]
             vec_dist       = galaxy.position - halo.position
             d              = np.sqrt(np.dot(vec_dist, vec_dist))
-            halo_linking_l = init_linking_l['factor'] * halo.__dict__[init_linking_l['attr']]
+            halo_linking_l = 0.5 * halo.__dict__[linking_variable]
             # If the galaxy is below the halo linking length, save distance.
             if d <= halo_linking_l:
                 distances[i] = d
@@ -51,7 +52,7 @@ def galaxies_to_halos(obj):
                     halo           = lonely_halos[~lonely_halos.mask][j]
                     vec_dist       = galaxy.position - halo.position
                     d              = np.dot(vec_dist, vec_dist)
-                    halo_linking_l = max_linking_l['factor'] * halo.__dict__[max_linking_l['attr']]
+                    halo_linking_l = 1.0 * halo.__dict__[linking_variable]
                     # If the galaxy is below the halo linking length, save distance.
                     if d <= halo_linking_l:
                         distances[j] = d
@@ -64,8 +65,10 @@ def clouds_to_galaxies(obj):
     
     This function finds the closest galaxy to a particular gas clouds.
     """
-    init_linking_l = obj.init_linking_l['cloud_galaxy']
-    max_linking_l = obj.max_linking_l['cloud_galaxy']
+    if 'linking_var' in obj._args:
+        linking_variable = obj.linking_var
+    else:
+        linking_variable = 'radius'
     
     if not obj._has_clouds:
         # Check that the OZY object includes gas clouds.
@@ -79,7 +82,7 @@ def clouds_to_galaxies(obj):
             galaxy = obj.galaxy[i]
             vec_dist = cloud.position - galaxy.position
             d = np.sqrt(np.dot(vec_dist, vec_dist))
-            galaxy_linking_l = init_linking_l['factor'] * galaxy.__dict__[init_linking_l['attrs']]
+            galaxy_linking_l = 0.5 * galaxy.__dict__[linking_variable]
             # If the cloud is below the galaxy linking length, save distance.
             if d <= galaxy_linking_l:
                 distances[i] = d
