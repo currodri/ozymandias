@@ -13,7 +13,6 @@ class OZY(object):
     def __init__(self, ds = 0, *args, **kwargs):
         self._args   = args
         self._kwargs = kwargs
-        self._dtman  = 0
         self._ds     = 0
 
         self.units = dict(
@@ -23,8 +22,9 @@ class OZY(object):
             time        = 'yr',
             temperature = 'K'
         )
-
+        print('hey')
         self.simulation  = SimulationAttributes()
+        print('hey')
         self.yt_dataset  = ds
         
         self.nhalos      = 0
@@ -44,6 +44,34 @@ class OZY(object):
                             'if you want to perform further analysis' \
                             'on the snapshot.')
         return self._ds
+
+    @yt_dataset.setter
+    def yt_dataset(self,value):
+        if value == 0: return
+
+        if not hasattr(value, 'dataset_type'):
+            raise IOError('not a yt dataset?')
+
+        infile = '%s/%s' % (value.fullpath, value.basename)
+        
+        self.skip_hash_check = False
+        if hasattr(self, 'hash'):
+            if isinstance(self.hash, np.bytes_):
+                self.hash = self.hash.decode('utf8')
+
+            hash = get_hash(infile)
+            if hash != self.hash:
+                raise IOError('hash mismatch!')
+            else:
+                self._ds = value
+        else:
+            self._ds  = value
+            self.hash = get_hash(infile)
+
+        self._ds = value
+        # self._ds_type = DatasetType(self._ds)
+        self._assign_simulation_attributes()
+
     @property
     def _has_galaxies(self):
         """Check if the dataset has galaxies."""
@@ -58,14 +86,6 @@ class OZY(object):
             return True
         else:
             return False
-    
-    @property
-    def data_manager(self):
-        """On demand DataManager class."""
-        if isinstance(self.__dtman, int):
-            from ozy.data_manager import DataManager
-            self._dtman = DataManager(self)
-        return self._dtman
 
     def _assign_simulation_attributes(self):
         """Assign simulation attributes to the OZY object, if it has not been done before."""
@@ -84,10 +104,11 @@ class OZY(object):
         from ozy.group_linking import link
         link.galaxies_to_halos(self)
         link.clouds_to_galaxies(self)
+        link.create_sublists(self)
     
     def save(self, filename):
         """Save OZY object as HDF5 file."""
-        from ozy.saver_tool import save
+        from ozy.saver import save
         save(self, filename)
     
     def build_HaloMaker(self, *args, **kwargs):
@@ -103,7 +124,7 @@ class OZY(object):
         """
         import ozy.group_assignment as assign
         import ozy.group_linking as link
-        import ozy.read_HaloMaker as read_HM
+        from ozy.read_HaloMaker import read_HM
         
         self._args = args
         self._kwargs = kwargs
@@ -126,6 +147,9 @@ class OZY(object):
         # Link objects between each other
         link.galaxies_to_halos(self)
         link.clouds_to_galaxies(self)
+
+        assign.central_galaxies(self)
+        link.create_sublists(self)
 
     def galaxies_summary(self, top=10):
         """Method to briefly print information for the most massive galaxies in the catalogue."""

@@ -8,7 +8,7 @@ import h5py
 import numpy as np
 from yt.units.yt_array import YTArray, UnitRegistry
 from ozy.utils import info_printer
-from ozy.simulation_attributes import SimulationAttributes
+from ozy.sim_attributes import SimulationAttributes
 
 class LazyDataset:
     """A lazily-loaded HDF5 dataset.
