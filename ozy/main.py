@@ -1,6 +1,7 @@
 import numpy as np
 
 from ozy.sim_attributes import SimulationAttributes
+from yt.funcs import get_hash
 
 class OZY(object):
     """Master OZY class.
