@@ -146,7 +146,7 @@ class LazyDict(Mapping):
         p.pretty(dict(self))
 
 class OZY:
-    def __ini__(self, filename):
+    def __init__(self, filename):
         self._ds = None
         self.data_file = os.path.abspath(filename)
         
@@ -155,7 +155,7 @@ class OZY:
             # This should be the ozy_version with which the dataset was created.
             self.ozy = hd.attrs['ozy']
             self.unit_registry = UnitRegistry.from_json(
-                hd.attrs['unit_registry_json'].decode('utf8'))
+                hd.attrs['unit_registry_json'])
             
             # Load the simulation attributes.
             self.simulation = SimulationAttributes()
@@ -371,7 +371,7 @@ class Galaxy(Group):
             return LazyDict(
                 self.obj._galaxy_dicts[attr].keys(),
                 lambda d: self.obj._galaxy_dicts[attr][d][self._index])
-        raise AttributeError("'{}' object as no attribute '{}'".format(
+        raise AttributeError("'{}' object has no attribute '{}'".format(
             self.__class__.__name__, attr))
 
 class Cloud(Group):
@@ -394,7 +394,7 @@ class Cloud(Group):
             return LazyDict(
                 self.obj._cloud_dicts[attr].keys(),
                 lambda d: self.obj._cloud_dicts[attr][d][self._index])
-        raise AttributeError("'{}' object as no attribute '{}'".format(
+        raise AttributeError("'{}' object has no attribute '{}'".format(
             self.__class__.__name__, attr))
         
 

@@ -1,0 +1,8 @@
+README.md
+setup.py
+ozy/ozymandias.egg-info/PKG-INFO
+ozy/ozymandias.egg-info/SOURCES.txt
+ozy/ozymandias.egg-info/dependency_links.txt
+ozy/ozymandias.egg-info/entry_points.txt
+ozy/ozymandias.egg-info/requires.txt
+ozy/ozymandias.egg-info/top_level.txt

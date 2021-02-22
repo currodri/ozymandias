@@ -8,12 +8,12 @@ def remove_out_zoom(obj, group):
     """
     # These details are for the NUT simulation.
     centre_zoom = np.array([0.68,0.33,0.29])
-    radius_zoom = (0.34*0.5)**2
+    radius_zoom = (0.34*0.5)
     
     add_group = True
     
     # Compute distance of group limits from zoom centre position.
-    gdist_wrt_zoom = np.linalg.norm((group.position - centre_zoom)) + group.radius
+    gdist_wrt_zoom = np.linalg.norm((group.position - centre_zoom))
     
     if gdist_wrt_zoom > radius_zoom:
         add_group = False

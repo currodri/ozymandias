@@ -42,7 +42,7 @@ def _get_serialised_list(obj_list, key):
         current_list = getattr(i, key)
         n = len(current_list)
         tmp.extend(current_list)
-        setattr(i, '%s_start' % key)
+        setattr(i, '%s_start' % key, index)
         index += n
         setattr(i, '%s_end'   % key, index)
     return tmp
@@ -168,7 +168,7 @@ def save(obj, filename='default'):
         
         # TODO: Addapt for particle lists.
         # serialise_list(obj.galaxies, 'glist', hdd)
-        serialise_attributes(obj.galaxies, hd, hddd)
+        serialise_attributes(obj.clouds, hd, hddd)
     
     # TODO: Allow to save global_particle_lists
     # if hasattr(obj, 'global_particle_lists'):

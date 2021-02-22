@@ -1,0 +1,27 @@
+Metadata-Version: 2.1
+Name: ozymandias
+Version: 0.1.dev1
+Summary: Python package for the analysis of cosmological RAMSES simulations.
+Home-page: https://github.com/Currodri/ozymandias
+Author: F. Rodriguez Montero
+Author-email: currodri@gmail.com
+License: UNKNOWN
+Project-URL: Bug Reports, https://github.com/Currodri/ozymandias/issues
+Project-URL: Source, https://github.com/Currodri/ozymandias
+Description: # ozymandias
+        Ozymandias - analysis of cosmological RAMSES simulations
+        
+Keywords: catalogue,simulations,astrophysics
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering :: Physics
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3 :: Only
+Requires-Python: >=3.6, <4
+Description-Content-Type: text/markdown

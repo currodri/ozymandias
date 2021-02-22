@@ -16,7 +16,7 @@ def read_HM(obj, grouptype):
     """
     # yT returns the fullpath something like '/mnt/extraspace/currodri/NUT/cosmoNUT/output_00013'
     # so need to get rid of the last bit to get the path to the simulation, not the snap.
-    sim_folder = '/' + os.path.join(*obj.simulation.fullpath.split('/')[0:-1])
+    sim_folder = '/' + os.path.join(*obj.simulation.fullpath.split('/')[0:-1]) + '/'
     
     # Just to get the index of the snap so that we can find the specific brick file.
     snap_ID = obj.simulation.fullpath.split('/')[-1].split('_')[-1]
@@ -24,24 +24,25 @@ def read_HM(obj, grouptype):
     # Determine required halos file.
     if grouptype == 'halo':
         haloM_folder = 'HaloMaker_DM/DMOnly/'
-        read_file    = 'tree_bricks' + snap_ID
+        read_file    = 'tree_bricks%03d' % int(snap_ID)
     elif grouptype == 'galaxy':
-        haloM_folder = 'HaloMaker_stars/StarsOnly'
-        read_file    = 'tree_starsub_' + snap_ID
+        haloM_folder = 'HaloMaker_stars/StarsOnly/'
+        read_file    = 'tree_brick_starsub_%03d' % int(snap_ID)
     elif grouptype == 'cloud':
-        haloM_folder = 'HaloMaker_stars/GasOnly'
-        read_file    = 'tree_starsub_' + snap_ID
+        haloM_folder = 'HaloMaker_stars/GasOnly/'
+        read_file    = 'tree_brick_starsub_%03d' % int(snap_ID)
     else:
         return
     
     # Review whether requested structure catalogue exists.
     file_route = sim_folder + haloM_folder + read_file
+    print(file_route)
     if not os.path.exists(file_route):
         return
     
     # If it does exist, find the cleaned version, if that option is used.
     clean_route = sim_folder + haloM_folder + 'clean_' + read_file
-    if os.path.exists(file_route) and obj.clean_brickfile:
+    if os.path.exists(clean_route) and obj.clean_brickfile:
         file_route = clean_route
     elif obj.clean_brickfile:
         clean_up_done = auto_cleanHM(sim_folder, haloM_folder)
@@ -69,13 +70,21 @@ def read_HM(obj, grouptype):
     elif grouptype == 'cloud':
         obj.nclouds = nb_of_halos + nb_of_subhalos
     
+    print( "Number of halos in output: " + str(nb_of_halos))
+    print( "Number of subhalos in output: " + str(nb_of_subhalos))
+    print( "Number of particles in output: " + str(nbodies))
+
+    nobjs = 0
+    nonzoom_halos = 0
     # Reading halos...
     for i in range(0, nb_of_halos + nb_of_subhalos):
         new_group = create_new_group(obj, grouptype)
         halo1 = np.fromfile(file=HMfile, dtype=np.int32, count=3)
         new_group.npart = halo1[1]
+        if grouptype == 'halo':
+            new_group.ndm = halo1[1]
         # TODO: Allow particle data to be store for each structure. 
-        if not os.path.exists(file_route) and not obj.clean_brickfile:
+        if not os.path.isfile(clean_route):
             ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
             for j in range(0, new_group.npart):
                 partID = np.fromfile(file=HMfile, dtype=np.int32, count=1)
@@ -92,6 +101,12 @@ def read_HM(obj, grouptype):
             new_group.hostsub = tempR[3]
             new_group.nsub    = tempR[4]
             new_group.nextsub = tempR[5]
+        else:
+            level   = tempR[1]
+            host    = tempR[2]
+            hostsub = tempR[3]
+            nsub    = tempR[4]
+            nextsub = tempR[5]
         # Halo total mass.
         tempR = np.fromfile(file=HMfile, dtype=np.float32, count=3)
         new_group.mass = tempR[1]
@@ -134,18 +149,34 @@ def read_HM(obj, grouptype):
         new_group.virial_mass = tempR[2]
         new_group.virial_temp = tempR[3]
         new_group.virial_cvel = tempR[4]
-        
+        # Halo profiles
+        tempR = np.fromfile(file=HMfile, dtype=np.float32, count=4)
+        if grouptype == 'halo':
+            new_group.NFW_rho0 = tempR[1]
+            new_group.NFW_r_c = tempR[2]
         # If the simulation is a zoom, check if we want to throw away
         # objects outside of the zoom regoion.
         add_group = True
-        if obj.sim_attributes.zoom:
+        if obj.simulation.zoom:
             add_group = remove_out_zoom(obj, new_group)
         if add_group:
             obj.__dict__[grouptypes[grouptype]].append(new_group)
+            nobjs += 1
+        else:
+            nonzoom_halos += 1
         
-        halo1 = np.fromfile(file=HMfile, dtype=np.int32, count=3)
+    halo1 = np.fromfile(file=HMfile, dtype=np.int32, count=3)
         
     HMfile.close()
+    if obj.simulation.zoom:
+        print("Halos out of zoom region: "+str(nonzoom_halos))
+
+    if grouptype == 'halo':
+        obj.nhalos = nobjs
+    elif grouptype == 'galaxy':
+        obj.ngalaxies = nobjs
+    elif grouptype == 'cloud':
+        obj.nclouds = nobjs
     
 def auto_cleanHM(sim_folder, haloM_folder):
     """This function installs and automatically cleans the HaloMaker files for faster execution.
@@ -153,14 +184,17 @@ def auto_cleanHM(sim_folder, haloM_folder):
     
     # TODO: The HalosExtractor should be a submodule of OZYMANDIAS, and compiled during
     # the installation of the package.
-    
-    HalosExtractorRoute = '~/bin' # This requires the "make" of the Fortran code first.
-    if (os.path.isfile(HalosExtractorRoute+"HalosExtractor.out")):        
+
+    clean_up_done = False
+    HalosExtractorRoute = '/mnt/zfsusers/currodri/bin/' # This requires the "make" of the Fortran code first.
+    if (os.path.isfile(HalosExtractorRoute+"HaloExtractor.out")):        
         print("I am trying to clean the halos in the received folder to accelerate")
         print("execution. This is done once per simulation and really worth not   ")
         print("having to read the particles")
-        os.system(str(HalosExtractorRoute)+"./HalosExtractor.out "+str(sim_folder+haloM_folder))
+        os.system(str(HalosExtractorRoute)+"./HaloExtractor.out "+str(sim_folder+haloM_folder))
+        clean_up_done = True
     else:
         print("I have tried to clean your halo files for faster execution but")
         print("I could not find HalosExtractor.out. Consider installing this")
         print("for faster execution")
+    return clean_up_done

@@ -21,6 +21,8 @@ class SimulationAttributes(object):
         self.hubble_constant = ds.hubble_constant
         self.parameters      = ds.parameters
         self.boxsize = ds.domain_width[0].to(obj.units['length'])
+        # TODO: Read this from simulation file. Right now for NUT:
+        self.zoom = True
         
         H0 = ds.quan(self.hubble_constant * 100. * 3.24077929e-20, '1/s')
         Om_0 = ds.cosmology.omega_matter
@@ -59,15 +61,16 @@ class SimulationAttributes(object):
             elif isinstance(v, (int, float, bool, np.number)):
                 hdd.attrs.create(k, v)
             elif isinstance(v, str):
-                hdd.atrrs.create(k, v.encode('utf8'))
+                hdd.attrs.create(k, v.encode('utf8'))
             
-        uhdd = hdd.create_group('parameters')
+        uhdd = hdd.create_group('units')
         for k, v in units.items():
             uhdd.attrs.create(k, str(v).encode('utf8'))
         
         phdd = hdd.create_group('parameters')
         for k,v in self.parameters.items():
-            phdd.attrs.create(k, v)
+            if k != 'namelist':
+                phdd.attrs.create(k, v)
     
     def _unpack(self, obj, hd):
         """Get, if they exist, the simulation attributes from the input HDF5 file and assign them to OZY object."""

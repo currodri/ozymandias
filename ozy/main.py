@@ -23,9 +23,7 @@ class OZY(object):
             time        = 'yr',
             temperature = 'K'
         )
-        print('hey')
         self.simulation  = SimulationAttributes()
-        print('hey')
         self.yt_dataset  = ds
         
         self.nhalos      = 0
@@ -117,7 +115,7 @@ class OZY(object):
 
         This method is reponsible for:
         1) Calling the Fortran routines that cleans up the raw HaloMaker catalogues
-        2) Creating halox, galaxies and gas clouds
+        2) Creating halox¡s, galaxies and gas clouds
         3) Linking objects through the chosen method
         4) Computing additional quantities
         5) Saving all as a clean HDF5 file
@@ -135,8 +133,10 @@ class OZY(object):
         # run(self, 'halo')
         # run(self, 'galaxy')
         # run(self, 'cloud')
+        self.clean_brickfile = True
 
         # Read HaloMaker brick catalogues
+        print("Running build_HaloMaker")
         read_HM(self, 'halo')
         read_HM(self, 'galaxy')
         read_HM(self, 'cloud')

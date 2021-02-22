@@ -17,18 +17,19 @@ def galaxies_to_halos(obj):
     # Loop over all galaxies in catalogue.
     for galaxy in obj.galaxies:
         galaxy.parent_halo_index = -1
-        distances                = np.full(obj.nhalos, np.nan)
+        distances                = np.full(obj.nhalos, np.infty)
         # Compute configuration-space distance of the galaxy to all halos.
         for i in range(0, obj.nhalos):
             halo           = obj.halos[i]
             vec_dist       = galaxy.position - halo.position
-            d              = np.sqrt(np.dot(vec_dist, vec_dist))
+            d              = np.linalg.norm(vec_dist)
             halo_linking_l = 0.5 * halo.__dict__[linking_variable]
             # If the galaxy is below the halo linking length, save distance.
             if d <= halo_linking_l:
                 distances[i] = d
         # Assign closest halo to galaxy.
-        galaxy.parent_halo_index = np.argmin(distances)
+        if not np.all(distances == np.infty):
+            galaxy.parent_halo_index = np.argmin(distances)
     
     for halo in obj.halos:
         halo.galaxy_index_list = []
@@ -37,28 +38,29 @@ def galaxies_to_halos(obj):
     for i in range(0, obj.ngalaxies):
         galaxy = obj.galaxies[i]
         if galaxy.parent_halo_index > -1:
-            obj.halos[galaxy.parent_halo.index].galaxy_index_list.append(i)
-    
+            obj.halos[galaxy.parent_halo_index].galaxy_index_list.append(i)
     # Find lonely halos (i.e. those without a galaxy assigned).
-    lonely_halos   = ma.masked_where(len(obj.halos.galaxy_index_list)>0, obj.halos)
+    len_list = np.array([len(halo.galaxy_index_list) for halo in obj.halos])
+    lonely_halos   = ma.masked_where(len_list > 0, obj.halos)
     n_lonely_halos = len(lonely_halos[~lonely_halos.mask])
     if n_lonely_halos > 0:
-        lonely_halos_index_list = [k for k in range(0, len(lonely_halos)) if lonely_halos[k] is not masked]
+        lonely_halos_index_list = [k for k in range(0, len(lonely_halos)) if lonely_halos[k] is not ma.masked]
         for i in range(0, len(obj.galaxies)):
             galaxy = obj.galaxies[i]
             if galaxy.parent_halo_index == -1:
-                distances = np.zeros(n_lonely_halos)
+                distances = np.full(n_lonely_halos, np.infty)
                 for j in range(0, n_lonely_halos):
                     halo           = lonely_halos[~lonely_halos.mask][j]
                     vec_dist       = galaxy.position - halo.position
-                    d              = np.dot(vec_dist, vec_dist)
+                    d              = np.linalg.norm(vec_dist)
                     halo_linking_l = 1.0 * halo.__dict__[linking_variable]
                     # If the galaxy is below the halo linking length, save distance.
                     if d <= halo_linking_l:
                         distances[j] = d
                 # Assign closest lonely halo to the galaxy
-                galaxy.parent_halo_index = lonely_halos_index_list[np.argmin(distances)]
-                obj.halos[galaxy.parent_halo.index].galaxy_index_list.append(i)
+                if not np.all(distances == np.infty):
+                    galaxy.parent_halo_index = lonely_halos_index_list[np.argmin(distances)]
+                    obj.halos[galaxy.parent_halo_index].galaxy_index_list.append(i)
 
 def clouds_to_galaxies(obj):
     """Assign gas clouds to galaxies.
@@ -76,18 +78,19 @@ def clouds_to_galaxies(obj):
     # Loop over all gas clouds in catalogue.
     for cloud in obj.clouds:
         cloud.parent_galaxy_index = -1
-        distances = np.full(obj.ngalaxies, np.nan)
+        distances = np.full(obj.ngalaxies, np.infty)
         # Compute configuration-space distance of the galaxy to all halos.
         for i in range(0, obj.ngalaxies):
-            galaxy = obj.galaxy[i]
+            galaxy = obj.galaxies[i]
             vec_dist = cloud.position - galaxy.position
             d = np.sqrt(np.dot(vec_dist, vec_dist))
-            galaxy_linking_l = 0.5 * galaxy.__dict__[linking_variable]
+            galaxy_linking_l = 1.0 * galaxy.__dict__[linking_variable]
             # If the cloud is below the galaxy linking length, save distance.
             if d <= galaxy_linking_l:
                 distances[i] = d
         # Assign closest galaxy to cloud.
-        cloud.parent_galaxy_index = np.argmin(distances)
+        if not np.all(distances == np.infty):
+            cloud.parent_galaxy_index = np.argmin(distances)
     
     for galaxy in obj.galaxies:
         galaxy.cloud_index_list = []
@@ -116,6 +119,6 @@ def central_galaxies(obj, central_mass_definition='total'):
         if len(halo.galaxy_index_list) == 0:
             # This halo has no galaxies associated to it.
             continue
-        galaxy_masses                                               = np.array([s.masses[central_mass_definition] for s in halo.galaxies])
+        galaxy_masses                                               = np.array([s.mass for s in halo.galaxies])
         central_index                                               = np.argmax(galaxy_masses)
         obj.galaxies[halo.galaxy_index_list[central_index]].central = True

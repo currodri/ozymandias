@@ -1,0 +1,3 @@
+[console_scripts]
+ozy = ozy.command_line:run
+
