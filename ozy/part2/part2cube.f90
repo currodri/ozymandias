@@ -887,9 +887,13 @@ end subroutine title
 !================================================================
 !================================================================
 !================================================================
-subroutine radial_distance(origin,position)
+subroutine radial_distance(ndim,origin,position)
    implicit none
+   integer :: ndim
+   real(KIND=8),dimension(1:ndim) :: origin,position
+   real(KIND=8) :: r
 
+   r = 
 end subroutine radial_distance
 !================================================================
 !================================================================
