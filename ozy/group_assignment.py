@@ -23,7 +23,7 @@ def galaxies_to_halos(obj):
             halo           = obj.halos[i]
             vec_dist       = galaxy.position - halo.position
             d              = np.linalg.norm(vec_dist)
-            halo_linking_l = 0.5 * halo.__dict__[linking_variable]
+            halo_linking_l = 1.0 * halo.__dict__[linking_variable]
             # If the galaxy is below the halo linking length, save distance.
             if d <= halo_linking_l:
                 distances[i] = d
@@ -81,9 +81,9 @@ def clouds_to_galaxies(obj):
         distances = np.full(obj.ngalaxies, np.infty)
         # Compute configuration-space distance of the galaxy to all halos.
         for i in range(0, obj.ngalaxies):
-            galaxy = obj.galaxies[i]
-            vec_dist = cloud.position - galaxy.position
-            d = np.sqrt(np.dot(vec_dist, vec_dist))
+            galaxy           = obj.galaxies[i]
+            vec_dist         = cloud.position - galaxy.position
+            d                = np.linalg.norm(vec_dist) - cloud.radius
             galaxy_linking_l = 1.0 * galaxy.__dict__[linking_variable]
             # If the cloud is below the galaxy linking length, save distance.
             if d <= galaxy_linking_l:

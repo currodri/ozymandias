@@ -150,6 +150,8 @@ class OZY:
         self._ds = None
         self.data_file = os.path.abspath(filename)
         
+        self._galaxy_slist = LazyDataset(self, 'galaxy_data/lists/slist')
+
         with h5py.File(filename, 'r') as hd:
             
             # This should be the ozy_version with which the dataset was created.
@@ -193,6 +195,14 @@ class OZY:
                 if 'galaxy_data/lists/cloud_index_list' in hd:
                     self._cloud_index_list = LazyDataset(
                         self, 'galaxy_data/lists/cloud_index_list')
+
+                if 'tree_data/progen_galaxy_star' in hd:
+                    self._galaxy_data['progen_galaxy_star'] = self._progen_galaxy_star = LazyDataset(
+                        self, 'tree_data/progen_galaxy_star')
+                    
+                if 'tree_data/descend_galaxy_star' in hd:
+                    self._galaxy_data['descend_galaxy_star'] = self._descend_galaxy_star = LazyDataset(
+                        self, 'tree_data/descend_galaxy_star')
 
                 for k, v in hd['galaxy_data'].items():
                     if type(v) is h5py.Dataset:
@@ -258,9 +268,6 @@ class OZY:
 # TODO: All of these classes need to be addapted to be able to load particle lists.
         
 class Group:
-    @property
-    def mass(self):
-        return self.mass
     
     def info(self):
         pdict = {}
@@ -339,6 +346,10 @@ class Galaxy(Group):
     def __dir__(self):
         return dir(type(self)) + list(self.__dict__) + list(
             self.obj._galaxy_data) + list(self.obj._galaxy_dicts)
+
+    @property
+    def slist(self):
+        return self.obj._galaxy_slist[self.slist_start:self.slist_end]
 
     @property
     def satellites(self):

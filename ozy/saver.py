@@ -158,7 +158,9 @@ def save(obj, filename='default'):
         hddd = hd.create_group('dicts')
         
         # TODO: Addapt for particle lists.
-        serialise_list(obj.galaxies, 'cloud_index_list', hdd)
+        index_lists = ['slist','cloud_index_list']
+        for vals in index_lists:
+            serialise_list(obj.galaxies, vals, hdd)
         serialise_attributes(obj.galaxies, hd, hddd)
     
     if hasattr(obj, 'clouds') and obj.nclouds > 0:

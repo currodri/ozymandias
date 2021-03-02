@@ -3,6 +3,8 @@ import os
 from ozy.group import create_new_group, grouptypes
 from ozy.utils import remove_out_zoom
 
+plist_dict = dict( gas='glist', star='slist', bh='bhlist', dust='dlist', dm='dmlist', dm2='dm2list')
+
 def read_HM(obj, grouptype):
     """Read found structures from HaloMaker files.
     
@@ -36,7 +38,6 @@ def read_HM(obj, grouptype):
     
     # Review whether requested structure catalogue exists.
     file_route = sim_folder + haloM_folder + read_file
-    print(file_route)
     if not os.path.exists(file_route):
         return
     
@@ -48,6 +49,9 @@ def read_HM(obj, grouptype):
         clean_up_done = auto_cleanHM(sim_folder, haloM_folder)
         if clean_up_done:
             file_route = clean_route
+    # Override if its a galaxy, since we need particles for progen search
+    if grouptype == 'galaxy':
+        file_route = sim_folder + haloM_folder + read_file
     # BEGIN - Open file to be read.
     HMfile = open(file_route, 'rb')
     
@@ -80,14 +84,14 @@ def read_HM(obj, grouptype):
     for i in range(0, nb_of_halos + nb_of_subhalos):
         new_group = create_new_group(obj, grouptype)
         halo1 = np.fromfile(file=HMfile, dtype=np.int32, count=3)
-        new_group.npart = halo1[1]
+        new_group.npart = int(halo1[1])
         if grouptype == 'halo':
             new_group.ndm = halo1[1]
         # TODO: Allow particle data to be store for each structure. 
-        if not os.path.isfile(clean_route):
+        if not os.path.isfile(clean_route) or grouptype == 'galaxy':
+            print('Number of star particles in galaxy: '+str(new_group.npart))
             ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
-            for j in range(0, new_group.npart):
-                partID = np.fromfile(file=HMfile, dtype=np.int32, count=1)
+            new_group.slist = np.fromfile(file=HMfile, dtype=np.int32, count=new_group.npart)
             ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
         # Halo integers.
         tempR = np.fromfile(file=HMfile, dtype=np.int32, count=3)
@@ -145,10 +149,10 @@ def read_HM(obj, grouptype):
         
         # Halo virials [radius, mass, temperature, circular velocity]
         tempR = np.fromfile(file=HMfile, dtype=np.float32, count=6)
-        new_group.virial_radius = tempR[1]
-        new_group.virial_mass = tempR[2]
-        new_group.virial_temp = tempR[3]
-        new_group.virial_cvel = tempR[4]
+        new_group.virial_radius      = tempR[1]
+        new_group.virial_mass        = tempR[2]
+        new_group.virial_temperature = tempR[3]
+        new_group.virial_cvel        = tempR[4]
         # Halo profiles
         tempR = np.fromfile(file=HMfile, dtype=np.float32, count=4)
         if grouptype == 'halo':

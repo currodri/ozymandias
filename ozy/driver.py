@@ -1,6 +1,7 @@
 import os
 import yt
 import ozy
+from ozy.progen import progen_build
 
 class Snapshot(object):
     """Class for tracking paths and data for simulation snapshots.
@@ -15,7 +16,7 @@ class Snapshot(object):
         
         self.outdir = '%s/Groups' % ('/' + os.path.join(*ds.fullpath.split('/')[0:-1]))
         
-        self.outfile = '%s/%s%s%05d.%s' % (self.outdir, prefix, self.snapname.replace(self.snapname,'_'), self.snapindex, extension)
+        self.outfile = '%s/%s%s%05d.%s' % (self.outdir, prefix, self.snapname.replace(self.snapname,''), self.snapindex, extension)
     
     def _make_output_dir(self):
         if not os.path.isdir(self.outdir):
@@ -59,7 +60,7 @@ def print_art():
     """
     print('\n%s\n%s\n%s\n' % (art, copywrite, version))
 
-def drive(snapdirs, snapname, snapindexes, skipran=False,
+def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
           build_HaloMaker=True, extension='hdf5', ozy_prefix='ozy_', **kwargs):
     """Driver function for running `ÒZYMANDIAS``on multiple snapshots.
     
@@ -88,12 +89,15 @@ def drive(snapdirs, snapname, snapindexes, skipran=False,
     snaps = []
     for snapdir in snapdirs:
         for snapindex in snapindexes:
-            snaps.append(Snapshot(snapdir, snapname, snapindex, extension))
+            snaps.append(Snapshot(snapdir, snapname, snapindex))
     
     if build_HaloMaker:
         rank_snaps = snaps[rank::nprocs]
         for snap in rank_snaps:
             snap.build_HaloMaker(skipran, **kwargs)
+    
+    if progen:
+        ozy.progen.run_progen(snapdirs, snapname, snapindexes, prefix=ozy_prefix, extension=extension, **kwargs)
 
 if __name__ == '__main__':
     print_art()

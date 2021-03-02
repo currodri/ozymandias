@@ -11,8 +11,25 @@ info_blacklist = [
     'obj', 'halo', 'galaxies','clouds', 'satellites',
     'galaxy_index_list_end', 'galaxy_index_list_start','cloud_index_list_end','cloud_index_list_start']
 
+# class GroupList(object):
+#     """Class to hold particle index lists.
+#     """
+#     def __init__(self, name):
+#         self.name = name
+
+#     def __get__(self, instance, owner):
+#         if not hasattr(instance, '_%s' % self.name) or isinstance(getattr(instance, '_%s' % self.name), int):
+#             from ozy.loader import restore_single_list
+#             restore_single_list(instance.obj, instance, self.name)
+#         return getattr(instance, instance, self.name)
+    
+#     def __set__(self, instance, value):
+#         setattr(instance, '_%s' % self.name, value)
+
 class Group(object):
     """This is the parent class from which the rest of groups are derived."""
+
+    # slist = GroupList('slist')
     
     def __init__(self, obj):
         """Initialise basic properties of group object."""

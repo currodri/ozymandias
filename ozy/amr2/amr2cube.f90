@@ -1,23 +1,20 @@
-subroutine getcube(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
-     & toto,totsum,n1,n2,n3)
+subroutine integratecube(repository,namevar,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
+     & totosum)
   !--------------------------------------------------------------------------
   ! Ce programme calcule le cube cartesien pour les
   ! variables hydro d'une simulation RAMSES. 
   ! Version F90 par R. Teyssier le 01/04/01.
   !--------------------------------------------------------------------------
   implicit none
-
   real(KIND=8)::xmin,xmax,ymin,ymax,zmin,zmax
   character(LEN=128)::repository
-  integer::lmax,type
+  character(LEN=128) :: namevar
+  integer :: lmax
   !Output array variables
-  integer :: n1,n2,n3
-  real(KIND=4),dimension(n1,n2,n3)::toto
-  real::totsum
+  real(KIND=8) :: totosum
 
-!f2py intent(in) repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax
-!f2py intent(out) toto
-!f2py intent(out) totsum
+!f2py intent(in) repository,namevar,xmin,xmax,ymin,ymax,zmin,zmax,lmax
+!f2py intent(out) totosum
 
   integer::ndim,n,i,j,k,twotondim,ncoarse,domax=0
   integer::ivar,nvar,ncpu,ncpuh,nboundary,ngrid_current
@@ -59,18 +56,17 @@ subroutine getcube(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
   character(LEN=5)::nchar,ncharcpu
   character(LEN=80)::ordering
   character(LEN=80)::GMGM
-  character(LEN=128)::nomfich,outfich,filetype='bin'
+  character(LEN=128)::nomfich
   logical::ok,ok_part,ok_cell
   real(KIND=8),dimension(:),allocatable::bound_key
   logical,dimension(:),allocatable::cpu_read
   integer,dimension(:),allocatable::cpu_list
   character(LEN=1)::proj='z'
-  !==========================================
 
   type level
      integer::ilevel
      integer::ngrid
-     real(KIND=4),dimension(:,:,:),pointer::cube
+    !  real(KIND=4),dimension(:,:,:),pointer::cube
      integer::imin
      integer::imax
      integer::jmin
@@ -126,7 +122,7 @@ subroutine getcube(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
   open(unit=10,file=nomfich,form='formatted',status='old')
   read(10,*)
   read(10,*)
-  !  read(10,'("levelmin    =",I11)')levelmin
+  ! read(10,'("levelmin    =",I11)')levelmin
   read(10,'(A13,I11)')GMGM,levelmin
   read(10,*)
   read(10,*)
@@ -134,7 +130,7 @@ subroutine getcube(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
   read(10,*)
 
   read(10,*)
-  !  read(10,'("time        =",E23.15)')t
+  ! read(10,'("time        =",E23.15)')t
   read(10,'(A13,E23.15)')GMGM,t
   read(10,*)
   read(10,*)
@@ -147,7 +143,7 @@ subroutine getcube(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
   read(10,*)
   read(10,*)
 
-  !  read(10,'("ordering type=",A80)'),ordering
+  ! read(10,'("ordering type=",A80)'),ordering
   read(10,'(A14,A80)')GMGM,ordering
   write(*,'(" ordering type=",A20)'),TRIM(ordering)
   read(10,*)
@@ -209,7 +205,7 @@ subroutine getcube(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
      kdom(3)=kmin; kdom(4)=kmin
      kdom(5)=kmax; kdom(6)=kmax
      kdom(7)=kmax; kdom(8)=kmax
-
+     
      do i=1,ndom
         if(bit_length>0)then
            call hilbert3d(idom(i),jdom(i),kdom(i),order_min,bit_length,1)
@@ -219,7 +215,7 @@ subroutine getcube(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
         bounding_min(i)=(order_min)*dkey
         bounding_max(i)=(order_min+1.0D0)*dkey
      end do
-
+     
      cpu_min=0; cpu_max=0
      do impi=1,ncpu
         do i=1,ndom
@@ -233,7 +229,7 @@ subroutine getcube(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
            endif
         end do
      end do
-
+     
      ncpu_read=0
      do i=1,ndom
         do j=cpu_min(i),cpu_max(i)
@@ -264,8 +260,8 @@ subroutine getcube(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
      jmax=int(yymax*dble(ny_full))+1
      kmin=int(zzmin*dble(nz_full))+1
      kmax=int(zzmax*dble(nz_full))+1
-     allocate(grid(ilevel)%cube(imin:imax,jmin:jmax,kmin:kmax))
-     grid(ilevel)%cube=0.0
+    !  allocate(grid(ilevel)%cube(imin:imax,jmin:jmax,kmin:kmax))
+    !  grid(ilevel)%cube=0.0
      grid(ilevel)%imin=imin
      grid(ilevel)%imax=imax
      grid(ilevel)%jmin=jmin
@@ -277,7 +273,7 @@ subroutine getcube(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
   !-----------------------------------------------
   ! Compute projected variables
   !----------------------------------------------
-
+  totosum=0
   ! Loop over processor files
   do k=1,ncpu_read
      icpu=cpu_list(k)
@@ -301,8 +297,9 @@ subroutine getcube(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
         read(10)ngridbound
         ngridfile(ncpu+1:ncpu+nboundary,1:nlevelmax)=ngridbound
      endif
+		 call check_lmax(ngridfile,ncpu,nboundary,nlevelmax,lmax)
      read(10)
-     ! ROM: comment the single follwing line for old stuff
+! ROM: comment the single follwing line for old stuff
      read(10)
      if(TRIM(ordering).eq.'bisection')then
         do i=1,5
@@ -426,36 +423,14 @@ subroutine getcube(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
                  ref(i)=son(i,ind)>0.and.ilevel<lmax
               end do
               ! Extract variable
-              select case (type)
-              case (-100)
-                 rho = icpu
-              case (0)
-                 rho = ilevel
-              case (1)
-                 rho = var(:,ind,1)
-              case (-1)
-                 rho = var(:,ind,1) * (dx**3) 
-              case (2)
-                 rho = var(:,ind,2)
-              case (3)
-                 rho = var(:,ind,3)
-              case (4)
-                 rho = var(:,ind,4)
-              case (5)
-                 rho = var(:,ind,5)
-              case (-6)
-                 rho = var(:,ind,1)*var(:,ind,6)
-              case (6)
-                 rho = var(:,ind,6)
-              case (7)
-                 rho = var(:,ind,7)
-              case (8)
-                 rho = var(:,ind,8)
-              case (10)
-                 rho = 0.5*(var(:,ind,1)**2+var(:,ind,2)**2+var(:,ind,3)**2)
-              case (11)
-                 rho = 0.5*(var(:,ind,5)**2+var(:,ind,6)**2+var(:,ind,7)**2)
-              end select
+              select case (namevar)
+							case ('icpu')
+								rho = icpu
+							case ('ilevel')
+								rho = ilevel
+							case default
+								call extract_variable(nomfich,namevar,ngrida,twotondim,nvarh,var,ind,dx,rho)
+							end select
               ! Store data cube
               do i=1,ngrida
                  ok_cell= .not.ref(i)
@@ -469,8 +444,7 @@ subroutine getcube(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
                          & ix<=grid(ilevel)%imax.and.&
                          & iy<=grid(ilevel)%jmax.and.&
                          & iz<=grid(ilevel)%kmax)then
-                       grid(ilevel)%cube(ix,iy,iz)=rho(i)
-                       totsum=totsum+rho(i)
+                         totosum = totosum + rho(i)
                     endif
                  end if
               end do
@@ -489,65 +463,31 @@ subroutine getcube(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
 
   end do
   ! End loop over cpus
-
-  nx_full=2**lmax
-  ny_full=2**lmax
-  nz_full=2**lmax
-  imin=int(xxmin*dble(nx_full))+1
-  imax=int(xxmax*dble(nx_full))
-  jmin=int(yymin*dble(ny_full))+1
-  jmax=int(yymax*dble(ny_full))
-  kmin=int(zzmin*dble(nz_full))+1
-  kmax=int(zzmax*dble(nz_full))
-
-  write(*,'(" Zoom in",3(1x,I5,"-",I5))')imin,imax,jmin,jmax,kmin,kmax
-  write(*,*)'Please wait...'
-
-  do ix=imin,imax
-     xmin=((ix-0.5)/2**lmax)
-     do iy=jmin,jmax
-        ymin=((iy-0.5)/2**lmax)
-        do iz=kmin,kmax
-           zmin=((iz-0.5)/2**lmax)
-           do ilevel=max(levelmin,lmin),lmax-1
-              ndom=2**ilevel
-              i=int(xmin*ndom)+1
-              j=int(ymin*ndom)+1
-              k=int(zmin*ndom)+1
-              grid(lmax)%cube(ix,iy,iz)=grid(lmax)%cube(ix,iy,iz)+ &
-                   & grid(ilevel)%cube(i,j,k)
-           end do
-        end do
-     end do
-  end do
-  write(*,*)'Min value:',minval(grid(lmax)%cube(imin:imax,jmin:jmax,kmin:kmax))
-  write(*,*)'Max value:',maxval(grid(lmax)%cube(imin:imax,jmin:jmax,kmin:kmax))
-  write(*,*)'Norm:     ',sum   (dble(grid(lmax)%cube(imin:imax,jmin:jmax,kmin:kmax))) &
-       & /(imax-imin+1)/(jmax-jmin+1)/(kmax-kmin+1)
-
-  !Output cube
-  toto=grid(lmax)%cube(imin:imax,jmin:jmax,kmin:kmax)
-
-   return
-end subroutine getcube
-
-subroutine integrate(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
-     & totsum)
+	write(*,*)'Sum:',totosum
+end subroutine integratecube
+!================================================================
+!================================================================
+!================================================================
+!================================================================
+subroutine getcube(repository,namevar,xmin,xmax,ymin,ymax,zmin,zmax,lmax,n1,n2,n3,&
+     & totosum, toto)
   !--------------------------------------------------------------------------
   ! Ce programme calcule le cube cartesien pour les
   ! variables hydro d'une simulation RAMSES. 
   ! Version F90 par R. Teyssier le 01/04/01.
   !--------------------------------------------------------------------------
   implicit none
-
   real(KIND=8)::xmin,xmax,ymin,ymax,zmin,zmax
   character(LEN=128)::repository
-  integer::lmax,type
-  !Output variable
-  real::totsum
+  character(LEN=128) :: namevar
+  integer :: lmax,n1,n2,n3
+  !Output array variables
+  real(KIND=8) :: totosum
+  real(KIND=4),dimension(n1,n2,n3)::toto
 
-!f2py intent(in) repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax
-!f2py intent(out) totsum
+!f2py intent(in) repository,namevar,xmin,xmax,ymin,ymax,zmin,zmax,lmax
+!f2py intent(out) totosum
+!f2py intent(out) toto
 
   integer::ndim,n,i,j,k,twotondim,ncoarse,domax=0
   integer::ivar,nvar,ncpu,ncpuh,nboundary,ngrid_current
@@ -580,7 +520,6 @@ subroutine integrate(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
   real(KIND=8),dimension(:,:),allocatable::xg
   real(KIND=8),dimension(:,:,:),allocatable::var
   !==========================================
-  real(KIND=4),dimension(:,:,:),allocatable::toto
   real(KIND=8),dimension(:)  ,allocatable::rho
   logical,dimension(:)  ,allocatable::ref
   integer,dimension(:)  ,allocatable::isp
@@ -590,13 +529,12 @@ subroutine integrate(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
   character(LEN=5)::nchar,ncharcpu
   character(LEN=80)::ordering
   character(LEN=80)::GMGM
-  character(LEN=128)::nomfich,outfich,filetype='bin'
+  character(LEN=128)::nomfich
   logical::ok,ok_part,ok_cell
   real(KIND=8),dimension(:),allocatable::bound_key
   logical,dimension(:),allocatable::cpu_read
   integer,dimension(:),allocatable::cpu_list
   character(LEN=1)::proj='z'
-  !==========================================
 
   type level
      integer::ilevel
@@ -657,16 +595,16 @@ subroutine integrate(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
   open(unit=10,file=nomfich,form='formatted',status='old')
   read(10,*)
   read(10,*)
-  read(10,'("levelmin    =",I11)')levelmin
-!   read(10,'(A13,I11)')GMGM,levelmin
+  ! read(10,'("levelmin    =",I11)')levelmin
+  read(10,'(A13,I11)')GMGM,levelmin
   read(10,*)
   read(10,*)
   read(10,*)
   read(10,*)
 
   read(10,*)
-  read(10,'("time        =",E23.15)')t
-!   read(10,'(A13,E23.15)')GMGM,t
+  ! read(10,'("time        =",E23.15)')t
+  read(10,'(A13,E23.15)')GMGM,t
   read(10,*)
   read(10,*)
   read(10,*)
@@ -678,8 +616,8 @@ subroutine integrate(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
   read(10,*)
   read(10,*)
 
-  read(10,'("ordering type=",A80)'),ordering
-  ! read(10,'(A14,A80)')GMGM,ordering
+  ! read(10,'("ordering type=",A80)'),ordering
+  read(10,'(A14,A80)')GMGM,ordering
   write(*,'(" ordering type=",A20)'),TRIM(ordering)
   read(10,*)
   allocate(cpu_list(1:ncpu))
@@ -740,7 +678,7 @@ subroutine integrate(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
      kdom(3)=kmin; kdom(4)=kmin
      kdom(5)=kmax; kdom(6)=kmax
      kdom(7)=kmax; kdom(8)=kmax
-
+     
      do i=1,ndom
         if(bit_length>0)then
            call hilbert3d(idom(i),jdom(i),kdom(i),order_min,bit_length,1)
@@ -750,7 +688,7 @@ subroutine integrate(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
         bounding_min(i)=(order_min)*dkey
         bounding_max(i)=(order_min+1.0D0)*dkey
      end do
-
+     
      cpu_min=0; cpu_max=0
      do impi=1,ncpu
         do i=1,ndom
@@ -764,7 +702,7 @@ subroutine integrate(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
            endif
         end do
      end do
-
+     
      ncpu_read=0
      do i=1,ndom
         do j=cpu_min(i),cpu_max(i)
@@ -795,7 +733,7 @@ subroutine integrate(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
      jmax=int(yymax*dble(ny_full))+1
      kmin=int(zzmin*dble(nz_full))+1
      kmax=int(zzmax*dble(nz_full))+1
-     !allocate(grid(ilevel)%cube(imin:imax,jmin:jmax,kmin:kmax))
+     allocate(grid(ilevel)%cube(imin:imax,jmin:jmax,kmin:kmax))
      grid(ilevel)%cube=0.0
      grid(ilevel)%imin=imin
      grid(ilevel)%imax=imax
@@ -808,7 +746,7 @@ subroutine integrate(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
   !-----------------------------------------------
   ! Compute projected variables
   !----------------------------------------------
-
+  totosum=0
   ! Loop over processor files
   do k=1,ncpu_read
      icpu=cpu_list(k)
@@ -832,8 +770,9 @@ subroutine integrate(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
         read(10)ngridbound
         ngridfile(ncpu+1:ncpu+nboundary,1:nlevelmax)=ngridbound
      endif
+		 call check_lmax(ngridfile,ncpu,nboundary,nlevelmax,lmax)
      read(10)
-     ! ROM: comment the single follwing line for old stuff
+! ROM: comment the single follwing line for old stuff
      read(10)
      if(TRIM(ordering).eq.'bisection')then
         do i=1,5
@@ -957,36 +896,14 @@ subroutine integrate(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
                  ref(i)=son(i,ind)>0.and.ilevel<lmax
               end do
               ! Extract variable
-              select case (type)
-              case (-100)
-                 rho = icpu
-              case (0)
-                 rho = ilevel
-              case (1)
-                 rho = var(:,ind,1)
-              case (-1)
-                 rho = var(:,ind,1)*(dx**3) 
-              case (2)
-                 rho = var(:,ind,2)
-              case (3)
-                 rho = var(:,ind,3)
-              case (4)
-                 rho = var(:,ind,4)
-              case (5)
-                 rho = var(:,ind,5)
-              case (-6)
-                 rho = var(:,ind,1)*var(:,ind,6)
-              case (6)
-                 rho = var(:,ind,6)
-              case (7)
-                 rho = var(:,ind,7)
-              case (8)
-                 rho = var(:,ind,8)
-              case (10)
-                 rho = 0.5*(var(:,ind,1)**2+var(:,ind,2)**2+var(:,ind,3)**2)
-              case (11)
-                 rho = 0.5*(var(:,ind,5)**2+var(:,ind,6)**2+var(:,ind,7)**2)
-              end select
+              select case (namevar)
+							case ('icpu')
+								rho = icpu
+							case ('ilevel')
+								rho = ilevel
+							case default
+								call extract_variable(nomfich,namevar,ngrida,twotondim,nvarh,var,ind,dx,rho)
+							end select
               ! Store data cube
               do i=1,ngrida
                  ok_cell= .not.ref(i)
@@ -1000,8 +917,8 @@ subroutine integrate(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
                          & ix<=grid(ilevel)%imax.and.&
                          & iy<=grid(ilevel)%jmax.and.&
                          & iz<=grid(ilevel)%kmax)then
-                      ! grid(ilevel)%cube(ix,iy,iz)=rho(i)
-                      totsum=totsum+rho(i)
+                         totosum = totosum + rho(i)
+                         grid(ilevel)%cube(ix,iy,iz)=rho(i)
                     endif
                  end if
               end do
@@ -1019,10 +936,54 @@ subroutine integrate(repository,type,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
      close(11)
 
   end do
-  
+  ! End loop over cpus
+  deallocate(ngridfile,ngridlevel,cpu_list)
+  if(TRIM(ordering).eq.'hilbert')deallocate(bound_key,cpu_read)
+  if (nboundary>0)deallocate(ngridbound)
+
+  nx_full=2**lmax
+  ny_full=2**lmax
+  nz_full=2**lmax
+  imin=int(xxmin*dble(nx_full))+1
+  imax=int(xxmax*dble(nx_full))
+  jmin=int(yymin*dble(ny_full))+1
+  jmax=int(yymax*dble(ny_full))
+  kmin=int(zzmin*dble(nz_full))+1
+  kmax=int(zzmax*dble(nz_full))
+
+  write(*,'(" Zoom in",3(1x,I5,"-",I5))')imin,imax,jmin,jmax,kmin,kmax
+  write(*,*)'Please wait...'
+
+  do ix=imin,imax
+      xmin=((ix-0.5)/2**lmax)
+      do iy=jmin,jmax
+        ymin=((iy-0.5)/2**lmax)
+        do iz=kmin,kmax
+            zmin=((iz-0.5)/2**lmax)
+            do ilevel=max(levelmin,lmin),lmax-1
+              ndom=2**ilevel
+              i=int(xmin*ndom)+1
+              j=int(ymin*ndom)+1
+              k=int(zmin*ndom)+1
+              grid(lmax)%cube(ix,iy,iz)=grid(lmax)%cube(ix,iy,iz)+ &
+                    & grid(ilevel)%cube(i,j,k)
+            end do
+        end do
+      end do
+  end do
+  write(*,*)'Min value:',minval(grid(lmax)%cube(imin:imax,jmin:jmax,kmin:kmax))
+  write(*,*)'Max value:',maxval(grid(lmax)%cube(imin:imax,jmin:jmax,kmin:kmax))
+  write(*,*)'Norm:     ',sum   (dble(grid(lmax)%cube(imin:imax,jmin:jmax,kmin:kmax))) &
+        & /(imax-imin+1)/(jmax-jmin+1)/(kmax-kmin+1)
+  write(*,*)'Sum:',totosum
+
+  !Output cube
+  toto=grid(lmax)%cube(imin:imax,jmin:jmax,kmin:kmax)
+  do ilevel=1,lmax
+    deallocate(grid(ilevel)%cube)
+  end do
   return
-end subroutine integrate
-  
+end subroutine getcube
 !=======================================================================
 subroutine title(n,nchar)
 !=======================================================================
@@ -1055,6 +1016,69 @@ subroutine title(n,nchar)
 
 
 end subroutine title
+!================================================================
+!================================================================
+!================================================================
+!================================================================
+subroutine check_lmax(ngridfile,ncpu,nboundary,nlevelmax,lmax)
+	! This simple subroutines checks for the actual maximum
+	! level of refinement active in thAlgo e simulation.
+	implicit none
+
+	integer :: ncpu,nboundary,nlevelmax,lmax
+	integer,dimension(1:ncpu+nboundary,1:nlevelmax) :: ngridfile
+	integer :: ngridilevel,i
+
+	do i = nlevelmax, 0, -1
+		ngridilevel=sum(ngridfile(:,i))
+		if (ngridilevel .gt. 0) then
+			if (lmax .gt. i) then
+				lmax=i
+			endif
+			exit
+		endif
+	end do
+
+end subroutine check_lmax
+!================================================================
+!================================================================
+!================================================================
+!================================================================
+subroutine extract_variable(nomfich,namevar,ngrida,twotondim,nvarh,var,ind,dx,rho)
+	implicit none
+
+	character(LEN=128) :: nomfich
+	character(LEN=18) :: namevar
+	integer :: ngrida,twotondim,nvarh,ind
+	real(KIND=8) :: dx
+	real(KIND=8),dimension(1:ngrida,1:twotondim,1:nvarh) :: var
+	character(LEN=128),dimension(1:nvarh) :: simvars
+	real(KIND=8),dimension(1:ngrida) :: rho
+
+	! open(unit=12,file=nomfich,form='formatted',status=old)
+	! read(12,*) !nvar
+	select case (TRIM(namevar))
+	case ('density')
+		rho = var(:,ind,1)
+	case ('mass')
+		rho = ((var(:,ind,1) * dx) * dx) * dx
+	case ('volume')
+		rho = (dx * dx) * dx 
+	case ('velocity_x')
+		rho = var(:,ind,2)
+	case ('velocity_y')
+		rho = var(:,ind,3)
+	case ('velocity_z')
+		rho = var(:,ind,4)
+	case ('thermal_pressure')
+		rho = var(:,ind,5)
+	case ('metallicity')
+		rho = var(:,ind,6)
+	case default
+		print '("variable not supported by simulation ",A," ignored")', TRIM(namevar)
+	end select
+
+end subroutine extract_variable
 !================================================================
 !================================================================
 !================================================================
