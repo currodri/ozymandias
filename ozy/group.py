@@ -38,33 +38,13 @@ class Group(object):
         self.npart    = 0
         self.units    = 'code'
         self.position = np.array([-1, -1, -1])
-        self.radius   = -1
-        self.shape = np.array([0, 0, 0])
-        self.mass     = -1
+        self.radius   = {}
+        self.shape = {}
+        self.mass     = {}
         self.velocity = np.array([0, 0, 0])
-        self.angular_mom = np.array([0, 0, 0])
-        self.virial_mass = -1
-        self.virial_radius = -1
-        self.virial_temperature = -1
-        self.virial_cvel = -1
-        self.energies = np.array([0, 0, 0])
-    def _code2physical(self, unit_l, unit_d, unit_t):
-        """Convert halo properties from code to physical units."""
-        if self.units == 'code':
-            cm2kpc        = 3.24077929e-22 # Convert cm to kpc
-            g2Msun        = 5e-34          # Convert g to solar masses
-            unit_mass     = ((unit_d * unit_d) * unit_l) * unit_l
-            # Update values.
-            self.radius   = self.radius    * unit_l    *  cm2kpc
-            self.mass     = self.mass      * unit_mass *  g2Msun
-            self.position = self.position  * unit_l    *  cm2kpc
-            self.velocity = self.velocity  * (unit_l/unit_t) *  1e-5 #  Express it in km/s
-            self.virial_mass = self.virial_mass * unit_mass * g2Msun 
-            self.virial_radius = self.virial_radius  * unit_l    *  cm2kpc
-            # TODO: Is it virial temperature or circular velocity?
-            #self.virial_temperature = 
-
-            self.units    = 'physical'     # Update so we do not need to convert them again
+        self.angular_mom = {}
+        self.virial_quantities = {}
+        self.energies = {}
     def _info(self):
         """Method to quickly print out object attributes."""
         attrdict = {}

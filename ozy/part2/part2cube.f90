@@ -453,10 +453,12 @@ subroutine integratesphere(repository,ageweight,periodic,star,xcenter,ycenter,zc
   real(KIND=8)::ddx,ddy,ddz,dex,dey,dez,t,time,time_tot,time_simu,weight
   real(KIND=8)::aexp,omega_m,omega_l,omega_b,omega_k,h0,unit_l,unit_t,unit_d
   integer::imin,imax,jmin,jmax,kmin,kmax,lmin
+  real(KIND=8)::xmin=0,xmax=1,ymin=0,ymax=1,zmin=0,zmax=1
   real(KIND=8)::xxmin,xxmax,yymin,yymax,zzmin,zzmax,dx,dy,dz,deltax
   real(KIND=8),dimension(:),allocatable::aexp_frw,hexp_frw,tau_frw,t_frw
   real(KIND=8),dimension(:,:),allocatable::x
-  real(KIND=8),dimension(:)  ,allocatable::m,age
+  real(KIND=8),dimension(:),allocatable::m,age,r
+  real(KIND=8),dimension(1:3) :: center
   character(LEN=1)::proj='z'
   character(LEN=5)::nchar,ncharcpu
   character(LEN=80)::ordering
@@ -590,6 +592,10 @@ subroutine integratesphere(repository,ageweight,periodic,star,xcenter,ycenter,zc
   idim=1
   jdim=2
   kdim=3
+  center=(/xcenter,ycenter,zcenter/)
+  xmin=xcenter-radius ; xmax=xcenter+radius
+  ymin=ycenter-radius ; ymax=ycenter+radius
+  zmin=zcenter-radius ; zmax=zcenter+radius
   xxmin=xmin ; xxmax=xmax
   yymin=ymin ; yymax=ymax
   zzmin=zmin ; zzmax=zmax
@@ -716,6 +722,7 @@ subroutine integratesphere(repository,ageweight,periodic,star,xcenter,ycenter,zc
      read(1)
      read(1)
      allocate(m(1:npart2))
+     allocate(r(1:npart2))
      if(nstar>0)allocate(age(1:npart2))
      allocate(x(1:npart2,1:ndim2))
      ! Read position
@@ -723,6 +730,9 @@ subroutine integratesphere(repository,ageweight,periodic,star,xcenter,ycenter,zc
         read(1)m
         x(1:npart2,i)=m
      end do
+     ! Compute radial distance
+     call radial_distance(ndim,center,x,npart2,r)
+     deallocate(x)
      ! Skip velocity
      do i=1,ndim
         read(1)m
@@ -737,10 +747,7 @@ subroutine integratesphere(repository,ageweight,periodic,star,xcenter,ycenter,zc
      close(1)
      if(periodic)then
      do i=1,npart2
-        ok_part=(x(i,1)>=xmin.and.x(i,1)<=xmax.and. &
-             &   x(i,2)>=ymin.and.x(i,2)<=ymax.and. &
-             &   x(i,3)>=zmin.and.x(i,3)<=zmax)
-
+        ok_part=(r(i) <= radius)
         if(nstar>0)then
            if(star)then
               ok_part=ok_part.and.(age(i).ne.0.0d0)
@@ -763,33 +770,6 @@ subroutine integratesphere(repository,ageweight,periodic,star,xcenter,ycenter,zc
         endif
 
         if(ok_part)then
-           ddx=(x(i,idim)-xxmin)/dx
-           ddy=(x(i,jdim)-yymin)/dy
-           ddz=(x(i,kdim)-zzmin)/dz
-           ix=ddx
-           iy=ddy
-           iz=ddz
-           ddx=ddx-ix
-           ddy=ddy-iy
-           ddz=ddz-iz
-           dex=1.0-ddx
-           dey=1.0-ddy
-           dez=1.0-ddz
-           if(ix<0)ix=ix+nx
-           if(ix>=nx)ix=ix-nx
-           if(iy<0)iy=iy+ny
-           if(iy>=ny)iy=iy-ny
-           if(iz<0)iz=iz+nz
-           if(iz>=nz)iz=iz-nz
-           ixp1=ix+1
-           iyp1=iy+1
-           izp1=iz+1
-           if(ixp1<0)ixp1=ixp1+nx
-           if(ixp1>=nx)ixp1=ixp1-nx
-           if(iyp1<0)iyp1=iyp1+ny
-           if(iyp1>=ny)iyp1=iyp1-ny
-           if(izp1<0)izp1=izp1+nz
-           if(izp1>=nz)izp1=izp1-nz
            mtot=mtot+m(i)
            nparttot=nparttot+1
         end if
@@ -797,9 +777,7 @@ subroutine integratesphere(repository,ageweight,periodic,star,xcenter,ycenter,zc
      else
      do i=1,npart2
         weight=1.0
-        ok_part=(x(i,1)>=xmin.and.x(i,1)<=xmax.and. &
-             &   x(i,2)>=ymin.and.x(i,2)<=ymax.and. &
-             &   x(i,3)>=zmin.and.x(i,3)<=zmax)
+        ok_part=(r(i) <= radius)
 
         if(nstar>0)then
            if(star)then
@@ -823,29 +801,12 @@ subroutine integratesphere(repository,ageweight,periodic,star,xcenter,ycenter,zc
         endif
 
         if(ok_part)then
-           ddx=(x(i,idim)-xxmin)/dx
-           ddy=(x(i,jdim)-yymin)/dy
-           ddz=(x(i,kdim)-zzmin)/dz
-           ix=ddx
-           iy=ddy
-           iz=ddz
-           ddx=ddx-ix
-           ddy=ddy-iy
-           ddz=ddz-iz
-           dex=1.0-ddx
-           dey=1.0-ddy
-           dez=1.0-ddz
-           ixp1=ix+1
-           iyp1=iy+1
-           izp1=iz+1
-           if(ix>=0.and.ix<nx.and.iy>=0.and.iy<ny.and.iz>=0.and.iz<nz)then
-              mtot=mtot+m(i)
-              nparttot=nparttot+1
-           end if
+            mtot=mtot+m(i)
+            nparttot=nparttot+1
         end if
      end do
      endif
-     deallocate(x,m)
+     deallocate(r,m)
      if(nstar>0)deallocate(age)
   end do
   write(*,*)'Total mass=',mtot
@@ -887,13 +848,15 @@ end subroutine title
 !================================================================
 !================================================================
 !================================================================
-subroutine radial_distance(ndim,origin,position)
+subroutine radial_distance(ndim,center,x,npart, r)
    implicit none
-   integer :: ndim
-   real(KIND=8),dimension(1:ndim) :: origin,position
-   real(KIND=8) :: r
-
-   r = 
+   integer :: ndim,j,npart
+   real(KIND=8),dimension(1:ndim) :: center
+   real(KIND=8),dimension(1:npart,1:ndim) :: x
+   real(KIND=8),dimension(1:npart) :: r
+   do j=1,npart
+      r(j)=sqrt(sum((x(j,:)-center)**2))
+   end do
 end subroutine radial_distance
 !================================================================
 !================================================================
