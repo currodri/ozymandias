@@ -173,9 +173,6 @@ def collect_group_IDs(obj, data_type, part_type):
     elif data_type == 'galaxy':
         part_list = 'obj.galaxies[i].%s'%plist_dict[part_type]
         ngroups = len(obj.galaxies)
-    elif data_type == 'cloud':
-        part_list = 'obj.clouds[i].%s'%plist_dict[part_type]
-        ngroups = len(obj.clouds)
     
     # Count number of total particles in groups
     npart = 0
@@ -190,7 +187,7 @@ def collect_group_IDs(obj, data_type, part_type):
     count = 0
     for i in range(0, ngroups):
         mylist = eval(part_list)
-        pids[count:count+len(mylist)] = mylist
+        pids[count:count+len(mylist)] = abs(mylist) # Star IDs are negative if they have not gone SN
         gids[count:count+len(mylist)] = np.full(len(mylist), i)
         pid_hash[i] = count
         count += len(mylist)

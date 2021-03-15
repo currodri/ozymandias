@@ -5,8 +5,8 @@ from yt.funcs import get_hash
 
 class OZY(object):
     """Master OZY class.
-    OZY objects contain all the necessary references to halos, galaxies,
-    and gas clouds in an individual simulation snapshot.
+    OZY objects contain all the necessary references to halos
+    and galaxies in an individual simulation snapshot.
 
     It can be saved as a portable, standalone HDF5 file which allows
     general analysis without requiring the original snapshot.
@@ -28,10 +28,8 @@ class OZY(object):
         
         self.nhalos      = 0
         self.ngalaxies   = 0
-        self.nclouds     = 0
         self.halos       = []
         self.galaxies    = []
-        self.clouds      = []
         self.group_types = []
 
     @property
@@ -72,16 +70,17 @@ class OZY(object):
         self._assign_simulation_attributes()
 
     @property
-    def _has_galaxies(self):
-        """Check if the dataset has galaxies."""
-        if self.ngalaxies > 0:
+    def _has_halos(self):
+        """Check if the dataset has halos."""
+        if self.nhalos > 0:
             return True
         else:
             return False
+
     @property
-    def _has_clouds(self):
-        """Check if the dataset has gas clouds."""
-        if self.nclouds > 0:
+    def _has_galaxies(self):
+        """Check if the dataset has galaxies."""
+        if self.ngalaxies > 0:
             return True
         else:
             return False
@@ -91,18 +90,16 @@ class OZY(object):
         self.simulation.assign_attributes(self)
     
     def _assign_groups(self):
-        """Assign galaxies to halos and gas clouds to galaxies.
+        """Assign galaxies to halos to galaxies.
             Also connect halos with their central galaxy."""
         import ozy.group_assignment as assign
         assign.galaxies_to_halos(self)
         assign.central_galaxies(self)
-        assign.clouds_to_galaxies(self)
     
     def _link_groups(self):
         """Two-way linking of objects."""
         from ozy.group_linking import link
         link.galaxies_to_halos(self)
-        link.clouds_to_galaxies(self)
         link.create_sublists(self)
     
     def save(self, filename):
@@ -115,7 +112,7 @@ class OZY(object):
 
         This method is reponsible for:
         1) Calling the Fortran routines that cleans up the raw HaloMaker catalogues
-        2) Creating halox¡s, galaxies and gas clouds
+        2) Creating halos and galaxies
         3) Linking objects through the chosen method
         4) Computing additional quantities
         5) Saving all as a clean HDF5 file
@@ -139,18 +136,18 @@ class OZY(object):
         print("Running build_HaloMaker")
         read_HM(self, 'halo')
         read_HM(self, 'galaxy')
-        read_HM(self, 'cloud')
 
-        # Make assignment
-        assign.galaxies_to_halos(self)
-        assign.clouds_to_galaxies(self)
+        if self._has_halos:
+            # Make assignment
+            assign.galaxies_to_halos(self)
 
-        # Link objects between each other
-        link.galaxies_to_halos(self)
-        link.clouds_to_galaxies(self)
+            # Link objects between each other
+            link.galaxies_to_halos(self)
 
-        assign.central_galaxies(self)
-        link.create_sublists(self)
+            assign.central_galaxies(self)
+            link.create_sublists(self)
+        else:
+            print("WARNING: Not a single virialised halo above the minimum particle threshold.")
 
     def galaxies_summary(self, top=10):
         """Method to briefly print information for the most massive galaxies in the catalogue."""
@@ -162,7 +159,3 @@ class OZY(object):
         from ozy.utils import info_printer
         info_printer(self, 'halo', top)
 
-    def clouds_summary(self, top=10):
-        """Method to briefly print information for the most massive clouds in the catalogue."""
-        from ozy.utils import info_printer
-        info_printer(self, 'cloud', top)

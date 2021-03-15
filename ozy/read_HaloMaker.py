@@ -28,10 +28,7 @@ def read_HM(obj, grouptype):
         haloM_folder = 'HaloMaker_DM/DMOnly/'
         read_file    = 'tree_bricks%03d' % int(snap_ID)
     elif grouptype == 'galaxy':
-        haloM_folder = 'HaloMaker_stars/StarsOnly/'
-        read_file    = 'tree_brick_starsub_%03d' % int(snap_ID)
-    elif grouptype == 'cloud':
-        haloM_folder = 'HaloMaker_stars/GasOnly/'
+        haloM_folder = 'HaloMaker_stars/GasStars/'
         read_file    = 'tree_brick_starsub_%03d' % int(snap_ID)
     else:
         return
@@ -67,13 +64,6 @@ def read_HM(obj, grouptype):
     nb_of_halos = nhalos[1]
     nb_of_subhalos = nhalos[2]
     
-    if grouptype == 'halo':
-        obj.nhalos = nb_of_halos + nb_of_subhalos
-    elif grouptype == 'galaxy':
-        obj.ngalaxies = nb_of_halos + nb_of_subhalos
-    elif grouptype == 'cloud':
-        obj.nclouds = nb_of_halos + nb_of_subhalos
-    
     print( "Number of halos in output: " + str(nb_of_halos))
     print( "Number of subhalos in output: " + str(nb_of_subhalos))
     print( "Number of particles in output: " + str(nbodies))
@@ -86,13 +76,15 @@ def read_HM(obj, grouptype):
         halo1 = np.fromfile(file=HMfile, dtype=np.int32, count=3)
         new_group.npart = int(halo1[1])
         if grouptype == 'halo':
-            new_group.ndm = halo1[1]
+            new_group.ndm = new_group.npart
         # TODO: Allow particle data to be store for each structure. 
         if not os.path.isfile(clean_route) or grouptype == 'galaxy':
-            print('Number of star particles in galaxy: '+str(new_group.npart))
             ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
             new_group.slist = np.fromfile(file=HMfile, dtype=np.int32, count=new_group.npart)
             ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
+            # Get rid of IDs==0, since this are for the gas particles given by ramses2gadget
+            new_group.slist = new_group.slist[new_group.slist != 0]
+            new_group.nstar = len(new_group.slist)
         # Halo integers.
         tempR = np.fromfile(file=HMfile, dtype=np.int32, count=3)
         new_group.ID=tempR[1]
@@ -172,8 +164,11 @@ def read_HM(obj, grouptype):
         if obj.simulation.zoom:
             add_group = remove_out_zoom(obj, new_group)
         if add_group:
-            obj.__dict__[grouptypes[grouptype]].append(new_group)
-            nobjs += 1
+            if new_group._valid:
+                if grouptype == 'galaxy':
+                    new_group._process_galaxy()
+                obj.__dict__[grouptypes[grouptype]].append(new_group)
+                nobjs += 1
         else:
             nonzoom_halos += 1
         
@@ -185,10 +180,10 @@ def read_HM(obj, grouptype):
 
     if grouptype == 'halo':
         obj.nhalos = nobjs
+        print("Number of selected DM halos: "+str(obj.nhalos))
     elif grouptype == 'galaxy':
         obj.ngalaxies = nobjs
-    elif grouptype == 'cloud':
-        obj.nclouds = nobjs
+        print("Number of selected galaxies: "+str(obj.ngalaxies))
     
 def auto_cleanHM(sim_folder, haloM_folder):
     """This function installs and automatically cleans the HaloMaker files for faster execution.

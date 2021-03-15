@@ -10,7 +10,7 @@ def run():
     parser = argparse.ArgumentParser()
     parser.add_argument('input', type=str, help='Input file or input directory')
     parser.add_argument('-o', '--output', type=str, help='Output file name')
-    parser.add_argument('-lvar', '--linking_var', type=str, help='Object variable used for the linking between halos, galaxies and clouds')
+    parser.add_argument('-lvar', '--linking_var', type=str, help='Object variable used for the linking between halos and galaxies')
     parser.add_argument('-nproc', type=int, help='Set number of processors for fof6d and group property calculation', default=1)
     args = parser.parse_args()
     var_dict = vars(args)

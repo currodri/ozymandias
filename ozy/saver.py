@@ -158,19 +158,11 @@ def save(obj, filename='default'):
         hddd = hd.create_group('dicts')
         
         # TODO: Addapt for particle lists.
-        index_lists = ['slist','cloud_index_list']
+        index_lists = ['slist']
         for vals in index_lists:
             serialise_list(obj.galaxies, vals, hdd)
         serialise_attributes(obj.galaxies, hd, hddd)
     
-    if hasattr(obj, 'clouds') and obj.nclouds > 0:
-        hd = outfile.create_group('cloud_data')
-        hdd = hd.create_group('lists')
-        hddd = hd.create_group('dicts')
-        
-        # TODO: Addapt for particle lists.
-        # serialise_list(obj.galaxies, 'glist', hdd)
-        serialise_attributes(obj.clouds, hd, hddd)
     
     # TODO: Allow to save global_particle_lists
     # if hasattr(obj, 'global_particle_lists'):

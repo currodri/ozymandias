@@ -218,24 +218,6 @@ class OZY:
                 self.galaxies = LazyList(self.ngalaxies,
                                          lambda i: Galaxy(self, i))
                 
-            # Same as for clouds, which is more rare since there's always gas…
-            self._cloud_data = {}
-            self._cloud_dicts = defaultdict(dict)
-            self.nclouds = 0
-            self.clouds = LazyList(self.nclouds, lambda i: Cloud(self, i))
-            if 'cloud_data' in hd:
-                for k, v in hd['cloud_data'].items():
-                    if type(v) is h5py.Dataset:
-                        self._cloud_data[k] = LazyDataset(
-                            self, 'cloud_data/' + k)
-
-                for k in hd['cloud_data/dicts']:
-                    dictname, arrname = k.split('.')
-                    self._cloud_dicts[dictname][arrname] = LazyDataset(
-                        self, 'cloud_data/dicts/' + k)
-
-                self.nclouds = hd.attrs['nclouds']
-                self.clouds = LazyList(self.nclouds, lambda i: Cloud(self, i))
 
     @property
     def yt_dataset(self):
@@ -341,7 +323,6 @@ class Galaxy(Group):
         self.obj = obj
         self._index = index
         self.halo = obj.halos[self.parent_halo_index]
-        self._clouds = None
 
     def __dir__(self):
         return dir(type(self)) + list(self.__dict__) + list(
@@ -356,23 +337,6 @@ class Galaxy(Group):
         if self.central:
             return self.halo.satellite_galaxies
         return []
-
-    @property
-    def cloud_index_list(self):
-        return self.obj._cloud_index_list[self.cloud_index_list_start:self.
-                                          cloud_index_list_end]
-
-    def _init_clouds(self):
-        self._clouds = []
-        for cloud_index in self.cloud_index_list:
-            cloud = self.obj.clouds[cloud_index]
-            self._clouds.append(cloud)
-
-    @property
-    def clouds(self):
-        if self._clouds is None:
-            self._init_clouds()
-        return self._clouds
 
     @functools.lru_cache(maxsize=None)
     def __getattr__(self, attr):

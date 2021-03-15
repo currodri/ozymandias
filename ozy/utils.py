@@ -7,8 +7,8 @@ def remove_out_zoom(obj, group):
             namelist.
     """
     # These details are for the NUT simulation.
-    centre_zoom = np.array([0.68,0.33,0.29])
-    radius_zoom = (0.34*0.5)
+    centre_zoom = obj.yt_dataset.arr(np.array([0.68,0.33,0.29]), 'code_length')
+    radius_zoom = obj.yt_dataset.quan(0.34*0.5, 'code_length')
     
     add_group = True
     

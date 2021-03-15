@@ -282,7 +282,7 @@ subroutine integratecube(repository,namevar,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
      ! Open AMR file and skip header
      nomfich=TRIM(repository)//'/amr_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
      open(unit=10,file=nomfich,status='old',form='unformatted')
-     write(*,*)'Processing file '//TRIM(nomfich)
+   !   write(*,*)'Processing file '//TRIM(nomfich)
      do i=1,21
         read(10)
      end do
@@ -463,7 +463,7 @@ subroutine integratecube(repository,namevar,xmin,xmax,ymin,ymax,zmin,zmax,lmax,&
 
   end do
   ! End loop over cpus
-	write(*,*)'Sum:',totosum
+	! write(*,*)'Sum:',totosum
 end subroutine integratecube
 !================================================================
 !================================================================
@@ -759,7 +759,7 @@ subroutine integratesphere(repository,namevar,xcenter,ycenter,zcenter,radius,lma
      ! Open AMR file and skip header
      nomfich=TRIM(repository)//'/amr_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
      open(unit=10,file=nomfich,status='old',form='unformatted')
-     write(*,*)'Processing file '//TRIM(nomfich)
+   !   write(*,*)'Processing file '//TRIM(nomfich)
      do i=1,21
         read(10)
      end do
@@ -932,7 +932,7 @@ subroutine integratesphere(repository,namevar,xcenter,ycenter,zcenter,radius,lma
 
   end do
   ! End loop over cpus
-	write(*,*)'Sum:',totosum
+	! write(*,*)'Sum:',totosum
 end subroutine integratesphere
 !================================================================
 !================================================================
@@ -1224,7 +1224,7 @@ subroutine getcube(repository,namevar,xmin,xmax,ymin,ymax,zmin,zmax,lmax,n1,n2,n
      ! Open AMR file and skip header
      nomfich=TRIM(repository)//'/amr_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
      open(unit=10,file=nomfich,status='old',form='unformatted')
-     write(*,*)'Processing file '//TRIM(nomfich)
+   !   write(*,*)'Processing file '//TRIM(nomfich)
      do i=1,21
         read(10)
      end do

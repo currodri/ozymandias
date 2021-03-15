@@ -277,7 +277,7 @@ subroutine integratecube(repository,ageweight,periodic,star,xmin,xmax,ymin,ymax,
      call title(icpu,ncharcpu)
      nomfich=TRIM(repository)//'/part_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
      open(unit=1,file=nomfich,status='old',form='unformatted')
-     write(*,*)'Processing file '//TRIM(nomfich)
+   !   write(*,*)'Processing file '//TRIM(nomfich)
      read(1)ncpu2
      read(1)ndim2
      read(1)npart2
@@ -419,8 +419,8 @@ subroutine integratecube(repository,ageweight,periodic,star,xmin,xmax,ymin,ymax,
      deallocate(x,m)
      if(nstar>0)deallocate(age)
   end do
-  write(*,*)'Total mass=',mtot
-  write(*,*)'n Particles selected=',nparttot
+!   write(*,*)'Total mass=',mtot
+!   write(*,*)'n Particles selected=',nparttot
   return
 end subroutine integratecube
 !================================================================
@@ -712,7 +712,7 @@ subroutine integratesphere(repository,ageweight,periodic,star,xcenter,ycenter,zc
      call title(icpu,ncharcpu)
      nomfich=TRIM(repository)//'/part_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
      open(unit=1,file=nomfich,status='old',form='unformatted')
-     write(*,*)'Processing file '//TRIM(nomfich)
+   !   write(*,*)'Processing file '//TRIM(nomfich)
      read(1)ncpu2
      read(1)ndim2
      read(1)npart2
@@ -809,8 +809,8 @@ subroutine integratesphere(repository,ageweight,periodic,star,xcenter,ycenter,zc
      deallocate(r,m)
      if(nstar>0)deallocate(age)
   end do
-  write(*,*)'Total mass=',mtot
-  write(*,*)'n Particles selected=',nparttot
+!   write(*,*)'Total mass=',mtot
+!   write(*,*)'n Particles selected=',nparttot
   return
 end subroutine integratesphere
 !=======================================================================

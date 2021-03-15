@@ -24,29 +24,6 @@ def galaxies_to_halos(obj):
         else:
             continue
 
-def clouds_to_galaxies(obj):
-    """Link gas clouds and galaxies to one another.
-    
-    This function creates the two-way linking of gas clouds and galaxies.
-    It is run during the creating and loading of the OZY catalogue file.
-    """
-    
-    if not obj._has_clouds:
-        return
-    
-    # First let's do galaxies.
-    for galaxy in obj.galaxies:
-        galaxy.clouds = []
-        for cloud_index in galaxy.cloud_index_list:
-            galaxy.clouds.append(obj.clouds[cloud_index])
-    
-    # Now the same but for gas clouds.
-    for cloud in obj.clouds:
-        if cloud.parent_galaxy_index > -1:
-            cloud.galaxy = obj.galaxies[cloud.parent_galaxy_index]
-        else:
-            cloud.galaxy = None
-
 def create_sublists(obj):
     """Create sublists of objects.
     
