@@ -279,11 +279,12 @@ subroutine sphere(repository,xcenter,ycenter,zcenter,radius,indicators,nind,&
      do i=1,ndim
         read(1)m
      end do
-     ! Read mass
-     read(1)m
+     read(1) ! Skip present mass
      read(1) ! Skip id
      read(1) ! Skip level
      read(1)birth
+     read(1) ! Skip metallicity
+     read(1)m
      close(1)
      do i=1,npart2
         ok_part=(r(i) <= radius)

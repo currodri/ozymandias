@@ -108,7 +108,7 @@ def find_progens(pid_current, pid_target, gid_current, gid_target, pid_hash, n_m
     pid_target = pid_target[isort_target]
     gid_target = gid_target[isort_target]
     ngroups_curr = len(pid_hash) - 1
-
+    
     # Loop over current_objects to find progens for each
     if nproc > 1:
         prog_index_tmp = Parallel(n_jobs=nproc)(delayed(_find_target_group)(pid_current[pid_hash[ig]:pid_hash[ig+1]],pid_target,gid_target,min_in_common) for ig in range(ngroups_curr))
@@ -209,7 +209,10 @@ def write_progens(obj, data, ozy_file, index_name, redshift):
         print('Writing %s info into tree_data'%(index_name))
     
     # Create group in HDF5 file
-    tree = f.create_group('tree_data')
+    try:
+        tree = f.create_group('tree_data')
+    except:
+        tree = f['tree_data']
     progens = tree.create_dataset('%s' % (index_name), data=data, compression=1)
     tree.attrs[('z_'+index_name).encode('utf8')] = redshift
     f.close()

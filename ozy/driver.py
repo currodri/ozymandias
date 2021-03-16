@@ -85,7 +85,6 @@ def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
     
     if rank == 0:
         print_art()
-    
     snaps = []
     for snapdir in snapdirs:
         for snapindex in snapindexes:

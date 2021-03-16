@@ -76,27 +76,9 @@ if __name__ == '__main__':
         thubble = cosmo.age(redshift).value
 
         for mass_var in args.var:
-            if mass_var == 'stellar':
-                m = sim.galaxies[progind].mass
-            elif mass_var == 'gas':
-                cloud_start = sim.galaxies[progind].cloud_index_list_start
-                cloud_end = sim.galaxies[progind].cloud_index_list_end
-                try:
-                    m = np.sum(sim._cloud_data['mass'][cloud_start:cloud_end])
-                except:
-                    print(ozyfile)
-                    m = 0.0
-            elif mass_var == 'dm':
-                halo_index = sim.galaxies[progind].parent_halo_index
-                if halo_index != -1:
-                    m = sim.halos[halo_index].mass
-                else:
-                    print(ozyfile, progind, thubble)
-                    m = 0.0
-            # m = YTQuantity(m, 'code_mass', registry=sim.unit_registry)
-            # galaxy_masses[mass_var].append(m.in_units('Msun').d)
-            m = m * 1e+11
-            galaxy_masses[mass_var].append(m)
+            m = sim.galaxies[progind].mass[mass_var]
+            m = YTQuantity(m, 'code_mass', registry=sim.unit_registry)
+            galaxy_masses[mass_var].append(m.in_units('Msun').d)
         galaxy_time.append(thubble)
         galaxy_position.append(sim.galaxies[progind].position)
         print(ozyfile)

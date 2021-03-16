@@ -141,8 +141,7 @@ class Galaxy(Group):
                                 len(indicators))
 
         for i in range(0, len(indicators)):
-            self.sfr[str(int(indicators[i]*1e+3))+'Myr'] = sfr[i]
-            print('sfr: ',sfr[i])
+            self.sfr[str(int(indicators[i]*1e+3))+'Myr'] = self.obj.yt_dataset.quan(sfr[i],'Msun/yr')
 
     def _calculate_velocity_dispersions(self):
         """Calculate velocity dispersions for the various components."""
