@@ -33,7 +33,7 @@ class LazyList(Sequence):
     """This type should be indistinguishable from the built-in list.
     Any observable difference except the explicit type and performance
     is considered a bug.
-    The implementation wraps a list which is intially filled with None,
+    The implementation wraps a list which is initially filled with None,
     which is very fast to create at any size because None is a singleton.
     The initial elements are replaced by calling the passed-in callable
     as they are accessed.
@@ -145,6 +145,57 @@ class LazyDict(Mapping):
     def _repr_pretty_(self, p, cycle):
         p.pretty(dict(self))
 
+class Profile:
+    def __init__(self, obj, index, group_type, key,hd):
+        self.obj = obj
+        self._index = index
+        self.group_type = group_type
+        self.key = key
+        self.nbins = 0
+        self.xvar = None
+        self.region = None
+        self.filter = {}
+        self.lmax = 0
+        self.yvars = {}
+        self.weightvars = {}
+        self.xdata = None
+        self.ydata = {}
+
+        self.blacklist = [
+            'obj','_index','group_type','region',
+            'filter','yvars','weightvars','xdata','ydata'
+        ]
+        self._unpack(hd)
+    
+    def _unpack(self, hd):
+        from yt import YTArray
+        path = str(self.group_type+'_data/profiles/'+str(self._index)+'/'+self.key)
+        profile_gp = hd[path]
+        for k,v in profile_gp.attrs.items():
+            if k in self.blacklist:
+                continue
+            else:
+                setattr(self, k, v)
+        self.region = {}
+        self.region['type'] = profile_gp.attrs['type']
+        self.region['centre'] = profile_gp.attrs['centre']
+        self.region['axis'] = profile_gp.attrs['axis']
+        self.filter = {}
+        self.filter['name'] = profile_gp.attrs['name']
+        self.filter['conditions'] = profile_gp['conditions'][:]
+
+        for k in profile_gp.keys():
+            if k != 'xdata' and k != 'conditions':
+                self.yvars[k] = []
+                self.ydata[k] = []
+                for j in profile_gp[k].keys():
+                    self.yvars[k].append(j)
+                    data = profile_gp[k+'/'+j]
+                    self.ydata[k].append(YTArray(data[:], str(data.attrs['units']), registry=self.obj.unit_registry))
+            else:
+                self.xdata = YTArray(profile_gp['xdata'][:], profile_gp['xdata'].attrs['units'], registry=self.obj.unit_registry)
+
+
 class OZY:
     def __init__(self, filename):
         self._ds = None
@@ -217,7 +268,21 @@ class OZY:
                 self.ngalaxies = hd.attrs['ngalaxies']
                 self.galaxies = LazyList(self.ngalaxies,
                                          lambda i: Galaxy(self, i))
-                
+
+                if 'galaxy_data/profiles' in hd:
+                    indices = []
+                    keys = []
+                    for k in hd['galaxy_data/profiles'].keys():
+                        for j in hd['galaxy_data/profiles/'+k].keys():
+                            indices.append(int(k))
+                            keys.append(j)
+                    self._galaxy_profile_index_list = LazyList(
+                        len(indices), lambda i: int(indices[i])
+                    )
+                    self._galaxy_profiles = [Profile(self,int(indices[i]),'galaxy', keys[i],hd) for i in range(0, len(indices))]
+                    # self._galaxy_profiles = LazyList(
+                    #     len(indices), lambda i: Profile(self,int(indices[i]),'galaxy', keys[i],hd)
+                    # )
 
     @property
     def yt_dataset(self):
@@ -247,7 +312,7 @@ class OZY:
     def cloudinfo(self, top=10):
         info_printer(self, 'cloud', top)
 
-# TODO: All of these classes need to be addapted to be able to load particle lists.
+# TODO: All of these classes need to be adapted to be able to load particle lists.
         
 class Group:
     
@@ -314,7 +379,7 @@ class Halo(Group):
             return LazyDict(
                 self.obj._halo_dicts[attr].keys(),
                 lambda d: self.obj._halo_dicts[attr][d][self._index])
-        raise AttributeError("'{}' object as no attribute '{}'".format(
+        raise AttributeError("'{}' object has no attribute '{}'".format(
             self.__class__.__name__, attr))
 
 class Galaxy(Group):
@@ -323,10 +388,18 @@ class Galaxy(Group):
         self.obj = obj
         self._index = index
         self.halo = obj.halos[self.parent_halo_index]
+        self.profiles = None
 
     def __dir__(self):
         return dir(type(self)) + list(self.__dict__) + list(
             self.obj._galaxy_data) + list(self.obj._galaxy_dicts)
+
+    def _init_profiles(self):
+        self.profiles = []
+        for p,profile_index in enumerate(self.obj._galaxy_profile_index_list):
+            if profile_index == self._index:
+                profile = self.obj._galaxy_profiles[p]
+                self.profiles.append(profile)
 
     @property
     def slist(self):

@@ -13,6 +13,7 @@ blacklist = [
 ]
 
 def _write_dataset(key, data, hd):
+    print(key, data)
     hd.create_dataset(key, data=data, compression=1)
 
 def check_and_write_dataset(obj, key, hd):
@@ -94,7 +95,6 @@ def _write_dict(obj_list, k, v, hd):
             unit = True
         else:
             data = np.array([getattr(i,k)[kk] for i in obj_list])            
-
         _write_dataset('%s.%s' % (k,kk), data, hd)
         if unit:
             hd['%s.%s' % (k,kk)].attrs.create('unit', str(vv.units).encode('utf8'))
@@ -150,7 +150,7 @@ def save(obj, filename='default'):
         
         # TODO: Addapt for particle lists.
         serialise_list(obj.halos, 'galaxy_index_list', hdd)
-        serialise_attributes(obj.halos, hd, hdd)
+        serialise_attributes(obj.halos, hd, hddd)
     
     if hasattr(obj, 'galaxies') and obj.ngalaxies > 0:
         hd = outfile.create_group('galaxy_data')

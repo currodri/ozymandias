@@ -141,6 +141,10 @@ class OZY(object):
             # Make assignment
             assign.galaxies_to_halos(self)
 
+            # Now process galaxies using their assigned halo
+            for gal in self.galaxies:
+                gal._process_galaxy()
+
             # Link objects between each other
             link.galaxies_to_halos(self)
 

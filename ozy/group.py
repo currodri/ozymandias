@@ -1,7 +1,7 @@
 import numpy as np
 from pprint import pprint
-from ozy.part2 import part2cube,part2sfr
-from ozy.amr2 import amr2cube
+from ozy.part import part2cube,part2sfr
+from ozy.amr import amr2cube
 
 MINIMUM_STARS_PER_GALAXY = 100
 MINIMUM_DM_PER_HALO      = 0
@@ -49,6 +49,7 @@ class Group(object):
         self.angular_mom = {}
         self.virial_quantities = {}
         self.energies = {}
+        self.onedprofiles = []
     
     @property
     def _valid(self):
@@ -92,8 +93,8 @@ class Galaxy(Group):
         """Calculate various total masses"""
         output_path = self.obj.simulation.fullpath
 
-        # Region for selection -- Using: Radius of gas+stars structure
-        r_region = self.radius['total'].in_units('code_length').d
+        # Region for selection -- Using: 0.2 radius of host DM halo (following Martin-Alvarez et al. 2018)
+        r_region = 0.2*self.obj.halos[self.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
         x_center = self.position.in_units('code_length')[0].d
         y_center = self.position.in_units('code_length')[1].d
         z_center = self.position.in_units('code_length')[2].d
@@ -130,8 +131,8 @@ class Galaxy(Group):
         indicators = np.array([0.01, 0.1]) # in Gyr. These should be taken as arguments in the future
         output_path = self.obj.simulation.fullpath
 
-        # Region for selection -- Using: Radius of gas+stars structure
-        r_region = self.radius['total'].in_units('code_length').d
+        # Region for selection -- Using: 0.2 radius of host DM halo (following Martin-Alvarez et al. 2018)
+        r_region = 0.2*self.obj.halos[self.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
         x_center = self.position.in_units('code_length')[0].d
         y_center = self.position.in_units('code_length')[1].d
         z_center = self.position.in_units('code_length')[2].d

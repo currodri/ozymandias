@@ -1,0 +1,76 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module amr2prof ! in 
+    interface  ! in :amr2prof
+        subroutine onedprofile(repository,nxvar,nyvar,nwvar,xvars,yvars,weightvars,nbins,region_type,region_attrs,lmax,ctvol,profiles,xprofiles) ! in :amr2prof:amr2prof.f90
+            use math_utils
+            use io_ramses
+            use geometrical_regions
+            character*128 intent(in) :: repository
+            integer, optional,intent(in),check(len(xvars)>=nxvar),depend(xvars) :: nxvar=len(xvars)
+            integer, optional,intent(in),check(len(yvars)>=nyvar),depend(yvars) :: nyvar=len(yvars)
+            integer, optional,intent(in),check(len(weightvars)>=nwvar),depend(weightvars) :: nwvar=len(weightvars)
+            character(len=128) dimension(nxvar),intent(in) :: xvars
+            character(len=128) dimension(nyvar),intent(in) :: yvars
+            character(len=128) dimension(nwvar),intent(in) :: weightvars
+            integer intent(in) :: nbins
+            character*128 intent(in) :: region_type
+            real(kind=8) dimension(13),intent(in) :: region_attrs
+            integer intent(in) :: lmax
+            logical intent(in) :: ctvol
+            real(kind=8) dimension(nxvar,nyvar,nwvar,nbins),intent(out),depend(nxvar,nyvar,nwvar,nbins) :: profiles
+            real(kind=8) dimension(nxvar,nbins),intent(out),depend(nxvar,nbins) :: xprofiles
+            type level ! in :amr2prof:amr2prof.f90:onedprofile
+                integer :: ilevel
+                integer :: ngrid
+                real(kind=4), pointer,dimension(:,:,:) :: cube
+                integer :: imin
+                integer :: imax
+                integer :: jmin
+                integer :: jmax
+                integer :: kmin
+                integer :: kmax
+            end type level
+        end subroutine onedprofile
+        subroutine bindata(varids,reg,dx,distance,x,var,nxvar,nyvar,nwvar,nbins,xvars,yvars,weightvars,profiles,xprofiles,w,ctvol) ! in :amr2prof:amr2prof.f90
+            use geometrical_regions
+            use io_ramses
+            type(hydroid) :: varids
+            type(region) :: reg
+            real(kind=8) :: dx
+            real(kind=8) :: distance
+            real(kind=8) dimension(3) :: x
+            real(kind=8) dimension(varids%nvar),depend(varids) :: var
+            integer, optional,check(len(xvars)>=nxvar),depend(xvars) :: nxvar=len(xvars)
+            integer, optional,check(len(yvars)>=nyvar),depend(yvars) :: nyvar=len(yvars)
+            integer, optional,check(len(weightvars)>=nwvar),depend(weightvars) :: nwvar=len(weightvars)
+            integer, optional,check(shape(profiles,3)==nbins),depend(profiles) :: nbins=shape(profiles,3)
+            character(len=128) dimension(nxvar) :: xvars
+            character(len=128) dimension(nyvar) :: yvars
+            character(len=128) dimension(nwvar) :: weightvars
+            real(kind=8) dimension(nxvar,nyvar,nwvar,nbins),depend(nxvar,nyvar,nwvar) :: profiles
+            real(kind=8) dimension(nxvar,nbins),depend(nxvar,nbins) :: xprofiles
+            real(kind=8) dimension(nxvar,nyvar,nwvar,nbins),depend(nxvar,nyvar,nwvar,nbins) :: w
+            logical :: ctvol
+        end subroutine bindata
+        subroutine makebins(nbins,bins,reg,varname) ! in :amr2prof:amr2prof.f90
+            use geometrical_regions
+            integer, optional,check(len(bins)>=nbins),depend(bins) :: nbins=len(bins)
+            real(kind=8) dimension(nbins) :: bins
+            type(region) :: reg
+            character*128 :: varname
+        end subroutine makebins
+        subroutine hilbert3d(x,y,z,order,bit_length,npoint) ! in :amr2prof:amr2prof.f90
+            integer dimension(npoint),intent(in) :: x
+            integer dimension(npoint),intent(in),depend(npoint) :: y
+            integer dimension(npoint),intent(in),depend(npoint) :: z
+            real(kind=8) dimension(npoint),intent(out),depend(npoint) :: order
+            integer intent(in) :: bit_length
+            integer, optional,intent(in),check(len(x)>=npoint),depend(x) :: npoint=len(x)
+        end subroutine hilbert3d
+    end interface 
+end python module amr2prof
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/

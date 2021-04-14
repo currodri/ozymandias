@@ -165,8 +165,6 @@ def read_HM(obj, grouptype):
             add_group = remove_out_zoom(obj, new_group)
         if add_group:
             if new_group._valid:
-                if grouptype == 'galaxy':
-                    new_group._process_galaxy()
                 obj.__dict__[grouptypes[grouptype]].append(new_group)
                 nobjs += 1
         else:
