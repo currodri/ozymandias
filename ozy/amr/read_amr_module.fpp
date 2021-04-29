@@ -231,23 +231,49 @@ module io_ramses
         type(hydroID),intent(inout)      ::  varIDs
         character(128) :: nomfich
         logical            ::  ok
-        integer            ::  nvar,i
+        integer            ::  nvhydro,nvloop,i !nvar,i
         character(25)  ::  newVar
         character(9)   ::  igr9
+        character(8)   ::  igr8
         character   ::  igr1
+        character(2)::igr2
+        character(3)::igr3
         integer            ::  newID,statn
         nomfich=TRIM(repository)//'/hydro_file_descriptor.txt'
         inquire(file=nomfich, exist=ok) ! verify input file
         if ( ok ) then
             write(*,'(": Reading variables IDs from hydro_descriptor")')
             open(unit=10,file=nomfich,status='old',form='formatted')
-            read(10,'("nvar        =",I11)')nvar
-            varIDs%nvar = nvar
-            do i=1,nvar
+            ! read(10,'("nvar        =",I11)')nvar
+            read(10,*) igr9,igr1,igr2
+            read(igr2,*,iostat=statn) nvhydro
+            write(*,*)'nvar=',nvhydro
+            varIDs%nvar = nvhydro
+            if (nvhydro > 9) then
+                nvloop = 9
+            else
+                nvloop = nvhydro
+            end if
+            do i=1,nvloop
                 read(10,*) igr9,igr1,igr1,newVar
                 read(igr1,*,iostat=statn) newID
                 call select_from_descriptor_IDs(varIDs,newVar,newID)
             end do
+            if (nvhydro > 10) then
+                do i=nvloop+1,nvhydro
+                    read(10,*) igr8,igr3,newVar
+                    igr3 = igr3(2:3);
+                    read(igr3,*,iostat=statn) newID
+                    call select_from_descriptor_IDs(varIDs,newVar,newID)
+                end do
+            end if
+            
+            ! varIDs%nvar = nvar
+            ! do i=1,nvar
+            !     read(10,*) igr9,igr1,igr1,newVar
+            !     read(igr1,*,iostat=statn) newID
+            !     call select_from_descriptor_IDs(varIDs,newVar,newID)
+            ! end do
             close(10)
         else
             write(*,'(": ",A," not found. Initializing variables to default IDs.")') trim(nomfich)
@@ -467,7 +493,7 @@ module io_ramses
             value = var(varIDs%metallicity)
         case ('temperature')
             ! Gas temperature
-            value = var(varIDs%thermal_pressure) / var(varIDs%density) / 1.38d-16*1.66d-24
+            value = var(varIDs%thermal_pressure) / var(varIDs%density) !/ 1.38d-16*1.66d-24
         case ('thermal_pressure')
             ! Thermal pressure
             value = var(varIDs%thermal_pressure)
@@ -509,7 +535,7 @@ module io_ramses
             v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
             v_corrected = v_corrected - reg%bulk_velocity
             call spherical_basis_from_cartesian(x,temp_basis)
-            value = (var(varIDs%density) * (dx*dx)) * dx * (v_corrected .DOT. temp_basis%u(3))
+            value = (var(varIDs%density) * (dx*dx)) * dx * (v_corrected .DOT. temp_basis%u(1))
         case ('ang_momentum_x')
             ! Corrected angular momentum in the x direction
             v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
@@ -657,7 +683,7 @@ module io_ramses
         xxmin=box_limits(1,1) ; xxmax=box_limits(1,2)
         yymin=box_limits(2,1) ; yymax=box_limits(2,2)
         zzmin=box_limits(3,1) ; zzmax=box_limits(3,2)
-        
+        write(*,*)'limits:',box_limits
         if(TRIM(amr%ordering).eq.'hilbert')then
 
             dxmax=max(xxmax-xxmin,yymax-yymin,zzmax-zzmin)

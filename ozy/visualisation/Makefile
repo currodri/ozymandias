@@ -64,7 +64,8 @@ KIND_MAP = kind_map
 #=======================================================================
 
 # names (without suffix), f90 sources
-LIBSRC_SOURCES = local linalg_module coordinates_module read_amr_module amr2map
+LIBSRC_SOURCES = local linalg_module coordinates_module read_amr_module\
+					cosmology_module ramses2map
 
 # file names
 LIBSRC_FILES = $(addsuffix .f90,${LIBSRC_SOURCES})
@@ -80,7 +81,8 @@ LIBSRC_FPP_FILES = $(addsuffix .fpp,${LIBSRC_SOURCES})
 #=======================================================================
 
 # names (without suffix), f90 sources
-LIBSRC_WRAP_SOURCES = linalg_module coordinates_module read_amr_module amr2map
+LIBSRC_WRAP_SOURCES = linalg_module coordinates_module read_amr_module\
+						ramses2map
 
 # file names
 LIBSRC_WRAP_FILES = $(addsuffix .f90,${LIBSRC_WRAP_SOURCES})

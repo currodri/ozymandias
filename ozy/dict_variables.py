@@ -46,8 +46,23 @@ grid_variables = dict(
     cr_energy = 'code_energy',
 )
 particle_variables = dict(
-    age = 'code_time',
+    age = 'Gyr',
     tform = 'code_time',
+)
+
+basic_conv = dict(
+    code_length = 'kpc',
+    code_mass = 'Msun',
+    code_density = 'g*cm**-3',
+    code_velocity = 'km*s**-1',
+    code_energy = 'erg',
+    dimensionless = 'dimensionless',
+    radian = 'radian',
+    code_magnetic = 'gauss',
+    code_temperature = 'K',
+    code_metallicity = 'dimensionless',
+    code_time = 'Gyr',
+    Gyr = 'Gyr'
 )
 
 def get_code_units(varname):

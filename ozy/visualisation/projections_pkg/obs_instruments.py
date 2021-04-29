@@ -2,7 +2,7 @@
 Module obs_instruments
 
 
-Defined at amr2map.fpp lines 5-206
+Defined at ramses2map.fpp lines 5-192
 
 """
 from __future__ import print_function, absolute_import, division
@@ -20,7 +20,7 @@ class camera(f90wrap.runtime.FortranDerivedType):
     Type(name=camera)
     
     
-    Defined at amr2map.fpp lines 8-12
+    Defined at ramses2map.fpp lines 8-12
     
     """
     def __init__(self, handle=None):
@@ -28,7 +28,7 @@ class camera(f90wrap.runtime.FortranDerivedType):
         self = Camera()
         
         
-        Defined at amr2map.fpp lines 8-12
+        Defined at ramses2map.fpp lines 8-12
         
         
         Returns
@@ -48,7 +48,7 @@ class camera(f90wrap.runtime.FortranDerivedType):
         Destructor for class Camera
         
         
-        Defined at amr2map.fpp lines 8-12
+        Defined at ramses2map.fpp lines 8-12
         
         Parameters
         ----------
@@ -67,7 +67,7 @@ class camera(f90wrap.runtime.FortranDerivedType):
         Element centre ftype=type(vector) pytype=Vector
         
         
-        Defined at amr2map.fpp line 9
+        Defined at ramses2map.fpp line 9
         
         """
         centre_handle = _projections_pkg.f90wrap_camera__get__centre(self._handle)
@@ -89,7 +89,7 @@ class camera(f90wrap.runtime.FortranDerivedType):
         Element los_axis ftype=type(vector) pytype=Vector
         
         
-        Defined at amr2map.fpp line 9
+        Defined at ramses2map.fpp line 9
         
         """
         los_axis_handle = _projections_pkg.f90wrap_camera__get__los_axis(self._handle)
@@ -111,7 +111,7 @@ class camera(f90wrap.runtime.FortranDerivedType):
         Element up_vector ftype=type(vector) pytype=Vector
         
         
-        Defined at amr2map.fpp line 9
+        Defined at ramses2map.fpp line 9
         
         """
         up_vector_handle = _projections_pkg.f90wrap_camera__get__up_vector(self._handle)
@@ -133,7 +133,7 @@ class camera(f90wrap.runtime.FortranDerivedType):
         Element region_size ftype=real(dbl) pytype=float
         
         
-        Defined at amr2map.fpp line 10
+        Defined at ramses2map.fpp line 10
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -157,7 +157,7 @@ class camera(f90wrap.runtime.FortranDerivedType):
         Element distance ftype=real(dbl) pytype=float
         
         
-        Defined at amr2map.fpp line 11
+        Defined at ramses2map.fpp line 11
         
         """
         return _projections_pkg.f90wrap_camera__get__distance(self._handle)
@@ -172,7 +172,7 @@ class camera(f90wrap.runtime.FortranDerivedType):
         Element far_cut_depth ftype=real(dbl) pytype=float
         
         
-        Defined at amr2map.fpp line 11
+        Defined at ramses2map.fpp line 11
         
         """
         return _projections_pkg.f90wrap_camera__get__far_cut_depth(self._handle)
@@ -187,7 +187,7 @@ class camera(f90wrap.runtime.FortranDerivedType):
         Element map_max_size ftype=integer  pytype=int
         
         
-        Defined at amr2map.fpp line 12
+        Defined at ramses2map.fpp line 12
         
         """
         return _projections_pkg.f90wrap_camera__get__map_max_size(self._handle)
@@ -223,7 +223,7 @@ def log2(x):
     log2 = log2(x)
     
     
-    Defined at amr2map.fpp lines 16-19
+    Defined at ramses2map.fpp lines 16-19
     
     Parameters
     ----------
@@ -244,7 +244,7 @@ def init_camera(self, los_axis, up_vector, region_size, distance, far_cut_depth,
         far_cut_depth, map_max_size)
     
     
-    Defined at amr2map.fpp lines 21-46
+    Defined at ramses2map.fpp lines 21-33
     
     Parameters
     ----------
@@ -275,7 +275,7 @@ def get_required_resolution(self):
     get_required_resolution = get_required_resolution(self)
     
     
-    Defined at amr2map.fpp lines 48-51
+    Defined at ramses2map.fpp lines 35-38
     
     Parameters
     ----------
@@ -295,7 +295,7 @@ def get_map_size(self, n_map):
     get_map_size(self, n_map)
     
     
-    Defined at amr2map.fpp lines 53-65
+    Defined at ramses2map.fpp lines 40-52
     
     Parameters
     ----------
@@ -310,7 +310,7 @@ def get_map_box(self, box):
     get_map_box(self, box)
     
     
-    Defined at amr2map.fpp lines 67-77
+    Defined at ramses2map.fpp lines 54-64
     
     Parameters
     ----------
@@ -325,7 +325,7 @@ def get_camera_basis(self, cam_basis):
     get_camera_basis(self, cam_basis)
     
     
-    Defined at amr2map.fpp lines 99-107
+    Defined at ramses2map.fpp lines 86-94
     
     Parameters
     ----------
@@ -341,7 +341,7 @@ def los_transformation(self, trans_matrix):
     los_transformation(self, trans_matrix)
     
     
-    Defined at amr2map.fpp lines 109-120
+    Defined at ramses2map.fpp lines 96-107
     
     Parameters
     ----------
@@ -357,7 +357,7 @@ def get_bounding_box(self, bbox):
     get_bounding_box(self, bbox)
     
     
-    Defined at amr2map.fpp lines 122-166
+    Defined at ramses2map.fpp lines 109-153
     
     Parameters
     ----------
@@ -372,7 +372,7 @@ def deproject_points(self, npoints, points):
     deproject_points(self, npoints, points)
     
     
-    Defined at amr2map.fpp lines 168-185
+    Defined at ramses2map.fpp lines 155-172
     
     Parameters
     ----------
@@ -389,7 +389,7 @@ def project_points(self, npoints, points):
     project_points(self, npoints, points)
     
     
-    Defined at amr2map.fpp lines 187-205
+    Defined at ramses2map.fpp lines 174-191
     
     Parameters
     ----------

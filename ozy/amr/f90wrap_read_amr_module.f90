@@ -1824,20 +1824,20 @@ subroutine f90wrap_select_from_descriptor_ids(varids, newvar, newid)
 end subroutine f90wrap_select_from_descriptor_ids
 
 subroutine f90wrap_getvarvalue(varids, reg, dx, x, var, varname, value, n0)
-    use io_ramses, only: getvarvalue, hydroid
-    use vectors, only: vector
+    use io_ramses, only: hydroid, getvarvalue
     use geometrical_regions, only: region
+    use vectors, only: vector
     implicit none
     
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
-    type hydroid_ptr_type
-        type(hydroid), pointer :: p => NULL()
-    end type hydroid_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
+    type hydroid_ptr_type
+        type(hydroid), pointer :: p => NULL()
+    end type hydroid_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type(hydroid_ptr_type) :: varids_ptr
     integer, intent(in), dimension(2) :: varids
     type(region_ptr_type) :: reg_ptr
@@ -1857,7 +1857,7 @@ subroutine f90wrap_getvarvalue(varids, reg, dx, x, var, varname, value, n0)
 end subroutine f90wrap_getvarvalue
 
 subroutine f90wrap_init_amr_read(repository, amr, sim)
-    use io_ramses, only: init_amr_read, sim_info, amr_info
+    use io_ramses, only: sim_info, init_amr_read, amr_info
     implicit none
     
     type sim_info_ptr_type
@@ -1877,7 +1877,7 @@ subroutine f90wrap_init_amr_read(repository, amr, sim)
 end subroutine f90wrap_init_amr_read
 
 subroutine f90wrap_get_cpu_map(reg, amr)
-    use io_ramses, only: amr_info, get_cpu_map
+    use io_ramses, only: get_cpu_map, amr_info
     use geometrical_regions, only: region
     implicit none
     
@@ -2055,7 +2055,7 @@ subroutine f90wrap_filter_finalise(this)
 end subroutine f90wrap_filter_finalise
 
 subroutine f90wrap_allocate_filter(filt)
-    use filtering, only: allocate_filter, filter
+    use filtering, only: filter, allocate_filter
     implicit none
     
     type filter_ptr_type
@@ -2068,7 +2068,7 @@ subroutine f90wrap_allocate_filter(filt)
 end subroutine f90wrap_allocate_filter
 
 subroutine f90wrap_cond_string_to_filter(str, filt)
-    use filtering, only: cond_string_to_filter, filter
+    use filtering, only: filter, cond_string_to_filter
     implicit none
     
     type filter_ptr_type
@@ -2082,24 +2082,24 @@ subroutine f90wrap_cond_string_to_filter(str, filt)
 end subroutine f90wrap_cond_string_to_filter
 
 subroutine f90wrap_filter_cell(varids, reg, filt, cell_x, cell_dx, ret_filter_cell, cell_var, n0)
-    use vectors, only: vector
-    use io_ramses, only: hydroid
+    use filtering, only: filter, filter_cell
     use geometrical_regions, only: region
-    use filtering, only: filter_cell, filter
+    use io_ramses, only: hydroid
+    use vectors, only: vector
     implicit none
     
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
-    type hydroid_ptr_type
-        type(hydroid), pointer :: p => NULL()
-    end type hydroid_ptr_type
-    type filter_ptr_type
-        type(filter), pointer :: p => NULL()
-    end type filter_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
+    type hydroid_ptr_type
+        type(hydroid), pointer :: p => NULL()
+    end type hydroid_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
+    type filter_ptr_type
+        type(filter), pointer :: p => NULL()
+    end type filter_ptr_type
     type(hydroid_ptr_type) :: varids_ptr
     integer, intent(in), dimension(2) :: varids
     type(region_ptr_type) :: reg_ptr

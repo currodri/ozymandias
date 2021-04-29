@@ -309,8 +309,8 @@ subroutine f90wrap_euler_matrix(r, dim, angle, ap, n0, n1)
 end subroutine f90wrap_euler_matrix
 
 subroutine f90wrap_rotate_vector_single(vec, rotation_matrix, n0, n1)
-    use vectors, only: vector
     use rotations, only: rotate_vector
+    use vectors, only: vector
     implicit none
     
     type vector_ptr_type
@@ -328,8 +328,8 @@ subroutine f90wrap_rotate_vector_single(vec, rotation_matrix, n0, n1)
 end subroutine f90wrap_rotate_vector_single
 
 subroutine f90wrap_rotate_vector_array(vec, rotation_matrix, n0, n1)
-    use vectors, only: array_vectors
     use rotations, only: rotate_vector
+    use vectors, only: array_vectors
     implicit none
     
     type array_vectors_ptr_type
@@ -451,7 +451,7 @@ subroutine f90wrap_basis_finalise(this)
 end subroutine f90wrap_basis_finalise
 
 subroutine f90wrap_initialise_basis(this)
-    use basis_representations, only: basis, initialise_basis
+    use basis_representations, only: initialise_basis, basis
     implicit none
     
     type basis_ptr_type
@@ -464,7 +464,7 @@ subroutine f90wrap_initialise_basis(this)
 end subroutine f90wrap_initialise_basis
 
 subroutine f90wrap_mgramschmidt(vecs, e)
-    use basis_representations, only: basis, mgramschmidt
+    use basis_representations, only: mgramschmidt, basis
     implicit none
     
     type basis_ptr_type

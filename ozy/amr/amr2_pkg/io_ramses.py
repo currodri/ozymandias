@@ -2,7 +2,7 @@
 Module io_ramses
 
 
-Defined at read_amr_module.fpp lines 24-693
+Defined at read_amr_module.fpp lines 24-719
 
 """
 from __future__ import print_function, absolute_import, division
@@ -1462,7 +1462,7 @@ def read_hydrofile_descriptor(repository, varids):
     read_hydrofile_descriptor(repository, varids)
     
     
-    Defined at read_amr_module.fpp lines 203-235
+    Defined at read_amr_module.fpp lines 203-260
     
     Parameters
     ----------
@@ -1478,7 +1478,7 @@ def select_from_descriptor_ids(self, newvar, newid):
     select_from_descriptor_ids(self, newvar, newid)
     
     
-    Defined at read_amr_module.fpp lines 237-329
+    Defined at read_amr_module.fpp lines 262-354
     
     Parameters
     ----------
@@ -1495,7 +1495,7 @@ def getvarvalue(self, reg, dx, x, var, varname, value):
     getvarvalue(self, reg, dx, x, var, varname, value)
     
     
-    Defined at read_amr_module.fpp lines 338-513
+    Defined at read_amr_module.fpp lines 363-538
     
     Parameters
     ----------
@@ -1516,7 +1516,7 @@ def init_amr_read(repository, amr, sim):
     init_amr_read(repository, amr, sim)
     
     
-    Defined at read_amr_module.fpp lines 522-597
+    Defined at read_amr_module.fpp lines 547-622
     
     Parameters
     ----------
@@ -1533,7 +1533,7 @@ def get_cpu_map(self, amr):
     get_cpu_map(self, amr)
     
     
-    Defined at read_amr_module.fpp lines 605-692
+    Defined at read_amr_module.fpp lines 630-718
     
     Parameters
     ----------

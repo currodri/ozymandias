@@ -69,7 +69,7 @@ if __name__ == '__main__':
             if f.startswith('ozy_') and args.start < int(f[4:-5]) < args.end:
                 ozyfiles.append(f)
         
-        ozyfiles = sorted(files, key=lambda x:x[4:-5], reverse=True)
+        ozyfiles = sorted(ozyfiles, key=lambda x:x[4:-5], reverse=True)
 
         galaxy_sfr = {}
         galaxy_time = []

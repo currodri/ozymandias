@@ -44,15 +44,19 @@ module io_ramses
     end type amr_info
 
     type sim_info
+        logical :: cosmo=.true.
         real(sgl) :: t,aexp,omega_m,omega_l,omega_k,omega_b
-        real(dbl) :: h0,unit_l,unit_d,unit_t
+        real(dbl) :: h0,unit_l,unit_d,unit_t,boxlen
+        real(dbl) :: time_tot,time_simu
+        integer :: n_frw
+        real(dbl),dimension(:),allocatable :: aexp_frw,hexp_frw,tau_frw,t_frw
     end type sim_info
 
     type level
         integer::ilevel
         integer::ngrid
         real(sgl),dimension(:,:,:),pointer::cube
-        real(dbl),dimension(:,:),pointer::map
+        real(dbl),dimension(:,:,:),pointer::map
         real(dbl),dimension(:,:),pointer::rho
         integer::imin
         integer::imax
@@ -233,23 +237,49 @@ module io_ramses
         type(hydroID),intent(inout)      ::  varIDs
         character(128) :: nomfich
         logical            ::  ok
-        integer            ::  nvar,i
+        integer            ::  nvhydro,nvloop,i !nvar,i
         character(25)  ::  newVar
         character(9)   ::  igr9
+        character(8)   ::  igr8
         character   ::  igr1
+        character(2)::igr2
+        character(3)::igr3
         integer            ::  newID,statn
         nomfich=TRIM(repository)//'/hydro_file_descriptor.txt'
         inquire(file=nomfich, exist=ok) ! verify input file
         if ( ok ) then
             write(*,'(": Reading variables IDs from hydro_descriptor")')
             open(unit=10,file=nomfich,status='old',form='formatted')
-            read(10,'("nvar        =",I11)')nvar
-            varIDs%nvar = nvar
-            do i=1,nvar
+            ! read(10,'("nvar        =",I11)')nvar
+            read(10,*) igr9,igr1,igr2
+            read(igr2,*,iostat=statn) nvhydro
+            write(*,*)'nvar=',nvhydro
+            varIDs%nvar = nvhydro
+            if (nvhydro > 9) then
+                nvloop = 9
+            else
+                nvloop = nvhydro
+            end if
+            do i=1,nvloop
                 read(10,*) igr9,igr1,igr1,newVar
                 read(igr1,*,iostat=statn) newID
                 call select_from_descriptor_IDs(varIDs,newVar,newID)
             end do
+            if (nvhydro > 10) then
+                do i=nvloop+1,nvhydro
+                    read(10,*) igr8,igr3,newVar
+                    igr3 = igr3(2:3);
+                    read(igr3,*,iostat=statn) newID
+                    call select_from_descriptor_IDs(varIDs,newVar,newID)
+                end do
+            end if
+            
+            ! varIDs%nvar = nvar
+            ! do i=1,nvar
+            !     read(10,*) igr9,igr1,igr1,newVar
+            !     read(igr1,*,iostat=statn) newID
+            !     call select_from_descriptor_IDs(varIDs,newVar,newID)
+            ! end do
             close(10)
         else
             write(*,'(": ",A," not found. Initializing variables to default IDs.")') trim(nomfich)
@@ -469,7 +499,7 @@ module io_ramses
             value = var(varIDs%metallicity)
         case ('temperature')
             ! Gas temperature
-            value = var(varIDs%thermal_pressure) / var(varIDs%density) / 1.38d-16*1.66d-24
+            value = var(varIDs%thermal_pressure) / var(varIDs%density) !/ 1.38d-16*1.66d-24
         case ('thermal_pressure')
             ! Thermal pressure
             value = var(varIDs%thermal_pressure)
@@ -608,7 +638,7 @@ module io_ramses
         read(10,*)
         read(10,*)
     
-        read(10,*)
+        read(10,'("boxlen      =",E23.15)')sim%boxlen
         read(10,'("time        =",E23.15)')sim%t
         read(10,'("aexp        =",E23.15)')sim%aexp
         read(10,'("H0          =",E23.15)')sim%h0
@@ -739,6 +769,81 @@ module io_ramses
             end do
          end  if
     end subroutine get_cpu_map
+
+    subroutine getparttype(id,age,ptype)
+        implicit none
+        integer,intent(in) :: id
+        real(dbl),intent(in) :: age
+        character(6),intent(inout) :: ptype
+
+        if (age.ne.0D0.and.id>0) then
+            ptype = 'star_d'
+        elseif (age.ne.0D0.and.id<0) then
+            ptype = 'star_a'
+        else
+            ptype = 'dm'
+        endif
+    end subroutine getparttype
+
+    subroutine getpartvalue(sim,reg,x,v,id,m,age,met,imass,var,value)
+        use vectors
+        use basis_representations
+        use geometrical_regions
+        use coordinate_systems
+        implicit none
+        type(sim_info),intent(in) :: sim
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: x,v
+        integer,intent(in) :: id
+        real(dbl),intent(in) :: m,age,met,imass
+        character(128),intent(in) :: var
+        real(dbl),intent(inout) :: value
+        
+        type(vector) :: v_corrected,L
+        type(basis) :: temp_basis
+        character(6) :: ptype
+        character(128) :: tempvar,vartype,varname
+        integer :: index,iii
+
+        tempvar = TRIM(var)
+        index = scan(tempvar,'/')
+        vartype = tempvar(1:index-1)
+        varname = tempvar(index+1:)
+
+        call getparttype(id,age,ptype)
+
+        if (vartype.eq.'dm'.and.ptype.eq.'dm') then
+            select case (TRIM(varname))
+            case ('mass')
+                ! Mass
+                value = m
+            end select
+        elseif (vartype.eq.'star'.and.ptype.eq.'star_d') then
+            select case (TRIM(varname))
+            case ('mass')
+                ! Mass
+                value = m
+            case ('metallicity')
+                ! Metallicity
+                value = met
+            case ('age')
+                ! Age
+                if (sim%cosmo) then
+                    iii = 1
+                    do while(sim%tau_frw(iii)>age.and.iii<sim%n_frw)
+                        iii = iii + 1
+                    end do
+                    ! Interpolate time
+                    value = sim%t_frw(iii)*(age-sim%tau_frw(iii-1))/(sim%tau_frw(iii)-sim%tau_frw(iii-1))+ &
+                            & sim%t_frw(iii-1)*(age-sim%tau_frw(iii))/(sim%tau_frw(iii-1)-sim%tau_frw(iii))
+                    value = (sim%time_simu-value)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+                endif
+            end select
+        else
+            value = 0D0
+        endif
+        
+    end subroutine getpartvalue
 end module io_ramses
 
 module filtering

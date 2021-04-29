@@ -1,3 +1,7 @@
+# 1 "ramses2map.f90"
+# 1 "<built-in>"
+# 1 "<command-line>"
+# 1 "ramses2map.f90"
 module obs_instruments
     use local
     use vectors
@@ -27,23 +31,11 @@ module obs_instruments
         real(dbl),intent(in) :: distance,far_cut_depth
         integer,intent(in) :: map_max_size
 
-        y_axis=(/0D0,1D0,0D0/);z_axis=(/0D0,0D0,1D0/)
-
         init_camera%centre = centre
-        if (magnitude(los_axis).ne.1D0) then
-            init_camera%los_axis  = los_axis / magnitude(los_axis)
-        else
-            init_camera%los_axis  = los_axis
-        endif
-        if (magnitude(up_vector).ne.0D0) then
-            if (magnitude(up_vector).ne.1D0) init_camera%up_vector = up_vector / magnitude(up_vector)
-        else
-            if (init_camera%los_axis .eq. z_axis) then
-                init_camera%up_vector = y_axis
-            else
-                init_camera%up_vector = z_axis
-            endif
-        endif
+        
+        init_camera%los_axis = los_axis
+        init_camera%up_vector = up_vector
+
         init_camera%region_size = region_size
         init_camera%distance = distance
         init_camera%far_cut_depth = far_cut_depth
@@ -116,7 +108,7 @@ module obs_instruments
 
         cam_basis%u(1) = cam%up_vector * cam%los_axis
         cam_basis%u(1) = cam_basis%u(1) / magnitude(cam_basis%u(1))
-        cam_basis%u(2) = cam%los_axis * cam_basis%u(1)
+        cam_basis%u(2) = cam%up_vector
         cam_basis%u(3) = cam%los_axis
     end subroutine get_camera_basis
 
@@ -222,7 +214,6 @@ module obs_instruments
 
         do i=1,npoints
             temp_vec = points(i,:)
-            ! write(*,*)'temp_vec,cam%centre: ',temp_vec,cam%centre
             temp_vec = temp_vec - cam%centre
             call rotate_vector(temp_vec,trans_matrix)
             points(i,:) = temp_vec
@@ -231,7 +222,7 @@ module obs_instruments
 
 end module obs_instruments
 
-module amr_map
+module maps
     use local
     use vectors
     use rotations
@@ -239,13 +230,29 @@ module amr_map
     use geometrical_regions
     use obs_instruments
 
+    type projection_handler
+        character(128) :: pov
+        integer :: nvars
+        character(128),dimension(:),allocatable :: varnames
+        character(128) :: weightvar
+        real(dbl),dimension(:,:,:),allocatable :: toto
+    end type projection_handler
+
     contains
 
-    subroutine projection(repository,cam,bulk_velocity)
+    subroutine allocate_projection_handler(proj)
+        implicit none
+        type(projection_handler),intent(inout) :: proj
+
+        if (.not.allocated(proj%varnames)) allocate(proj%varnames(1:proj%nvars))
+    end subroutine allocate_projection_handler
+
+    subroutine projection_hydro(repository,cam,bulk_velocity,proj)
         implicit none
         character(128),intent(in) :: repository
         type(camera),intent(in) :: cam
         type(vector),intent(in) :: bulk_velocity
+        type(projection_handler),intent(inout) :: proj
 
         type(hydroID) :: varIDs
         type(amr_info) :: amr
@@ -261,36 +268,28 @@ module amr_map
 
         call init_amr_read(repository,amr,sim)
         amr%lmax = min(get_required_resolution(cam),amr%nlevelmax)
+        write(*,*)'Maximum resolution level: ',amr%nlevelmax
+        write(*,*)'Using: ',amr%lmax
         call get_bounding_box(cam,bbox)
         bbox%name = 'cube'
         bbox%bulk_velocity = bulk_velocity
         bbox%criteria_name = 'd_euclid'
         call get_cpu_map(bbox,amr)
         call get_map_box(cam,bbox)
-        call project_cells(repository,amr,bbox,varIDs,cam,toto)
 
-        call get_map_size(cam,n_sample)
-        nomfich = '/mnt/extraspace/currodri/Codes/ozymandias/ozy/visualisation/density_map.dat'
-        open(unit=20,file=nomfich,form='formatted')
-        do j=0,n_sample(2)
-            do i=0,n_sample(1)
-               xx = bbox%xmin+dble(i)/dble(n_sample(1))*(bbox%xmax-bbox%xmin)
-               yy = bbox%ymin+dble(j)/dble(n_sample(2))*(bbox%ymax-bbox%ymin)
-               write(20,*)xx,yy,toto(i,j)
-            end do
-            write(20,*) " "
-        end do
-        close(20)
-    end subroutine projection
+        ! Perform projections
+        call project_cells(repository,amr,bbox,varIDs,cam,proj)
+        
+    end subroutine projection_hydro
 
-    subroutine project_cells(repository,amr,bbox,varIDs,cam,toto)
+    subroutine project_cells(repository,amr,bbox,varIDs,cam,proj)
         implicit none
         character(128),intent(in) :: repository
         type(amr_info),intent(inout) :: amr
         type(region),intent(in) :: bbox
         type(hydroID),intent(in) :: varIDs
         type(camera),intent(in) :: cam
-        real(dbl),dimension(:,:),allocatable,intent(inout) :: toto
+        type(projection_handler),intent(inout) :: proj
 
         logical :: ok_cell
         integer :: i,j,k
@@ -311,7 +310,6 @@ module amr_map
         integer,dimension(:,:),allocatable :: son
         logical,dimension(:),allocatable :: ref
         real(dbl) :: rho,map,weight
-        character(128) :: varname
         real(dbl) :: xmin,ymin
         integer :: ndom
         integer,dimension(1:2) :: n_sample
@@ -320,19 +318,23 @@ module amr_map
 
         type(level),dimension(1:100) :: grid
 
+        ! Check that between the required variables are hydro variables
+
+
+
         ncells = 0
 
         ! Compute hierarchy
         do ilevel=1,amr%lmax
             nx_full = 2**ilevel
             ny_full = 2**ilevel
-            imin = int(bbox%xmin*dble(nx_full))+1
-            imax = int(bbox%xmax*dble(nx_full))+1
-            jmin = int(bbox%ymin*dble(ny_full))+1
-            jmax = int(bbox%ymax*dble(ny_full))+1
-            allocate(grid(ilevel)%map(imin:imax,jmin:jmax))
+            imin = int(0D0*dble(nx_full))+1
+            imax = int((bbox%xmax-bbox%xmin)*dble(nx_full))+1
+            jmin = int(0D0*dble(ny_full))+1
+            jmax = int((bbox%ymax-bbox%ymin)*dble(ny_full))+1
+            allocate(grid(ilevel)%map(1:proj%nvars,imin:imax,jmin:jmax))
             allocate(grid(ilevel)%rho(imin:imax,jmin:jmax))
-            grid(ilevel)%map(:,:) = 0D0
+            grid(ilevel)%map(:,:,:) = 0D0
             grid(ilevel)%rho(:,:) = 0D0
             grid(ilevel)%imin = imin
             grid(ilevel)%imax = imax
@@ -509,8 +511,8 @@ module amr_map
                             ok_cell= ok_cell.and..not.ref(i)
                             ! write(*,*)'x:',x(i,:)
                             if (ok_cell) then
-                                ix = int(x(i,1)*dble(nx_full)) + 1
-                                iy = int(x(i,2)*dble(ny_full)) + 1
+                                ix = int((x(i,1)+0.5*(bbox%xmax-bbox%xmin))*dble(nx_full)) + 1
+                                iy = int((x(i,2)+0.5*(bbox%ymax-bbox%ymin))*dble(ny_full)) + 1
                                 ! write(*,*)'ix,iy:',ix,iy
                                 weight = (min(x(i,3)+dx/2.,bbox%zmax)-max(x(i,3)-dx/2.,bbox%zmin))/dx
                                 weight = min(1.0d0,max(weight,0.0d0))
@@ -523,12 +525,17 @@ module amr_map
                                     vtemp = var(i,ind,varIDs%vx:varIDs%vz)
                                     call rotate_vector(vtemp,trans_matrix)
                                     var(i,ind,varIDs%vx:varIDs%vz) = vtemp
-                                    varname = 'density'
-                                    call getvarvalue(varIDs,bbox,dx,xtemp,var(i,ind,:),varname,map)
-                                    call getvarvalue(varIDs,bbox,dx,xtemp,var(i,ind,:),varname,rho)
-
-                                    grid(ilevel)%map(ix,iy)=grid(ilevel)%map(ix,iy)+map**2*dx*weight/(bbox%zmax-bbox%zmin)
+                                    
+                                    call getvarvalue(varIDs,bbox,dx,xtemp,var(i,ind,:),proj%weightvar,rho)
                                     grid(ilevel)%rho(ix,iy)=grid(ilevel)%rho(ix,iy)+rho*dx*weight/(bbox%zmax-bbox%zmin)
+
+                                    projvarloop: do ivar=1,proj%nvars
+                                        call getvarvalue(varIDs,bbox,dx,xtemp,var(i,ind,:),proj%varnames(ivar),map)
+                                        ! if (TRIM(proj%varnames(ivar)).eq.proj%weightvar) map = map**2
+                                        grid(ilevel)%map(ivar,ix,iy)=grid(ilevel)%map(ivar,ix,iy)+map*rho*dx*weight/(bbox%zmax-bbox%zmin)
+                                    end do projvarloop
+                                    
+                                    
                                     ncells = ncells + 1
                                 endif
 
@@ -543,64 +550,267 @@ module amr_map
         ! Upload to maximum level (lmax)
         nx_full = 2**amr%lmax
         ny_full = 2**amr%lmax
-        imin = int(bbox%xmin*dble(nx_full))+1
-        imax = int(bbox%xmax*dble(nx_full))
-        jmin = int(bbox%ymin*dble(ny_full))+1
-        jmax = int(bbox%ymax*dble(ny_full))
-        do ix = imin,imax
+        imin = int(0D0*dble(nx_full))+1
+        imax = int((bbox%xmax-bbox%xmin)*dble(nx_full))
+        jmin = int(0D0*dble(ny_full))+1
+        jmax = int((bbox%ymax-bbox%ymin)*dble(ny_full))
+        xloop: do ix = imin,imax
             xmin = ((ix-0.5)/2**amr%lmax)
-            do iy=jmin,jmax
+            yloop: do iy=jmin,jmax
                 ymin=((iy-0.5)/2**amr%lmax)
-                do ilevel=1,amr%lmax-1
+                ilevelloop: do ilevel=1,amr%lmax-1
                     ndom = 2**ilevel
                     i = int(xmin*ndom)+1
                     j = int(ymin*ndom)+1
                     
                     ! Smoothing: each cell contributes to its pixel and the 4
                     ! inmediate ones to it
-                    if (ix<imax.and.iy<jmax.and.&
-                        &ix>imin.and.iy>imin) then
-                        grid(amr%lmax)%map(ix,iy)=grid(amr%lmax)%map(ix,iy) + &
-                                                    & grid(ilevel)%map(i,j)
-                        grid(amr%lmax)%rho(ix,iy)=grid(amr%lmax)%rho(ix,iy) + &
-                                                    & grid(ilevel)%rho(i,j)
-                        grid(amr%lmax)%map(ix-1,iy)=grid(amr%lmax)%map(ix-1,iy) + &
-                                                    & grid(ilevel)%map(i,j)
-                        grid(amr%lmax)%rho(ix-1,iy)=grid(amr%lmax)%rho(ix-1,iy) + &
-                                                    & grid(ilevel)%rho(i,j)
-                        grid(amr%lmax)%map(ix+1,iy)=grid(amr%lmax)%map(ix+1,iy) + &
-                                                    & grid(ilevel)%map(i,j)
-                        grid(amr%lmax)%rho(ix+1,iy)=grid(amr%lmax)%rho(ix+1,iy) + &
-                                                    & grid(ilevel)%rho(i,j)
-                        grid(amr%lmax)%map(ix,iy-1)=grid(amr%lmax)%map(ix,iy-1) + &
-                                                    & grid(ilevel)%map(i,j)
-                        grid(amr%lmax)%rho(ix,iy-1)=grid(amr%lmax)%rho(ix,iy-1) + &
-                                                    & grid(ilevel)%rho(i,j)
-                        grid(amr%lmax)%map(ix,iy+1)=grid(amr%lmax)%map(ix,iy+1) + &
-                                                    & grid(ilevel)%map(i,j)
-                        grid(amr%lmax)%rho(ix,iy+1)=grid(amr%lmax)%rho(ix,iy+1) + &
-                                                    & grid(ilevel)%rho(i,j)
-                    else
-                        grid(amr%lmax)%map(ix,iy)=grid(amr%lmax)%map(ix,iy) + &
-                                                    & grid(ilevel)%map(i,j)
-                        grid(amr%lmax)%rho(ix,iy)=grid(amr%lmax)%rho(ix,iy) + &
-                                                    & grid(ilevel)%rho(i,j)
-                    endif
-              end do
-           end do
-        end do
+                    projvarlooplmax: do ivar=1,proj%nvars
+                        if (.false.) then
+                        ! if (ix<imax.and.iy<jmax.and.&
+                        !     &ix>imin.and.iy>imin) then
+                            grid(amr%lmax)%map(ivar,ix,iy)=grid(amr%lmax)%map(ivar,ix,iy) + &
+                                                        & grid(ilevel)%map(ivar,i,j)
+                            grid(amr%lmax)%rho(ix,iy)=grid(amr%lmax)%rho(ix,iy) + &
+                                                        & grid(ilevel)%rho(i,j)
+                            grid(amr%lmax)%map(ivar,ix-1,iy)=grid(amr%lmax)%map(ivar,ix-1,iy) + &
+                                                        & grid(ilevel)%map(ivar,i,j)
+                            grid(amr%lmax)%rho(ix-1,iy)=grid(amr%lmax)%rho(ix-1,iy) + &
+                                                        & grid(ilevel)%rho(i,j)
+                            grid(amr%lmax)%map(ivar,ix+1,iy)=grid(amr%lmax)%map(ivar,ix+1,iy) + &
+                                                        & grid(ilevel)%map(ivar,i,j)
+                            grid(amr%lmax)%rho(ix+1,iy)=grid(amr%lmax)%rho(ix+1,iy) + &
+                                                        & grid(ilevel)%rho(i,j)
+                            grid(amr%lmax)%map(ivar,ix,iy-1)=grid(amr%lmax)%map(ivar,ix,iy-1) + &
+                                                        & grid(ilevel)%map(ivar,i,j)
+                            grid(amr%lmax)%rho(ix,iy-1)=grid(amr%lmax)%rho(ix,iy-1) + &
+                                                        & grid(ilevel)%rho(i,j)
+                            grid(amr%lmax)%map(ivar,ix,iy+1)=grid(amr%lmax)%map(ivar,ix,iy+1) + &
+                                                        & grid(ilevel)%map(ivar,i,j)
+                            grid(amr%lmax)%rho(ix,iy+1)=grid(amr%lmax)%rho(ix,iy+1) + &
+                                                        & grid(ilevel)%rho(i,j)
+                        else
+                            grid(amr%lmax)%map(ivar,ix,iy)=grid(amr%lmax)%map(ivar,ix,iy) + &
+                                                        & grid(ilevel)%map(ivar,i,j)
+                            grid(amr%lmax)%rho(ix,iy)=grid(amr%lmax)%rho(ix,iy) + &
+                                                        & grid(ilevel)%rho(i,j)
+                        endif
+                    end do projvarlooplmax
+                end do ilevelloop
+           end do yloop
+        end do xloop
 
         call get_map_size(cam,n_sample)
-        allocate(toto(0:n_sample(1),0:n_sample(2)))
+        allocate(proj%toto(1:proj%nvars,0:n_sample(1),0:n_sample(2)))
         do i=0,n_sample(1)
             ix = int(dble(i)/dble(n_sample(1))*dble(imax-imin+1))+imin
             ix = min(ix,imax)
             do j=0,n_sample(2)
                 iy = int(dble(j)/dble(n_sample(2))*dble(jmax-jmin+1))+jmin
                 iy = min(iy,jmax)
-                toto(i,j)=grid(amr%lmax)%map(ix,iy)/grid(amr%lmax)%rho(ix,iy)
+                projvarlooptoto: do ivar=1,proj%nvars
+                    proj%toto(ivar,i,j)=grid(amr%lmax)%map(ivar,ix,iy)/grid(amr%lmax)%rho(ix,iy)
+                end do projvarlooptoto
             end do
          end do
         
     end subroutine project_cells
-end module amr_map
+
+    subroutine projection_parts(repository,cam,bulk_velocity,proj)
+        implicit none
+        character(128),intent(in) :: repository
+        type(camera),intent(in) :: cam
+        type(vector),intent(in) :: bulk_velocity
+        type(projection_handler),intent(inout) :: proj
+
+        type(amr_info) :: amr
+        type(sim_info) :: sim
+        type(region) :: bbox
+
+        call init_amr_read(repository,amr,sim)
+        amr%lmax = min(get_required_resolution(cam),amr%nlevelmax)
+        write(*,*)'Maximum resolution level: ',amr%nlevelmax
+        write(*,*)'Using: ',amr%lmax
+        call get_bounding_box(cam,bbox)
+        bbox%name = 'cube'
+        bbox%bulk_velocity = bulk_velocity
+        bbox%criteria_name = 'd_euclid'
+        call get_cpu_map(bbox,amr)
+        call get_map_box(cam,bbox)
+
+        call project_particles(repository,amr,sim,bbox,cam,proj)
+    end subroutine projection_parts
+
+    subroutine project_particles(repository,amr,sim,bbox,cam,proj)
+        use cosmology
+        implicit none
+        character(128),intent(in) :: repository
+        type(amr_info),intent(in) :: amr
+        type(sim_info),intent(inout) :: sim
+        type(region),intent(in) :: bbox
+        type(camera),intent(in) :: cam
+        type(projection_handler),intent(inout) :: proj
+
+        logical :: ok_part
+        integer :: i,j,k
+        integer :: ipos,icpu,ix,iy,ixp1,iyp1,ivar
+        integer :: npart,npart2,nstar,ncpu2,ndim2
+        real(dbl) :: weight,distance,mapvalue
+        real(dbl) :: dx,dy,ddx,ddy,dex,dey
+        real(dbl),dimension(1:3,1:3) :: trans_matrix
+        character(5) :: nchar,ncharcpu
+        character(128) :: nomfich
+        type(vector) :: xtemp,vtemp
+        integer,dimension(:),allocatable :: id
+        integer,dimension(1:2) :: n_map
+        real(dbl),dimension(:),allocatable :: m,age,met,imass
+        real(dbl),dimension(:,:),allocatable :: x,v
+
+        ! Compute transformation matrix for camera LOS
+        call los_transformation(cam,trans_matrix)
+        
+        ! Get camera resolution
+        call get_map_size(cam,n_map)
+        dx = (bbox%xmax-bbox%xmin)/n_map(1)
+        dy = (bbox%ymax-bbox%ymin)/n_map(2)
+
+        ! Allocate toto
+
+        allocate(proj%toto(1:proj%nvars,0:n_map(1)-1,0:n_map(2)-1))
+
+        ! Cosmological model
+        if (sim%aexp.eq.1.and.sim%h0.eq.1)sim%cosmo=.false.
+        if (sim%cosmo) then
+            call cosmology_model(sim)
+        else
+            sim%time_simu = sim%t
+            write(*,*)'Age simu=',sim%time_simu*sim%unit_t/(365.*24.*3600.*1d9)
+        endif
+        
+        ! Check number of particles in selected CPUs
+        ipos = INDEX(repository,'output_')
+        nchar = repository(ipos+7:ipos+13)
+        npart = 0
+        do k=1,amr%ncpu_read
+            icpu = amr%cpu_list(k)
+            call title(icpu,ncharcpu)
+            nomfich=TRIM(repository)//'/part_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+            write(*,*)'Processing file '//TRIM(nomfich)
+            open(unit=1,file=nomfich,status='old',form='unformatted')
+            read(1)ncpu2
+            read(1)ndim2
+            read(1)npart2
+            read(1)
+            read(1)nstar
+            close(1)
+            npart=npart+npart2
+        end do
+        write(*,*)'Found ',npart,' particles.'
+        if(nstar>0)then
+            write(*,*)'Found ',nstar,' star particles.'
+        endif
+
+        ! Compute projected variables using CIC smoothing
+        cpuloop: do k=1,amr%ncpu_read
+            icpu = amr%cpu_list(k)
+            call title(icpu,ncharcpu)
+            nomfich=TRIM(repository)//'/part_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+            open(unit=1,file=nomfich,status='old',form='unformatted')
+            read(1)ncpu2
+            read(1)ndim2
+            read(1)npart2
+            read(1)
+            read(1)
+            read(1)
+            read(1)
+            read(1)
+            allocate(m(1:npart2))
+            if(nstar>0)then
+                allocate(age(1:npart2))
+                allocate(id(1:npart2))
+                allocate(met(1:npart2))
+                allocate(imass(1:npart2))
+            endif
+            allocate(x(1:npart2,1:ndim2))
+            allocate(v(1:npart2,1:ndim2))
+
+            ! Read position
+            do i=1,amr%ndim
+                read(1)m
+                x(1:npart2,i) = m/sim%boxlen
+            end do
+
+            ! Read velocity
+            do i=1,amr%ndim
+                read(1)m
+                v(1:npart2,i) = m
+            end do
+
+            ! Read mass
+            read(1)m
+            if (nstar>0) then
+                read(1)id
+                read(1) ! Skip level
+                read(1)age
+                read(1)met
+                read(1)imass
+            endif
+            close(1)
+
+            ! Project positions onto the camera frame
+            call project_points(cam,npart2,x)
+
+            ! Project variables into map for particles
+            ! of interest in the region
+            partloop: do i=1,npart2
+                weight = 1D0
+                distance = 0D0
+                mapvalue = 0D0
+                call checkifinside(x(i,:),bbox,ok_part,distance)
+                if (ok_part) then
+                    xtemp = x(i,:)
+                    vtemp = v(i,:)
+                    call rotate_vector(vtemp,trans_matrix)
+                    if (nstar>0) then
+                        call getpartvalue(sim,bbox,xtemp,vtemp,id(i),m(i),age(i),met(i),imass(i),proj%weightvar,weight)
+                    else
+                        call getpartvalue(sim,bbox,xtemp,vtemp,0,m(i),0D0,0D0,0D0,proj%weightvar,weight)
+                    endif
+
+                    projvarloop: do ivar=1,proj%nvars
+                        if (nstar>0) then
+                            call getpartvalue(sim,bbox,xtemp,vtemp,id(i),m(i),age(i),met(i),imass(i),proj%varnames(ivar),mapvalue)
+                        else
+                            call getpartvalue(sim,bbox,xtemp,vtemp,0,m(i),0D0,0D0,0D0,proj%varnames(ivar),mapvalue)
+                        endif
+                        if (weight.ne.0D0) then
+                            ! TODO: Properly understand WOH is going on here
+                            ddx = (x(i,1)-bbox%xmin)/dx
+                            ddy = (x(i,2)-bbox%ymin)/dy
+                            ix = int(ddx)
+                            iy = int(ddy)
+                            ddx = ddx - dble(ix)
+                            ddy = ddy - dble(iy)
+                            dex = 1D0 - ddx
+                            dey = 1D0 - ddy
+                            ixp1 = ix + 1
+                            iyp1 = iy + 1
+
+                            if (ix>=0.and.ix<(n_map(1)-1).and.&
+                                &iy>=0.and.iy<(n_map(2)-1).and.&
+                                &ddx>0.and.ddy>0) then
+                                proj%toto(ivar,ix  ,iy  ) = proj%toto(ivar,ix  ,iy  ) + mapvalue*dex*dey*weight
+                                proj%toto(ivar,ix  ,iyp1) = proj%toto(ivar,ix  ,iyp1) + mapvalue*dex*ddy*weight
+                                proj%toto(ivar,ixp1,iy  ) = proj%toto(ivar,ixp1,iy  ) + mapvalue*ddx*dey*weight
+                                proj%toto(ivar,ixp1,iyp1) = proj%toto(ivar,ixp1,iyp1) + mapvalue*ddx*ddy*weight
+                            endif
+                        endif
+                    end do projvarloop
+                endif
+            end do partloop
+            deallocate(m,x,v)
+            if (nstar>0)deallocate(id,age,met,imass)
+        end do cpuloop
+    end subroutine project_particles
+
+end module maps

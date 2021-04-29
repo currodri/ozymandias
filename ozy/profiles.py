@@ -3,13 +3,16 @@ import h5py
 import os
 import ozy
 from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units
+# TODO: Allow for parallel computation of profiles.
 from joblib import Parallel, delayed
 import sys
 sys.path.append('/mnt/extraspace/currodri/Codes/ozymandias/ozy/amr')
+sys.path.append('/mnt/extraspace/currodri/Codes/ozymandias/ozy/part')
 from amr2 import vectors
 from amr2 import geometrical_regions as geo
 from amr2 import filtering
-from amr2 import amr_profiles as profmod
+from amr2 import amr_profiles as amrprofmod
+from part2 import part_profiles as partprofmod
 from ozy.saver import _write_attrib
 
 blacklist = [
@@ -131,8 +134,8 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
     prof = Profile(group)
     prof.nbins = nbins
     prof.xvar = xvar
-    prof.yvars = dict(for_hydro = [],for_stars = [], for_dm = [])
-    prof.weightvars = dict(for_hydro = [],for_stars = [], for_dm = [])
+    prof.yvars = dict(for_hydro = [],for_star = [], for_dm = [])
+    prof.weightvars = dict(for_hydro = [],for_star = [], for_dm = [])
     # Begin by checking the combination of variables is correct
     # Variables should be given in the form "type"/"variables":
     # e.g. gas/density, or star/ang_momentum_x
@@ -146,7 +149,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
                 raise KeyError('This gas variable is not supported. Please check!: %s', var)
         elif var_type == 'star':
             if var_name in common_variables or var_name in particle_variables:
-                prof.yvars['for_stars'].append(var_name)
+                prof.yvars['for_star'].append(var_name)
             else:
                 raise KeyError('This star variable is not supported. Please check!')
         elif var_type == 'dm':
@@ -164,7 +167,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
                 raise KeyError('This gas variable is not supported. Please check!')
         elif var_type == 'star':
             if var_name in common_variables or var_name in particle_variables:
-                prof.weightvars['for_stars'].append(var_name)
+                prof.weightvars['for_star'].append(var_name)
             else:
                 raise KeyError('This star variable is not supported. Please check!')
         elif var_type == 'dm':
@@ -174,7 +177,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
                 raise KeyError('This DM variable is not supported. Please check!')
     
     # Check that we do not have any inconsistency...
-    if xvar in grid_variables and len(prof.yvars['for_stars'])>0 or xvar in grid_variables and len(prof.yvars['for_dm'])>0:
+    if xvar in grid_variables and len(prof.yvars['for_star'])>0 or xvar in grid_variables and len(prof.yvars['for_dm'])>0:
         raise KeyError("Having grid vs particle 1D profiles is not well-defined.")
     elif xvar in particle_variables and len(prof.yvars['for_hydro'])>0:
         raise KeyError("Having particle vs grid 1D profiles is not well-defined.")
@@ -213,14 +216,14 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
     f.close()
     
     # Initialise hydro profile data object
-    hydro_data = profmod.profile_handler()
+    hydro_data = amrprofmod.profile_handler()
     hydro_data.profdim = 1
     hydro_data.xvarname = xvar
     hydro_data.nyvar = len(prof.yvars['for_hydro'])
     hydro_data.nwvar = len(prof.weightvars['for_hydro'])
     hydro_data.nbins = 100
 
-    profmod.allocate_profile_handler(hydro_data)
+    amrprofmod.allocate_profile_handler(hydro_data)
     for i in range(0, len(prof.yvars['for_hydro'])):
         hydro_data.yvarnames.T.view('S128')[i] = prof.yvars['for_hydro'][i].ljust(128)
     for i in range(0, len(prof.weightvars['for_hydro'])):
@@ -228,10 +231,47 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
     
     # And now, compute hydro data profiles!
     if hydro_data.nyvar > 0 and hydro_data.nwvar > 0:
-        profmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,hydro_data,lmax)
-    # TODO: Add computation of star and DM particle profiles
-    star_data = None
-    dm_data = None
+        amrprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,hydro_data,lmax)
+
+    # Initialise particles profile data object
+    star_data = partprofmod.profile_handler()
+    star_data.profdim = 1
+    star_data.xvarname = xvar
+    star_data.nyvar = len(prof.yvars['for_star'])
+    star_data.nwvar = len(prof.weightvars['for_star'])
+    star_data.nbins = 100
+
+    partprofmod.allocate_profile_handler(star_data)
+    for i in range(0, len(prof.yvars['for_star'])):
+        tempstr = 'star/'+prof.yvars['for_star'][i]
+        star_data.yvarnames.T.view('S128')[i] = tempstr.ljust(128)
+    for i in range(0, len(prof.weightvars['for_star'])):
+        tempstr = 'star/'+prof.weightvars['for_star'][i]
+        star_data.wvarnames.T.view('S128')[i] = tempstr.ljust(128)
+
+    # And now, compute star data profiles!
+    if star_data.nyvar > 0 and star_data.nwvar > 0:
+        partprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,star_data,lmax)
+
+    # And the same for dm particles
+    dm_data = partprofmod.profile_handler()
+    dm_data.profdim = 1
+    dm_data.xvarname = xvar
+    dm_data.nyvar = len(prof.yvars['for_dm'])
+    dm_data.nwvar = len(prof.weightvars['for_dm'])
+    dm_data.nbins = 100
+
+    partprofmod.allocate_profile_handler(dm_data)
+    for i in range(0, len(prof.yvars['for_dm'])):
+        tempstr = 'dn/'+prof.yvars['for_dm'][i]
+        dm_data.yvarnames.T.view('S128')[i] = tempstr.ljust(128)
+    for i in range(0, len(prof.weightvars['for_dm'])):
+        tempstr = 'star/'+prof.weightvars['for_dm'][i]
+        dm_data.wvarnames.T.view('S128')[i] = tempstr.ljust(128)
+
+    # And now, compute star data profiles!
+    if dm_data.nyvar > 0 and dm_data.nwvar > 0:
+        partprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,dm_data,lmax)
 
     if save:
         write_profiles(group.obj, ozy_file, hydro_data, star_data, dm_data, prof)
@@ -291,7 +331,20 @@ def write_profiles(obj, ozy_file, hydro, star, dm, prof):
             clean_hydro.create_dataset(var, data=hydro.ydata[:,v,:,0:2])
             clean_hydro[var].attrs.create('units', get_code_units(prof.yvars['for_hydro'][v]))
             clean_hydro[var].attrs.create('weightvars', prof.weightvars['for_hydro'][:])
-    # TODO: Add saving of stars and DM data
+    # Save star y data
+    if star != None:
+        clean_star = hdprof.create_group('star')
+        for v,var in enumerate(prof.yvars['for_star']):
+            clean_star.create_dataset(var, data=star.ydata[:,v,:,0:2])
+            clean_star[var].attrs.create('units', get_code_units(prof.yvars['for_star'][v]))
+            clean_star[var].attrs.create('weightvars', prof.weightvars['for_star'][:])
+    # Save dm y data
+    if dm != None:
+        clean_dm = hdprof.create_group('dm')
+        for v,var in enumerate(prof.yvars['for_dm']):
+            clean_dm.create_dataset(var, data=dm.ydata[:,v,:,0:2])
+            clean_dm[var].attrs.create('units', get_code_units(prof.yvars['for_dm'][v]))
+            clean_dm[var].attrs.create('weightvars', prof.weightvars['for_dm'][:])
     f.close()
     return
 

@@ -69,8 +69,7 @@ if __name__ == '__main__':
             if f.startswith('ozy_') and args.start < int(f[4:-5]) < args.end:
                 ozyfiles.append(f)
         
-        ozyfiles = sorted(files, key=lambda x:x[4:-5], reverse=True)
-
+        ozyfiles = sorted(ozyfiles, key=lambda x:x[4:-5], reverse=True)
         galaxy_masses = {}
         galaxy_time = []
         galaxy_position = []
@@ -83,14 +82,16 @@ if __name__ == '__main__':
         progind = args.ind
         if args.NUT:
             sim = ozy.load(os.path.join(groupspath, ozyfiles[0]))
-            stellar_mass = [i.mass['stellar'] for i in sim.galaxies]
+            stellar_mass = [i.mass['baryon'] for i in sim.galaxies]
             progind = np.argmax(stellar_mass)
+            print(args.model[i],progind,sim.simulation.redshift)
         printMass = True
         for ozyfile in ozyfiles:
             if progind == -1:
                 continue
             # Load OZY file
             sim = ozy.load(os.path.join(groupspath, ozyfile))
+
 
             # Initialise simulation parameters
             redshift = sim.simulation.redshift
@@ -106,8 +107,8 @@ if __name__ == '__main__':
                 m = YTQuantity(m, 'code_mass', registry=sim.unit_registry)
                 galaxy_masses[mass_var].append(m.in_units('Msun').d)
             galaxy_time.append(thubble)
-            if printMass and thubble <= 1.0:
-                print(args.model[i], np.log10(galaxy_masses['stellar'][-1]))
+            if printMass and redshift >= 4.12:
+                print(args.model[i],ozyfile, np.log10(galaxy_masses['stellar'][-1]),progind)
                 printMass = False
             galaxy_position.append(sim.galaxies[progind].position)
             r = YTQuantity(sim.galaxies[progind].radius['total'], 'code_length', registry=sim.unit_registry)

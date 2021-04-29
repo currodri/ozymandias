@@ -1081,7 +1081,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
     Module io_ramses
     
     
-    Defined at read_amr_module.fpp lines 24-696
+    Defined at read_amr_module.fpp lines 24-792
     
     """
     @f90wrap.runtime.register_class("projections.hydroID")
@@ -1781,7 +1781,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         Type(name=sim_info)
         
         
-        Defined at read_amr_module.fpp lines 43-45
+        Defined at read_amr_module.fpp lines 43-49
         
         """
         def __init__(self, handle=None):
@@ -1789,7 +1789,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             self = Sim_Info()
             
             
-            Defined at read_amr_module.fpp lines 43-45
+            Defined at read_amr_module.fpp lines 43-49
             
             
             Returns
@@ -1809,7 +1809,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Destructor for class Sim_Info
             
             
-            Defined at read_amr_module.fpp lines 43-45
+            Defined at read_amr_module.fpp lines 43-49
             
             Parameters
             ----------
@@ -1823,12 +1823,27 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
                 _projections.f90wrap_sim_info_finalise(this=self._handle)
         
         @property
+        def cosmo(self):
+            """
+            Element cosmo ftype=logical pytype=bool
+            
+            
+            Defined at read_amr_module.fpp line 44
+            
+            """
+            return _projections.f90wrap_sim_info__get__cosmo(self._handle)
+        
+        @cosmo.setter
+        def cosmo(self, cosmo):
+            _projections.f90wrap_sim_info__set__cosmo(self._handle, cosmo)
+        
+        @property
         def t(self):
             """
             Element t ftype=real(sgl) pytype=float
             
             
-            Defined at read_amr_module.fpp line 44
+            Defined at read_amr_module.fpp line 45
             
             """
             return _projections.f90wrap_sim_info__get__t(self._handle)
@@ -1843,7 +1858,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element aexp ftype=real(sgl) pytype=float
             
             
-            Defined at read_amr_module.fpp line 44
+            Defined at read_amr_module.fpp line 45
             
             """
             return _projections.f90wrap_sim_info__get__aexp(self._handle)
@@ -1858,7 +1873,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element omega_m ftype=real(sgl) pytype=float
             
             
-            Defined at read_amr_module.fpp line 44
+            Defined at read_amr_module.fpp line 45
             
             """
             return _projections.f90wrap_sim_info__get__omega_m(self._handle)
@@ -1873,7 +1888,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element omega_l ftype=real(sgl) pytype=float
             
             
-            Defined at read_amr_module.fpp line 44
+            Defined at read_amr_module.fpp line 45
             
             """
             return _projections.f90wrap_sim_info__get__omega_l(self._handle)
@@ -1888,7 +1903,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element omega_k ftype=real(sgl) pytype=float
             
             
-            Defined at read_amr_module.fpp line 44
+            Defined at read_amr_module.fpp line 45
             
             """
             return _projections.f90wrap_sim_info__get__omega_k(self._handle)
@@ -1903,7 +1918,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element omega_b ftype=real(sgl) pytype=float
             
             
-            Defined at read_amr_module.fpp line 44
+            Defined at read_amr_module.fpp line 45
             
             """
             return _projections.f90wrap_sim_info__get__omega_b(self._handle)
@@ -1918,7 +1933,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element h0 ftype=real(dbl) pytype=float
             
             
-            Defined at read_amr_module.fpp line 45
+            Defined at read_amr_module.fpp line 46
             
             """
             return _projections.f90wrap_sim_info__get__h0(self._handle)
@@ -1933,7 +1948,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element unit_l ftype=real(dbl) pytype=float
             
             
-            Defined at read_amr_module.fpp line 45
+            Defined at read_amr_module.fpp line 46
             
             """
             return _projections.f90wrap_sim_info__get__unit_l(self._handle)
@@ -1948,7 +1963,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element unit_d ftype=real(dbl) pytype=float
             
             
-            Defined at read_amr_module.fpp line 45
+            Defined at read_amr_module.fpp line 46
             
             """
             return _projections.f90wrap_sim_info__get__unit_d(self._handle)
@@ -1963,7 +1978,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element unit_t ftype=real(dbl) pytype=float
             
             
-            Defined at read_amr_module.fpp line 45
+            Defined at read_amr_module.fpp line 46
             
             """
             return _projections.f90wrap_sim_info__get__unit_t(self._handle)
@@ -1972,9 +1987,167 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         def unit_t(self, unit_t):
             _projections.f90wrap_sim_info__set__unit_t(self._handle, unit_t)
         
+        @property
+        def boxlen(self):
+            """
+            Element boxlen ftype=real(dbl) pytype=float
+            
+            
+            Defined at read_amr_module.fpp line 46
+            
+            """
+            return _projections.f90wrap_sim_info__get__boxlen(self._handle)
+        
+        @boxlen.setter
+        def boxlen(self, boxlen):
+            _projections.f90wrap_sim_info__set__boxlen(self._handle, boxlen)
+        
+        @property
+        def time_tot(self):
+            """
+            Element time_tot ftype=real(dbl) pytype=float
+            
+            
+            Defined at read_amr_module.fpp line 47
+            
+            """
+            return _projections.f90wrap_sim_info__get__time_tot(self._handle)
+        
+        @time_tot.setter
+        def time_tot(self, time_tot):
+            _projections.f90wrap_sim_info__set__time_tot(self._handle, time_tot)
+        
+        @property
+        def time_simu(self):
+            """
+            Element time_simu ftype=real(dbl) pytype=float
+            
+            
+            Defined at read_amr_module.fpp line 47
+            
+            """
+            return _projections.f90wrap_sim_info__get__time_simu(self._handle)
+        
+        @time_simu.setter
+        def time_simu(self, time_simu):
+            _projections.f90wrap_sim_info__set__time_simu(self._handle, time_simu)
+        
+        @property
+        def n_frw(self):
+            """
+            Element n_frw ftype=integer  pytype=int
+            
+            
+            Defined at read_amr_module.fpp line 48
+            
+            """
+            return _projections.f90wrap_sim_info__get__n_frw(self._handle)
+        
+        @n_frw.setter
+        def n_frw(self, n_frw):
+            _projections.f90wrap_sim_info__set__n_frw(self._handle, n_frw)
+        
+        @property
+        def aexp_frw(self):
+            """
+            Element aexp_frw ftype=real(dbl) pytype=float
+            
+            
+            Defined at read_amr_module.fpp line 49
+            
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _projections.f90wrap_sim_info__array__aexp_frw(self._handle)
+            if array_handle in self._arrays:
+                aexp_frw = self._arrays[array_handle]
+            else:
+                aexp_frw = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _projections.f90wrap_sim_info__array__aexp_frw)
+                self._arrays[array_handle] = aexp_frw
+            return aexp_frw
+        
+        @aexp_frw.setter
+        def aexp_frw(self, aexp_frw):
+            self.aexp_frw[...] = aexp_frw
+        
+        @property
+        def hexp_frw(self):
+            """
+            Element hexp_frw ftype=real(dbl) pytype=float
+            
+            
+            Defined at read_amr_module.fpp line 49
+            
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _projections.f90wrap_sim_info__array__hexp_frw(self._handle)
+            if array_handle in self._arrays:
+                hexp_frw = self._arrays[array_handle]
+            else:
+                hexp_frw = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _projections.f90wrap_sim_info__array__hexp_frw)
+                self._arrays[array_handle] = hexp_frw
+            return hexp_frw
+        
+        @hexp_frw.setter
+        def hexp_frw(self, hexp_frw):
+            self.hexp_frw[...] = hexp_frw
+        
+        @property
+        def tau_frw(self):
+            """
+            Element tau_frw ftype=real(dbl) pytype=float
+            
+            
+            Defined at read_amr_module.fpp line 49
+            
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _projections.f90wrap_sim_info__array__tau_frw(self._handle)
+            if array_handle in self._arrays:
+                tau_frw = self._arrays[array_handle]
+            else:
+                tau_frw = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _projections.f90wrap_sim_info__array__tau_frw)
+                self._arrays[array_handle] = tau_frw
+            return tau_frw
+        
+        @tau_frw.setter
+        def tau_frw(self, tau_frw):
+            self.tau_frw[...] = tau_frw
+        
+        @property
+        def t_frw(self):
+            """
+            Element t_frw ftype=real(dbl) pytype=float
+            
+            
+            Defined at read_amr_module.fpp line 49
+            
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _projections.f90wrap_sim_info__array__t_frw(self._handle)
+            if array_handle in self._arrays:
+                t_frw = self._arrays[array_handle]
+            else:
+                t_frw = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _projections.f90wrap_sim_info__array__t_frw)
+                self._arrays[array_handle] = t_frw
+            return t_frw
+        
+        @t_frw.setter
+        def t_frw(self, t_frw):
+            self.t_frw[...] = t_frw
+        
         def __str__(self):
             ret = ['<sim_info>{\n']
-            ret.append('    t : ')
+            ret.append('    cosmo : ')
+            ret.append(repr(self.cosmo))
+            ret.append(',\n    t : ')
             ret.append(repr(self.t))
             ret.append(',\n    aexp : ')
             ret.append(repr(self.aexp))
@@ -1994,6 +2167,22 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             ret.append(repr(self.unit_d))
             ret.append(',\n    unit_t : ')
             ret.append(repr(self.unit_t))
+            ret.append(',\n    boxlen : ')
+            ret.append(repr(self.boxlen))
+            ret.append(',\n    time_tot : ')
+            ret.append(repr(self.time_tot))
+            ret.append(',\n    time_simu : ')
+            ret.append(repr(self.time_simu))
+            ret.append(',\n    n_frw : ')
+            ret.append(repr(self.n_frw))
+            ret.append(',\n    aexp_frw : ')
+            ret.append(repr(self.aexp_frw))
+            ret.append(',\n    hexp_frw : ')
+            ret.append(repr(self.hexp_frw))
+            ret.append(',\n    tau_frw : ')
+            ret.append(repr(self.tau_frw))
+            ret.append(',\n    t_frw : ')
+            ret.append(repr(self.t_frw))
             ret.append('}')
             return ''.join(ret)
         
@@ -2006,7 +2195,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         Type(name=level)
         
         
-        Defined at read_amr_module.fpp lines 47-58
+        Defined at read_amr_module.fpp lines 51-62
         
         """
         def __init__(self, handle=None):
@@ -2014,7 +2203,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             self = Level()
             
             
-            Defined at read_amr_module.fpp lines 47-58
+            Defined at read_amr_module.fpp lines 51-62
             
             
             Returns
@@ -2034,7 +2223,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Destructor for class Level
             
             
-            Defined at read_amr_module.fpp lines 47-58
+            Defined at read_amr_module.fpp lines 51-62
             
             Parameters
             ----------
@@ -2053,7 +2242,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element ilevel ftype=integer pytype=int
             
             
-            Defined at read_amr_module.fpp line 48
+            Defined at read_amr_module.fpp line 52
             
             """
             return _projections.f90wrap_level__get__ilevel(self._handle)
@@ -2068,7 +2257,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element ngrid ftype=integer pytype=int
             
             
-            Defined at read_amr_module.fpp line 49
+            Defined at read_amr_module.fpp line 53
             
             """
             return _projections.f90wrap_level__get__ngrid(self._handle)
@@ -2083,7 +2272,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element cube ftype=real(sgl) pytype=float
             
             
-            Defined at read_amr_module.fpp line 50
+            Defined at read_amr_module.fpp line 54
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -2107,7 +2296,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element map ftype=real(dbl) pytype=float
             
             
-            Defined at read_amr_module.fpp line 51
+            Defined at read_amr_module.fpp line 55
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -2131,7 +2320,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element rho ftype=real(dbl) pytype=float
             
             
-            Defined at read_amr_module.fpp line 52
+            Defined at read_amr_module.fpp line 56
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -2155,7 +2344,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element imin ftype=integer pytype=int
             
             
-            Defined at read_amr_module.fpp line 53
+            Defined at read_amr_module.fpp line 57
             
             """
             return _projections.f90wrap_level__get__imin(self._handle)
@@ -2170,7 +2359,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element imax ftype=integer pytype=int
             
             
-            Defined at read_amr_module.fpp line 54
+            Defined at read_amr_module.fpp line 58
             
             """
             return _projections.f90wrap_level__get__imax(self._handle)
@@ -2185,7 +2374,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element jmin ftype=integer pytype=int
             
             
-            Defined at read_amr_module.fpp line 55
+            Defined at read_amr_module.fpp line 59
             
             """
             return _projections.f90wrap_level__get__jmin(self._handle)
@@ -2200,7 +2389,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element jmax ftype=integer pytype=int
             
             
-            Defined at read_amr_module.fpp line 56
+            Defined at read_amr_module.fpp line 60
             
             """
             return _projections.f90wrap_level__get__jmax(self._handle)
@@ -2215,7 +2404,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element kmin ftype=integer pytype=int
             
             
-            Defined at read_amr_module.fpp line 57
+            Defined at read_amr_module.fpp line 61
             
             """
             return _projections.f90wrap_level__get__kmin(self._handle)
@@ -2230,7 +2419,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element kmax ftype=integer pytype=int
             
             
-            Defined at read_amr_module.fpp line 58
+            Defined at read_amr_module.fpp line 62
             
             """
             return _projections.f90wrap_level__get__kmax(self._handle)
@@ -2275,7 +2464,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         Type(name=data_handler)
         
         
-        Defined at read_amr_module.fpp lines 60-64
+        Defined at read_amr_module.fpp lines 64-68
         
         """
         def __init__(self, handle=None):
@@ -2283,7 +2472,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             self = Data_Handler()
             
             
-            Defined at read_amr_module.fpp lines 60-64
+            Defined at read_amr_module.fpp lines 64-68
             
             
             Returns
@@ -2303,7 +2492,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Destructor for class Data_Handler
             
             
-            Defined at read_amr_module.fpp lines 60-64
+            Defined at read_amr_module.fpp lines 64-68
             
             Parameters
             ----------
@@ -2322,7 +2511,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element name ftype=character(80) pytype=str
             
             
-            Defined at read_amr_module.fpp line 61
+            Defined at read_amr_module.fpp line 65
             
             """
             return _projections.f90wrap_data_handler__get__name(self._handle)
@@ -2337,7 +2526,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element x_data ftype=logical pytype=bool
             
             
-            Defined at read_amr_module.fpp line 62
+            Defined at read_amr_module.fpp line 66
             
             """
             return _projections.f90wrap_data_handler__get__x_data(self._handle)
@@ -2352,7 +2541,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element y_data ftype=logical pytype=bool
             
             
-            Defined at read_amr_module.fpp line 62
+            Defined at read_amr_module.fpp line 66
             
             """
             return _projections.f90wrap_data_handler__get__y_data(self._handle)
@@ -2367,7 +2556,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element z_data ftype=logical pytype=bool
             
             
-            Defined at read_amr_module.fpp line 62
+            Defined at read_amr_module.fpp line 66
             
             """
             return _projections.f90wrap_data_handler__get__z_data(self._handle)
@@ -2382,7 +2571,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element nx ftype=integer pytype=int
             
             
-            Defined at read_amr_module.fpp line 63
+            Defined at read_amr_module.fpp line 67
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -2406,7 +2595,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element ny ftype=integer pytype=int
             
             
-            Defined at read_amr_module.fpp line 63
+            Defined at read_amr_module.fpp line 67
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -2430,7 +2619,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element nz ftype=integer pytype=int
             
             
-            Defined at read_amr_module.fpp line 63
+            Defined at read_amr_module.fpp line 67
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -2454,7 +2643,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element x ftype=real(dbl) pytype=float
             
             
-            Defined at read_amr_module.fpp line 64
+            Defined at read_amr_module.fpp line 68
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -2478,7 +2667,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element y ftype=real(dbl) pytype=float
             
             
-            Defined at read_amr_module.fpp line 64
+            Defined at read_amr_module.fpp line 68
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -2502,7 +2691,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             Element z ftype=real(dbl) pytype=float
             
             
-            Defined at read_amr_module.fpp line 64
+            Defined at read_amr_module.fpp line 68
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -2554,7 +2743,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         title(n, nchar)
         
         
-        Defined at read_amr_module.fpp lines 72-96
+        Defined at read_amr_module.fpp lines 76-100
         
         Parameters
         ----------
@@ -2570,7 +2759,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         hilbert3d(x, y, z, order, bit_length, npoint)
         
         
-        Defined at read_amr_module.fpp lines 103-175
+        Defined at read_amr_module.fpp lines 107-179
         
         Parameters
         ----------
@@ -2591,7 +2780,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         check_lmax(ngridfile, amr)
         
         
-        Defined at read_amr_module.fpp lines 183-196
+        Defined at read_amr_module.fpp lines 187-200
         
         Parameters
         ----------
@@ -2607,7 +2796,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         read_hydrofile_descriptor(repository, varids)
         
         
-        Defined at read_amr_module.fpp lines 205-237
+        Defined at read_amr_module.fpp lines 209-266
         
         Parameters
         ----------
@@ -2624,7 +2813,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         select_from_descriptor_ids(self, newvar, newid)
         
         
-        Defined at read_amr_module.fpp lines 239-331
+        Defined at read_amr_module.fpp lines 268-360
         
         Parameters
         ----------
@@ -2642,7 +2831,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         getvarvalue(self, reg, dx, x, var, varname, value)
         
         
-        Defined at read_amr_module.fpp lines 340-515
+        Defined at read_amr_module.fpp lines 369-544
         
         Parameters
         ----------
@@ -2664,7 +2853,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         init_amr_read(repository, amr, sim)
         
         
-        Defined at read_amr_module.fpp lines 524-599
+        Defined at read_amr_module.fpp lines 553-628
         
         Parameters
         ----------
@@ -2682,7 +2871,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         get_cpu_map(self, amr)
         
         
-        Defined at read_amr_module.fpp lines 607-695
+        Defined at read_amr_module.fpp lines 636-724
         
         Parameters
         ----------
@@ -2691,6 +2880,50 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         
         """
         _projections.f90wrap_get_cpu_map(reg=self._handle, amr=amr._handle)
+    
+    @staticmethod
+    def getparttype(id, age, ptype):
+        """
+        getparttype(id, age, ptype)
+        
+        
+        Defined at read_amr_module.fpp lines 726-737
+        
+        Parameters
+        ----------
+        id : int
+        age : float
+        ptype : str
+        
+        """
+        _projections.f90wrap_getparttype(id=id, age=age, ptype=ptype)
+    
+    @staticmethod
+    def getpartvalue(self, reg, x, v, id, m, age, met, imass, var, value):
+        """
+        getpartvalue(self, reg, x, v, id, m, age, met, imass, var, value)
+        
+        
+        Defined at read_amr_module.fpp lines 739-791
+        
+        Parameters
+        ----------
+        sim : Sim_Info
+        reg : Region
+        x : Vector
+        v : Vector
+        id : int
+        m : float
+        age : float
+        met : float
+        imass : float
+        var : str
+        value : float
+        
+        """
+        _projections.f90wrap_getpartvalue(sim=self._handle, reg=reg._handle, \
+            x=x._handle, v=v._handle, id=id, m=m, age=age, met=met, imass=imass, \
+            var=var, value=value)
     
     _dt_array_initialisers = []
     
@@ -2702,7 +2935,7 @@ class Filtering(f90wrap.runtime.FortranModule):
     Module filtering
     
     
-    Defined at read_amr_module.fpp lines 698-755
+    Defined at read_amr_module.fpp lines 794-851
     
     """
     @f90wrap.runtime.register_class("projections.filter")
@@ -2711,7 +2944,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         Type(name=filter)
         
         
-        Defined at read_amr_module.fpp lines 701-706
+        Defined at read_amr_module.fpp lines 797-802
         
         """
         def __init__(self, handle=None):
@@ -2719,7 +2952,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             self = Filter()
             
             
-            Defined at read_amr_module.fpp lines 701-706
+            Defined at read_amr_module.fpp lines 797-802
             
             
             Returns
@@ -2739,7 +2972,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Destructor for class Filter
             
             
-            Defined at read_amr_module.fpp lines 701-706
+            Defined at read_amr_module.fpp lines 797-802
             
             Parameters
             ----------
@@ -2758,7 +2991,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element name ftype=character(128) pytype=str
             
             
-            Defined at read_amr_module.fpp line 702
+            Defined at read_amr_module.fpp line 798
             
             """
             return _projections.f90wrap_filter__get__name(self._handle)
@@ -2773,7 +3006,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element ncond ftype=integer  pytype=int
             
             
-            Defined at read_amr_module.fpp line 703
+            Defined at read_amr_module.fpp line 799
             
             """
             return _projections.f90wrap_filter__get__ncond(self._handle)
@@ -2788,7 +3021,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element cond_vars ftype=character(128) pytype=str
             
             
-            Defined at read_amr_module.fpp line 704
+            Defined at read_amr_module.fpp line 800
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -2812,7 +3045,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element cond_ops ftype=character(2) pytype=str
             
             
-            Defined at read_amr_module.fpp line 705
+            Defined at read_amr_module.fpp line 801
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -2836,7 +3069,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element cond_vals ftype=real(dbl) pytype=float
             
             
-            Defined at read_amr_module.fpp line 706
+            Defined at read_amr_module.fpp line 802
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -2878,7 +3111,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         allocate_filter(self)
         
         
-        Defined at read_amr_module.fpp lines 709-714
+        Defined at read_amr_module.fpp lines 805-810
         
         Parameters
         ----------
@@ -2893,7 +3126,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         cond_string_to_filter(str, filt)
         
         
-        Defined at read_amr_module.fpp lines 716-720
+        Defined at read_amr_module.fpp lines 812-816
         
         Parameters
         ----------
@@ -2909,7 +3142,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         filter_cell = filter_cell(self, reg, filt, cell_x, cell_dx, cell_var)
         
         
-        Defined at read_amr_module.fpp lines 722-755
+        Defined at read_amr_module.fpp lines 818-851
         
         Parameters
         ----------
@@ -2940,7 +3173,7 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
     Module obs_instruments
     
     
-    Defined at amr2map.fpp lines 5-206
+    Defined at ramses2map.fpp lines 5-192
     
     """
     @f90wrap.runtime.register_class("projections.camera")
@@ -2949,7 +3182,7 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
         Type(name=camera)
         
         
-        Defined at amr2map.fpp lines 8-12
+        Defined at ramses2map.fpp lines 8-12
         
         """
         def __init__(self, handle=None):
@@ -2957,7 +3190,7 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
             self = Camera()
             
             
-            Defined at amr2map.fpp lines 8-12
+            Defined at ramses2map.fpp lines 8-12
             
             
             Returns
@@ -2977,7 +3210,7 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
             Destructor for class Camera
             
             
-            Defined at amr2map.fpp lines 8-12
+            Defined at ramses2map.fpp lines 8-12
             
             Parameters
             ----------
@@ -2996,7 +3229,7 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
             Element centre ftype=type(vector) pytype=Vector
             
             
-            Defined at amr2map.fpp line 9
+            Defined at ramses2map.fpp line 9
             
             """
             centre_handle = _projections.f90wrap_camera__get__centre(self._handle)
@@ -3018,7 +3251,7 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
             Element los_axis ftype=type(vector) pytype=Vector
             
             
-            Defined at amr2map.fpp line 9
+            Defined at ramses2map.fpp line 9
             
             """
             los_axis_handle = _projections.f90wrap_camera__get__los_axis(self._handle)
@@ -3040,7 +3273,7 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
             Element up_vector ftype=type(vector) pytype=Vector
             
             
-            Defined at amr2map.fpp line 9
+            Defined at ramses2map.fpp line 9
             
             """
             up_vector_handle = _projections.f90wrap_camera__get__up_vector(self._handle)
@@ -3062,7 +3295,7 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
             Element region_size ftype=real(dbl) pytype=float
             
             
-            Defined at amr2map.fpp line 10
+            Defined at ramses2map.fpp line 10
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -3086,7 +3319,7 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
             Element distance ftype=real(dbl) pytype=float
             
             
-            Defined at amr2map.fpp line 11
+            Defined at ramses2map.fpp line 11
             
             """
             return _projections.f90wrap_camera__get__distance(self._handle)
@@ -3101,7 +3334,7 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
             Element far_cut_depth ftype=real(dbl) pytype=float
             
             
-            Defined at amr2map.fpp line 11
+            Defined at ramses2map.fpp line 11
             
             """
             return _projections.f90wrap_camera__get__far_cut_depth(self._handle)
@@ -3116,7 +3349,7 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
             Element map_max_size ftype=integer  pytype=int
             
             
-            Defined at amr2map.fpp line 12
+            Defined at ramses2map.fpp line 12
             
             """
             return _projections.f90wrap_camera__get__map_max_size(self._handle)
@@ -3153,7 +3386,7 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
         log2 = log2(x)
         
         
-        Defined at amr2map.fpp lines 16-19
+        Defined at ramses2map.fpp lines 16-19
         
         Parameters
         ----------
@@ -3175,7 +3408,7 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
             far_cut_depth, map_max_size)
         
         
-        Defined at amr2map.fpp lines 21-46
+        Defined at ramses2map.fpp lines 21-33
         
         Parameters
         ----------
@@ -3207,7 +3440,7 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
         get_required_resolution = get_required_resolution(self)
         
         
-        Defined at amr2map.fpp lines 48-51
+        Defined at ramses2map.fpp lines 35-38
         
         Parameters
         ----------
@@ -3228,7 +3461,7 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
         get_map_size(self, n_map)
         
         
-        Defined at amr2map.fpp lines 53-65
+        Defined at ramses2map.fpp lines 40-52
         
         Parameters
         ----------
@@ -3244,7 +3477,7 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
         get_map_box(self, box)
         
         
-        Defined at amr2map.fpp lines 67-77
+        Defined at ramses2map.fpp lines 54-64
         
         Parameters
         ----------
@@ -3260,7 +3493,7 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
         get_camera_basis(self, cam_basis)
         
         
-        Defined at amr2map.fpp lines 99-107
+        Defined at ramses2map.fpp lines 86-94
         
         Parameters
         ----------
@@ -3277,7 +3510,7 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
         los_transformation(self, trans_matrix)
         
         
-        Defined at amr2map.fpp lines 109-120
+        Defined at ramses2map.fpp lines 96-107
         
         Parameters
         ----------
@@ -3294,7 +3527,7 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
         get_bounding_box(self, bbox)
         
         
-        Defined at amr2map.fpp lines 122-166
+        Defined at ramses2map.fpp lines 109-153
         
         Parameters
         ----------
@@ -3310,7 +3543,7 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
         deproject_points(self, npoints, points)
         
         
-        Defined at amr2map.fpp lines 168-185
+        Defined at ramses2map.fpp lines 155-172
         
         Parameters
         ----------
@@ -3328,7 +3561,7 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
         project_points(self, npoints, points)
         
         
-        Defined at amr2map.fpp lines 187-205
+        Defined at ramses2map.fpp lines 174-191
         
         Parameters
         ----------
@@ -3345,34 +3578,270 @@ class Obs_Instruments(f90wrap.runtime.FortranModule):
 
 obs_instruments = Obs_Instruments()
 
-class Amr_Map(f90wrap.runtime.FortranModule):
+class Maps(f90wrap.runtime.FortranModule):
     """
-    Module amr_map
+    Module maps
     
     
-    Defined at amr2map.fpp lines 208-554
+    Defined at ramses2map.fpp lines 194-716
     
     """
-    @staticmethod
-    def projection(repository, cam, bulk_velocity):
+    @f90wrap.runtime.register_class("projections.projection_handler")
+    class projection_handler(f90wrap.runtime.FortranDerivedType):
         """
-        projection(repository, cam, bulk_velocity)
+        Type(name=projection_handler)
         
         
-        Defined at amr2map.fpp lines 216-251
+        Defined at ramses2map.fpp lines 201-206
+        
+        """
+        def __init__(self, handle=None):
+            """
+            self = Projection_Handler()
+            
+            
+            Defined at ramses2map.fpp lines 201-206
+            
+            
+            Returns
+            -------
+            this : Projection_Handler
+            	Object to be constructed
+            
+            
+            Automatically generated constructor for projection_handler
+            """
+            f90wrap.runtime.FortranDerivedType.__init__(self)
+            result = _projections.f90wrap_projection_handler_initialise()
+            self._handle = result[0] if isinstance(result, tuple) else result
+        
+        def __del__(self):
+            """
+            Destructor for class Projection_Handler
+            
+            
+            Defined at ramses2map.fpp lines 201-206
+            
+            Parameters
+            ----------
+            this : Projection_Handler
+            	Object to be destructed
+            
+            
+            Automatically generated destructor for projection_handler
+            """
+            if self._alloc:
+                _projections.f90wrap_projection_handler_finalise(this=self._handle)
+        
+        @property
+        def pov(self):
+            """
+            Element pov ftype=character(128) pytype=str
+            
+            
+            Defined at ramses2map.fpp line 202
+            
+            """
+            return _projections.f90wrap_projection_handler__get__pov(self._handle)
+        
+        @pov.setter
+        def pov(self, pov):
+            _projections.f90wrap_projection_handler__set__pov(self._handle, pov)
+        
+        @property
+        def nvars(self):
+            """
+            Element nvars ftype=integer  pytype=int
+            
+            
+            Defined at ramses2map.fpp line 203
+            
+            """
+            return _projections.f90wrap_projection_handler__get__nvars(self._handle)
+        
+        @nvars.setter
+        def nvars(self, nvars):
+            _projections.f90wrap_projection_handler__set__nvars(self._handle, nvars)
+        
+        @property
+        def varnames(self):
+            """
+            Element varnames ftype=character(128) pytype=str
+            
+            
+            Defined at ramses2map.fpp line 204
+            
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _projections.f90wrap_projection_handler__array__varnames(self._handle)
+            if array_handle in self._arrays:
+                varnames = self._arrays[array_handle]
+            else:
+                varnames = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _projections.f90wrap_projection_handler__array__varnames)
+                self._arrays[array_handle] = varnames
+            return varnames
+        
+        @varnames.setter
+        def varnames(self, varnames):
+            self.varnames[...] = varnames
+        
+        @property
+        def weightvar(self):
+            """
+            Element weightvar ftype=character(128) pytype=str
+            
+            
+            Defined at ramses2map.fpp line 205
+            
+            """
+            return _projections.f90wrap_projection_handler__get__weightvar(self._handle)
+        
+        @weightvar.setter
+        def weightvar(self, weightvar):
+            _projections.f90wrap_projection_handler__set__weightvar(self._handle, weightvar)
+        
+        @property
+        def toto(self):
+            """
+            Element toto ftype=real(dbl) pytype=float
+            
+            
+            Defined at ramses2map.fpp line 206
+            
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _projections.f90wrap_projection_handler__array__toto(self._handle)
+            if array_handle in self._arrays:
+                toto = self._arrays[array_handle]
+            else:
+                toto = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _projections.f90wrap_projection_handler__array__toto)
+                self._arrays[array_handle] = toto
+            return toto
+        
+        @toto.setter
+        def toto(self, toto):
+            self.toto[...] = toto
+        
+        def __str__(self):
+            ret = ['<projection_handler>{\n']
+            ret.append('    pov : ')
+            ret.append(repr(self.pov))
+            ret.append(',\n    nvars : ')
+            ret.append(repr(self.nvars))
+            ret.append(',\n    varnames : ')
+            ret.append(repr(self.varnames))
+            ret.append(',\n    weightvar : ')
+            ret.append(repr(self.weightvar))
+            ret.append(',\n    toto : ')
+            ret.append(repr(self.toto))
+            ret.append('}')
+            return ''.join(ret)
+        
+        _dt_array_initialisers = []
+        
+    
+    @staticmethod
+    def allocate_projection_handler(self):
+        """
+        allocate_projection_handler(self)
+        
+        
+        Defined at ramses2map.fpp lines 209-212
+        
+        Parameters
+        ----------
+        proj : Projection_Handler
+        
+        """
+        _projections.f90wrap_allocate_projection_handler(proj=self._handle)
+    
+    @staticmethod
+    def projection_hydro(repository, cam, bulk_velocity, proj):
+        """
+        projection_hydro(repository, cam, bulk_velocity, proj)
+        
+        
+        Defined at ramses2map.fpp lines 214-241
         
         Parameters
         ----------
         repository : str
         cam : Camera
         bulk_velocity : Vector
+        proj : Projection_Handler
         
         """
-        _projections.f90wrap_projection(repository=repository, cam=cam._handle, \
-            bulk_velocity=bulk_velocity._handle)
+        _projections.f90wrap_projection_hydro(repository=repository, cam=cam._handle, \
+            bulk_velocity=bulk_velocity._handle, proj=proj._handle)
+    
+    @staticmethod
+    def project_cells(repository, amr, bbox, varids, cam, proj):
+        """
+        project_cells(repository, amr, bbox, varids, cam, proj)
+        
+        
+        Defined at ramses2map.fpp lines 243-539
+        
+        Parameters
+        ----------
+        repository : str
+        amr : Amr_Info
+        bbox : Region
+        varids : Hydroid
+        cam : Camera
+        proj : Projection_Handler
+        
+        """
+        _projections.f90wrap_project_cells(repository=repository, amr=amr._handle, \
+            bbox=bbox._handle, varids=varids._handle, cam=cam._handle, \
+            proj=proj._handle)
+    
+    @staticmethod
+    def projection_parts(repository, cam, bulk_velocity, proj):
+        """
+        projection_parts(repository, cam, bulk_velocity, proj)
+        
+        
+        Defined at ramses2map.fpp lines 541-560
+        
+        Parameters
+        ----------
+        repository : str
+        cam : Camera
+        bulk_velocity : Vector
+        proj : Projection_Handler
+        
+        """
+        _projections.f90wrap_projection_parts(repository=repository, cam=cam._handle, \
+            bulk_velocity=bulk_velocity._handle, proj=proj._handle)
+    
+    @staticmethod
+    def project_particles(repository, amr, sim, bbox, cam, proj):
+        """
+        project_particles(repository, amr, sim, bbox, cam, proj)
+        
+        
+        Defined at ramses2map.fpp lines 562-716
+        
+        Parameters
+        ----------
+        repository : str
+        amr : Amr_Info
+        sim : Sim_Info
+        bbox : Region
+        cam : Camera
+        proj : Projection_Handler
+        
+        """
+        _projections.f90wrap_project_particles(repository=repository, amr=amr._handle, \
+            sim=sim._handle, bbox=bbox._handle, cam=cam._handle, proj=proj._handle)
     
     _dt_array_initialisers = []
     
 
-amr_map = Amr_Map()
+maps = Maps()
 

@@ -1,4 +1,4 @@
-! Module obs_instruments defined in file amr2map.fpp
+! Module obs_instruments defined in file ramses2map.fpp
 
 subroutine f90wrap_camera__get__centre(this, f90wrap_centre)
     use obs_instruments, only: camera
@@ -261,8 +261,8 @@ end subroutine f90wrap_log2
 
 subroutine f90wrap_init_camera(centre, los_axis, up_vector, region_size, distance, far_cut_depth, ret_init_camera, &
     map_max_size, n0)
+    use obs_instruments, only: init_camera, camera
     use vectors, only: vector
-    use obs_instruments, only: camera, init_camera
     implicit none
     
     type camera_ptr_type
@@ -295,7 +295,7 @@ subroutine f90wrap_init_camera(centre, los_axis, up_vector, region_size, distanc
 end subroutine f90wrap_init_camera
 
 subroutine f90wrap_get_required_resolution(ret_get_required_resolution, cam)
-    use obs_instruments, only: camera, get_required_resolution
+    use obs_instruments, only: get_required_resolution, camera
     implicit none
     
     type camera_ptr_type
@@ -325,8 +325,8 @@ subroutine f90wrap_get_map_size(cam, n_map, n0)
 end subroutine f90wrap_get_map_size
 
 subroutine f90wrap_get_map_box(cam, box)
-    use obs_instruments, only: camera, get_map_box
     use geometrical_regions, only: region
+    use obs_instruments, only: get_map_box, camera
     implicit none
     
     type camera_ptr_type
@@ -383,8 +383,8 @@ subroutine f90wrap_los_transformation(cam, trans_matrix, n0, n1)
 end subroutine f90wrap_los_transformation
 
 subroutine f90wrap_get_bounding_box(cam, bbox)
-    use obs_instruments, only: camera, get_bounding_box
     use geometrical_regions, only: region
+    use obs_instruments, only: get_bounding_box, camera
     implicit none
     
     type camera_ptr_type
@@ -440,19 +440,193 @@ subroutine f90wrap_project_points(cam, npoints, points, n0, n1)
     call project_points(cam=cam_ptr%p, npoints=npoints, points=points)
 end subroutine f90wrap_project_points
 
-! End of module obs_instruments defined in file amr2map.fpp
+! End of module obs_instruments defined in file ramses2map.fpp
 
-! Module amr_map defined in file amr2map.fpp
+! Module maps defined in file ramses2map.fpp
 
-subroutine f90wrap_projection(repository, cam, bulk_velocity)
-    use amr_map, only: projection
+subroutine f90wrap_projection_handler__get__pov(this, f90wrap_pov)
+    use maps, only: projection_handler
+    implicit none
+    type projection_handler_ptr_type
+        type(projection_handler), pointer :: p => NULL()
+    end type projection_handler_ptr_type
+    integer, intent(in)   :: this(2)
+    type(projection_handler_ptr_type) :: this_ptr
+    character(128), intent(out) :: f90wrap_pov
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_pov = this_ptr%p%pov
+end subroutine f90wrap_projection_handler__get__pov
+
+subroutine f90wrap_projection_handler__set__pov(this, f90wrap_pov)
+    use maps, only: projection_handler
+    implicit none
+    type projection_handler_ptr_type
+        type(projection_handler), pointer :: p => NULL()
+    end type projection_handler_ptr_type
+    integer, intent(in)   :: this(2)
+    type(projection_handler_ptr_type) :: this_ptr
+    character(128), intent(in) :: f90wrap_pov
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%pov = f90wrap_pov
+end subroutine f90wrap_projection_handler__set__pov
+
+subroutine f90wrap_projection_handler__get__nvars(this, f90wrap_nvars)
+    use maps, only: projection_handler
+    implicit none
+    type projection_handler_ptr_type
+        type(projection_handler), pointer :: p => NULL()
+    end type projection_handler_ptr_type
+    integer, intent(in)   :: this(2)
+    type(projection_handler_ptr_type) :: this_ptr
+    integer, intent(out) :: f90wrap_nvars
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_nvars = this_ptr%p%nvars
+end subroutine f90wrap_projection_handler__get__nvars
+
+subroutine f90wrap_projection_handler__set__nvars(this, f90wrap_nvars)
+    use maps, only: projection_handler
+    implicit none
+    type projection_handler_ptr_type
+        type(projection_handler), pointer :: p => NULL()
+    end type projection_handler_ptr_type
+    integer, intent(in)   :: this(2)
+    type(projection_handler_ptr_type) :: this_ptr
+    integer, intent(in) :: f90wrap_nvars
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%nvars = f90wrap_nvars
+end subroutine f90wrap_projection_handler__set__nvars
+
+subroutine f90wrap_projection_handler__array__varnames(this, nd, dtype, dshape, dloc)
+    use maps, only: projection_handler
+    implicit none
+    type projection_handler_ptr_type
+        type(projection_handler), pointer :: p => NULL()
+    end type projection_handler_ptr_type
+    integer, intent(in) :: this(2)
+    type(projection_handler_ptr_type) :: this_ptr
+    integer, intent(out) :: nd
+    integer, intent(out) :: dtype
+    integer, dimension(10), intent(out) :: dshape
+    integer*8, intent(out) :: dloc
+    
+    nd = 2
+    dtype = 2
+    this_ptr = transfer(this, this_ptr)
+    if (allocated(this_ptr%p%varnames)) then
+        dshape(1:2) = (/len(this_ptr%p%varnames(1)), shape(this_ptr%p%varnames)/)
+        dloc = loc(this_ptr%p%varnames)
+    else
+        dloc = 0
+    end if
+end subroutine f90wrap_projection_handler__array__varnames
+
+subroutine f90wrap_projection_handler__get__weightvar(this, f90wrap_weightvar)
+    use maps, only: projection_handler
+    implicit none
+    type projection_handler_ptr_type
+        type(projection_handler), pointer :: p => NULL()
+    end type projection_handler_ptr_type
+    integer, intent(in)   :: this(2)
+    type(projection_handler_ptr_type) :: this_ptr
+    character(128), intent(out) :: f90wrap_weightvar
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_weightvar = this_ptr%p%weightvar
+end subroutine f90wrap_projection_handler__get__weightvar
+
+subroutine f90wrap_projection_handler__set__weightvar(this, f90wrap_weightvar)
+    use maps, only: projection_handler
+    implicit none
+    type projection_handler_ptr_type
+        type(projection_handler), pointer :: p => NULL()
+    end type projection_handler_ptr_type
+    integer, intent(in)   :: this(2)
+    type(projection_handler_ptr_type) :: this_ptr
+    character(128), intent(in) :: f90wrap_weightvar
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%weightvar = f90wrap_weightvar
+end subroutine f90wrap_projection_handler__set__weightvar
+
+subroutine f90wrap_projection_handler__array__toto(this, nd, dtype, dshape, dloc)
+    use maps, only: projection_handler
+    implicit none
+    type projection_handler_ptr_type
+        type(projection_handler), pointer :: p => NULL()
+    end type projection_handler_ptr_type
+    integer, intent(in) :: this(2)
+    type(projection_handler_ptr_type) :: this_ptr
+    integer, intent(out) :: nd
+    integer, intent(out) :: dtype
+    integer, dimension(10), intent(out) :: dshape
+    integer*8, intent(out) :: dloc
+    
+    nd = 3
+    dtype = 12
+    this_ptr = transfer(this, this_ptr)
+    if (allocated(this_ptr%p%toto)) then
+        dshape(1:3) = shape(this_ptr%p%toto)
+        dloc = loc(this_ptr%p%toto)
+    else
+        dloc = 0
+    end if
+end subroutine f90wrap_projection_handler__array__toto
+
+subroutine f90wrap_projection_handler_initialise(this)
+    use maps, only: projection_handler
+    implicit none
+    
+    type projection_handler_ptr_type
+        type(projection_handler), pointer :: p => NULL()
+    end type projection_handler_ptr_type
+    type(projection_handler_ptr_type) :: this_ptr
+    integer, intent(out), dimension(2) :: this
+    allocate(this_ptr%p)
+    this = transfer(this_ptr, this)
+end subroutine f90wrap_projection_handler_initialise
+
+subroutine f90wrap_projection_handler_finalise(this)
+    use maps, only: projection_handler
+    implicit none
+    
+    type projection_handler_ptr_type
+        type(projection_handler), pointer :: p => NULL()
+    end type projection_handler_ptr_type
+    type(projection_handler_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    this_ptr = transfer(this, this_ptr)
+    deallocate(this_ptr%p)
+end subroutine f90wrap_projection_handler_finalise
+
+subroutine f90wrap_allocate_projection_handler(proj)
+    use maps, only: projection_handler, allocate_projection_handler
+    implicit none
+    
+    type projection_handler_ptr_type
+        type(projection_handler), pointer :: p => NULL()
+    end type projection_handler_ptr_type
+    type(projection_handler_ptr_type) :: proj_ptr
+    integer, intent(in), dimension(2) :: proj
+    proj_ptr = transfer(proj, proj_ptr)
+    call allocate_projection_handler(proj=proj_ptr%p)
+end subroutine f90wrap_allocate_projection_handler
+
+subroutine f90wrap_projection_hydro(repository, cam, bulk_velocity, proj)
     use obs_instruments, only: camera
+    use maps, only: projection_hydro, projection_handler
     use vectors, only: vector
     implicit none
     
     type camera_ptr_type
         type(camera), pointer :: p => NULL()
     end type camera_ptr_type
+    type projection_handler_ptr_type
+        type(projection_handler), pointer :: p => NULL()
+    end type projection_handler_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
@@ -461,10 +635,125 @@ subroutine f90wrap_projection(repository, cam, bulk_velocity)
     integer, intent(in), dimension(2) :: cam
     type(vector_ptr_type) :: bulk_velocity_ptr
     integer, intent(in), dimension(2) :: bulk_velocity
+    type(projection_handler_ptr_type) :: proj_ptr
+    integer, intent(in), dimension(2) :: proj
     cam_ptr = transfer(cam, cam_ptr)
     bulk_velocity_ptr = transfer(bulk_velocity, bulk_velocity_ptr)
-    call projection(repository=repository, cam=cam_ptr%p, bulk_velocity=bulk_velocity_ptr%p)
-end subroutine f90wrap_projection
+    proj_ptr = transfer(proj, proj_ptr)
+    call projection_hydro(repository=repository, cam=cam_ptr%p, bulk_velocity=bulk_velocity_ptr%p, proj=proj_ptr%p)
+end subroutine f90wrap_projection_hydro
 
-! End of module amr_map defined in file amr2map.fpp
+subroutine f90wrap_project_cells(repository, amr, bbox, varids, cam, proj)
+    use maps, only: project_cells, projection_handler
+    use obs_instruments, only: camera
+    use io_ramses, only: amr_info, hydroid
+    use geometrical_regions, only: region
+    implicit none
+    
+    type camera_ptr_type
+        type(camera), pointer :: p => NULL()
+    end type camera_ptr_type
+    type amr_info_ptr_type
+        type(amr_info), pointer :: p => NULL()
+    end type amr_info_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
+    type projection_handler_ptr_type
+        type(projection_handler), pointer :: p => NULL()
+    end type projection_handler_ptr_type
+    type hydroid_ptr_type
+        type(hydroid), pointer :: p => NULL()
+    end type hydroid_ptr_type
+    character(128), intent(in) :: repository
+    type(amr_info_ptr_type) :: amr_ptr
+    integer, intent(in), dimension(2) :: amr
+    type(region_ptr_type) :: bbox_ptr
+    integer, intent(in), dimension(2) :: bbox
+    type(hydroid_ptr_type) :: varids_ptr
+    integer, intent(in), dimension(2) :: varids
+    type(camera_ptr_type) :: cam_ptr
+    integer, intent(in), dimension(2) :: cam
+    type(projection_handler_ptr_type) :: proj_ptr
+    integer, intent(in), dimension(2) :: proj
+    amr_ptr = transfer(amr, amr_ptr)
+    bbox_ptr = transfer(bbox, bbox_ptr)
+    varids_ptr = transfer(varids, varids_ptr)
+    cam_ptr = transfer(cam, cam_ptr)
+    proj_ptr = transfer(proj, proj_ptr)
+    call project_cells(repository=repository, amr=amr_ptr%p, bbox=bbox_ptr%p, varIDs=varids_ptr%p, cam=cam_ptr%p, &
+        proj=proj_ptr%p)
+end subroutine f90wrap_project_cells
+
+subroutine f90wrap_projection_parts(repository, cam, bulk_velocity, proj)
+    use maps, only: projection_handler, projection_parts
+    use obs_instruments, only: camera
+    use vectors, only: vector
+    implicit none
+    
+    type camera_ptr_type
+        type(camera), pointer :: p => NULL()
+    end type camera_ptr_type
+    type projection_handler_ptr_type
+        type(projection_handler), pointer :: p => NULL()
+    end type projection_handler_ptr_type
+    type vector_ptr_type
+        type(vector), pointer :: p => NULL()
+    end type vector_ptr_type
+    character(128), intent(in) :: repository
+    type(camera_ptr_type) :: cam_ptr
+    integer, intent(in), dimension(2) :: cam
+    type(vector_ptr_type) :: bulk_velocity_ptr
+    integer, intent(in), dimension(2) :: bulk_velocity
+    type(projection_handler_ptr_type) :: proj_ptr
+    integer, intent(in), dimension(2) :: proj
+    cam_ptr = transfer(cam, cam_ptr)
+    bulk_velocity_ptr = transfer(bulk_velocity, bulk_velocity_ptr)
+    proj_ptr = transfer(proj, proj_ptr)
+    call projection_parts(repository=repository, cam=cam_ptr%p, bulk_velocity=bulk_velocity_ptr%p, proj=proj_ptr%p)
+end subroutine f90wrap_projection_parts
+
+subroutine f90wrap_project_particles(repository, amr, sim, bbox, cam, proj)
+    use maps, only: project_particles, projection_handler
+    use obs_instruments, only: camera
+    use io_ramses, only: amr_info, sim_info
+    use geometrical_regions, only: region
+    implicit none
+    
+    type camera_ptr_type
+        type(camera), pointer :: p => NULL()
+    end type camera_ptr_type
+    type amr_info_ptr_type
+        type(amr_info), pointer :: p => NULL()
+    end type amr_info_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
+    type projection_handler_ptr_type
+        type(projection_handler), pointer :: p => NULL()
+    end type projection_handler_ptr_type
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    character(128), intent(in) :: repository
+    type(amr_info_ptr_type) :: amr_ptr
+    integer, intent(in), dimension(2) :: amr
+    type(sim_info_ptr_type) :: sim_ptr
+    integer, intent(in), dimension(2) :: sim
+    type(region_ptr_type) :: bbox_ptr
+    integer, intent(in), dimension(2) :: bbox
+    type(camera_ptr_type) :: cam_ptr
+    integer, intent(in), dimension(2) :: cam
+    type(projection_handler_ptr_type) :: proj_ptr
+    integer, intent(in), dimension(2) :: proj
+    amr_ptr = transfer(amr, amr_ptr)
+    sim_ptr = transfer(sim, sim_ptr)
+    bbox_ptr = transfer(bbox, bbox_ptr)
+    cam_ptr = transfer(cam, cam_ptr)
+    proj_ptr = transfer(proj, proj_ptr)
+    call project_particles(repository=repository, amr=amr_ptr%p, sim=sim_ptr%p, bbox=bbox_ptr%p, cam=cam_ptr%p, &
+        proj=proj_ptr%p)
+end subroutine f90wrap_project_particles
+
+! End of module maps defined in file ramses2map.fpp
 

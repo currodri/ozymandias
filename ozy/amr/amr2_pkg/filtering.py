@@ -2,7 +2,7 @@
 Module filtering
 
 
-Defined at read_amr_module.fpp lines 695-752
+Defined at read_amr_module.fpp lines 721-778
 
 """
 from __future__ import print_function, absolute_import, division
@@ -19,7 +19,7 @@ class filter(f90wrap.runtime.FortranDerivedType):
     Type(name=filter)
     
     
-    Defined at read_amr_module.fpp lines 698-703
+    Defined at read_amr_module.fpp lines 724-729
     
     """
     def __init__(self, handle=None):
@@ -27,7 +27,7 @@ class filter(f90wrap.runtime.FortranDerivedType):
         self = Filter()
         
         
-        Defined at read_amr_module.fpp lines 698-703
+        Defined at read_amr_module.fpp lines 724-729
         
         
         Returns
@@ -47,7 +47,7 @@ class filter(f90wrap.runtime.FortranDerivedType):
         Destructor for class Filter
         
         
-        Defined at read_amr_module.fpp lines 698-703
+        Defined at read_amr_module.fpp lines 724-729
         
         Parameters
         ----------
@@ -66,7 +66,7 @@ class filter(f90wrap.runtime.FortranDerivedType):
         Element name ftype=character(128) pytype=str
         
         
-        Defined at read_amr_module.fpp line 699
+        Defined at read_amr_module.fpp line 725
         
         """
         return _amr2_pkg.f90wrap_filter__get__name(self._handle)
@@ -81,7 +81,7 @@ class filter(f90wrap.runtime.FortranDerivedType):
         Element ncond ftype=integer  pytype=int
         
         
-        Defined at read_amr_module.fpp line 700
+        Defined at read_amr_module.fpp line 726
         
         """
         return _amr2_pkg.f90wrap_filter__get__ncond(self._handle)
@@ -96,7 +96,7 @@ class filter(f90wrap.runtime.FortranDerivedType):
         Element cond_vars ftype=character(128) pytype=str
         
         
-        Defined at read_amr_module.fpp line 701
+        Defined at read_amr_module.fpp line 727
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -120,7 +120,7 @@ class filter(f90wrap.runtime.FortranDerivedType):
         Element cond_ops ftype=character(2) pytype=str
         
         
-        Defined at read_amr_module.fpp line 702
+        Defined at read_amr_module.fpp line 728
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -144,7 +144,7 @@ class filter(f90wrap.runtime.FortranDerivedType):
         Element cond_vals ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 703
+        Defined at read_amr_module.fpp line 729
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -185,7 +185,7 @@ def allocate_filter(self):
     allocate_filter(self)
     
     
-    Defined at read_amr_module.fpp lines 706-711
+    Defined at read_amr_module.fpp lines 732-737
     
     Parameters
     ----------
@@ -199,7 +199,7 @@ def cond_string_to_filter(str, filt):
     cond_string_to_filter(str, filt)
     
     
-    Defined at read_amr_module.fpp lines 713-717
+    Defined at read_amr_module.fpp lines 739-743
     
     Parameters
     ----------
@@ -214,7 +214,7 @@ def filter_cell(self, reg, filt, cell_x, cell_dx, cell_var):
     filter_cell = filter_cell(self, reg, filt, cell_x, cell_dx, cell_var)
     
     
-    Defined at read_amr_module.fpp lines 719-752
+    Defined at read_amr_module.fpp lines 745-778
     
     Parameters
     ----------
