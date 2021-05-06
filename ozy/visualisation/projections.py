@@ -3583,7 +3583,7 @@ class Maps(f90wrap.runtime.FortranModule):
     Module maps
     
     
-    Defined at ramses2map.fpp lines 194-716
+    Defined at ramses2map.fpp lines 194-1017
     
     """
     @f90wrap.runtime.register_class("projections.projection_handler")
@@ -3784,7 +3784,7 @@ class Maps(f90wrap.runtime.FortranModule):
         project_cells(repository, amr, bbox, varids, cam, proj)
         
         
-        Defined at ramses2map.fpp lines 243-539
+        Defined at ramses2map.fpp lines 243-538
         
         Parameters
         ----------
@@ -3806,7 +3806,7 @@ class Maps(f90wrap.runtime.FortranModule):
         projection_parts(repository, cam, bulk_velocity, proj)
         
         
-        Defined at ramses2map.fpp lines 541-560
+        Defined at ramses2map.fpp lines 540-559
         
         Parameters
         ----------
@@ -3825,7 +3825,7 @@ class Maps(f90wrap.runtime.FortranModule):
         project_particles(repository, amr, sim, bbox, cam, proj)
         
         
-        Defined at ramses2map.fpp lines 562-716
+        Defined at ramses2map.fpp lines 561-715
         
         Parameters
         ----------
@@ -3839,6 +3839,46 @@ class Maps(f90wrap.runtime.FortranModule):
         """
         _projections.f90wrap_project_particles(repository=repository, amr=amr._handle, \
             sim=sim._handle, bbox=bbox._handle, cam=cam._handle, proj=proj._handle)
+    
+    @staticmethod
+    def healpix_hydro(repository, reg, nside, proj):
+        """
+        healpix_hydro(repository, reg, nside, proj)
+        
+        
+        Defined at ramses2map.fpp lines 717-732
+        
+        Parameters
+        ----------
+        repository : str
+        reg : Region
+        nside : int
+        proj : Projection_Handler
+        
+        """
+        _projections.f90wrap_healpix_hydro(repository=repository, reg=reg._handle, \
+            nside=nside, proj=proj._handle)
+    
+    @staticmethod
+    def project_cells_hpix(repository, amr, reg, varids, nside, proj):
+        """
+        project_cells_hpix(repository, amr, reg, varids, nside, proj)
+        
+        
+        Defined at ramses2map.fpp lines 734-1017
+        
+        Parameters
+        ----------
+        repository : str
+        amr : Amr_Info
+        reg : Region
+        varids : Hydroid
+        nside : int
+        proj : Projection_Handler
+        
+        """
+        _projections.f90wrap_project_cells_hpix(repository=repository, amr=amr._handle, \
+            reg=reg._handle, varids=varids._handle, nside=nside, proj=proj._handle)
     
     _dt_array_initialisers = []
     

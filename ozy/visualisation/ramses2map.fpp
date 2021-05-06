@@ -318,9 +318,6 @@ module maps
 
         type(level),dimension(1:100) :: grid
 
-        ! Check that between the required variables are hydro variables
-
-
 
         ncells = 0
 
@@ -813,4 +810,343 @@ module maps
         end do cpuloop
     end subroutine project_particles
 
+    subroutine healpix_hydro(repository,reg,nside,proj)
+        implicit none
+        character(128),intent(in) :: repository
+        type(region),intent(in) :: reg
+        integer,intent(in) :: nside
+        type(projection_handler),intent(inout) :: proj
+
+        type(hydroID) :: varIDs
+        type(amr_info) :: amr
+        type(sim_info) :: sim
+
+        call read_hydrofile_descriptor(repository,varIDs)
+        call init_amr_read(repository,amr,sim)
+        amr%lmax=amr%nlevelmax
+        call get_cpu_map(reg,amr)
+        write(*,*)'ncpu_read=',amr%ncpu_read
+        ! Perform projections
+        call project_cells_hpix(repository,amr,reg,varIDs,nside,proj)
+    end subroutine healpix_hydro
+
+    subroutine project_cells_hpix(repository,amr,reg,varIDs,nside,proj)
+        use healpix_modules
+        implicit none
+        character(128),intent(in) :: repository
+        type(amr_info),intent(in) :: amr
+        type(region),intent(in) :: reg
+        type(hydroID),intent(in) :: varIDs
+        integer,intent(in) :: nside
+        type(projection_handler),intent(inout) :: proj
+
+        logical :: ok_cell
+        integer :: i,j,k
+        integer :: ipos,icpu,ilevel,ind,idim,iidim,ivar
+        integer :: ix,iy,iz,ngrida,ns
+        integer :: imin,imax
+        integer :: nvarh
+        integer :: roterr
+        character(5) :: nchar,ncharcpu
+        character(128) :: nomfich
+        real(dbl) :: distance,dx
+        type(vector) :: xtemp,vtemp,los,y_axis
+        integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
+        real(dbl),dimension(1:3) :: xvec
+        real(dbl),dimension(1:8,1:3) :: xc
+        real(dbl),dimension(1:3,1:3) :: trans_matrix
+        real(dbl),dimension(:,:),allocatable :: xg,x
+        real(dbl),dimension(:,:,:),allocatable :: var
+        real(dbl),dimension(:),allocatable :: proj_rho
+        integer,dimension(:,:),allocatable :: son
+        integer,dimension(:),allocatable :: listpix,listpix_clean
+        logical,dimension(:),allocatable :: ref
+        real(dbl) :: rho,map,weight,aperture
+        real(dbl) :: xmin,ymin
+        integer :: ndom
+        integer :: ncells
+        integer :: nlist
+        
+        ! type(level),dimension(1:100) :: grid
+        type(basis) :: hpix_basis
+
+        y_axis = (/0D0,1D0,0D0/)
+
+        ncells = 0
+
+        ns = nside2npix(nside)-1
+        write(*,*)'Total number of healpix map: ',ns+1
+        allocate(proj%toto(1:proj%nvars,1:1,0:ns))
+        allocate(proj_rho(0:ns))
+        allocate(listpix(0:ns))
+        proj%toto = 0D0
+        proj_rho = 0D0
+        listpix = -1
+
+        ! Compute hierarchy
+        ! do ilevel=1,amr%lmax
+        !     imin = 0
+        !     imax = nside2npix(2**ilevel)-1
+        !     allocate(grid(ilevel)%map(1:proj%nvars,1:1,imin:imax))
+        !     allocate(grid(ilevel)%rho(1:1,imin:imax))
+        !     grid(ilevel)%map(:,:,:) = 0D0
+        !     grid(ilevel)%rho(:,:) = 0D0
+        !     grid(ilevel)%imin = imin
+        !     grid(ilevel)%imax = imax
+        ! end do
+
+        ! Get transformation matrix. Default: Region axis is z axis, LOS is y axis
+        los = y_axis - (y_axis.DOT.reg%axis)*reg%axis
+        los = los / magnitude(los)
+        hpix_basis%u(1) = los
+        hpix_basis%u(2) = reg%axis * los
+        hpix_basis%u(2) = hpix_basis%u(2) / magnitude(hpix_basis%u(2))
+        hpix_basis%u(3) = reg%axis
+        
+        trans_matrix = 0D0
+        do i=1,3
+            trans_matrix(i,:) = hpix_basis%u(i)
+        end do
+
+        allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
+        allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
+        if(amr%nboundary>0)allocate(ngridbound(1:amr%nboundary,1:amr%nlevelmax))
+
+        ipos=INDEX(repository,'output_')
+        nchar=repository(ipos+7:ipos+13)
+        ! Loop over processor files
+        cpuloop: do k=1,amr%ncpu_read
+            icpu = amr%cpu_list(k)
+            call title(icpu,ncharcpu)
+
+            ! Open AMR file and skip header
+            nomfich = TRIM(repository)//'/amr_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+            open(unit=10,file=nomfich,status='old',form='unformatted')
+            write(*,*)'Processing file '//TRIM(nomfich)
+            do i=1,21
+                read(10) ! Skip header
+            end do
+            ! Read grid numbers
+            read(10)ngridlevel
+            ngridfile(1:amr%ncpu,1:amr%nlevelmax) = ngridlevel
+            read(10) ! Skip
+            if(amr%nboundary>0) then
+                do i=1,2
+                    read(10)
+                end do
+                read(10)ngridbound
+                ngridfile(amr%ncpu+1:amr%ncpu+amr%nboundary,1:amr%nlevelmax) = ngridbound
+            endif
+            read(10) ! Skip
+            ! R. Teyssier: comment the single following line for old stuff
+            read(10)
+            if(TRIM(amr%ordering).eq.'bisection')then
+                do i=1,5
+                    read(10)
+                end do
+            else
+                read(10)
+            endif
+            read(10)
+            read(10)
+            read(10)
+
+            ! Open HYDRO file and skip header
+            nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+            open(unit=11,file=nomfich,status='old',form='unformatted')
+            read(11)
+            read(11)nvarh
+            read(11)
+            read(11)
+            read(11)
+            read(11)
+
+            ! Loop over levels
+            levelloop: do ilevel=1,amr%lmax
+                ! Geometry
+                dx = 0.5**ilevel
+                do ind=1,amr%twotondim
+                    iz=(ind-1)/4
+                    iy=(ind-1-4*iz)/2
+                    ix=(ind-1-2*iy-4*iz)
+                    xc(ind,1)=(dble(ix)-0.5D0)*dx
+                    xc(ind,2)=(dble(iy)-0.5D0)*dx
+                    xc(ind,3)=(dble(iz)-0.5D0)*dx
+                end do
+
+                ! Allocate work arrays
+                ngrida = ngridfile(icpu,ilevel)
+                ! grid(ilevel)%ngrid = ngrida
+                if(ngrida>0)then
+                    allocate(xg(1:ngrida,1:amr%ndim))
+                    allocate(son(1:ngrida,1:amr%twotondim))
+                    allocate(var(1:ngrida,1:amr%twotondim,1:nvarh))
+                    allocate(x  (1:ngrida,1:amr%ndim))
+                    allocate(ref(1:ngrida))
+                endif
+
+                ! Loop over domains
+                domloop: do j=1,amr%nboundary+amr%ncpu
+                    ! Read AMR data
+                    if (ngridfile(j,ilevel)>0) then
+                        read(10) ! Skip grid index
+                        read(10) ! Skip next index
+                        read(10) ! Skip prev index
+
+                        ! Read grid center
+                        do iidim=1,amr%ndim
+                            if(j.eq.icpu)then
+                                read(10)xg(:,iidim)
+                            else
+                                read(10)
+                            endif
+                        end do
+
+                        read(10) ! Skip father index
+                        do ind=1,2*amr%ndim
+                            read(10) ! Skip nbor index
+                        end do
+
+                        ! Read son index
+                        do ind=1,amr%twotondim
+                            if(j.eq.icpu)then
+                                read(10)son(:,ind)
+                            else
+                                read(10)
+                            end if
+                        end do
+
+                        ! Skip cpu map
+                        do ind=1,amr%twotondim
+                            read(10)
+                        end do
+
+                        ! Skip refinement map
+                        do ind=1,amr%twotondim
+                            read(10)
+                        end do
+                    endif
+
+                    ! Read HYDRO data
+                    read(11)
+                    read(11)
+                    if(ngridfile(j,ilevel)>0)then
+                        ! Read hydro variables
+                        tndimloop: do ind=1,amr%twotondim
+                            varloop: do ivar=1,nvarh
+                                if (j.eq.icpu) then
+                                    read(11)var(:,ind,ivar)
+                                else
+                                    read(11)
+                                endif
+                            end do varloop
+                        end do tndimloop
+                    endif
+                end do domloop
+
+                !Compute map
+                if (ngrida>0) then
+                    ! Loop over cells
+                    cellloop: do ind=1,amr%twotondim
+
+                        ! Compute cell center
+                        do i=1,ngrida
+                            x(i,1)=(xg(i,1)+xc(ind,1)-amr%xbound(1))
+                            x(i,2)=(xg(i,2)+xc(ind,2)-amr%xbound(2))
+                            x(i,3)=(xg(i,3)+xc(ind,3)-amr%xbound(3))
+                        end do
+
+                        ! Check if cell is refined
+                        do i=1,ngrida
+                            ref(i) = son(i,ind)>0.and.ilevel<amr%lmax
+                        end do
+
+                        ngridaloop: do i=1,ngrida
+                            ! Check if cell is inside the desired region
+                            distance = 0D0
+                            xtemp = x(i,:)
+                            x(i,:) = xtemp - reg%centre
+                            call checkifinside(x(i,:),reg,ok_cell,distance)
+                            ok_cell= ok_cell.and..not.ref(i)
+                            listpix = -1
+                            nlist = 0
+                            if (ok_cell) then
+                                xtemp = x(i,:)
+                                call rotate_vector(xtemp,trans_matrix)
+                                x(i,:) = xtemp
+                                aperture = datan(0.5*dx/distance)
+                                ! write(*,*)'datan2 done'
+                                ! write(*,*)nside,x(i,:),aperture
+                                call query_disc(nside,x(i,:),aperture,listpix,nlist)
+                                ! write(*,*)'listpix: ',listpix
+                                ! write(*,*)'query_disc done'
+                                listpix_clean = pack(listpix,listpix.ge.0)
+                                ! write(*,*)'pack done'
+                                weight = (min(distance+dx/2.,reg%rmax)-max(distance-dx/2.,reg%rmin))/dx
+                                weight = min(1.0d0,max(weight,0.0d0))
+                                if(nlist>0) then
+                                    ! write(*,*)'nlist,list: ',nlist,listpix_clean
+                                    vtemp = var(i,ind,varIDs%vx:varIDs%vz)
+                                    call rotate_vector(vtemp,trans_matrix)
+                                    var(i,ind,varIDs%vx:varIDs%vz) = vtemp
+                                    
+                                    call getvarvalue(varIDs,reg,dx,xtemp,var(i,ind,:),proj%weightvar,rho)
+                                    do j=1,size(listpix_clean)
+                                        ix = listpix_clean(j)
+                                        proj_rho(ix) = proj_rho(ix)+rho*dx*weight/(reg%rmax-reg%rmin)
+                                        ! grid(ilevel)%rho(1,ix)=grid(ilevel)%rho(1,ix)+rho*dx*weight/(reg%rmax-reg%rmin)
+                                    end do
+
+                                    projvarloop: do ivar=1,proj%nvars
+                                        call getvarvalue(varIDs,reg,dx,xtemp,var(i,ind,:),proj%varnames(ivar),map)
+                                        do j=1,size(listpix_clean)
+                                            ix = listpix_clean(j)
+                                            proj%toto(ivar,1,ix) = proj%toto(ivar,1,ix)+map*rho*dx*weight/(reg%rmax-reg%rmin)
+                                            ! grid(ilevel)%map(ivar,1,ix)=grid(ilevel)%map(ivar,1,ix)+map*rho*dx*weight/(reg%rmax-reg%rmin)
+                                        end do
+                                    end do projvarloop
+                                    
+                                    
+                                    ncells = ncells + 1
+                                endif
+
+                            endif
+                        end do ngridaloop
+                    end do cellloop
+                    deallocate(xg,son,var,ref,x)
+                endif
+            end do levelloop
+        end do cpuloop
+        write(*,*)'ncells:',ncells
+
+        ! Upload to maximum level (lmax)
+        ! imin = 0
+        ! imax = nside2npix(2**amr%lmax)-1
+        ! xloop: do ix = imin,imax
+        !     call pix2vec_ring(2**amr%lmax,ix,xvec)
+        !     ilevelloop: do ilevel=1,amr%lmax-1
+        !         call vec2pix_ring(2**ilevel,xvec,i)
+        !         projvarlooplmax: do ivar=1,proj%nvars
+        !             grid(amr%lmax)%map(ivar,1,ix)=grid(amr%lmax)%map(ivar,1,ix) + &
+        !                                         & grid(ilevel)%map(ivar,1,i)
+        !             grid(amr%lmax)%rho(1,ix)=grid(amr%lmax)%rho(1,ix) + &
+        !                                         & grid(ilevel)%rho(1,i)
+        !         end do projvarlooplmax
+        !     end do ilevelloop
+        ! end do xloop
+
+        ! write(*,*)proj%toto(1,1,:)
+        ! write(*,*)proj_rho
+        do i=0,ns
+            ! call pix2vec_ring(nside,i,xvec)
+            ! call vec2pix_ring(2**amr%lmax,xvec,ix)
+            ! ix = min(ix,imax)
+
+            projvarlooptoto: do ivar=1,proj%nvars
+                ! proj%toto(ivar,1,i)=grid(amr%lmax)%map(ivar,1,ix)/grid(amr%lmax)%rho(1,ix)
+                proj%toto(ivar,1,i) = proj%toto(ivar,1,i)/proj_rho(i)
+            end do projvarlooptoto
+         end do
+
+    end subroutine project_cells_hpix
 end module maps

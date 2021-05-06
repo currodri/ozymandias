@@ -2,7 +2,7 @@
 Module maps
 
 
-Defined at ramses2map.fpp lines 194-716
+Defined at ramses2map.fpp lines 194-1017
 
 """
 from __future__ import print_function, absolute_import, division
@@ -209,7 +209,7 @@ def project_cells(repository, amr, bbox, varids, cam, proj):
     project_cells(repository, amr, bbox, varids, cam, proj)
     
     
-    Defined at ramses2map.fpp lines 243-539
+    Defined at ramses2map.fpp lines 243-538
     
     Parameters
     ----------
@@ -230,7 +230,7 @@ def projection_parts(repository, cam, bulk_velocity, proj):
     projection_parts(repository, cam, bulk_velocity, proj)
     
     
-    Defined at ramses2map.fpp lines 541-560
+    Defined at ramses2map.fpp lines 540-559
     
     Parameters
     ----------
@@ -248,7 +248,7 @@ def project_particles(repository, amr, sim, bbox, cam, proj):
     project_particles(repository, amr, sim, bbox, cam, proj)
     
     
-    Defined at ramses2map.fpp lines 562-716
+    Defined at ramses2map.fpp lines 561-715
     
     Parameters
     ----------
@@ -262,6 +262,45 @@ def project_particles(repository, amr, sim, bbox, cam, proj):
     """
     _projections_pkg.f90wrap_project_particles(repository=repository, \
         amr=amr._handle, sim=sim._handle, bbox=bbox._handle, cam=cam._handle, \
+        proj=proj._handle)
+
+def healpix_hydro(repository, reg, nside, proj):
+    """
+    healpix_hydro(repository, reg, nside, proj)
+    
+    
+    Defined at ramses2map.fpp lines 717-732
+    
+    Parameters
+    ----------
+    repository : str
+    reg : Region
+    nside : int
+    proj : Projection_Handler
+    
+    """
+    _projections_pkg.f90wrap_healpix_hydro(repository=repository, reg=reg._handle, \
+        nside=nside, proj=proj._handle)
+
+def project_cells_hpix(repository, amr, reg, varids, nside, proj):
+    """
+    project_cells_hpix(repository, amr, reg, varids, nside, proj)
+    
+    
+    Defined at ramses2map.fpp lines 734-1017
+    
+    Parameters
+    ----------
+    repository : str
+    amr : Amr_Info
+    reg : Region
+    varids : Hydroid
+    nside : int
+    proj : Projection_Handler
+    
+    """
+    _projections_pkg.f90wrap_project_cells_hpix(repository=repository, \
+        amr=amr._handle, reg=reg._handle, varids=varids._handle, nside=nside, \
         proj=proj._handle)
 
 

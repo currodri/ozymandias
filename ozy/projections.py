@@ -183,7 +183,7 @@ def do_projection(group,vars,weight=['gas/density','star/age'],map_max_size=1024
         print("Falling back to 'faceon' (default).")
         axis = vectors.vector()
         norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
-        up = cartesian_basis['y'] - np.dot(cartesian_basis['y'],norm_L)
+        up = cartesian_basis['y'] - np.dot(cartesian_basis['y'],norm_L)*norm_L
         up /= np.linalg.norm(up)
         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
         up_vector = vectors.vector()
