@@ -2,7 +2,7 @@
 Module io_ramses
 
 
-Defined at read_amr_module.fpp lines 24-792
+Defined at read_amr_module.fpp lines 24-817
 
 """
 from __future__ import print_function, absolute_import, division
@@ -1754,7 +1754,7 @@ def getvarvalue(self, reg, dx, x, var, varname, value):
     getvarvalue(self, reg, dx, x, var, varname, value)
     
     
-    Defined at read_amr_module.fpp lines 369-544
+    Defined at read_amr_module.fpp lines 369-569
     
     Parameters
     ----------
@@ -1775,7 +1775,7 @@ def init_amr_read(repository, amr, sim):
     init_amr_read(repository, amr, sim)
     
     
-    Defined at read_amr_module.fpp lines 553-628
+    Defined at read_amr_module.fpp lines 578-653
     
     Parameters
     ----------
@@ -1792,7 +1792,7 @@ def get_cpu_map(self, amr):
     get_cpu_map(self, amr)
     
     
-    Defined at read_amr_module.fpp lines 636-724
+    Defined at read_amr_module.fpp lines 661-749
     
     Parameters
     ----------
@@ -1807,7 +1807,7 @@ def getparttype(id, age, ptype):
     getparttype(id, age, ptype)
     
     
-    Defined at read_amr_module.fpp lines 726-737
+    Defined at read_amr_module.fpp lines 751-762
     
     Parameters
     ----------
@@ -1823,7 +1823,7 @@ def getpartvalue(self, reg, x, v, id, m, age, met, imass, var, value):
     getpartvalue(self, reg, x, v, id, m, age, met, imass, var, value)
     
     
-    Defined at read_amr_module.fpp lines 739-791
+    Defined at read_amr_module.fpp lines 764-816
     
     Parameters
     ----------

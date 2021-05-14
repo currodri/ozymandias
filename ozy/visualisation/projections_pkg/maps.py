@@ -2,7 +2,7 @@
 Module maps
 
 
-Defined at ramses2map.fpp lines 194-1017
+Defined at ramses2map.fpp lines 194-986
 
 """
 from __future__ import print_function, absolute_import, division
@@ -287,7 +287,7 @@ def project_cells_hpix(repository, amr, reg, varids, nside, proj):
     project_cells_hpix(repository, amr, reg, varids, nside, proj)
     
     
-    Defined at ramses2map.fpp lines 734-1017
+    Defined at ramses2map.fpp lines 734-986
     
     Parameters
     ----------

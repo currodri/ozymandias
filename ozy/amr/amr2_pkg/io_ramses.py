@@ -2,7 +2,7 @@
 Module io_ramses
 
 
-Defined at read_amr_module.fpp lines 24-719
+Defined at read_amr_module.fpp lines 24-720
 
 """
 from __future__ import print_function, absolute_import, division
@@ -480,6 +480,21 @@ class amr_info(f90wrap.runtime.FortranDerivedType):
         _amr2_pkg.f90wrap_amr_info__set__twotondim(self._handle, twotondim)
     
     @property
+    def ndom(self):
+        """
+        Element ndom ftype=integer  pytype=int
+        
+        
+        Defined at read_amr_module.fpp line 34
+        
+        """
+        return _amr2_pkg.f90wrap_amr_info__get__ndom(self._handle)
+    
+    @ndom.setter
+    def ndom(self, ndom):
+        _amr2_pkg.f90wrap_amr_info__set__ndom(self._handle, ndom)
+    
+    @property
     def levelmin(self):
         """
         Element levelmin ftype=integer  pytype=int
@@ -662,6 +677,8 @@ class amr_info(f90wrap.runtime.FortranDerivedType):
         ret.append(repr(self.nboundary))
         ret.append(',\n    twotondim : ')
         ret.append(repr(self.twotondim))
+        ret.append(',\n    ndom : ')
+        ret.append(repr(self.ndom))
         ret.append(',\n    levelmin : ')
         ret.append(repr(self.levelmin))
         ret.append(',\n    levelmax : ')
@@ -883,6 +900,21 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
     def unit_t(self, unit_t):
         _amr2_pkg.f90wrap_sim_info__set__unit_t(self._handle, unit_t)
     
+    @property
+    def boxlen(self):
+        """
+        Element boxlen ftype=real(dbl) pytype=float
+        
+        
+        Defined at read_amr_module.fpp line 45
+        
+        """
+        return _amr2_pkg.f90wrap_sim_info__get__boxlen(self._handle)
+    
+    @boxlen.setter
+    def boxlen(self, boxlen):
+        _amr2_pkg.f90wrap_sim_info__set__boxlen(self._handle, boxlen)
+    
     def __str__(self):
         ret = ['<sim_info>{\n']
         ret.append('    t : ')
@@ -905,6 +937,8 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         ret.append(repr(self.unit_d))
         ret.append(',\n    unit_t : ')
         ret.append(repr(self.unit_t))
+        ret.append(',\n    boxlen : ')
+        ret.append(repr(self.boxlen))
         ret.append('}')
         return ''.join(ret)
     
@@ -1533,7 +1567,7 @@ def get_cpu_map(self, amr):
     get_cpu_map(self, amr)
     
     
-    Defined at read_amr_module.fpp lines 630-718
+    Defined at read_amr_module.fpp lines 630-719
     
     Parameters
     ----------

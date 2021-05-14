@@ -140,7 +140,7 @@ end subroutine f90wrap_array_vectors__set__n
 
 subroutine f90wrap_array_vectors__array_getitem__list(f90wrap_this, f90wrap_i, listitem)
     
-    use vectors, only: array_vectors, vector
+    use vectors, only: vector, array_vectors
     implicit none
     
     type array_vectors_ptr_type
@@ -170,7 +170,7 @@ end subroutine f90wrap_array_vectors__array_getitem__list
 
 subroutine f90wrap_array_vectors__array_setitem__list(f90wrap_this, f90wrap_i, listitem)
     
-    use vectors, only: array_vectors, vector
+    use vectors, only: vector, array_vectors
     implicit none
     
     type array_vectors_ptr_type
@@ -200,7 +200,7 @@ end subroutine f90wrap_array_vectors__array_setitem__list
 
 subroutine f90wrap_array_vectors__array_len__list(f90wrap_this, f90wrap_n)
     
-    use vectors, only: array_vectors, vector
+    use vectors, only: vector, array_vectors
     implicit none
     
     type array_vectors_ptr_type
@@ -248,7 +248,7 @@ subroutine f90wrap_array_vectors_finalise(this)
 end subroutine f90wrap_array_vectors_finalise
 
 subroutine f90wrap_magnitude(ret_magnitude, vec_1)
-    use vectors, only: magnitude, vector
+    use vectors, only: vector, magnitude
     implicit none
     
     type vector_ptr_type

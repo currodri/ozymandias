@@ -642,6 +642,34 @@ subroutine f90wrap_amr_info__set__twotondim(this, f90wrap_twotondim)
     this_ptr%p%twotondim = f90wrap_twotondim
 end subroutine f90wrap_amr_info__set__twotondim
 
+subroutine f90wrap_amr_info__get__ndom(this, f90wrap_ndom)
+    use io_ramses, only: amr_info
+    implicit none
+    type amr_info_ptr_type
+        type(amr_info), pointer :: p => NULL()
+    end type amr_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(amr_info_ptr_type) :: this_ptr
+    integer, intent(out) :: f90wrap_ndom
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_ndom = this_ptr%p%ndom
+end subroutine f90wrap_amr_info__get__ndom
+
+subroutine f90wrap_amr_info__set__ndom(this, f90wrap_ndom)
+    use io_ramses, only: amr_info
+    implicit none
+    type amr_info_ptr_type
+        type(amr_info), pointer :: p => NULL()
+    end type amr_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(amr_info_ptr_type) :: this_ptr
+    integer, intent(in) :: f90wrap_ndom
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%ndom = f90wrap_ndom
+end subroutine f90wrap_amr_info__set__ndom
+
 subroutine f90wrap_amr_info__get__levelmin(this, f90wrap_levelmin)
     use io_ramses, only: amr_info
     implicit none
@@ -1179,6 +1207,34 @@ subroutine f90wrap_sim_info__set__unit_t(this, f90wrap_unit_t)
     this_ptr = transfer(this, this_ptr)
     this_ptr%p%unit_t = f90wrap_unit_t
 end subroutine f90wrap_sim_info__set__unit_t
+
+subroutine f90wrap_sim_info__get__boxlen(this, f90wrap_boxlen)
+    use io_ramses, only: sim_info
+    implicit none
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(sim_info_ptr_type) :: this_ptr
+    real(8), intent(out) :: f90wrap_boxlen
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_boxlen = this_ptr%p%boxlen
+end subroutine f90wrap_sim_info__get__boxlen
+
+subroutine f90wrap_sim_info__set__boxlen(this, f90wrap_boxlen)
+    use io_ramses, only: sim_info
+    implicit none
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(sim_info_ptr_type) :: this_ptr
+    real(8), intent(in) :: f90wrap_boxlen
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%boxlen = f90wrap_boxlen
+end subroutine f90wrap_sim_info__set__boxlen
 
 subroutine f90wrap_sim_info_initialise(this)
     use io_ramses, only: sim_info
@@ -1795,7 +1851,7 @@ subroutine f90wrap_check_lmax(ngridfile, amr, n0, n1)
 end subroutine f90wrap_check_lmax
 
 subroutine f90wrap_read_hydrofile_descriptor(repository, varids)
-    use io_ramses, only: read_hydrofile_descriptor, hydroid
+    use io_ramses, only: hydroid, read_hydrofile_descriptor
     implicit none
     
     type hydroid_ptr_type
@@ -1824,9 +1880,9 @@ subroutine f90wrap_select_from_descriptor_ids(varids, newvar, newid)
 end subroutine f90wrap_select_from_descriptor_ids
 
 subroutine f90wrap_getvarvalue(varids, reg, dx, x, var, varname, value, n0)
-    use io_ramses, only: hydroid, getvarvalue
-    use geometrical_regions, only: region
     use vectors, only: vector
+    use io_ramses, only: getvarvalue, hydroid
+    use geometrical_regions, only: region
     implicit none
     
     type vector_ptr_type
@@ -1857,15 +1913,15 @@ subroutine f90wrap_getvarvalue(varids, reg, dx, x, var, varname, value, n0)
 end subroutine f90wrap_getvarvalue
 
 subroutine f90wrap_init_amr_read(repository, amr, sim)
-    use io_ramses, only: sim_info, init_amr_read, amr_info
+    use io_ramses, only: amr_info, sim_info, init_amr_read
     implicit none
     
-    type sim_info_ptr_type
-        type(sim_info), pointer :: p => NULL()
-    end type sim_info_ptr_type
     type amr_info_ptr_type
         type(amr_info), pointer :: p => NULL()
     end type amr_info_ptr_type
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
     character(128), intent(in) :: repository
     type(amr_info_ptr_type) :: amr_ptr
     integer, intent(in), dimension(2) :: amr
@@ -1881,12 +1937,12 @@ subroutine f90wrap_get_cpu_map(reg, amr)
     use geometrical_regions, only: region
     implicit none
     
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type amr_info_ptr_type
         type(amr_info), pointer :: p => NULL()
     end type amr_info_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg
     type(amr_info_ptr_type) :: amr_ptr
@@ -2055,7 +2111,7 @@ subroutine f90wrap_filter_finalise(this)
 end subroutine f90wrap_filter_finalise
 
 subroutine f90wrap_allocate_filter(filt)
-    use filtering, only: filter, allocate_filter
+    use filtering, only: allocate_filter, filter
     implicit none
     
     type filter_ptr_type
@@ -2068,7 +2124,7 @@ subroutine f90wrap_allocate_filter(filt)
 end subroutine f90wrap_allocate_filter
 
 subroutine f90wrap_cond_string_to_filter(str, filt)
-    use filtering, only: filter, cond_string_to_filter
+    use filtering, only: cond_string_to_filter, filter
     implicit none
     
     type filter_ptr_type
@@ -2082,10 +2138,10 @@ subroutine f90wrap_cond_string_to_filter(str, filt)
 end subroutine f90wrap_cond_string_to_filter
 
 subroutine f90wrap_filter_cell(varids, reg, filt, cell_x, cell_dx, ret_filter_cell, cell_var, n0)
-    use filtering, only: filter, filter_cell
-    use geometrical_regions, only: region
     use io_ramses, only: hydroid
+    use geometrical_regions, only: region
     use vectors, only: vector
+    use filtering, only: filter_cell, filter
     implicit none
     
     type vector_ptr_type

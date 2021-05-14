@@ -867,7 +867,6 @@ module maps
         integer :: ncells
         integer :: nlist
         
-        ! type(level),dimension(1:100) :: grid
         type(basis) :: hpix_basis
 
         y_axis = (/0D0,1D0,0D0/)
@@ -882,18 +881,6 @@ module maps
         proj%toto = 0D0
         proj_rho = 0D0
         listpix = -1
-
-        ! Compute hierarchy
-        ! do ilevel=1,amr%lmax
-        !     imin = 0
-        !     imax = nside2npix(2**ilevel)-1
-        !     allocate(grid(ilevel)%map(1:proj%nvars,1:1,imin:imax))
-        !     allocate(grid(ilevel)%rho(1:1,imin:imax))
-        !     grid(ilevel)%map(:,:,:) = 0D0
-        !     grid(ilevel)%rho(:,:) = 0D0
-        !     grid(ilevel)%imin = imin
-        !     grid(ilevel)%imax = imax
-        ! end do
 
         ! Get transformation matrix. Default: Region axis is z axis, LOS is y axis
         los = y_axis - (y_axis.DOT.reg%axis)*reg%axis
@@ -1065,44 +1052,51 @@ module maps
                             ! Check if cell is inside the desired region
                             distance = 0D0
                             xtemp = x(i,:)
+
+                            ! Move to center of galaxy
                             x(i,:) = xtemp - reg%centre
+
+                            ! Check if cell is inside the desired region
                             call checkifinside(x(i,:),reg,ok_cell,distance)
                             ok_cell= ok_cell.and..not.ref(i)
                             listpix = -1
                             nlist = 0
+
                             if (ok_cell) then
                                 xtemp = x(i,:)
+                                ! Rotate position such that we have cells in the galaxy frame
                                 call rotate_vector(xtemp,trans_matrix)
                                 x(i,:) = xtemp
+
+                                ! Get pixels to which the cell contributes
                                 aperture = datan(0.5*dx/distance)
-                                ! write(*,*)'datan2 done'
-                                ! write(*,*)nside,x(i,:),aperture
                                 call query_disc(nside,x(i,:),aperture,listpix,nlist)
-                                ! write(*,*)'listpix: ',listpix
-                                ! write(*,*)'query_disc done'
                                 listpix_clean = pack(listpix,listpix.ge.0)
-                                ! write(*,*)'pack done'
+
+                                ! Compute a weight for cells that are partly outside region
                                 weight = (min(distance+dx/2.,reg%rmax)-max(distance-dx/2.,reg%rmin))/dx
                                 weight = min(1.0d0,max(weight,0.0d0))
+
+                                ! If the cell contributes to at least one pixel, project
                                 if(nlist>0) then
-                                    ! write(*,*)'nlist,list: ',nlist,listpix_clean
+                                    ! Rotate velocity with respect to galaxy frame
                                     vtemp = var(i,ind,varIDs%vx:varIDs%vz)
                                     call rotate_vector(vtemp,trans_matrix)
                                     var(i,ind,varIDs%vx:varIDs%vz) = vtemp
                                     
+                                    ! Get weight
                                     call getvarvalue(varIDs,reg,dx,xtemp,var(i,ind,:),proj%weightvar,rho)
                                     do j=1,size(listpix_clean)
                                         ix = listpix_clean(j)
                                         proj_rho(ix) = proj_rho(ix)+rho*dx*weight/(reg%rmax-reg%rmin)
-                                        ! grid(ilevel)%rho(1,ix)=grid(ilevel)%rho(1,ix)+rho*dx*weight/(reg%rmax-reg%rmin)
                                     end do
 
+                                    ! Get variable values
                                     projvarloop: do ivar=1,proj%nvars
                                         call getvarvalue(varIDs,reg,dx,xtemp,var(i,ind,:),proj%varnames(ivar),map)
                                         do j=1,size(listpix_clean)
                                             ix = listpix_clean(j)
                                             proj%toto(ivar,1,ix) = proj%toto(ivar,1,ix)+map*rho*dx*weight/(reg%rmax-reg%rmin)
-                                            ! grid(ilevel)%map(ivar,1,ix)=grid(ilevel)%map(ivar,1,ix)+map*rho*dx*weight/(reg%rmax-reg%rmin)
                                         end do
                                     end do projvarloop
                                     
@@ -1119,31 +1113,9 @@ module maps
         end do cpuloop
         write(*,*)'ncells:',ncells
 
-        ! Upload to maximum level (lmax)
-        ! imin = 0
-        ! imax = nside2npix(2**amr%lmax)-1
-        ! xloop: do ix = imin,imax
-        !     call pix2vec_ring(2**amr%lmax,ix,xvec)
-        !     ilevelloop: do ilevel=1,amr%lmax-1
-        !         call vec2pix_ring(2**ilevel,xvec,i)
-        !         projvarlooplmax: do ivar=1,proj%nvars
-        !             grid(amr%lmax)%map(ivar,1,ix)=grid(amr%lmax)%map(ivar,1,ix) + &
-        !                                         & grid(ilevel)%map(ivar,1,i)
-        !             grid(amr%lmax)%rho(1,ix)=grid(amr%lmax)%rho(1,ix) + &
-        !                                         & grid(ilevel)%rho(1,i)
-        !         end do projvarlooplmax
-        !     end do ilevelloop
-        ! end do xloop
-
-        ! write(*,*)proj%toto(1,1,:)
-        ! write(*,*)proj_rho
+        ! Renormalise cells to compute weighted values
         do i=0,ns
-            ! call pix2vec_ring(nside,i,xvec)
-            ! call vec2pix_ring(2**amr%lmax,xvec,ix)
-            ! ix = min(ix,imax)
-
             projvarlooptoto: do ivar=1,proj%nvars
-                ! proj%toto(ivar,1,i)=grid(amr%lmax)%map(ivar,1,ix)/grid(amr%lmax)%rho(1,ix)
                 proj%toto(ivar,1,i) = proj%toto(ivar,1,i)/proj_rho(i)
             end do projvarlooptoto
          end do

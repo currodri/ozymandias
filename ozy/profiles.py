@@ -239,7 +239,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
     star_data.xvarname = xvar
     star_data.nyvar = len(prof.yvars['for_star'])
     star_data.nwvar = len(prof.weightvars['for_star'])
-    star_data.nbins = 100
+    star_data.nbins = nbins
 
     partprofmod.allocate_profile_handler(star_data)
     for i in range(0, len(prof.yvars['for_star'])):
@@ -259,7 +259,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
     dm_data.xvarname = xvar
     dm_data.nyvar = len(prof.yvars['for_dm'])
     dm_data.nwvar = len(prof.weightvars['for_dm'])
-    dm_data.nbins = 100
+    dm_data.nbins = nbins
 
     partprofmod.allocate_profile_handler(dm_data)
     for i in range(0, len(prof.yvars['for_dm'])):
@@ -279,7 +279,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
     return hydro_data, star_data, dm_data
 
 def check_if_same_profile(hd, profile):
-    """This function check if a profile for an object already exists with the same attributes."""
+    """This function checks if a profile for an object already exists with the same attributes."""
     if not str(profile.group.obj_type)+'_data/profiles/'+str(profile.group._index) in hd:
         return False, 'none'
     for p in hd[str(profile.group.obj_type)+'_data/profiles/'+str(profile.group._index)].keys():

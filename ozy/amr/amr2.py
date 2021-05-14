@@ -1075,7 +1075,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
     Module io_ramses
     
     
-    Defined at read_amr_module.fpp lines 24-719
+    Defined at read_amr_module.fpp lines 24-720
     
     """
     @f90wrap.runtime.register_class("amr2.hydroID")
@@ -1545,6 +1545,21 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             _amr2.f90wrap_amr_info__set__twotondim(self._handle, twotondim)
         
         @property
+        def ndom(self):
+            """
+            Element ndom ftype=integer  pytype=int
+            
+            
+            Defined at read_amr_module.fpp line 34
+            
+            """
+            return _amr2.f90wrap_amr_info__get__ndom(self._handle)
+        
+        @ndom.setter
+        def ndom(self, ndom):
+            _amr2.f90wrap_amr_info__set__ndom(self._handle, ndom)
+        
+        @property
         def levelmin(self):
             """
             Element levelmin ftype=integer  pytype=int
@@ -1727,6 +1742,8 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             ret.append(repr(self.nboundary))
             ret.append(',\n    twotondim : ')
             ret.append(repr(self.twotondim))
+            ret.append(',\n    ndom : ')
+            ret.append(repr(self.ndom))
             ret.append(',\n    levelmin : ')
             ret.append(repr(self.levelmin))
             ret.append(',\n    levelmax : ')
@@ -1948,6 +1965,21 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         def unit_t(self, unit_t):
             _amr2.f90wrap_sim_info__set__unit_t(self._handle, unit_t)
         
+        @property
+        def boxlen(self):
+            """
+            Element boxlen ftype=real(dbl) pytype=float
+            
+            
+            Defined at read_amr_module.fpp line 45
+            
+            """
+            return _amr2.f90wrap_sim_info__get__boxlen(self._handle)
+        
+        @boxlen.setter
+        def boxlen(self, boxlen):
+            _amr2.f90wrap_sim_info__set__boxlen(self._handle, boxlen)
+        
         def __str__(self):
             ret = ['<sim_info>{\n']
             ret.append('    t : ')
@@ -1970,6 +2002,8 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
             ret.append(repr(self.unit_d))
             ret.append(',\n    unit_t : ')
             ret.append(repr(self.unit_t))
+            ret.append(',\n    boxlen : ')
+            ret.append(repr(self.boxlen))
             ret.append('}')
             return ''.join(ret)
         
@@ -2606,7 +2640,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         get_cpu_map(self, amr)
         
         
-        Defined at read_amr_module.fpp lines 630-718
+        Defined at read_amr_module.fpp lines 630-719
         
         Parameters
         ----------
@@ -2626,7 +2660,7 @@ class Filtering(f90wrap.runtime.FortranModule):
     Module filtering
     
     
-    Defined at read_amr_module.fpp lines 721-778
+    Defined at read_amr_module.fpp lines 722-779
     
     """
     @f90wrap.runtime.register_class("amr2.filter")
@@ -2635,7 +2669,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         Type(name=filter)
         
         
-        Defined at read_amr_module.fpp lines 724-729
+        Defined at read_amr_module.fpp lines 725-730
         
         """
         def __init__(self, handle=None):
@@ -2643,7 +2677,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             self = Filter()
             
             
-            Defined at read_amr_module.fpp lines 724-729
+            Defined at read_amr_module.fpp lines 725-730
             
             
             Returns
@@ -2663,7 +2697,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Destructor for class Filter
             
             
-            Defined at read_amr_module.fpp lines 724-729
+            Defined at read_amr_module.fpp lines 725-730
             
             Parameters
             ----------
@@ -2682,7 +2716,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element name ftype=character(128) pytype=str
             
             
-            Defined at read_amr_module.fpp line 725
+            Defined at read_amr_module.fpp line 726
             
             """
             return _amr2.f90wrap_filter__get__name(self._handle)
@@ -2697,7 +2731,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element ncond ftype=integer  pytype=int
             
             
-            Defined at read_amr_module.fpp line 726
+            Defined at read_amr_module.fpp line 727
             
             """
             return _amr2.f90wrap_filter__get__ncond(self._handle)
@@ -2712,7 +2746,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element cond_vars ftype=character(128) pytype=str
             
             
-            Defined at read_amr_module.fpp line 727
+            Defined at read_amr_module.fpp line 728
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -2736,7 +2770,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element cond_ops ftype=character(2) pytype=str
             
             
-            Defined at read_amr_module.fpp line 728
+            Defined at read_amr_module.fpp line 729
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -2760,7 +2794,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element cond_vals ftype=real(dbl) pytype=float
             
             
-            Defined at read_amr_module.fpp line 729
+            Defined at read_amr_module.fpp line 730
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -2802,7 +2836,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         allocate_filter(self)
         
         
-        Defined at read_amr_module.fpp lines 732-737
+        Defined at read_amr_module.fpp lines 733-738
         
         Parameters
         ----------
@@ -2817,7 +2851,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         cond_string_to_filter(str, filt)
         
         
-        Defined at read_amr_module.fpp lines 739-743
+        Defined at read_amr_module.fpp lines 740-744
         
         Parameters
         ----------
@@ -2833,7 +2867,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         filter_cell = filter_cell(self, reg, filt, cell_x, cell_dx, cell_var)
         
         
-        Defined at read_amr_module.fpp lines 745-778
+        Defined at read_amr_module.fpp lines 746-779
         
         Parameters
         ----------
@@ -2864,7 +2898,7 @@ class Amr_Profiles(f90wrap.runtime.FortranModule):
     Module amr_profiles
     
     
-    Defined at profiles_module.fpp lines 5-367
+    Defined at profiles_module.fpp lines 5-749
     
     """
     @f90wrap.runtime.register_class("amr2.profile_handler")
@@ -3111,13 +3145,309 @@ class Amr_Profiles(f90wrap.runtime.FortranModule):
         _dt_array_initialisers = []
         
     
+    @f90wrap.runtime.register_class("amr2.profile_handler_twod")
+    class profile_handler_twod(f90wrap.runtime.FortranDerivedType):
+        """
+        Type(name=profile_handler_twod)
+        
+        
+        Defined at profiles_module.fpp lines 20-30
+        
+        """
+        def __init__(self, handle=None):
+            """
+            self = Profile_Handler_Twod()
+            
+            
+            Defined at profiles_module.fpp lines 20-30
+            
+            
+            Returns
+            -------
+            this : Profile_Handler_Twod
+            	Object to be constructed
+            
+            
+            Automatically generated constructor for profile_handler_twod
+            """
+            f90wrap.runtime.FortranDerivedType.__init__(self)
+            result = _amr2.f90wrap_profile_handler_twod_initialise()
+            self._handle = result[0] if isinstance(result, tuple) else result
+        
+        def __del__(self):
+            """
+            Destructor for class Profile_Handler_Twod
+            
+            
+            Defined at profiles_module.fpp lines 20-30
+            
+            Parameters
+            ----------
+            this : Profile_Handler_Twod
+            	Object to be destructed
+            
+            
+            Automatically generated destructor for profile_handler_twod
+            """
+            if self._alloc:
+                _amr2.f90wrap_profile_handler_twod_finalise(this=self._handle)
+        
+        @property
+        def profdim(self):
+            """
+            Element profdim ftype=integer  pytype=int
+            
+            
+            Defined at profiles_module.fpp line 21
+            
+            """
+            return _amr2.f90wrap_profile_handler_twod__get__profdim(self._handle)
+        
+        @profdim.setter
+        def profdim(self, profdim):
+            _amr2.f90wrap_profile_handler_twod__set__profdim(self._handle, profdim)
+        
+        @property
+        def xvarname(self):
+            """
+            Element xvarname ftype=character(128) pytype=str
+            
+            
+            Defined at profiles_module.fpp line 22
+            
+            """
+            return _amr2.f90wrap_profile_handler_twod__get__xvarname(self._handle)
+        
+        @xvarname.setter
+        def xvarname(self, xvarname):
+            _amr2.f90wrap_profile_handler_twod__set__xvarname(self._handle, xvarname)
+        
+        @property
+        def yvarname(self):
+            """
+            Element yvarname ftype=character(128) pytype=str
+            
+            
+            Defined at profiles_module.fpp line 23
+            
+            """
+            return _amr2.f90wrap_profile_handler_twod__get__yvarname(self._handle)
+        
+        @yvarname.setter
+        def yvarname(self, yvarname):
+            _amr2.f90wrap_profile_handler_twod__set__yvarname(self._handle, yvarname)
+        
+        @property
+        def nzvar(self):
+            """
+            Element nzvar ftype=integer  pytype=int
+            
+            
+            Defined at profiles_module.fpp line 24
+            
+            """
+            return _amr2.f90wrap_profile_handler_twod__get__nzvar(self._handle)
+        
+        @nzvar.setter
+        def nzvar(self, nzvar):
+            _amr2.f90wrap_profile_handler_twod__set__nzvar(self._handle, nzvar)
+        
+        @property
+        def zvarnames(self):
+            """
+            Element zvarnames ftype=character(128) pytype=str
+            
+            
+            Defined at profiles_module.fpp line 25
+            
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _amr2.f90wrap_profile_handler_twod__array__zvarnames(self._handle)
+            if array_handle in self._arrays:
+                zvarnames = self._arrays[array_handle]
+            else:
+                zvarnames = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _amr2.f90wrap_profile_handler_twod__array__zvarnames)
+                self._arrays[array_handle] = zvarnames
+            return zvarnames
+        
+        @zvarnames.setter
+        def zvarnames(self, zvarnames):
+            self.zvarnames[...] = zvarnames
+        
+        @property
+        def nbins(self):
+            """
+            Element nbins ftype=integer pytype=int
+            
+            
+            Defined at profiles_module.fpp line 26
+            
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _amr2.f90wrap_profile_handler_twod__array__nbins(self._handle)
+            if array_handle in self._arrays:
+                nbins = self._arrays[array_handle]
+            else:
+                nbins = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _amr2.f90wrap_profile_handler_twod__array__nbins)
+                self._arrays[array_handle] = nbins
+            return nbins
+        
+        @nbins.setter
+        def nbins(self, nbins):
+            self.nbins[...] = nbins
+        
+        @property
+        def nwvar(self):
+            """
+            Element nwvar ftype=integer  pytype=int
+            
+            
+            Defined at profiles_module.fpp line 27
+            
+            """
+            return _amr2.f90wrap_profile_handler_twod__get__nwvar(self._handle)
+        
+        @nwvar.setter
+        def nwvar(self, nwvar):
+            _amr2.f90wrap_profile_handler_twod__set__nwvar(self._handle, nwvar)
+        
+        @property
+        def wvarnames(self):
+            """
+            Element wvarnames ftype=character(128) pytype=str
+            
+            
+            Defined at profiles_module.fpp line 28
+            
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _amr2.f90wrap_profile_handler_twod__array__wvarnames(self._handle)
+            if array_handle in self._arrays:
+                wvarnames = self._arrays[array_handle]
+            else:
+                wvarnames = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _amr2.f90wrap_profile_handler_twod__array__wvarnames)
+                self._arrays[array_handle] = wvarnames
+            return wvarnames
+        
+        @wvarnames.setter
+        def wvarnames(self, wvarnames):
+            self.wvarnames[...] = wvarnames
+        
+        @property
+        def xdata(self):
+            """
+            Element xdata ftype=real(dbl) pytype=float
+            
+            
+            Defined at profiles_module.fpp line 29
+            
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _amr2.f90wrap_profile_handler_twod__array__xdata(self._handle)
+            if array_handle in self._arrays:
+                xdata = self._arrays[array_handle]
+            else:
+                xdata = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _amr2.f90wrap_profile_handler_twod__array__xdata)
+                self._arrays[array_handle] = xdata
+            return xdata
+        
+        @xdata.setter
+        def xdata(self, xdata):
+            self.xdata[...] = xdata
+        
+        @property
+        def ydata(self):
+            """
+            Element ydata ftype=real(dbl) pytype=float
+            
+            
+            Defined at profiles_module.fpp line 29
+            
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _amr2.f90wrap_profile_handler_twod__array__ydata(self._handle)
+            if array_handle in self._arrays:
+                ydata = self._arrays[array_handle]
+            else:
+                ydata = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _amr2.f90wrap_profile_handler_twod__array__ydata)
+                self._arrays[array_handle] = ydata
+            return ydata
+        
+        @ydata.setter
+        def ydata(self, ydata):
+            self.ydata[...] = ydata
+        
+        @property
+        def zdata(self):
+            """
+            Element zdata ftype=real(dbl) pytype=float
+            
+            
+            Defined at profiles_module.fpp line 30
+            
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _amr2.f90wrap_profile_handler_twod__array__zdata(self._handle)
+            if array_handle in self._arrays:
+                zdata = self._arrays[array_handle]
+            else:
+                zdata = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _amr2.f90wrap_profile_handler_twod__array__zdata)
+                self._arrays[array_handle] = zdata
+            return zdata
+        
+        @zdata.setter
+        def zdata(self, zdata):
+            self.zdata[...] = zdata
+        
+        def __str__(self):
+            ret = ['<profile_handler_twod>{\n']
+            ret.append('    profdim : ')
+            ret.append(repr(self.profdim))
+            ret.append(',\n    xvarname : ')
+            ret.append(repr(self.xvarname))
+            ret.append(',\n    yvarname : ')
+            ret.append(repr(self.yvarname))
+            ret.append(',\n    nzvar : ')
+            ret.append(repr(self.nzvar))
+            ret.append(',\n    zvarnames : ')
+            ret.append(repr(self.zvarnames))
+            ret.append(',\n    nbins : ')
+            ret.append(repr(self.nbins))
+            ret.append(',\n    nwvar : ')
+            ret.append(repr(self.nwvar))
+            ret.append(',\n    wvarnames : ')
+            ret.append(repr(self.wvarnames))
+            ret.append(',\n    xdata : ')
+            ret.append(repr(self.xdata))
+            ret.append(',\n    ydata : ')
+            ret.append(repr(self.ydata))
+            ret.append(',\n    zdata : ')
+            ret.append(repr(self.zdata))
+            ret.append('}')
+            return ''.join(ret)
+        
+        _dt_array_initialisers = []
+        
+    
     @staticmethod
     def allocate_profile_handler(self):
         """
         allocate_profile_handler(self)
         
         
-        Defined at profiles_module.fpp lines 21-27
+        Defined at profiles_module.fpp lines 33-39
         
         Parameters
         ----------
@@ -3127,23 +3457,40 @@ class Amr_Profiles(f90wrap.runtime.FortranModule):
         _amr2.f90wrap_allocate_profile_handler(prof=self._handle)
     
     @staticmethod
-    def makebins(self, varname, nbins, bins):
+    def allocate_profile_handler_twod(self):
         """
-        makebins(self, varname, nbins, bins)
+        allocate_profile_handler_twod(self)
         
         
-        Defined at profiles_module.fpp lines 29-43
+        Defined at profiles_module.fpp lines 41-48
+        
+        Parameters
+        ----------
+        prof : Profile_Handler_Twod
+        
+        """
+        _amr2.f90wrap_allocate_profile_handler_twod(prof=self._handle)
+    
+    @staticmethod
+    def makebins(self, sim, varname, nbins, bins, logscale):
+        """
+        makebins(self, sim, varname, nbins, bins, logscale)
+        
+        
+        Defined at profiles_module.fpp lines 50-89
         
         Parameters
         ----------
         reg : Region
+        sim : Sim_Info
         varname : str
         nbins : int
         bins : float array
+        logscale : bool
         
         """
-        _amr2.f90wrap_makebins(reg=self._handle, varname=varname, nbins=nbins, \
-            bins=bins)
+        _amr2.f90wrap_makebins(reg=self._handle, sim=sim._handle, varname=varname, \
+            nbins=nbins, bins=bins, logscale=logscale)
     
     @staticmethod
     def findbinpos(self, varids, distance, pos, cellvars, cellsize, prof, ibin):
@@ -3151,7 +3498,7 @@ class Amr_Profiles(f90wrap.runtime.FortranModule):
         findbinpos(self, varids, distance, pos, cellvars, cellsize, prof, ibin)
         
         
-        Defined at profiles_module.fpp lines 45-65
+        Defined at profiles_module.fpp lines 91-113
         
         Parameters
         ----------
@@ -3170,12 +3517,40 @@ class Amr_Profiles(f90wrap.runtime.FortranModule):
             prof=prof._handle, ibin=ibin)
     
     @staticmethod
+    def findbinpos_twod(self, varids, distance, pos, cellvars, cellsize, prof, \
+        logscale, ibinx, ibiny):
+        """
+        findbinpos_twod(self, varids, distance, pos, cellvars, cellsize, prof, logscale, \
+            ibinx, ibiny)
+        
+        
+        Defined at profiles_module.fpp lines 115-154
+        
+        Parameters
+        ----------
+        reg : Region
+        varids : Hydroid
+        distance : float
+        pos : float array
+        cellvars : float array
+        cellsize : float
+        prof : Profile_Handler_Twod
+        logscale : bool
+        ibinx : int
+        ibiny : int
+        
+        """
+        _amr2.f90wrap_findbinpos_twod(reg=self._handle, varids=varids._handle, \
+            distance=distance, pos=pos, cellvars=cellvars, cellsize=cellsize, \
+            prof=prof._handle, logscale=logscale, ibinx=ibinx, ibiny=ibiny)
+    
+    @staticmethod
     def bindata(self, varids, pos, cellvars, cellsize, prof, ibin):
         """
         bindata(self, varids, pos, cellvars, cellsize, prof, ibin)
         
         
-        Defined at profiles_module.fpp lines 67-114
+        Defined at profiles_module.fpp lines 156-203
         
         Parameters
         ----------
@@ -3192,12 +3567,36 @@ class Amr_Profiles(f90wrap.runtime.FortranModule):
             cellvars=cellvars, cellsize=cellsize, prof=prof._handle, ibin=ibin)
     
     @staticmethod
+    def bindata_twod(self, varids, pos, cellvars, cellsize, prof, ibinx, ibiny):
+        """
+        bindata_twod(self, varids, pos, cellvars, cellsize, prof, ibinx, ibiny)
+        
+        
+        Defined at profiles_module.fpp lines 205-238
+        
+        Parameters
+        ----------
+        reg : Region
+        varids : Hydroid
+        pos : float array
+        cellvars : float array
+        cellsize : float
+        prof : Profile_Handler_Twod
+        ibinx : int
+        ibiny : int
+        
+        """
+        _amr2.f90wrap_bindata_twod(reg=self._handle, varids=varids._handle, pos=pos, \
+            cellvars=cellvars, cellsize=cellsize, prof=prof._handle, ibinx=ibinx, \
+            ibiny=ibiny)
+    
+    @staticmethod
     def renormalise_bins(self):
         """
         renormalise_bins(self)
         
         
-        Defined at profiles_module.fpp lines 116-141
+        Defined at profiles_module.fpp lines 240-265
         
         Parameters
         ----------
@@ -3207,12 +3606,27 @@ class Amr_Profiles(f90wrap.runtime.FortranModule):
         _amr2.f90wrap_renormalise_bins(prof_data=self._handle)
     
     @staticmethod
+    def renormalise_bins_twod(self):
+        """
+        renormalise_bins_twod(self)
+        
+        
+        Defined at profiles_module.fpp lines 267-291
+        
+        Parameters
+        ----------
+        prof_data : Profile_Handler_Twod
+        
+        """
+        _amr2.f90wrap_renormalise_bins_twod(prof_data=self._handle)
+    
+    @staticmethod
     def get_cells_onedprofile(repository, amr, reg, filt, varids, prof_data):
         """
         get_cells_onedprofile(repository, amr, reg, filt, varids, prof_data)
         
         
-        Defined at profiles_module.fpp lines 143-344
+        Defined at profiles_module.fpp lines 293-494
         
         Parameters
         ----------
@@ -3229,12 +3643,12 @@ class Amr_Profiles(f90wrap.runtime.FortranModule):
             prof_data=prof_data._handle)
     
     @staticmethod
-    def onedprofile(repository, reg, filt, prof_data, lmax):
+    def onedprofile(repository, reg, filt, prof_data, lmax, logscale):
         """
-        onedprofile(repository, reg, filt, prof_data, lmax)
+        onedprofile(repository, reg, filt, prof_data, lmax, logscale)
         
         
-        Defined at profiles_module.fpp lines 346-367
+        Defined at profiles_module.fpp lines 496-518
         
         Parameters
         ----------
@@ -3243,10 +3657,58 @@ class Amr_Profiles(f90wrap.runtime.FortranModule):
         filt : Filter
         prof_data : Profile_Handler
         lmax : int
+        logscale : bool
         
         """
         _amr2.f90wrap_onedprofile(repository=repository, reg=reg._handle, \
-            filt=filt._handle, prof_data=prof_data._handle, lmax=lmax)
+            filt=filt._handle, prof_data=prof_data._handle, lmax=lmax, \
+            logscale=logscale)
+    
+    @staticmethod
+    def twodprofile(repository, reg, filt, prof_data, lmax, logscale):
+        """
+        twodprofile(repository, reg, filt, prof_data, lmax, logscale)
+        
+        
+        Defined at profiles_module.fpp lines 520-545
+        
+        Parameters
+        ----------
+        repository : str
+        reg : Region
+        filt : Filter
+        prof_data : Profile_Handler_Twod
+        lmax : int
+        logscale : bool
+        
+        """
+        _amr2.f90wrap_twodprofile(repository=repository, reg=reg._handle, \
+            filt=filt._handle, prof_data=prof_data._handle, lmax=lmax, \
+            logscale=logscale)
+    
+    @staticmethod
+    def get_cells_twodprofile(repository, amr, reg, filt, varids, prof_data, \
+        logscale):
+        """
+        get_cells_twodprofile(repository, amr, reg, filt, varids, prof_data, logscale)
+        
+        
+        Defined at profiles_module.fpp lines 547-749
+        
+        Parameters
+        ----------
+        repository : str
+        amr : Amr_Info
+        reg : Region
+        filt : Filter
+        varids : Hydroid
+        prof_data : Profile_Handler_Twod
+        logscale : bool
+        
+        """
+        _amr2.f90wrap_get_cells_twodprofile(repository=repository, amr=amr._handle, \
+            reg=reg._handle, filt=filt._handle, varids=varids._handle, \
+            prof_data=prof_data._handle, logscale=logscale)
     
     _dt_array_initialisers = []
     

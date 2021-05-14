@@ -33,7 +33,7 @@ module io_ramses
     end type hydroID
 
     type amr_info
-        integer :: ncpu,ndim,nlevelmax,nboundary,twotondim
+        integer :: ncpu,ndim,nlevelmax,nboundary,twotondim,ndom
         integer :: levelmin,levelmax,lmax
         integer :: ncpu_read
         character(80) :: ordering
@@ -45,7 +45,7 @@ module io_ramses
 
     type sim_info
         real(sgl) :: t,aexp,omega_m,omega_l,omega_k,omega_b
-        real(dbl) :: h0,unit_l,unit_d,unit_t
+        real(dbl) :: h0,unit_l,unit_d,unit_t,boxlen
     end type sim_info
 
     type level
@@ -632,7 +632,7 @@ module io_ramses
         read(10,*)
         read(10,*)
     
-        read(10,*)
+        read(10,'("boxlen      =",E23.15)')sim%boxlen
         read(10,'("time        =",E23.15)')sim%t
         read(10,'("aexp        =",E23.15)')sim%aexp
         read(10,'("H0          =",E23.15)')sim%h0
@@ -683,7 +683,8 @@ module io_ramses
         xxmin=box_limits(1,1) ; xxmax=box_limits(1,2)
         yymin=box_limits(2,1) ; yymax=box_limits(2,2)
         zzmin=box_limits(3,1) ; zzmax=box_limits(3,2)
-        write(*,*)'limits:',box_limits
+        write(*,*)'limits:',xxmin,xxmax,yymin,yymax,zzmin,zzmax
+        write(*,*)'ordering: ',TRIM(amr%ordering)
         if(TRIM(amr%ordering).eq.'hilbert')then
 
             dxmax=max(xxmax-xxmin,yymax-yymin,zzmax-zzmin)
@@ -705,8 +706,8 @@ module io_ramses
             endif
        
             dkey=(dble(2**(amr%nlevelmax+1)/dble(maxdom)))**amr%ndim
-            ndom=1
-            if(bit_length>0)ndom=8
+            amr%ndom=1
+            if(bit_length>0)amr%ndom=8
             idom(1)=imin; idom(2)=imax
             idom(3)=imin; idom(4)=imax
             idom(5)=imin; idom(6)=imax
@@ -720,7 +721,7 @@ module io_ramses
             kdom(5)=kmax; kdom(6)=kmax
             kdom(7)=kmax; kdom(8)=kmax
             
-            do i=1,ndom
+            do i=1,amr%ndom
                if(bit_length>0)then
                   call hilbert3d(idom(i),jdom(i),kdom(i),order_min,bit_length,1)
                else
@@ -732,7 +733,7 @@ module io_ramses
             
             cpu_min=0; cpu_max=0
             do impi=1,amr%ncpu
-               do i=1,ndom
+               do i=1,amr%ndom
                   if (   amr%bound_key(impi-1).le.bounding_min(i).and.&
                        & amr%bound_key(impi  ).gt.bounding_min(i))then
                      cpu_min(i)=impi
@@ -745,7 +746,7 @@ module io_ramses
             end do
             
             amr%ncpu_read=0
-            do i=1,ndom
+            do i=1,amr%ndom
                do j=cpu_min(i),cpu_max(i)
                   if(.not. amr%cpu_read(j))then
                      amr%ncpu_read=amr%ncpu_read+1

@@ -195,6 +195,63 @@ class Profile:
             else:
                 self.xdata = YTArray(profile_gp['xdata'][:], profile_gp['xdata'].attrs['units'], registry=self.obj.unit_registry)
 
+class PhaseDiagram:
+    def __init__(self,obj,index,group_type,key,hd):
+        self.obj = obj
+        self._index = index
+        self.group_type = group_type
+        self.key = key
+        self.nbins = [0,0]
+        self.xvar = None
+        self.yvar = None
+        self.region = None
+        self.filter = {}
+        self.lmax = 0
+        self.zvars = {}
+        self.weightvars = {}
+        self.xdata = None
+        self.ydata = None
+        self.zdata = {}
+
+        self.blacklist = [
+            'obj','_index','group_type','region',
+            'filter','zvars','weightvars','xdata','ydata'
+        ]
+        self._unpack(hd)
+
+    def _unpack(self, hd):
+        from yt import YTArray
+        path = str(self.group_type+'_data/phase_diagrams/'+str(self._index)+'/'+self.key)
+        phase_diagrams_gp = hd[path]
+        for k,v in phase_diagrams_gp.attrs.items():
+            if k in self.blacklist:
+                continue
+            else:
+                setattr(self, k, v)
+        self.region = {}
+        self.region['type'] = phase_diagrams_gp.attrs['type']
+        self.region['centre'] = phase_diagrams_gp.attrs['centre']
+        self.region['axis'] = phase_diagrams_gp.attrs['axis']
+        self.filter = {}
+        self.filter['name'] = phase_diagrams_gp.attrs['name']
+        self.filter['conditions'] = phase_diagrams_gp['conditions'][:]
+
+        for k in phase_diagrams_gp.keys():
+            if k != 'xdata' and k != 'ydata' and k != 'conditions':
+                self.zvars[k] = []
+                self.zdata[k] = []
+                for j in phase_diagrams_gp[k].keys():
+                    if j == 'weightvars':
+                        self.weightvars[k] = phase_diagrams_gp[k+'/'+j][:]
+                        for w in range(0, len(self.weightvars[k])):
+                            self.weightvars[k][w] = self.weightvars[k][w].decode('utf8')
+                        continue
+                    self.zvars[k].append(j)
+                    data = phase_diagrams_gp[k+'/'+j]
+                    self.zdata[k].append(YTArray(data[:], str(data.attrs['units']), registry=self.obj.unit_registry))
+            else:
+                self.xdata = YTArray(phase_diagrams_gp['xdata'][:], phase_diagrams_gp['xdata'].attrs['units'], registry=self.obj.unit_registry)
+                self.ydata = YTArray(phase_diagrams_gp['ydata'][:], phase_diagrams_gp['ydata'].attrs['units'], registry=self.obj.unit_registry)
 
 class OZY:
     def __init__(self, filename):
@@ -280,9 +337,17 @@ class OZY:
                         len(indices), lambda i: int(indices[i])
                     )
                     self._galaxy_profiles = [Profile(self,int(indices[i]),'galaxy', keys[i],hd) for i in range(0, len(indices))]
-                    # self._galaxy_profiles = LazyList(
-                    #     len(indices), lambda i: Profile(self,int(indices[i]),'galaxy', keys[i],hd)
-                    # )
+                if 'galaxy_data/phase_diagrams' in hd:
+                    indices = []
+                    keys = []
+                    for k in hd['galaxy_data/phase_diagrams'].keys():
+                        for j in hd['galaxy_data/phase_diagrams/'+k].keys():
+                            indices.append(int(k))
+                            keys.append(j)
+                    self._galaxy_phasediag_index_list = LazyList(
+                        len(indices), lambda i: int(indices[i])
+                    )
+                    self._galaxy_phasediag = [PhaseDiagram(self,int(indices[i]),'galaxy', keys[i],hd) for i in range(0, len(indices))]
 
     @property
     def yt_dataset(self):
@@ -389,6 +454,7 @@ class Galaxy(Group):
         self._index = index
         self.halo = obj.halos[self.parent_halo_index]
         self.profiles = None
+        self.phase_diagrams = None
 
     def __dir__(self):
         return dir(type(self)) + list(self.__dict__) + list(
@@ -400,6 +466,13 @@ class Galaxy(Group):
             if profile_index == self._index:
                 profile = self.obj._galaxy_profiles[p]
                 self.profiles.append(profile)
+    
+    def _init_phase_diagrams(self):
+        self.phase_diagrams = []
+        for p,phasediag_index in enumerate(self.obj._galaxy_phasediag_index_list):
+            if phasediag_index == self._index:
+                phasediag = self.obj._galaxy_phasediag[p]
+                self.phase_diagrams.append(phasediag)
 
     @property
     def slist(self):

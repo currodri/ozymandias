@@ -492,7 +492,7 @@ module io_ramses
             value = (dx * dx) * dx
         case ('metallicity')
             ! Metallicity
-            value = var(varIDs%metallicity)
+            value = var(varIDs%metallicity)/0.02
         case ('temperature')
             ! Gas temperature
             value = var(varIDs%thermal_pressure) / var(varIDs%density) !/ 1.38d-16*1.66d-24
@@ -508,11 +508,38 @@ module io_ramses
             value = (0.5 * (var(varIDs%density) * (dx*dx)) * dx) * sqrt(var(varIDs%vx)**2 + var(varIDs%vy)**2 + var(varIDs%vz)**2)
         case ('magnetic_energy')
             ! Magnetic energy as magnitude(B)**2/2
-            B = 0.5 *(/(var(varIDs%Blx)-var(varIDs%Brx)),(var(varIDs%Bly)-var(varIDs%Bry)),(var(varIDs%Blz)-var(varIDs%Brz))/)
+            B = 0.5 *(/(var(varIDs%Blx)+var(varIDs%Brx)),(var(varIDs%Bly)+var(varIDs%Bry)),(var(varIDs%Blz)+var(varIDs%Brz))/)
             value = (0.5 * (B.DOT.B) * (dx*dx)) * dx
+        case ('magnetic_magnitude')
+            B = 0.5 *(/(var(varIDs%Blx)+var(varIDs%Brx)),(var(varIDs%Bly)+var(varIDs%Bry)),(var(varIDs%Blz)+var(varIDs%Brz))/)
+            value = magnitude(B)
+        case ('magnetic_energy_specific')
+            ! Specific magnetic energy as E_mag/cell mass
+            B = 0.5 *(/(var(varIDs%Blx)+var(varIDs%Brx)),(var(varIDs%Bly)+var(varIDs%Bry)),(var(varIDs%Blz)+var(varIDs%Brz))/)
+            value = (0.5 * (B.DOT.B)) / var(varIDs%density)
+        case ('magnetic_energy_density')
+            B = 0.5 *(/(var(varIDs%Blx)+var(varIDs%Brx)),(var(varIDs%Bly)+var(varIDs%Bry)),(var(varIDs%Blz)+var(varIDs%Brz))/)
+            value = 0.5 * (B.DOT.B)
+        case ('B_left_x')
+            value = var(varIDs%Blx)
+        case ('B_left_y')
+            value = var(varIDs%Bly)
+        case ('B_left_z')
+            value = var(varIDs%Blz)
+        case ('B_right_x')
+            value = var(varIDs%Brx)
+        case ('B_right_y')
+            value = var(varIDs%Bry)
+        case ('B_right_z')
+            value = var(varIDs%Brz)
         case ('cr_energy')
             ! CR energy, computed as CR_energydensity*volume
             value = (var(varIDs%eCR) * (dx*dx)) * dx
+        case ('cr_energy_density')
+            value = var(varIDs%eCR)
+        case ('cr_energy_specific')
+            ! Specific CR energy, computed as CR_energydensity*volume/cell mass
+            value = var(varIDs%eCR) / var(varIDs%density)
         case ('momentum_x')
             ! Linear momentum in the x direction as density*volume*corrected_velocity_x
             value = ((var(varIDs%density) * (dx*dx)) * dx) * (var(varIDs%vx) - reg%bulk_velocity%x)

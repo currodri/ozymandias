@@ -82,8 +82,8 @@ if __name__ == '__main__':
         progind = args.ind
         if args.NUT:
             sim = ozy.load(os.path.join(groupspath, ozyfiles[0]))
-            stellar_mass = [i.mass['baryon'] for i in sim.galaxies]
-            progind = np.argmax(stellar_mass)
+            virial_mass = [i.virial_quantities['mass'] for i in sim.galaxies]
+            progind = np.argmax(virial_mass)
             print(args.model[i],progind,sim.simulation.redshift)
         printMass = True
         for ozyfile in ozyfiles:
