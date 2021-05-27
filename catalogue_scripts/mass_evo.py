@@ -53,8 +53,13 @@ if __name__ == '__main__':
         ax.yaxis.set_ticks_position('both')
         ax.minorticks_on()
         ax.tick_params(which='both',axis="both",direction="in")
-
-        simfolder = os.path.join(os.getcwd(), args.model[i])
+        print(args.model[i])
+        if args.model[i][0] != '/':
+            simfolder = os.path.join(os.getcwd(), args.model[i])
+        else:
+            simfolder = args.model[i]
+            args.model[i] = args.model[i].split('/')[-1].split('_')[0] + ' '+args.model[i].split('/')[-1].split('_')[1]
+        
         ax.text(0.5, 0.2, args.model[i],transform=ax.transAxes,fontsize=16)
         if not os.path.exists(simfolder):
             raise Exception('The given simulation name is not found in this directory!')

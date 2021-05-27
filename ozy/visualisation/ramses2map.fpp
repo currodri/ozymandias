@@ -636,6 +636,7 @@ module maps
         call get_map_box(cam,bbox)
 
         call project_particles(repository,amr,sim,bbox,cam,proj)
+        write(*,*)minval(proj%toto),maxval(proj%toto)
     end subroutine projection_parts
 
     subroutine project_particles(repository,amr,sim,bbox,cam,proj)
@@ -674,6 +675,8 @@ module maps
         ! Allocate toto
 
         allocate(proj%toto(1:proj%nvars,0:n_map(1)-1,0:n_map(2)-1))
+
+        proj%toto = 0D0
 
         ! Cosmological model
         if (sim%aexp.eq.1.and.sim%h0.eq.1)sim%cosmo=.false.
@@ -792,10 +795,10 @@ module maps
                             dey = 1D0 - ddy
                             ixp1 = ix + 1
                             iyp1 = iy + 1
-
                             if (ix>=0.and.ix<(n_map(1)-1).and.&
                                 &iy>=0.and.iy<(n_map(2)-1).and.&
                                 &ddx>0.and.ddy>0) then
+                                if (mapvalue<0D0.or.weight<0D0)write(*,*)mapvalue,weight
                                 proj%toto(ivar,ix  ,iy  ) = proj%toto(ivar,ix  ,iy  ) + mapvalue*dex*dey*weight
                                 proj%toto(ivar,ix  ,iyp1) = proj%toto(ivar,ix  ,iyp1) + mapvalue*dex*ddy*weight
                                 proj%toto(ivar,ixp1,iy  ) = proj%toto(ivar,ixp1,iy  ) + mapvalue*ddx*dey*weight

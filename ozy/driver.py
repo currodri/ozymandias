@@ -44,20 +44,11 @@ class Snapshot(object):
         
 def print_art():
     from ozy.__version__ import VERSION
+    from art import text2art
     copywrite = '   (C) 2021 F. Rodriguez Montero'
     version   = '   Version %s' % VERSION
-    
-    art = """    )                                                       
-    ( /(                                   (                   
-    )\())      (        )       )          )\ )  (      )      
-    ((_)\   (   )\ )    (     ( /(   (     (()/(  )\  ( /(  (   
-    ((_)  )\ (()/(    )\  ' )(_))  )\ )   ((_))((_) )(_)) )\  
-    / _ \ ((_) )(_)) _((_)) ((_)_  _(_/(   _| |  (_)((_)_ ((_) 
-    | (_) ||_ /| || || '  \()/ _` || ' \))/ _` |  | |/ _` |(_-< 
-    \___/ /__| \_, ||_|_|_| \__,_||_||_| \__,_|  |_|\__,_|/__/ 
-                |__/                                            
-                
-    """
+
+    art =  text2art("Ozymandias","ogre")
     print('\n%s\n%s\n%s\n' % (art, copywrite, version))
 
 def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,

@@ -6,23 +6,23 @@ plotting_dictionary = dict(
     density = {'cmap':sns.color_palette("mako", as_cmap=True),
                 'text_over':'white',
                 'label':r'$\rho$ [g/cm$^{-3}$]',
-                'label_log':r'$\log(\rho$ [g/cm$^{-3}$])',
+                'label_log':r'$\log\left(\frac{\rho}{{\rm g/cm}^{-3}}\right)$',
                 'units':'g*cm**-3',
-                'vmin':3e-27,
-                'vmax':3e-21
+                'vmin':2e-28,
+                'vmax':5e-21
     },
     mass = {'cmap':sns.color_palette("mako", as_cmap=True),
             'text_over':'white',
             'label':r'Mass [M$_{\odot}$]',
-            'label_log':r'$\log$(Mass) [M$_{\odot}$]',
+            'label_log':r'$\log$(\frac{Mass}{{\rmM}$_{\odot}$})',
             'units':'Msun',
             'vmin':1,
             'vmax':1e+8
     },
     temperature = {'cmap':sns.color_palette("rocket", as_cmap=True),
-                    'text_over':'black',
+                    'text_over':'white',
                     'label':r'$T$ [K]',
-                    'label_log':r'$\log(T$ [K])',
+                    'label_log':r'$\log\left(\frac{T}{{\rm K}}\right)$',
                     'units':'K',
                     'vmin':5e+1,
                     'vmax':2e+6
@@ -30,24 +30,35 @@ plotting_dictionary = dict(
     metallicity = {'cmap':sns.diverging_palette(145, 300, s=60, as_cmap=True),
                     'text_over':'black',
                     'label':r'$Z$ [$Z_{\odot}$]',
+                    'label_log':r'$\log\left(\frac{Z}{Z_{\odot}}\right)$',
                     'units':'dimensionless',
-                    'vmin':6e-4,
-                    'vmax':9e-1
+                    'vmin':5e-4,
+                    'vmax':8e-2
     },
     magnetic_energy_specific = {'cmap':sns.cubehelix_palette(reverse=True,as_cmap=True),
                                 'text_over':'white',
                                 'label':r'$\epsilon_{\rm mag}$ [erg/g]',
                                 'units':'erg*g**-1',
-                                'vmin':1e+10,
-                                'vmax':1e+12
+                                'vmin':5e+10,
+                                'vmax':3e+12
 
     },
     magnetic_energy_density = {'cmap':sns.cubehelix_palette(reverse=True,as_cmap=True),
                                 'text_over':'white',
                                 'label':r'$\varepsilon_{\rm mag}$ [erg/cm$^{3}$]',
+                                'label_log':r'$\log(\frac{\varepsilon_{\rm mag}}{{\rm erg/cm}^{3}})$',
                                 'units':'erg*g**-1',
-                                'vmin':4e-19,
-                                'vmax':1e-10
+                                'vmin':4e-18,
+                                'vmax':5e-11
+
+    },
+    cr_energy_density = {'cmap':sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),
+                        'text_over':'white',
+                        'label':r'$\varepsilon_{\rm CR}$ [erg/cm$^{3}$]',
+                        'label_log':r'$\log(\frac{\varepsilon_{\rm CR}}{{\rm erg/cm}^{3}})$',
+                        'units':'erg*g**-1',
+                        'vmin':4e-14,
+                        'vmax':8e-11
 
     },
     v_sphere_r = {'cmap':sns.color_palette("vlag", as_cmap=True),
@@ -65,9 +76,10 @@ plotting_dictionary = dict(
     star_mass = {'cmap':'gray',
                 'text_over':'white',
                 'label':r'$M_{*}$ [M$_{\odot}$]',
+                'label_log':r'$\log\left(\frac{Mass}{{\rmM}_{\odot}}\right)$',
                 'units':'Msun',
-                'vmin':1e+5,
-                'vmax':1e+8
+                'vmin':5.0,
+                'vmax':2e+7
     },
     star_metallicity = {'cmap':sns.color_palette("dark:salmon", as_cmap=True),
                         'text_over':'white',

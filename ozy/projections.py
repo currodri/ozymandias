@@ -9,13 +9,12 @@ import sys
 sys.path.append('/mnt/extraspace/currodri/Codes/ozymandias/ozy/visualisation')
 import re
 import healpy as hp
+from astropy.io import fits
+from astropy.wcs import WCS
 from projections import obs_instruments
 from projections import maps
 from projections import vectors
 from projections import geometrical_regions
-from astropy.io import fits
-from astropy.wcs import WCS
-
 
 cartesian_basis = {'x':np.array([1.,0.,0.]),'y':np.array([0.,0.,1.]),'z':np.array([0.,0.,1.])}
 
@@ -77,13 +76,10 @@ class Projection(object):
                     fields.append(datatype+'/'+f)
                 for i,field in enumerate(fields):
                     code_units = get_code_units(field.split('/')[1])
-                    print(fields[i],code_units,np.min(imap[i]),np.max(imap[i]))
                     temp_map = YTArray(imap[i],code_units,
                                         registry=self.group.obj.unit_registry)
                     first_unit = True
-                    print(code_units.split('*'))
                     for u in code_units.split('*'):
-                        print(u)
                         if first_unit:
                             units = unit_system[u]
                             first_unit = False
@@ -91,10 +87,8 @@ class Projection(object):
                         else:
                             units += '*'+unit_system[u]
                             units_check +='_'+u
-                    print(units_check)
                     if units_check in unit_system:
                         units = unit_system[units_check]
-                    print(units,np.array(temp_map.in_units(units)).min(),np.array(temp_map.in_units(units)).max())
                     if first:
                         hdu = fits.PrimaryHDU(np.array(temp_map.in_units(units)))
                         first = False
@@ -388,6 +382,106 @@ def do_projection(group,vars,weight=['gas/density','star/age'],map_max_size=1024
 
     return proj
 
+# def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,redshift=True):
+#     """This function uses the projection information in a FITS file following the 
+#         OZY format and plots it following the OZY standards."""
+    
+#     # Make required imports
+#     import matplotlib
+#     import matplotlib.pyplot as plt
+#     import matplotlib.font_manager as fm
+#     from mpl_toolkits.axes_grid1 import AxesGrid, make_axes_locatable
+#     from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+#     from matplotlib.colors import LogNorm
+#     import seaborn as sns
+#     sns.set(style="white")
+#     plt.rc('text', usetex=True)
+#     plt.rc('font', family='serif')
+#     hfont = {'fontname':'Helvetica'}
+#     matplotlib.rc('text', usetex = True)
+#     matplotlib.rc('font', **{'family' : "serif"})
+#     params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
+#     matplotlib.rcParams.update(params)
+
+
+#     # First,check that FITS file actually exists
+#     if not os.path.exists(proj_FITS):
+#         raise ImportError('File not found. Please check!')
+    
+#     # Load FITS file
+#     hdul = fits.open(proj_FITS)
+#     hdul_fields = [h.header['btype'] for h in hdul]
+
+#     # Check that the required fields for plotting are in this FITS
+#     for i,f in enumerate(fields):
+#         if f not in hdul_fields:
+#             print('The field %s is not included in this file. Ignoring...'%f)
+#             del fields[i]
+#     if len(fields) == 0:
+#         print('Not a single field of the ones you provided are here... Check!')
+#         exit
+
+#     # Since everything is fine, we begin plotting…
+#     ncolumns = len(fields)
+#     fig = plt.figure(figsize=(11,5))
+#     grid = AxesGrid(fig, (111),
+#                     nrows_ncols = (1, ncolumns),
+#                     axes_pad = 0.0,
+#                     label_mode = "L",
+#                     share_all = True,
+#                     cbar_location="top",
+#                     cbar_mode="edge",
+#                     cbar_size="2%",
+#                     cbar_pad=0.0)
+#     width_x =  hdul[0].header['CDELT1']*hdul[0].header['NAXIS1']
+#     width_y =  hdul[0].header['CDELT2']*hdul[0].header['NAXIS2']
+#     ex = [-0.5*width_x,0.5*width_x,-0.5*width_y,0.5*width_y]
+
+#     stellar = False
+#     for i in range(0, len(fields)):
+#         h = [j for j in range(0,len(hdul)) if hdul[j].header['btype']==fields[i]][0]
+#         ax = grid[i].axes
+#         ax.axes.xaxis.set_visible(False)
+#         ax.axes.yaxis.set_visible(False)
+#         if fields[i].split('/')[0] == 'star' or fields[i].split('/')[0] == 'dm':
+#             plotting_def = plotting_dictionary[fields[i].split('/')[0]+'_'+fields[i].split('/')[1]]
+#             stellar = True
+#         else:
+#             plotting_def = plotting_dictionary[fields[i].split('/')[1]]
+#         if logscale:
+#             print(fields[i],np.min(hdul[h].data.T),np.max(hdul[h].data.T))
+#             plot = ax.imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
+#                             origin='upper',norm=LogNorm(vmin=plotting_def['vmin'],
+#                             vmax=plotting_def['vmax']),extent=ex,
+#                             interpolation='nearest')
+#         else:
+#             plot = ax.imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
+#                             origin='upper',extent=ex,interpolation='nearest',
+#                             vmin=plotting_def['vmin'],vmax=plotting_def['vmax'])
+#         fontprops = fm.FontProperties(size=14)
+#         if scalebar:
+#             scalebar = AnchoredSizeBar(ax.transData,
+#                                         3, '3 kpc', 'lower left', 
+#                                         pad=0.1,
+#                                         color=plotting_def['text_over'],
+#                                         frameon=False,
+#                                         size_vertical=0.2,
+#                                         fontproperties=fontprops)
+#             ax.add_artist(scalebar)
+#         axcb = fig.colorbar(plot, cax = grid.cbar_axes[i], orientation='horizontal')
+#         axcb.set_label(plotting_def['label'], fontsize=16,labelpad=-50, y=0.85)
+#         axcb.ax.xaxis.set_ticks_position("top")
+#         if redshift:
+#             ax.text(0.7, 0.12, 'z = '+str(round(hdul[h].header['redshift'], 2)),
+#                     transform=ax.transAxes, fontsize=18,verticalalignment='top',
+#                     color=plotting_def['text_over'])
+
+#     fig.subplots_adjust(hspace=0, wspace=0,top = 0.95,bottom = 0.02,left = 0.02,right = 0.98)
+#     if stellar:
+#         fig.savefig(proj_FITS.split('.')[0]+'_stars.png',format='png',dpi=300)
+#     else:
+#         fig.savefig(proj_FITS.split('.')[0]+'.png',format='png',dpi=300)
+
 def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,redshift=True):
     """This function uses the projection information in a FITS file following the 
         OZY format and plots it following the OZY standards."""
@@ -399,15 +493,17 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
     from mpl_toolkits.axes_grid1 import AxesGrid, make_axes_locatable
     from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
     from matplotlib.colors import LogNorm
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
     import seaborn as sns
-    sns.set(style="white")
-    plt.rc('text', usetex=True)
-    plt.rc('font', family='serif')
-    hfont = {'fontname':'Helvetica'}
-    matplotlib.rc('text', usetex = True)
-    matplotlib.rc('font', **{'family' : "serif"})
-    params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
-    matplotlib.rcParams.update(params)
+    sns.set(style="dark")
+    plt.rcParams["axes.axisbelow"] = False
+    # plt.rc('text', usetex=True)
+    # plt.rc('font', family='serif')
+    # hfont = {'fontname':'Helvetica'}
+    # matplotlib.rc('text', usetex = True)
+    # matplotlib.rc('font', **{'family' : "serif"})
+    # params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
+    # matplotlib.rcParams.update(params)
 
 
     # First,check that FITS file actually exists
@@ -428,61 +524,82 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
         exit
 
     # Since everything is fine, we begin plotting…
-    ncolumns = len(fields)
-    fig = plt.figure(figsize=(11,5))
-    grid = AxesGrid(fig, (111),
-                    nrows_ncols = (1, ncolumns),
-                    axes_pad = 0.0,
-                    label_mode = "L",
-                    share_all = True,
-                    cbar_location="top",
-                    cbar_mode="edge",
-                    cbar_size="2%",
-                    cbar_pad=0.0)
+    ncol = int(len(fields)/2)
+    figsize = plt.figaspect(float(5 * 2) / float(5 * ncol))
+    fig = plt.figure(figsize=figsize, facecolor='k', edgecolor='k')
+    plot_grid = fig.add_gridspec(2, ncol, wspace=0, hspace=0,left=0,right=1, bottom=0, top=1)
+    ax = []
+    for i in range(0,2):
+        ax.append([])
+        for j in range(0,ncol):
+            ax[i].append(fig.add_subplot(plot_grid[i,j]))
+    ax = np.asarray(ax)
+
     width_x =  hdul[0].header['CDELT1']*hdul[0].header['NAXIS1']
     width_y =  hdul[0].header['CDELT2']*hdul[0].header['NAXIS2']
     ex = [-0.5*width_x,0.5*width_x,-0.5*width_y,0.5*width_y]
 
     stellar = False
-    for i in range(0, len(fields)):
-        h = [j for j in range(0,len(hdul)) if hdul[j].header['btype']==fields[i]][0]
-        ax = grid[i].axes
-        ax.axes.xaxis.set_visible(False)
-        ax.axes.yaxis.set_visible(False)
-        if fields[i].split('/')[0] == 'star' or fields[i].split('/')[0] == 'dm':
-            plotting_def = plotting_dictionary[fields[i].split('/')[0]+'_'+fields[i].split('/')[1]]
-            stellar = True
-        else:
-            plotting_def = plotting_dictionary[fields[i].split('/')[1]]
-        if logscale:
-            print(fields[i],np.min(hdul[h].data.T),np.max(hdul[h].data.T))
-            plot = ax.imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
-                            origin='upper',norm=LogNorm(vmin=plotting_def['vmin'],
-                            vmax=plotting_def['vmax']),extent=ex,
-                            interpolation='nearest')
-        else:
-            plot = ax.imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
-                            origin='upper',extent=ex,interpolation='nearest',
-                            vmin=plotting_def['vmin'],vmax=plotting_def['vmax'])
-        fontprops = fm.FontProperties(size=14)
-        if scalebar:
-            scalebar = AnchoredSizeBar(ax.transData,
-                                        3, '3 kpc', 'lower left', 
-                                        pad=0.1,
-                                        color=plotting_def['text_over'],
-                                        frameon=False,
-                                        size_vertical=0.2,
-                                        fontproperties=fontprops)
-            ax.add_artist(scalebar)
-        axcb = fig.colorbar(plot, cax = grid.cbar_axes[i], orientation='horizontal')
-        axcb.set_label(plotting_def['label'], fontsize=16,labelpad=-50, y=0.85)
-        axcb.ax.xaxis.set_ticks_position("top")
-        if redshift:
-            ax.text(0.7, 0.12, 'z = '+str(round(hdul[h].header['redshift'], 2)),
-                    transform=ax.transAxes, fontsize=18,verticalalignment='top',
-                    color=plotting_def['text_over'])
+    for i in range(0, ax.shape[0]):
+        for j in range(0, ax.shape[1]):
+            ivar = i*ax.shape[1] + j
+            if ivar >= len(fields):
+                # Clear that extra panel
+                ax[i,j].get_xaxis().set_visible(False)
+                ax[i,j].get_yaxis().set_visible(False)
+                break
+            ax[i,j].set_xlim([-0.5*width_x,0.5*width_y])
+            ax[i,j].set_ylim([-0.5*width_x,0.5*width_y])
+            ax[i,j].axes.xaxis.set_visible(False)
+            ax[i,j].axes.yaxis.set_visible(False)
+            ax[i,j].axis('off')
+            h = [k for k in range(0,len(hdul)) if hdul[k].header['btype']==fields[ivar]][0]
 
-    fig.subplots_adjust(hspace=0, wspace=0,top = 0.95,bottom = 0.02,left = 0.02,right = 0.98)
+            if fields[ivar].split('/')[0] == 'star' or fields[ivar].split('/')[0] == 'dm':
+                plotting_def = plotting_dictionary[fields[ivar].split('/')[0]+'_'+fields[ivar].split('/')[1]]
+                stellar = True
+            else:
+                plotting_def = plotting_dictionary[fields[ivar].split('/')[1]]
+            if logscale:
+                print(fields[ivar],np.min(hdul[h].data.T),np.max(hdul[h].data.T))
+                plot = ax[i,j].imshow(np.log10(hdul[h].data.T), cmap=plotting_def['cmap'],
+                                origin='upper',vmin=np.log10(plotting_def['vmin']),
+                                vmax=np.log10(plotting_def['vmax']),extent=ex,
+                                interpolation='nearest')
+            else:
+                plot = ax[i,j].imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
+                                origin='upper',extent=ex,interpolation='nearest',
+                                vmin=plotting_def['vmin'],vmax=plotting_def['vmax'])
+
+            cbaxes = inset_axes(ax[i,j], width="80%", height="5%", loc='lower center')
+            cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
+            if logscale:
+                cbar.set_label(plotting_def['label_log'],color=plotting_def['text_over'],fontsize=20,labelpad=-25, y=0.85,weight='bold')
+            else:
+                cbar.set_label(plotting_def['label'],color=plotting_def['text_over'],fontsize=16,labelpad=-25, y=0.85)
+            cbar.ax.xaxis.label.set_font_properties(matplotlib.font_manager.FontProperties(weight='bold',size=8))
+            cbar.ax.tick_params(axis='x', pad=-7, labelsize=8,labelcolor=plotting_def['text_over'])
+            cbar.ax.tick_params(length=0,width=0)
+
+            if redshift and i==0 and j==0:
+                ax[i,j].text(0.05, 0.90, r'$z = ${z:.2f}'.format(z=hdul[h].header['redshift']), # Redshift
+                                    verticalalignment='bottom', horizontalalignment='left',
+                                    transform=ax[i,j].transAxes,
+                                    color=plotting_def['text_over'], fontsize=10,fontweight='bold')
+
+            fontprops = fm.FontProperties(size=10,weight='bold')
+            if scalebar and i==0 and j==0:
+                scalebar = AnchoredSizeBar(ax[i,j].transData,
+                                            1, '1 kpc', 'upper right', 
+                                            pad=0.1,
+                                            color=plotting_def['text_over'],
+                                            frameon=False,
+                                            size_vertical=0.1,
+                                            fontproperties=fontprops)
+                ax[i,j].add_artist(scalebar)
+
+
+    fig.subplots_adjust(hspace=0,wspace=0,left=0,right=1, bottom=0, top=1)
     if stellar:
         fig.savefig(proj_FITS.split('.')[0]+'_stars.png',format='png',dpi=300)
     else:

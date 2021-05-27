@@ -539,6 +539,8 @@ module io_ramses
         case ('cr_energy')
             ! CR energy, computed as CR_energydensity*volume
             value = (var(varIDs%eCR) * (dx*dx)) * dx
+        case ('cr_energy_density')
+            value = var(varIDs%eCR)
         case ('cr_energy_specific')
             ! Specific CR energy, computed as CR_energydensity*volume/cell mass
             value = var(varIDs%eCR) / var(varIDs%density)

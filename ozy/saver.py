@@ -13,7 +13,6 @@ blacklist = [
 ]
 
 def _write_dataset(key, data, hd):
-    print(key, data)
     hd.create_dataset(key, data=data, compression=1)
 
 def check_and_write_dataset(obj, key, hd):

@@ -1081,7 +1081,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
     Module io_ramses
     
     
-    Defined at read_amr_module.fpp lines 24-817
+    Defined at read_amr_module.fpp lines 24-819
     
     """
     @f90wrap.runtime.register_class("projections.hydroID")
@@ -2831,7 +2831,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         getvarvalue(self, reg, dx, x, var, varname, value)
         
         
-        Defined at read_amr_module.fpp lines 369-569
+        Defined at read_amr_module.fpp lines 369-571
         
         Parameters
         ----------
@@ -2853,7 +2853,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         init_amr_read(repository, amr, sim)
         
         
-        Defined at read_amr_module.fpp lines 578-653
+        Defined at read_amr_module.fpp lines 580-655
         
         Parameters
         ----------
@@ -2871,7 +2871,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         get_cpu_map(self, amr)
         
         
-        Defined at read_amr_module.fpp lines 661-749
+        Defined at read_amr_module.fpp lines 663-751
         
         Parameters
         ----------
@@ -2887,7 +2887,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         getparttype(id, age, ptype)
         
         
-        Defined at read_amr_module.fpp lines 751-762
+        Defined at read_amr_module.fpp lines 753-764
         
         Parameters
         ----------
@@ -2904,7 +2904,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         getpartvalue(self, reg, x, v, id, m, age, met, imass, var, value)
         
         
-        Defined at read_amr_module.fpp lines 764-816
+        Defined at read_amr_module.fpp lines 766-818
         
         Parameters
         ----------
@@ -2935,7 +2935,7 @@ class Filtering(f90wrap.runtime.FortranModule):
     Module filtering
     
     
-    Defined at read_amr_module.fpp lines 819-876
+    Defined at read_amr_module.fpp lines 821-878
     
     """
     @f90wrap.runtime.register_class("projections.filter")
@@ -2944,7 +2944,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         Type(name=filter)
         
         
-        Defined at read_amr_module.fpp lines 822-827
+        Defined at read_amr_module.fpp lines 824-829
         
         """
         def __init__(self, handle=None):
@@ -2952,7 +2952,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             self = Filter()
             
             
-            Defined at read_amr_module.fpp lines 822-827
+            Defined at read_amr_module.fpp lines 824-829
             
             
             Returns
@@ -2972,7 +2972,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Destructor for class Filter
             
             
-            Defined at read_amr_module.fpp lines 822-827
+            Defined at read_amr_module.fpp lines 824-829
             
             Parameters
             ----------
@@ -2991,7 +2991,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element name ftype=character(128) pytype=str
             
             
-            Defined at read_amr_module.fpp line 823
+            Defined at read_amr_module.fpp line 825
             
             """
             return _projections.f90wrap_filter__get__name(self._handle)
@@ -3006,7 +3006,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element ncond ftype=integer  pytype=int
             
             
-            Defined at read_amr_module.fpp line 824
+            Defined at read_amr_module.fpp line 826
             
             """
             return _projections.f90wrap_filter__get__ncond(self._handle)
@@ -3021,7 +3021,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element cond_vars ftype=character(128) pytype=str
             
             
-            Defined at read_amr_module.fpp line 825
+            Defined at read_amr_module.fpp line 827
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -3045,7 +3045,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element cond_ops ftype=character(2) pytype=str
             
             
-            Defined at read_amr_module.fpp line 826
+            Defined at read_amr_module.fpp line 828
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -3069,7 +3069,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element cond_vals ftype=real(dbl) pytype=float
             
             
-            Defined at read_amr_module.fpp line 827
+            Defined at read_amr_module.fpp line 829
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -3111,7 +3111,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         allocate_filter(self)
         
         
-        Defined at read_amr_module.fpp lines 830-835
+        Defined at read_amr_module.fpp lines 832-837
         
         Parameters
         ----------
@@ -3126,7 +3126,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         cond_string_to_filter(str, filt)
         
         
-        Defined at read_amr_module.fpp lines 837-841
+        Defined at read_amr_module.fpp lines 839-843
         
         Parameters
         ----------
@@ -3142,7 +3142,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         filter_cell = filter_cell(self, reg, filt, cell_x, cell_dx, cell_var)
         
         
-        Defined at read_amr_module.fpp lines 843-876
+        Defined at read_amr_module.fpp lines 845-878
         
         Parameters
         ----------
@@ -3583,7 +3583,7 @@ class Maps(f90wrap.runtime.FortranModule):
     Module maps
     
     
-    Defined at ramses2map.fpp lines 194-986
+    Defined at ramses2map.fpp lines 194-989
     
     """
     @f90wrap.runtime.register_class("projections.projection_handler")
@@ -3806,7 +3806,7 @@ class Maps(f90wrap.runtime.FortranModule):
         projection_parts(repository, cam, bulk_velocity, proj)
         
         
-        Defined at ramses2map.fpp lines 540-559
+        Defined at ramses2map.fpp lines 540-560
         
         Parameters
         ----------
@@ -3825,7 +3825,7 @@ class Maps(f90wrap.runtime.FortranModule):
         project_particles(repository, amr, sim, bbox, cam, proj)
         
         
-        Defined at ramses2map.fpp lines 561-715
+        Defined at ramses2map.fpp lines 562-718
         
         Parameters
         ----------
@@ -3846,7 +3846,7 @@ class Maps(f90wrap.runtime.FortranModule):
         healpix_hydro(repository, reg, nside, proj)
         
         
-        Defined at ramses2map.fpp lines 717-732
+        Defined at ramses2map.fpp lines 720-735
         
         Parameters
         ----------
@@ -3865,7 +3865,7 @@ class Maps(f90wrap.runtime.FortranModule):
         project_cells_hpix(repository, amr, reg, varids, nside, proj)
         
         
-        Defined at ramses2map.fpp lines 734-986
+        Defined at ramses2map.fpp lines 737-989
         
         Parameters
         ----------
