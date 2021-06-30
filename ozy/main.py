@@ -142,8 +142,18 @@ class OZY(object):
             assign.galaxies_to_halos(self)
 
             # Now process galaxies using their assigned halo
-            for gal in self.galaxies:
-                gal._process_galaxy()
+            main_gal_ID = -1
+            if 'main_gal' in self._kwargs:
+                if self._kwargs['main_gal']:
+                    print('Computing details just for main galaxy in simulation.')
+                    masses = [i.virial_quantities['mass'] for i in self.galaxies]
+                    main_gal_ID = self.galaxies[np.argmax(masses)].ID
+                    
+            if main_gal_ID != -1:
+                self.galaxies[np.argmax(masses)]._process_galaxy()
+            else:
+                for gal in self.galaxies:
+                    gal._process_galaxy()
 
             # Link objects between each other
             link.galaxies_to_halos(self)

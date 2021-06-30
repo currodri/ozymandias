@@ -333,7 +333,7 @@ def write_phasediag(obj,ozy_file,hydro,star,dm,pd):
     f.close()
     return
 
-def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True,redshift=True):
+def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True,redshift=True,stats='none'):
     """This function uses the information from PhaseDiagram following the OZY format and
         plots following the OZY standards."""
     
@@ -374,12 +374,12 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
                     break
 
     # Since everything appears fine, we begin plotting...
-    fig, ax = plt.subplots(1,1, figsize=(6,6))
+    fig, ax = plt.subplots(1,1, figsize=(8,6))
     plotting_x = plotting_dictionary[pd.xvar]
     plotting_y = plotting_dictionary[pd.yvar]
     plotting_z = plotting_dictionary[field]
-    ax.set_xlabel(plotting_x['label'],fontsize=16)
-    ax.set_ylabel(plotting_y['label'],fontsize=16)
+    ax.set_xlabel(plotting_x['label'],fontsize=18)
+    ax.set_ylabel(plotting_y['label'],fontsize=18)
 
     ax.tick_params(labelsize=14,direction='in')
     ax.xaxis.set_ticks_position('both')
@@ -418,10 +418,19 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
                             vmax=plotting_z['vmax'])
                             
     axcb = fig.colorbar(plot, orientation="vertical", pad=0.0)
-    axcb.set_label(plotting_z['label'],fontsize=16)
+    axcb.set_label(plotting_z['label'],fontsize=18)
     if redshift:
-        ax.text(0.7, 0.12, 'z = '+str(round(sim_z, 2)),
-                    transform=ax.transAxes, fontsize=16,verticalalignment='top',
-                    color=plotting_z['text_over'])
-    fig.subplots_adjust(top=0.97,bottom=0.1,left=0.12,right=0.98)
+        ax.text(0.80, 0.9, 'z = '+str(round(sim_z, 2)),
+                    transform=ax.transAxes, fontsize=20,verticalalignment='top',
+                    color='black')
+    if stats == 'mean':
+        y_mean = np.zeros(len(x))
+        z = z.T
+        for i in range(0, len(x)):
+            a = np.nansum(y * z[:,i])
+            b = np.nansum(z[:,i])
+            y_mean[i] = a/b
+        print(x,y_mean)
+        ax.plot(x,y_mean,color='r',linewidth=2)
+    fig.subplots_adjust(top=0.97,bottom=0.1,left=0.1,right=0.99)
     fig.savefig(name+'.png',format='png',dpi=300)

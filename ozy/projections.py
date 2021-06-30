@@ -75,7 +75,19 @@ class Projection(object):
                 for f in varlist:
                     fields.append(datatype+'/'+f)
                 for i,field in enumerate(fields):
-                    code_units = get_code_units(field.split('/')[1])
+                    # Some fields have specific numerical flags at the end
+                    # which do not interfere with the units. If that is 
+                    # the case, get rid of that last bit
+                    try:
+                        numflag = int(field.split('/')[1].split('_')[-1])
+                        numflag = True
+                    except:
+                        numflag = False
+                    if numflag:
+                        sfrstr = field.split('/')[1].split('_')[0] +'_'+ field.split('/')[1].split('_')[1]
+                        code_units = get_code_units(sfrstr)
+                    else:
+                        code_units = get_code_units(field.split('/')[1])
                     temp_map = YTArray(imap[i],code_units,
                                         registry=self.group.obj.unit_registry)
                     first_unit = True
@@ -137,7 +149,19 @@ class Projection(object):
                 for f in varlist:
                     fields.append(datatype+'/'+f)
                 for i,field in enumerate(fields):
-                    code_units = get_code_units(field.split('/')[1])
+                    # Some fields have specific numerical flags at the end
+                    # which do not interfere with the units. If that is 
+                    # the case, get rid of that last bit
+                    try:
+                        numflag = int(field.split('/')[1].split('_')[-1])
+                        numflag = True
+                    except:
+                        numflag = False
+                    if numflag:
+                        sfrstr = field.split('/')[1].split('_')[0] +'_'+ field.split('/')[1].split('_')[1]
+                        code_units = get_code_units(sfrstr)
+                    else:
+                        code_units = get_code_units(field.split('/')[1])
                     temp_map = YTArray(imap[i][0],code_units,
                                         registry=self.group.obj.unit_registry)
                     first_unit = True
@@ -145,8 +169,12 @@ class Projection(object):
                         if first_unit:
                             units = unit_system[u]
                             first_unit = False
+                            units_check = u
                         else:
                             units += '*'+unit_system[u]
+                            units_check +='_'+u
+                    if units_check in unit_system:
+                        units = unit_system[units_check]
                     mm = np.array(temp_map.in_units(units))
                     ft = self.getformat(mm[0])
                     cols.append(
@@ -240,7 +268,7 @@ class Projection(object):
         except:
             pass
 
-def do_projection(group,vars,weight=['gas/density','star/age'],map_max_size=1024,pov='faceon'):
+def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_size=1024,pov='faceon',lmax=0,lmin=1,window=0.0):
     """Function which computes a 2D projection centered on an objected from an OZY file."""
 
     if not isinstance(weight,list):
@@ -260,10 +288,20 @@ def do_projection(group,vars,weight=['gas/density','star/age'],map_max_size=1024
             else:
                 raise KeyError('This gas variable is not supported. Please check!: %s', var)
         elif var_type == 'star':
-            if var_name in common_variables or var_name in particle_variables:
-                proj.vars['star'].append(var_name)
+            if var_name.split('_')[0] == 'sfr':
+                if len(var_name.split('_')) == 3:
+                    sfr_name = var_name.split('_')[0] +'_'+var_name.split('_')[1]
+                else:
+                    sfr_name = var_name.split('_')[0]
+                if sfr_name in particle_variables:
+                    proj.vars['star'].append(var_name)
+                else:
+                    raise KeyError('This star variable is not supported. Please check!')
             else:
-                raise KeyError('This star variable is not supported. Please check!')
+                if var_name in common_variables or var_name in particle_variables:
+                    proj.vars['star'].append(var_name)
+                else:
+                    raise KeyError('This star variable is not supported. Please check!')
         elif var_type == 'dm':
             if var_name in common_variables or var_name in particle_variables:
                 proj.vars['dm'].append(var_name)
@@ -290,32 +328,64 @@ def do_projection(group,vars,weight=['gas/density','star/age'],map_max_size=1024
                 raise KeyError('This DM variable is not supported. Please check!')
 
     # Setup camera details for the requested POV (Point of View)
+    if window != 0.0:
+        window = YTArray(window,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+    else:
+        window = 0.2*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
     centre = vectors.vector()
     centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
     bulk = vectors.vector()
-    bulk.x, bulk.y, bulk.z = group.velocity[0], group.velocity[1], group.velocity[2]
+    velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
+    bulk.x, bulk.y, bulk.z = velocity.d[0], velocity.d[1], velocity.d[2]
     if proj.pov == 'faceon':
         axis = vectors.vector()
         norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
-        up = cartesian_basis['y'] - np.dot(cartesian_basis['y'],norm_L)*norm_L
+        up = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
         up /= np.linalg.norm(up)
         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
         up_vector = vectors.vector()
         up_vector.x, up_vector.y, up_vector.z = up[0], up[1], up[2]
-        rmax = 0.2*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-        region_size = np.array([2*rmax,2*rmax],order='F')
+        rmax = window
+        region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
         distance = rmax
         far_cut_depth = rmax
     elif proj.pov == 'edgeon':
         axis = vectors.vector()
         norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
-        los = cartesian_basis['y'] - np.dot(cartesian_basis['y'],norm_L)*norm_L
+        los = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
         los /= np.linalg.norm(los)
         axis.x,axis.y,axis.z = los[0], los[1], los[2]
         up_vector = vectors.vector()
         up_vector.x,up_vector.y,up_vector.z = norm_L[0], norm_L[1], norm_L[2]
-        rmax = 0.2*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-        region_size = np.array([2*rmax,2*rmax],order='F')
+        rmax = window
+        region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
+        distance = rmax
+        far_cut_depth = rmax
+    elif proj.pov == 'x':
+        axis = vectors.vector()
+        axis.x,axis.y,axis.z = 1.0, 0.0, 0.0
+        up_vector = vectors.vector()
+        up_vector.x, up_vector.y, up_vector.z = 0.0, 1.0, 0.0
+        rmax = window
+        region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
+        distance = rmax
+        far_cut_depth = rmax
+    elif proj.pov == 'y':
+        axis = vectors.vector()
+        axis.x,axis.y,axis.z = 0.0, 1.0, 0.0
+        up_vector = vectors.vector()
+        up_vector.x, up_vector.y, up_vector.z = 1.0, 0.0, 0.0
+        rmax = window
+        region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
+        distance = rmax
+        far_cut_depth = rmax
+    elif proj.pov == 'z':
+        axis = vectors.vector()
+        axis.x,axis.y,axis.z = 0.0, 0.0, 1.0
+        up_vector = vectors.vector()
+        up_vector.x, up_vector.y, up_vector.z = 1.0, 0.0, 0.0
+        rmax = window
+        region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
         distance = rmax
         far_cut_depth = rmax
     else:
@@ -328,8 +398,8 @@ def do_projection(group,vars,weight=['gas/density','star/age'],map_max_size=1024
         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
         up_vector = vectors.vector()
         up_vector.x, up_vector.y, up_vector.z = up[0], up[1], up[2]
-        rmax = 0.2*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-        region_size = np.array([2*rmax,2*rmax],order='F')
+        rmax = window
+        region_size = np.array([2.0*rmax,2.0*rmax],order='F')
         distance = rmax
         far_cut_depth = rmax
     
@@ -340,7 +410,7 @@ def do_projection(group,vars,weight=['gas/density','star/age'],map_max_size=1024
     proj.centre = np.array([group.position[0], group.position[1], group.position[2]])
     proj.distance = distance
     proj.far_cut_depth = far_cut_depth
-    proj.los_axis = norm_L
+    proj.los_axis = np.array([cam.los_axis.x,cam.los_axis.y,cam.los_axis.z])
     proj.up_vector = np.array([cam.up_vector.x,cam.up_vector.y,cam.up_vector.z])
 
     # Save the final resolution that will be computed (such as for aspect_ratio>1)
@@ -356,10 +426,14 @@ def do_projection(group,vars,weight=['gas/density','star/age'],map_max_size=1024
         hydro_handler.varnames.T.view('S128')[i] = proj.vars['gas'][i].ljust(128)
     
     # COMPUTE HYDRO PROJECTION
-    maps.projection_hydro(group.obj.simulation.fullpath,cam,bulk,hydro_handler)
-    # TODO: Weird issue when the direct toto array is given.
-    data = np.copy(hydro_handler.toto)
-    proj.data_maps.append(data)
+    if len(proj.vars['gas']) != 0:
+        if lmax != 0:
+            maps.projection_hydro(group.obj.simulation.fullpath,cam,bulk,hydro_handler,int(lmax),int(lmin))
+        else:
+            maps.projection_hydro(group.obj.simulation.fullpath,cam,bulk,hydro_handler)
+        # TODO: Weird issue when the direct toto array is given.
+        data = np.copy(hydro_handler.toto)
+        proj.data_maps.append(data)
 
     # Create projection_handler Fortran derived type for the results of the hydro data projection
     parts_handler = maps.projection_handler()
@@ -367,18 +441,23 @@ def do_projection(group,vars,weight=['gas/density','star/age'],map_max_size=1024
     parts_handler.nvars = len(proj.vars['dm'])+len(proj.vars['star'])
     parts_handler.weightvar = proj.weight[1]
     maps.allocate_projection_handler(parts_handler)
-    for i in range(0, len(proj.vars['dm'])):
-        tempstr = 'dm/'+proj.vars['dm'][i]
-        parts_handler.varnames.T.view('S128')[i] = tempstr.ljust(128)
+
     for i in range(0, len(proj.vars['star'])):
         tempstr = 'star/'+proj.vars['star'][i]
         parts_handler.varnames.T.view('S128')[i] = tempstr.ljust(128)
+    for i in range(len(proj.vars['star']), len(proj.vars['star'])+len(proj.vars['dm'])):
+        tempstr = 'dm/'+proj.vars['dm'][i-len(proj.vars['star'])]
+        parts_handler.varnames.T.view('S128')[i] = tempstr.ljust(128)
 
     # COMPUTE PARTICLES PROJECTION
-    maps.projection_parts(group.obj.simulation.fullpath,cam,bulk,parts_handler)
-    # TODO: Weird issue when the direct toto array is given.
-    data = np.copy(parts_handler.toto)
-    proj.data_maps.append(data)
+    if len(proj.vars['star'])+len(proj.vars['dm']) != 0:
+        maps.projection_parts(group.obj.simulation.fullpath,cam,bulk,parts_handler)
+        # TODO: Weird issue when the direct toto array is given.
+        data = np.copy(parts_handler.toto)
+        data_star = data[:len(proj.vars['star'])].reshape(len(proj.vars['star']),data.shape[1],data.shape[2])
+        proj.data_maps.append(data_star)
+        data_dm = data[len(proj.vars['star']):].reshape(len(proj.vars['dm']),data.shape[1],data.shape[2])
+        proj.data_maps.append(data_dm)
 
     return proj
 
@@ -605,6 +684,114 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
     else:
         fig.savefig(proj_FITS.split('.')[0]+'.png',format='png',dpi=300)
 
+def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=True,redshift=True):
+    """This function uses the projection information in a FITS file following the 
+        OZY format and combines three variables into an RGB image using the Lupton et al.
+        (2004) method."""
+    
+    # Make required imports
+    import matplotlib
+    import matplotlib.pyplot as plt
+    import matplotlib.font_manager as fm
+    from mpl_toolkits.axes_grid1 import AxesGrid, make_axes_locatable
+    from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+    from matplotlib.colors import LogNorm
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    from astropy.visualization import make_lupton_rgb
+    import matplotlib.patches as mpatches
+    from matplotlib.colors import Normalize
+    import seaborn as sns
+    sns.set(style="dark")
+    plt.rcParams["axes.axisbelow"] = False
+
+    # First,check that FITS file actually exists
+    if not os.path.exists(proj_FITS):
+        raise ImportError('File not found. Please check!')
+    
+    # Load FITS file
+    hdul = fits.open(proj_FITS)
+    hdul_fields = [h.header['btype'] for h in hdul]
+
+    # Check that the required fields for plotting are in this FITS
+    for i,f in enumerate(fields):
+        if f not in hdul_fields:
+            print('The field %s is not included in this file. Ignoring...'%f)
+            del fields[i]
+    if len(fields) == 0:
+        print('Not a single field of the ones you provided are here... Check!')
+        exit
+    if len(fields) != 3:
+        print('You need to provide three different fields to make RGB images!')
+        exit
+    
+    # Since everything is fine, we begin plotting…
+    figsize = plt.figaspect(float(10) / float(10))
+    fig, ax = plt.subplots(1,1,figsize=figsize, facecolor='k', edgecolor='k')
+
+    width_x =  hdul[0].header['CDELT1']*hdul[0].header['NAXIS1']
+    width_y =  hdul[0].header['CDELT2']*hdul[0].header['NAXIS2']
+    ex = [-0.5*width_x,0.5*width_x,-0.5*width_y,0.5*width_y]
+
+    rgb_colours = ['red','green','blue']
+    images = []
+    custom_lines = []
+
+    for i in range(0, 3):
+        ax.set_xlim([-0.5*width_x,0.5*width_y])
+        ax.set_ylim([-0.5*width_x,0.5*width_y])
+        ax.axes.xaxis.set_visible(False)
+        ax.axes.yaxis.set_visible(False)
+        ax.axis('off')
+        h = [k for k in range(0,len(hdul)) if hdul[k].header['btype']==fields[i]][0]
+
+        if fields[i].split('/')[0] == 'star' or fields[i].split('/')[0] == 'dm':
+            plotting_def = plotting_dictionary[fields[i].split('/')[0]+'_'+fields[i].split('/')[1]]
+        else:
+            plotting_def = plotting_dictionary[fields[i].split('/')[1]]
+
+        data = hdul[h].data.T
+        print(fields[i],data.min(),data.max())
+        data[data < plotting_def['vmin_galaxy']] = plotting_def['vmin_galaxy']
+        data[data > plotting_def['vmax_galaxy']] = plotting_def['vmax_galaxy']
+        data = (np.log10(data)-np.log10(plotting_def['vmin_galaxy']*0.99))/(np.log10(plotting_def['vmax_galaxy']) - np.log10(plotting_def['vmin_galaxy']*0.99))
+
+        images.append(data)
+        custom_lines.append(mpatches.Patch(color=rgb_colours[i],label=plotting_def['label']))
+    
+    rgb_default = make_lupton_rgb(images[0], images[1], images[2],Q=10, stretch=0.5)
+
+    ax.imshow(rgb_default,origin='upper',extent=ex,interpolation='nearest')
+
+    if stars:
+        h = [k for k in range(0,len(hdul)) if hdul[k].header['btype']=='star/mass'][0]
+        stars = np.log10(hdul[h].data.T)
+        plotting_def = plotting_dictionary['star_mass']
+        ax.imshow(stars,origin='upper',cmap=plotting_def['cmap'],
+                    extent=ex,interpolation='nearest',
+                    vmin=np.log10(plotting_def['vmin']),
+                    vmax=np.log10(plotting_def['vmax']),alpha=0.4)
+
+    if redshift:
+        ax.text(0.05, 0.90, r'$z = ${z:.2f}'.format(z=hdul[h].header['redshift']), # Redshift
+                    verticalalignment='bottom', horizontalalignment='left',
+                    transform=ax.transAxes,
+                    color='white', fontsize=16,fontweight='bold')
+
+    fontprops = fm.FontProperties(size=16,weight='bold')
+    if scalebar:
+        scalebar = AnchoredSizeBar(ax.transData,
+                                    1, '1 kpc', 'upper right', 
+                                    pad=0.1,
+                                    color='white',
+                                    frameon=False,
+                                    size_vertical=0.1,
+                                    fontproperties=fontprops)
+        ax.add_artist(scalebar)
+    ax.legend(handles=custom_lines,loc='lower right',frameon=False,fontsize=12,labelcolor='white')
+    fig.subplots_adjust(hspace=0,wspace=0,left=0,right=1, bottom=0, top=1)
+    fig.savefig(proj_FITS.split('.')[0]+'_rgb.png',format='png',dpi=300)
+
+
 def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,pov='edgeon'):
     """Function which computes a 2D spherical projection of particular object using the HEALPix
         pixelisation scheme."""
@@ -670,9 +857,9 @@ def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,
         axis = vectors.vector()
         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
         reg.axis = axis
-        rmax = 0.2*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-        reg.rmin = 0.9*rmax
-        reg.rmax = 1.1*rmax
+        rmax = 0.4*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        reg.rmin = 0.85*rmax
+        reg.rmax = 1.15*rmax
 
         # Update projection details with the ones used for the region
         proj.up_vector = norm_L
@@ -748,6 +935,7 @@ def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False):
     target_wcs = WCS(target_header)
     print(target_wcs)
     # Since everything is fine, we begin plotting…
+    nside = hdul.header["NSIDE"]
     ncolumns = int(len(fields)/2)
     figsize = plt.figaspect(float(7 * 2) / float(11 * ncolumns))
     fig = plt.figure(figsize=figsize)
@@ -772,8 +960,13 @@ def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False):
                 ax.get_yaxis().set_visible(False)
                 break
             data = hdul.data[fields[ivar]]
+            invalid_index = np.argwhere(np.isnan(data))
+            theta,phi = hp.pix2ang(nside,invalid_index)
+            data[invalid_index] = np.nanmin(data)
             array, footprint = reproject_from_healpix((data, 'C'),
                                                         target_header,nested=False)
+            print(fields[ivar],np.nanmin(array),np.nanmax(array))
+            
             if fields[ivar].split('/')[0] == 'star' or fields[ivar].split('/')[0] == 'dm':
                 plotting_def = plotting_dictionary[fields[ivar].split('/')[0]+'_'+fields[ivar].split('/')[1]]
                 stellar = True
@@ -782,11 +975,17 @@ def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False):
             if logscale:
                 if fields[ivar].split('/')[1].split('_')[0] != 'v':
                     if fields[ivar].split('/')[1] == 'density':
-                        vmin = plotting_def['vmin']/10
+                        vmin = plotting_def['vmin']/100
                         vmax = plotting_def['vmax']/100
                     elif fields[ivar].split('/')[1] == 'temperature':
                         vmin = plotting_def['vmin']*100
                         vmax = plotting_def['vmax']*10
+                    elif fields[ivar].split('/')[1] == 'xHII':
+                        vmin = plotting_def['vmin']*100
+                        vmax = plotting_def['vmax']
+                    # elif fields[ivar].split('/')[1] == 'magnetic_energy_density':
+                    #     vmin = plotting_def['vmin']/1e12
+                    #     vmax = plotting_def['vmax']*10
                     else:
                         vmin = plotting_def['vmin']
                         vmax = plotting_def['vmax']

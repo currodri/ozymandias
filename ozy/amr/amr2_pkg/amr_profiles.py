@@ -2,7 +2,7 @@
 Module amr_profiles
 
 
-Defined at profiles_module.fpp lines 5-749
+Defined at profiles_module.fpp lines 25-770
 
 """
 from __future__ import print_function, absolute_import, division
@@ -19,7 +19,7 @@ class profile_handler(f90wrap.runtime.FortranDerivedType):
     Type(name=profile_handler)
     
     
-    Defined at profiles_module.fpp lines 9-18
+    Defined at profiles_module.fpp lines 29-38
     
     """
     def __init__(self, handle=None):
@@ -27,7 +27,7 @@ class profile_handler(f90wrap.runtime.FortranDerivedType):
         self = Profile_Handler()
         
         
-        Defined at profiles_module.fpp lines 9-18
+        Defined at profiles_module.fpp lines 29-38
         
         
         Returns
@@ -47,7 +47,7 @@ class profile_handler(f90wrap.runtime.FortranDerivedType):
         Destructor for class Profile_Handler
         
         
-        Defined at profiles_module.fpp lines 9-18
+        Defined at profiles_module.fpp lines 29-38
         
         Parameters
         ----------
@@ -66,7 +66,7 @@ class profile_handler(f90wrap.runtime.FortranDerivedType):
         Element profdim ftype=integer  pytype=int
         
         
-        Defined at profiles_module.fpp line 10
+        Defined at profiles_module.fpp line 30
         
         """
         return _amr2_pkg.f90wrap_profile_handler__get__profdim(self._handle)
@@ -81,7 +81,7 @@ class profile_handler(f90wrap.runtime.FortranDerivedType):
         Element xvarname ftype=character(128) pytype=str
         
         
-        Defined at profiles_module.fpp line 11
+        Defined at profiles_module.fpp line 31
         
         """
         return _amr2_pkg.f90wrap_profile_handler__get__xvarname(self._handle)
@@ -96,7 +96,7 @@ class profile_handler(f90wrap.runtime.FortranDerivedType):
         Element nyvar ftype=integer  pytype=int
         
         
-        Defined at profiles_module.fpp line 12
+        Defined at profiles_module.fpp line 32
         
         """
         return _amr2_pkg.f90wrap_profile_handler__get__nyvar(self._handle)
@@ -111,7 +111,7 @@ class profile_handler(f90wrap.runtime.FortranDerivedType):
         Element yvarnames ftype=character(128) pytype=str
         
         
-        Defined at profiles_module.fpp line 13
+        Defined at profiles_module.fpp line 33
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -135,7 +135,7 @@ class profile_handler(f90wrap.runtime.FortranDerivedType):
         Element nbins ftype=integer  pytype=int
         
         
-        Defined at profiles_module.fpp line 14
+        Defined at profiles_module.fpp line 34
         
         """
         return _amr2_pkg.f90wrap_profile_handler__get__nbins(self._handle)
@@ -150,7 +150,7 @@ class profile_handler(f90wrap.runtime.FortranDerivedType):
         Element nwvar ftype=integer  pytype=int
         
         
-        Defined at profiles_module.fpp line 15
+        Defined at profiles_module.fpp line 35
         
         """
         return _amr2_pkg.f90wrap_profile_handler__get__nwvar(self._handle)
@@ -165,7 +165,7 @@ class profile_handler(f90wrap.runtime.FortranDerivedType):
         Element wvarnames ftype=character(128) pytype=str
         
         
-        Defined at profiles_module.fpp line 16
+        Defined at profiles_module.fpp line 36
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -189,7 +189,7 @@ class profile_handler(f90wrap.runtime.FortranDerivedType):
         Element xdata ftype=real(dbl) pytype=float
         
         
-        Defined at profiles_module.fpp line 17
+        Defined at profiles_module.fpp line 37
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -213,7 +213,7 @@ class profile_handler(f90wrap.runtime.FortranDerivedType):
         Element ydata ftype=real(dbl) pytype=float
         
         
-        Defined at profiles_module.fpp line 18
+        Defined at profiles_module.fpp line 38
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -263,7 +263,7 @@ class profile_handler_twod(f90wrap.runtime.FortranDerivedType):
     Type(name=profile_handler_twod)
     
     
-    Defined at profiles_module.fpp lines 20-30
+    Defined at profiles_module.fpp lines 40-50
     
     """
     def __init__(self, handle=None):
@@ -271,7 +271,7 @@ class profile_handler_twod(f90wrap.runtime.FortranDerivedType):
         self = Profile_Handler_Twod()
         
         
-        Defined at profiles_module.fpp lines 20-30
+        Defined at profiles_module.fpp lines 40-50
         
         
         Returns
@@ -291,7 +291,7 @@ class profile_handler_twod(f90wrap.runtime.FortranDerivedType):
         Destructor for class Profile_Handler_Twod
         
         
-        Defined at profiles_module.fpp lines 20-30
+        Defined at profiles_module.fpp lines 40-50
         
         Parameters
         ----------
@@ -310,7 +310,7 @@ class profile_handler_twod(f90wrap.runtime.FortranDerivedType):
         Element profdim ftype=integer  pytype=int
         
         
-        Defined at profiles_module.fpp line 21
+        Defined at profiles_module.fpp line 41
         
         """
         return _amr2_pkg.f90wrap_profile_handler_twod__get__profdim(self._handle)
@@ -325,7 +325,7 @@ class profile_handler_twod(f90wrap.runtime.FortranDerivedType):
         Element xvarname ftype=character(128) pytype=str
         
         
-        Defined at profiles_module.fpp line 22
+        Defined at profiles_module.fpp line 42
         
         """
         return _amr2_pkg.f90wrap_profile_handler_twod__get__xvarname(self._handle)
@@ -340,7 +340,7 @@ class profile_handler_twod(f90wrap.runtime.FortranDerivedType):
         Element yvarname ftype=character(128) pytype=str
         
         
-        Defined at profiles_module.fpp line 23
+        Defined at profiles_module.fpp line 43
         
         """
         return _amr2_pkg.f90wrap_profile_handler_twod__get__yvarname(self._handle)
@@ -355,7 +355,7 @@ class profile_handler_twod(f90wrap.runtime.FortranDerivedType):
         Element nzvar ftype=integer  pytype=int
         
         
-        Defined at profiles_module.fpp line 24
+        Defined at profiles_module.fpp line 44
         
         """
         return _amr2_pkg.f90wrap_profile_handler_twod__get__nzvar(self._handle)
@@ -370,7 +370,7 @@ class profile_handler_twod(f90wrap.runtime.FortranDerivedType):
         Element zvarnames ftype=character(128) pytype=str
         
         
-        Defined at profiles_module.fpp line 25
+        Defined at profiles_module.fpp line 45
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -394,7 +394,7 @@ class profile_handler_twod(f90wrap.runtime.FortranDerivedType):
         Element nbins ftype=integer pytype=int
         
         
-        Defined at profiles_module.fpp line 26
+        Defined at profiles_module.fpp line 46
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -418,7 +418,7 @@ class profile_handler_twod(f90wrap.runtime.FortranDerivedType):
         Element nwvar ftype=integer  pytype=int
         
         
-        Defined at profiles_module.fpp line 27
+        Defined at profiles_module.fpp line 47
         
         """
         return _amr2_pkg.f90wrap_profile_handler_twod__get__nwvar(self._handle)
@@ -433,7 +433,7 @@ class profile_handler_twod(f90wrap.runtime.FortranDerivedType):
         Element wvarnames ftype=character(128) pytype=str
         
         
-        Defined at profiles_module.fpp line 28
+        Defined at profiles_module.fpp line 48
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -457,7 +457,7 @@ class profile_handler_twod(f90wrap.runtime.FortranDerivedType):
         Element xdata ftype=real(dbl) pytype=float
         
         
-        Defined at profiles_module.fpp line 29
+        Defined at profiles_module.fpp line 49
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -481,7 +481,7 @@ class profile_handler_twod(f90wrap.runtime.FortranDerivedType):
         Element ydata ftype=real(dbl) pytype=float
         
         
-        Defined at profiles_module.fpp line 29
+        Defined at profiles_module.fpp line 49
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -505,7 +505,7 @@ class profile_handler_twod(f90wrap.runtime.FortranDerivedType):
         Element zdata ftype=real(dbl) pytype=float
         
         
-        Defined at profiles_module.fpp line 30
+        Defined at profiles_module.fpp line 50
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -558,7 +558,7 @@ def allocate_profile_handler(self):
     allocate_profile_handler(self)
     
     
-    Defined at profiles_module.fpp lines 33-39
+    Defined at profiles_module.fpp lines 53-59
     
     Parameters
     ----------
@@ -572,7 +572,7 @@ def allocate_profile_handler_twod(self):
     allocate_profile_handler_twod(self)
     
     
-    Defined at profiles_module.fpp lines 41-48
+    Defined at profiles_module.fpp lines 61-68
     
     Parameters
     ----------
@@ -586,7 +586,7 @@ def makebins(self, sim, varname, nbins, bins, logscale):
     makebins(self, sim, varname, nbins, bins, logscale)
     
     
-    Defined at profiles_module.fpp lines 50-89
+    Defined at profiles_module.fpp lines 70-109
     
     Parameters
     ----------
@@ -606,7 +606,7 @@ def findbinpos(self, varids, distance, pos, cellvars, cellsize, prof, ibin):
     findbinpos(self, varids, distance, pos, cellvars, cellsize, prof, ibin)
     
     
-    Defined at profiles_module.fpp lines 91-113
+    Defined at profiles_module.fpp lines 111-133
     
     Parameters
     ----------
@@ -631,7 +631,7 @@ def findbinpos_twod(self, varids, distance, pos, cellvars, cellsize, prof, \
         ibinx, ibiny)
     
     
-    Defined at profiles_module.fpp lines 115-154
+    Defined at profiles_module.fpp lines 135-174
     
     Parameters
     ----------
@@ -656,7 +656,7 @@ def bindata(self, varids, pos, cellvars, cellsize, prof, ibin):
     bindata(self, varids, pos, cellvars, cellsize, prof, ibin)
     
     
-    Defined at profiles_module.fpp lines 156-203
+    Defined at profiles_module.fpp lines 176-223
     
     Parameters
     ----------
@@ -677,7 +677,7 @@ def bindata_twod(self, varids, pos, cellvars, cellsize, prof, ibinx, ibiny):
     bindata_twod(self, varids, pos, cellvars, cellsize, prof, ibinx, ibiny)
     
     
-    Defined at profiles_module.fpp lines 205-238
+    Defined at profiles_module.fpp lines 225-258
     
     Parameters
     ----------
@@ -700,7 +700,7 @@ def renormalise_bins(self):
     renormalise_bins(self)
     
     
-    Defined at profiles_module.fpp lines 240-265
+    Defined at profiles_module.fpp lines 260-285
     
     Parameters
     ----------
@@ -714,7 +714,7 @@ def renormalise_bins_twod(self):
     renormalise_bins_twod(self)
     
     
-    Defined at profiles_module.fpp lines 267-291
+    Defined at profiles_module.fpp lines 287-311
     
     Parameters
     ----------
@@ -728,7 +728,7 @@ def get_cells_onedprofile(repository, amr, reg, filt, varids, prof_data):
     get_cells_onedprofile(repository, amr, reg, filt, varids, prof_data)
     
     
-    Defined at profiles_module.fpp lines 293-494
+    Defined at profiles_module.fpp lines 313-515
     
     Parameters
     ----------
@@ -749,7 +749,7 @@ def onedprofile(repository, reg, filt, prof_data, lmax, logscale):
     onedprofile(repository, reg, filt, prof_data, lmax, logscale)
     
     
-    Defined at profiles_module.fpp lines 496-518
+    Defined at profiles_module.fpp lines 517-539
     
     Parameters
     ----------
@@ -770,7 +770,7 @@ def twodprofile(repository, reg, filt, prof_data, lmax, logscale):
     twodprofile(repository, reg, filt, prof_data, lmax, logscale)
     
     
-    Defined at profiles_module.fpp lines 520-545
+    Defined at profiles_module.fpp lines 541-566
     
     Parameters
     ----------
@@ -792,7 +792,7 @@ def get_cells_twodprofile(repository, amr, reg, filt, varids, prof_data, \
     get_cells_twodprofile(repository, amr, reg, filt, varids, prof_data, logscale)
     
     
-    Defined at profiles_module.fpp lines 547-749
+    Defined at profiles_module.fpp lines 568-770
     
     Parameters
     ----------

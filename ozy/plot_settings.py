@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-import seaborn as sns
+import swiftascmaps
 import seaborn as sns
 sns.set(style="white")
 plotting_dictionary = dict(
@@ -9,7 +9,9 @@ plotting_dictionary = dict(
                 'label_log':r'$\log\left(\frac{\rho}{{\rm g/cm}^{-3}}\right)$',
                 'units':'g*cm**-3',
                 'vmin':2e-28,
-                'vmax':5e-21
+                'vmax':5e-21,
+                'vmin_galaxy':2e-28,
+                'vmax_galaxy':5e-22
     },
     mass = {'cmap':sns.color_palette("mako", as_cmap=True),
             'text_over':'white',
@@ -25,40 +27,112 @@ plotting_dictionary = dict(
                     'label_log':r'$\log\left(\frac{T}{{\rm K}}\right)$',
                     'units':'K',
                     'vmin':5e+1,
-                    'vmax':2e+6
+                    'vmax':2e+6,
+                    'vmin_galaxy':5e+3,
+                    'vmax_galaxy':8e+6
     },
-    metallicity = {'cmap':sns.diverging_palette(145, 300, s=60, as_cmap=True),
+    thermal_energy = {'cmap':sns.color_palette("rocket", as_cmap=True),
+                            'text_over':'white',
+                            'label':r'$E_{\rm ther}$ [erg]',
+                            'label_log':r'$\log(\frac{E_{\rm ther}}{{\rm erg}})$',
+                            'units':'erg',
+                            'vmin':5e+1,
+                            'vmax':2e+6,
+                            'vmin_galaxy':5e+3,
+                            'vmax_galaxy':8e+6
+    },
+    thermal_energy_specific = {'cmap':sns.color_palette("rocket", as_cmap=True),
+                                'text_over':'white',
+                                'label':r'$\epsilon_{\rm ther}$ [erg/g]',
+                                'label_log':r'$\log(\frac{\epsilon_{\rm ther}}{{\rm erg/g}})$',
+                                'units':'erg*g**-1',
+                                'vmin':5e+1,
+                                'vmax':2e+6,
+                                'vmin_galaxy':5e+3,
+                                'vmax_galaxy':8e+6
+    },
+    metallicity = {'cmap':'swift.nineteen_eighty_nine',
                     'text_over':'black',
                     'label':r'$Z$ [$Z_{\odot}$]',
                     'label_log':r'$\log\left(\frac{Z}{Z_{\odot}}\right)$',
                     'units':'dimensionless',
-                    'vmin':5e-4,
-                    'vmax':8e-2
+                    'vmin':5e-3,
+                    'vmax':1.5
+    },
+    magnetic_energy = {'cmap':sns.cubehelix_palette(reverse=True,as_cmap=True),
+                                'text_over':'white',
+                                'label':r'$E_{\rm mag}$ [erg]',
+                                'label_log':r'$\log(\frac{E_{\rm mag}}{{\rm erg}})$',
+                                'units':'erg',
+                                'vmin':5e+10,
+                                'vmax':3e+12
+
     },
     magnetic_energy_specific = {'cmap':sns.cubehelix_palette(reverse=True,as_cmap=True),
                                 'text_over':'white',
                                 'label':r'$\epsilon_{\rm mag}$ [erg/g]',
                                 'units':'erg*g**-1',
-                                'vmin':5e+10,
-                                'vmax':3e+12
+                                'vmin':5e+8,
+                                'vmax':3e+11
 
     },
     magnetic_energy_density = {'cmap':sns.cubehelix_palette(reverse=True,as_cmap=True),
                                 'text_over':'white',
                                 'label':r'$\varepsilon_{\rm mag}$ [erg/cm$^{3}$]',
                                 'label_log':r'$\log(\frac{\varepsilon_{\rm mag}}{{\rm erg/cm}^{3}})$',
-                                'units':'erg*g**-1',
+                                'units':'erg*cm**-3',
                                 'vmin':4e-18,
                                 'vmax':5e-11
+
+    },
+    total_crs_energy = {'cmap':sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),
+                        'text_over':'white',
+                        'label':r'$E_{\rm CR}$ [erg]',
+                        'label_log':r'$\log(\frac{\varepsilon_{\rm CR}}{{\rm erg/cm}^{3}})$',
+                        'label_log':r'$\log(\frac{E_{\rm CR}}{{\rm erg}})$',
+                        'units':'erg',
+                        'vmin':4e-14,
+                        'vmax':8e-11,
+                        'vmin_galaxy':4e-14,
+                        'vmax_galaxy':8e-11
 
     },
     cr_energy_density = {'cmap':sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),
                         'text_over':'white',
                         'label':r'$\varepsilon_{\rm CR}$ [erg/cm$^{3}$]',
                         'label_log':r'$\log(\frac{\varepsilon_{\rm CR}}{{\rm erg/cm}^{3}})$',
-                        'units':'erg*g**-1',
+                        'units':'erg*cm**-3',
                         'vmin':4e-14,
-                        'vmax':8e-11
+                        'vmax':8e-11,
+                        'vmin_galaxy':4e-14,
+                        'vmax_galaxy':8e-11
+
+    },
+    cr_energy_specific = {'cmap':sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),
+                                'text_over':'white',
+                                'label':r'$\epsilon_{\rm CR}$ [erg/g]',
+                                'label_log':r'$\log(\frac{\epsilon_{\rm CR}}{\rm erg/g})$',
+                                'units':'erg*g**-1',
+                                'vmin':5e+12,
+                                'vmax':7e+14
+
+    },
+    xHII = {'cmap':'bone',
+            'text_over':'white',
+            'label':r'$X_{{\rm H}_{\rm II}}$',
+            'label_log':r'$\log(X_{\rm HII})$',
+            'units':'dimensionless',
+            'vmin':5e-4,
+            'vmax':0.8
+
+    },
+    xHeII = {'cmap':'swift.red',
+            'text_over':'white',
+            'label':r'$X_{{\rm He}_{\rm II}}$',
+            'label_log':r'$\log(X_{\rm HeII})$',
+            'units':'dimensionless',
+            'vmin':5e-4,
+            'vmax':0.8
 
     },
     v_sphere_r = {'cmap':sns.color_palette("vlag", as_cmap=True),
@@ -76,10 +150,18 @@ plotting_dictionary = dict(
     star_mass = {'cmap':'gray',
                 'text_over':'white',
                 'label':r'$M_{*}$ [M$_{\odot}$]',
-                'label_log':r'$\log\left(\frac{Mass}{{\rmM}_{\odot}}\right)$',
+                'label_log':r'$\log\left(\frac{M_{*}}{{\rmM}_{\odot}}\right)$',
                 'units':'Msun',
                 'vmin':5.0,
                 'vmax':2e+7
+    },
+    dm_mass = {'cmap':'cividis',
+                'text_over':'white',
+                'label':r'$M_{DM}$ [M$_{\odot}$]',
+                'label_log':r'$\log\left(\frac{M_{\rm DM}}{{\rmM}_{\odot}}\right)$',
+                'units':'Msun',
+                'vmin':3.0e+3,
+                'vmax':7e+6
     },
     star_metallicity = {'cmap':sns.color_palette("dark:salmon", as_cmap=True),
                         'text_over':'white',
@@ -94,5 +176,13 @@ plotting_dictionary = dict(
                 'units':'Gyr',
                 'vmin':None,
                 'vmax':None
+    },
+    star_sfr_surface_100 = {'cmap':'magma',
+                            'text_over':'white',
+                            'label':r'$\Sigma_{\rm SFR}$ [M$_{\odot}$ yr$^{-1}$ kpc$^{-2}$]',
+                            'label_log':r'$\log\left(\frac{\Sigma_{\rm SFR}}{{\rmM}_{\odot}{\rm yr}^{-1}{\rm kpc}^{-2}}\right)$',
+                            'units':'Msun/(yr*kpc**2)',
+                            'vmin':0.008,
+                            'vmax':90
     }
 )

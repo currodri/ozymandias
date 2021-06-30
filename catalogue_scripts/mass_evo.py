@@ -34,6 +34,7 @@ if __name__ == '__main__':
     parser.add_argument('--var', type=str, nargs='+', default=['stellar'], help='Galaxy mass types to be plotted.')
     parser.add_argument('--start', type=int, default=1, help='Starting index to look for galaxy.')
     parser.add_argument('--end', type=int, default=1000, help='Ending index to look for galaxy.')
+    parser.add_argument('--maxz',type=float,default=2.0, help="Maximum redshift displayed in plot.")
     parser.add_argument('--NUT', type=bool, default=True, help='If True, it looks for NUT as the most massive galaxy (stars) in the last snapshot.')
     args = parser.parse_args()
 
@@ -53,12 +54,11 @@ if __name__ == '__main__':
         ax.yaxis.set_ticks_position('both')
         ax.minorticks_on()
         ax.tick_params(which='both',axis="both",direction="in")
-        print(args.model[i])
         if args.model[i][0] != '/':
             simfolder = os.path.join(os.getcwd(), args.model[i])
         else:
             simfolder = args.model[i]
-            args.model[i] = args.model[i].split('/')[-1].split('_')[0] + ' '+args.model[i].split('/')[-1].split('_')[1]
+            args.model[i] = args.model[i].split('/')[-1]
         
         ax.text(0.5, 0.2, args.model[i],transform=ax.transAxes,fontsize=16)
         if not os.path.exists(simfolder):
@@ -89,14 +89,11 @@ if __name__ == '__main__':
             sim = ozy.load(os.path.join(groupspath, ozyfiles[0]))
             virial_mass = [i.virial_quantities['mass'] for i in sim.galaxies]
             progind = np.argmax(virial_mass)
-            print(args.model[i],progind,sim.simulation.redshift)
-        printMass = True
         for ozyfile in ozyfiles:
             if progind == -1:
                 continue
             # Load OZY file
             sim = ozy.load(os.path.join(groupspath, ozyfile))
-
 
             # Initialise simulation parameters
             redshift = sim.simulation.redshift
@@ -106,24 +103,29 @@ if __name__ == '__main__':
 
             # Age of Universe at this redshift
             thubble = cosmo.age(redshift).value
-
+            ugly = False
             for mass_var in args.var:
                 m = sim.galaxies[progind].mass[mass_var]
                 m = YTQuantity(m, 'code_mass', registry=sim.unit_registry)
                 galaxy_masses[mass_var].append(m.in_units('Msun').d)
             galaxy_time.append(thubble)
-            if printMass and redshift >= 4.12:
-                print(args.model[i],ozyfile, np.log10(galaxy_masses['stellar'][-1]),progind)
-                printMass = False
-            galaxy_position.append(sim.galaxies[progind].position)
-            r = YTQuantity(sim.galaxies[progind].radius['total'], 'code_length', registry=sim.unit_registry)
-            galaxy_radius.append(r.in_units('kpc').d)
-            r = YTQuantity(sim.halos[sim.galaxies[progind].parent_halo_index].virial_quantities['radius'],
-                            'code_length', registry=sim.unit_registry)
-            halo_radius.append(r.in_units('kpc').d)
+            bad_mass = np.zeros(len(args.var))
+            for k,mass_var in enumerate(args.var):
+                if len(galaxy_time) >= 2:
+                    if (galaxy_masses[mass_var][-1]-galaxy_masses[mass_var][-2])/galaxy_masses[mass_var][-2] > 20:
+                        bad_mass[k] = True
+                    else:
+                        bad_mass[k] = False
+            
+            if np.any(bad_mass == True):
+                print('Deleting')
+                for m_var in args.var:
+                    galaxy_masses[m_var][-2] = galaxy_masses[m_var][-1]
+
             try:
                 progind = sim.galaxies[progind].progen_galaxy_star
             except:
+                print('I have lost this galaxy in the snapshot %s'%ozyfile)
                 progind = -1
 
         for mass_var in args.var:
@@ -133,10 +135,11 @@ if __name__ == '__main__':
         if i==0:
             # Add top ticks for redshift
             axR = ax.twiny()
-            maxt = cosmo.age(2.0).value
+            maxt = cosmo.age(args.maxz).value
             ax.set_xlim(0.0, maxt)
             axR.set_xlim(0.0, maxt)
             topticks1 = np.array([2.0, 3.0, 4.0, 6.0])
+            topticks1 = topticks1[topticks1 >= args.maxz]
             topticks2 = cosmo.age(topticks1).value
             axR.set_xticklabels(topticks1)
             axR.set_xticks(topticks2)
@@ -151,57 +154,4 @@ if __name__ == '__main__':
     if args.NUT:
         args.ind = 'NUT'
     fig.savefig(os.getcwd()+'/mass_evolution_'+str(args.ind)+'.png', format='png', dpi=200)
-
-    # Now add all to a simple plot
-    fig, ax = plt.subplots(1, 1, figsize=(8,5), dpi=100, facecolor='w', edgecolor='k')
-
-    ax.set_xlabel(r'$t$ [Gyr]', fontsize=16)
-    ax.set_ylabel(r'$r$ [kpc]', fontsize=16)
-    ax.tick_params(labelsize=12)
-    ax.xaxis.set_ticks_position('both')
-    ax.yaxis.set_ticks_position('both')
-    ax.minorticks_on()
-    ax.tick_params(which='both',axis="both",direction="in")
-
-    ax.plot(time, galaxy_radius[::-1], label='gas + stars')
-    ax.plot(time, halo_radius[::-1], label=r'20\% DM $r_{\rm vir}$')
-    
-    # Add top ticks for redshift
-    axR = ax.twiny()
-    maxt = cosmo.age(2.0).value
-    ax.set_xlim(0.0, maxt)
-    axR.set_xlim(0.0, maxt)
-    topticks1 = np.array([2.0, 3.0, 4.0, 6.0])
-    topticks2 = cosmo.age(topticks1).value
-    axR.set_xticklabels(topticks1)
-    axR.set_xticks(topticks2)
-    axR.xaxis.set_ticks_position('top') # set the position of the second x-axis to top
-    axR.xaxis.set_label_position('top') # set the position of the second x-axis to top
-    axR.set_xlabel(r'$z$', fontsize=16)
-    axR.tick_params(labelsize=12)
-
-    ax.legend(loc='best', fontsize=14)
-
-    fig.savefig(simfolder+'/radius_evolution_'+str(args.ind)+'.png', format='png', dpi=200)
-
-    # Make a simple plot to track the position of the galaxy
-    fig, ax = plt.subplots(1, 1, figsize=(8,8), dpi=100, facecolor='w', edgecolor='k')
-    ax.set_xlabel(r'$x$ [code length]', fontsize=16)
-    ax.set_ylabel(r'$y$ [code length]', fontsize=16)
-
-    galaxy_position = np.array(galaxy_position[::-1])
-    time = np.array(galaxy_time[::-1])
-    ax.set_xlim([0.99*galaxy_position[:,0].min(), 1.01*galaxy_position[:,0].max()])
-    ax.set_ylim([0.99*galaxy_position[:,1].min(), 1.01*galaxy_position[:,1].max()])
-    points = np.array([galaxy_position[:,0], galaxy_position[:,1]]).T.reshape(-1, 1, 2)
-    segments = np.concatenate([points[:-1], points[1:]], axis=1)
-    norm = plt.Normalize(time.min(), time.max())
-    lc = LineCollection(segments, cmap='viridis', norm=norm)
-    # Set the values used for colormapping
-    lc.set_array(time)
-    lc.set_linewidth(2)
-    line = ax.add_collection(lc)
-    fig.colorbar(line, ax=ax, label=r'$t$ [Gyr]')
-
-    fig.savefig(simfolder+'/position_track_'+str(args.ind)+'.png', format='png', dpi=200)
 

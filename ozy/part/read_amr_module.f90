@@ -23,10 +23,10 @@ module io_ramses
 
     type hydroID
         integer :: nvar
-        integer :: density,vx,vy,vz,thermal_pressure,metallicity
-        integer :: Blx,Bly,Blz,Brx,Bry,Brz
-        integer :: eCR
-        integer :: xHII,xHeII,xHeIII
+        integer :: density=0,vx=0,vy=0,vz=0,thermal_pressure=0,metallicity=0
+        integer :: Blx=0,Bly=0,Blz=0,Brx=0,Bry=0,Brz=0
+        integer :: eCR=0
+        integer :: xHII=0,xHeII=0,xHeIII=0
     end type hydroID
 
     type amr_info
@@ -42,8 +42,7 @@ module io_ramses
 
     type sim_info
         logical :: cosmo=.true.
-        real(sgl) :: t,aexp,omega_m,omega_l,omega_k,omega_b
-        real(dbl) :: h0,unit_l,unit_d,unit_t,boxlen
+        real(dbl) :: h0,t,aexp,unit_l,unit_d,unit_t,unit_m,boxlen,omega_m,omega_l,omega_k,omega_b
         real(dbl) :: time_tot,time_simu
         integer :: n_frw
         real(dbl),dimension(:),allocatable :: aexp_frw,hexp_frw,tau_frw,t_frw
@@ -330,58 +329,15 @@ module io_ramses
         case ('passive_scalar_1')
             write(*,'(": Using passive_scalar_1 as metallicity (variable ",I2,")")') newID
             varIDs%metallicity = newID
-        ! if (pasrefine) then
-        !     write(*,'(": Using passive_scalar_1 as refine field (variable ",I2,")")') newID
-        !     refineID = newID
-        ! else
-        !     write(*,'(": Using passive_scalar_1 as metallicity (variable ",I2,")")') newID
-        !     metalsID = newID
-        !     has_metals=.true.
-        ! end if
-        ! case ('passive_scalar_2')
-        ! if (pasrefine) then
-        !     write(*,'(": Using passive_scalar_2 as metallicity (variable ",I2,")")') newID
-        !     metalsID = newID
-        !     has_metals=.true.
-        ! else
-        !     if (magTracers.eq.0) then
-        !     write(*,'(": Using passive_scalar_2 as xHII (variable ",I2,")")') newID
-        !     xHII_ID = newID
-        !     has_rt=.true.
-        ! end if
-        ! end if
-        ! case ('passive_scalar_3')
-        ! if (pasrefine) then
-        !     write(*,'(": Using passive_scalar_3 as xHII (variable ",I2,")")') newID
-        !     xHII_ID = newID
-        !     has_rt=.true.
-        ! else
-        !     if (magTracers.eq.0) then
-        !     write(*,'(": Using passive_scalar_3 as xHeII (variable ",I2,")")') newID
-        !     xHeII_ID = newID
-        !     has_rt=.true.
-        !     end if
-        ! end if
-        ! case ('passive_scalar_4')
-        ! if (pasrefine) then
-        !     write(*,'(": Using passive_scalar_4 as xHeII (variable ",I2,")")') newID
-        !     xHeII_ID = newID
-        !     has_rt=.true.
-        ! else
-        !     if (magTracers.eq.0) then
-        !     write(*,'(": Using passive_scalar_4 as xHeIII (variable ",I2,")")') newID
-        !     xHeIII_ID = newID
-        !     has_rt=.true.
-        !     end if
-        ! end if
-        ! case ('passive_scalar_5')
-        ! if (pasrefine) then
-        !     write(*,'(": Using passive_scalar_4 as xHeIII (variable ",I2,")")') newID
-        !     xHeIII_ID = newID
-        !     has_rt=.true.
-        ! else
-        !     write(*,'(": I have no idea what passive_scalar 4 is (variable ",I2,")")') newID
-        ! end if
+        case ('passive_scalar_2')
+            write(*,'(": Using passive_scalar_2 as xHII (variable ",I2,")")') newID
+            varIDs%xHII = newID
+        case ('passive_scalar_3')
+            write(*,'(": Using passive_scalar_3 as xHeII (variable ",I2,")")') newID
+            varIDs%xHeII = newID
+        case ('passive_scalar_4')
+            write(*,'(": Using passive_scalar_4 as xHeIII (variable ",I2,")")') newID
+            varIDs%xHeIII = newID
         case ('xHII')
             varIDs%xHII = newID
         case ('xHeII')
@@ -500,7 +456,7 @@ module io_ramses
             value = (dx * dx) * dx
         case ('metallicity')
             ! Metallicity
-            value = var(varIDs%metallicity)
+            value = var(varIDs%metallicity)/0.02
         case ('temperature')
             ! Gas temperature
             value = var(varIDs%thermal_pressure) / var(varIDs%density) !/ 1.38d-16*1.66d-24
@@ -510,17 +466,59 @@ module io_ramses
         case ('thermal_energy')
             ! Thermal energy, computed as (gamma - 1)*thermal_pressure*volume
             value = ((5D0/3d0 - 1d0) * var(varIDs%thermal_pressure) * (dx * dx)) * dx
+        case ('thermal_energy_specific')
+            ! Specific thermal energy as E_ther/cell mass
+            value = ((5D0/3d0 - 1d0) * var(varIDs%thermal_pressure)) / var(varIDs%density)
+        case ('thermal_energy_density')
+            ! Thermal energy density  as E_ther/cell volume
+            value = (5D0/3d0 - 1d0) * var(varIDs%thermal_pressure)
         case ('kinetic_energy')
             ! Kinetic energy, computed as 1/2*density*volume*magnitude(velocity)
             ! DISCLAIMER: Velocity not corrected for bulk velocity
             value = (0.5 * (var(varIDs%density) * (dx*dx)) * dx) * sqrt(var(varIDs%vx)**2 + var(varIDs%vy)**2 + var(varIDs%vz)**2)
         case ('magnetic_energy')
             ! Magnetic energy as magnitude(B)**2/2
-            B = 0.5 *(/(var(varIDs%Blx)-var(varIDs%Brx)),(var(varIDs%Bly)-var(varIDs%Bry)),(var(varIDs%Blz)-var(varIDs%Brz))/)
+            B = 0.5 *(/(var(varIDs%Blx)+var(varIDs%Brx)),(var(varIDs%Bly)+var(varIDs%Bry)),(var(varIDs%Blz)+var(varIDs%Brz))/)
             value = (0.5 * (B.DOT.B) * (dx*dx)) * dx
+        case ('magnetic_magnitude')
+            B = 0.5 *(/(var(varIDs%Blx)+var(varIDs%Brx)),(var(varIDs%Bly)+var(varIDs%Bry)),(var(varIDs%Blz)+var(varIDs%Brz))/)
+            value = magnitude(B)
+        case ('magnetic_energy_specific')
+            ! Specific magnetic energy as E_mag/cell mass
+            B = 0.5 *(/(var(varIDs%Blx)+var(varIDs%Brx)),(var(varIDs%Bly)+var(varIDs%Bry)),(var(varIDs%Blz)+var(varIDs%Brz))/)
+            value = (0.5 * (B.DOT.B)) / var(varIDs%density)
+        case ('magnetic_energy_density')
+            B = 0.5 *(/(var(varIDs%Blx)+var(varIDs%Brx)),(var(varIDs%Bly)+var(varIDs%Bry)),(var(varIDs%Blz)+var(varIDs%Brz))/)
+            value = 0.5 * (B.DOT.B)
+        case ('B_left_x')
+            value = var(varIDs%Blx)
+        case ('B_left_y')
+            value = var(varIDs%Bly)
+        case ('B_left_z')
+            value = var(varIDs%Blz)
+        case ('B_right_x')
+            value = var(varIDs%Brx)
+        case ('B_right_y')
+            value = var(varIDs%Bry)
+        case ('B_right_z')
+            value = var(varIDs%Brz)
         case ('cr_energy')
             ! CR energy, computed as CR_energydensity*volume
             value = (var(varIDs%eCR) * (dx*dx)) * dx
+        case ('cr_energy_density')
+            value = var(varIDs%eCR)
+        case ('cr_energy_specific')
+            ! Specific CR energy, computed as CR_energydensity*volume/cell mass
+            value = var(varIDs%eCR) / var(varIDs%density)
+        case ('xHII')
+            ! Hydrogen ionisation fraction
+            value = var(varIDs%xHII)
+        case ('xHeII')
+            ! Helium first ionisation fraction
+            value = var(varIDs%xHeII)
+        case ('xHeIII')
+            ! Helium second ionisation fraction
+            value = var(varIDs%xHeIII)
         case ('momentum_x')
             ! Linear momentum in the x direction as density*volume*corrected_velocity_x
             value = ((var(varIDs%density) * (dx*dx)) * dx) * (var(varIDs%vx) - reg%bulk_velocity%x)
@@ -545,7 +543,7 @@ module io_ramses
             v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
             v_corrected = v_corrected - reg%bulk_velocity
             call spherical_basis_from_cartesian(x,temp_basis)
-            value = (var(varIDs%density) * (dx*dx)) * dx * (v_corrected .DOT. temp_basis%u(3))
+            value = (var(varIDs%density) * (dx*dx)) * dx * (v_corrected .DOT. temp_basis%u(1))
         case ('ang_momentum_x')
             ! Corrected angular momentum in the x direction
             v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
@@ -654,7 +652,7 @@ module io_ramses
         read(10,'("unit_d      =",E23.15)')sim%unit_d
         read(10,'("unit_t      =",E23.15)')sim%unit_t
         read(10,*)
-    
+        sim%unit_m = ((sim%unit_d*sim%unit_l)*sim%unit_l)*sim%unit_l
         read(10,'("ordering type=",A80)')amr%ordering
         read(10,*)
         allocate(amr%cpu_list(1:amr%ncpu))
@@ -693,9 +691,8 @@ module io_ramses
         xxmin=box_limits(1,1) ; xxmax=box_limits(1,2)
         yymin=box_limits(2,1) ; yymax=box_limits(2,2)
         zzmin=box_limits(3,1) ; zzmax=box_limits(3,2)
-
         write(*,*)'limits:',xxmin,xxmax,yymin,yymax,zzmin,zzmax
-        
+        write(*,*)'ordering: ',TRIM(amr%ordering)
         if(TRIM(amr%ordering).eq.'hilbert')then
 
             dxmax=max(xxmax-xxmin,yymax-yymin,zzmax-zzmin)
@@ -779,10 +776,8 @@ module io_ramses
         type(particle),intent(in) :: part
         character(6),intent(inout) :: ptype
 
-        if (part%age.ne.0D0.and.part%id>0) then
-            ptype = 'star_d'
-        elseif (part%age.ne.0D0.and.part%id<0) then
-            ptype = 'star_a'
+        if (part%age.ne.0D0) then
+            ptype = 'star'
         else
             ptype = 'dm'
         endif
@@ -803,8 +798,9 @@ module io_ramses
         type(vector) :: v_corrected,L
         type(basis) :: temp_basis
         character(6) :: ptype
-        character(128) :: tempvar,vartype,varname
-        integer :: index,iii
+        character(128) :: tempvar,vartype,varname,sfrstr
+        integer :: index,iii,index2
+        real(dbl) :: time,age,birth_date,sfrind,current_age_univ
 
         tempvar = TRIM(var)
         index = scan(tempvar,'/')
@@ -819,27 +815,69 @@ module io_ramses
                 ! Mass
                 value = part%m
             end select
-        elseif (vartype.eq.'star'.and.ptype.eq.'star_d') then
-            select case (TRIM(varname))
-            case ('mass')
-                ! Mass
-                value = part%m
-            case ('metallicity')
-                ! Metallicity
-                value = part%met
-            case ('age')
-                ! Age
+        elseif (vartype.eq.'star'.and.ptype.eq.'star') then
+            index2 = scan(varname,'_')
+            if (index2.eq.0) then
+                select case (TRIM(varname))
+                case ('mass')
+                    ! Mass
+                    value = part%m
+                case ('metallicity')
+                    ! Metallicity
+                    value = part%met
+                case ('age')
+                    ! Age
+                    if (sim%cosmo) then
+                        iii = 1
+                        do while(sim%tau_frw(iii)>part%age.and.iii<sim%n_frw)
+                            iii = iii + 1
+                        end do
+                        ! Interpolate time
+                        time = sim%t_frw(iii)*(part%age-sim%tau_frw(iii-1))/(sim%tau_frw(iii)-sim%tau_frw(iii-1))+ &
+                                & sim%t_frw(iii-1)*(part%age-sim%tau_frw(iii))/(sim%tau_frw(iii-1)-sim%tau_frw(iii))
+                        value = (sim%time_simu-time)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+                    endif
+                case ('birth_date')
+                    ! Birth date
+                    if (sim%cosmo) then
+                        iii = 1
+                        do while(sim%tau_frw(iii)>part%age.and.iii<sim%n_frw)
+                            iii = iii + 1
+                        end do
+                        ! Interpolate time
+                        time = sim%t_frw(iii)*(part%age-sim%tau_frw(iii-1))/(sim%tau_frw(iii)-sim%tau_frw(iii-1))+ &
+                                & sim%t_frw(iii-1)*(part%age-sim%tau_frw(iii))/(sim%tau_frw(iii-1)-sim%tau_frw(iii))
+                        age = (sim%time_simu-value)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+                        value = (sim%time_tot+age)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+                    endif
+                end select
+            else
+                ! This is for the case in which the SFR using a particular time indicator is required
+                ! It should be use as 'star/sfr_xxx', where xxx is some multiple of Myr
+                sfrstr = varname(index2+1:)
+                read(sfrstr,'(F10.0)') sfrind
+                ! We want it in units of Gyr, that's why we divide by 1e+3
+                sfrind = sfrind/1D3
+                ! Birth date
                 if (sim%cosmo) then
                     iii = 1
                     do while(sim%tau_frw(iii)>part%age.and.iii<sim%n_frw)
                         iii = iii + 1
                     end do
                     ! Interpolate time
-                    value = sim%t_frw(iii)*(part%age-sim%tau_frw(iii-1))/(sim%tau_frw(iii)-sim%tau_frw(iii-1))+ &
+                    current_age_univ = (sim%time_tot+sim%time_simu)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+                    time = sim%t_frw(iii)*(part%age-sim%tau_frw(iii-1))/(sim%tau_frw(iii)-sim%tau_frw(iii-1))+ &
                             & sim%t_frw(iii-1)*(part%age-sim%tau_frw(iii))/(sim%tau_frw(iii-1)-sim%tau_frw(iii))
-                    value = (sim%time_simu-value)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+                    birth_date = (sim%time_tot+time)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
                 endif
-            end select
+                
+                ! Compute SFR by binning star particles by age
+                if (birth_date >= (current_age_univ - sfrind)) then
+                    value = part%imass
+                else
+                    value = 0D0
+                endif
+            endif
         else
             value = 0D0
         endif

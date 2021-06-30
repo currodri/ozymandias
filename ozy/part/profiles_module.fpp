@@ -264,6 +264,7 @@ module part_profiles
                     part%imass = 0D0
                 endif
                 ! Check if particle is inside the desired region
+                part%x = part%x - reg%centre
                 call rotate_vector(part%x,trans_matrix)
                 x(i,:) = part%x
                 call checkifinside(x(i,:),reg,ok_part,distance)

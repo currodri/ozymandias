@@ -34,6 +34,7 @@ if __name__ == '__main__':
     parser.add_argument('--sfr', type=str, nargs='+', default=['100Myr'], help='SFR indicator.')
     parser.add_argument('--start', type=int, default=1, help='Starting index to look for galaxy.')
     parser.add_argument('--end', type=int, default=1000, help='Ending index to look for galaxy.')
+    parser.add_argument('--maxz',type=float,default=2.0, help="Maximum redshift displayed in plot.")
     parser.add_argument('--NUT', type=bool, default=True, help='If True, it looks for NUT as the most massive galaxy (stars) in the last snapshot.')
     args = parser.parse_args()
 
@@ -58,8 +59,8 @@ if __name__ == '__main__':
             simfolder = os.path.join(os.getcwd(), args.model[i])
         else:
             simfolder = args.model[i]
-            args.model[i] = args.model[i].split('/')[-1].split('_')[0] + ' '+args.model[i].split('/')[-1].split('_')[1]
-        ax.text(0.5, 0.2, args.model[i],transform=ax.transAxes,fontsize=16)
+            args.model[i] = args.model[i].split('/')[-1]
+        ax.text(0.2, 0.2, args.model[i],transform=ax.transAxes,fontsize=16)
         if not os.path.exists(simfolder):
             raise Exception('The given simulation name is not found in this directory!')
         
@@ -118,10 +119,11 @@ if __name__ == '__main__':
         if i==0:
             # Add top ticks for redshift
             axR = ax.twiny()
-            maxt = cosmo.age(2.0).value
+            maxt = cosmo.age(args.maxz).value
             ax.set_xlim(0.0, maxt)
             axR.set_xlim(0.0, maxt)
             topticks1 = np.array([2.0, 3.0, 4.0, 6.0])
+            topticks1 = topticks1[topticks1 >= args.maxz]
             topticks2 = cosmo.age(topticks1).value
             axR.set_xticklabels(topticks1)
             axR.set_xticks(topticks2)

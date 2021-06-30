@@ -119,7 +119,7 @@ def read_HM(obj, grouptype):
         ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
         tempR = np.fromfile(file=HMfile, dtype=np.float64, count=3)
         ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
-        new_group.velocity = obj.yt_dataset.arr(np.array([tempR[0],tempR[1],tempR[2]]), 'code_velocity')
+        new_group.velocity = obj.yt_dataset.arr(np.array([tempR[0],tempR[1],tempR[2]]), 'km/s')
         
         # Halo angular momenta
         ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)

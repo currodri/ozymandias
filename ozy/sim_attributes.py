@@ -1,4 +1,8 @@
 import numpy as np
+# TODO: It should use a global fortran module, not the particles one
+import sys
+sys.path.append('/mnt/extraspace/currodri/Codes/ozymandias/ozy/part')
+import part2
 
 class SimulationAttributes(object):
     """Class that contains the attributes of the simulation."""
@@ -48,6 +52,31 @@ class SimulationAttributes(object):
         self.Densities = np.array([200 * self.critical_density.to('Msun / kpc**3').d,
                                    500 * self.critical_density.to('Msun / kpc**3').d,
                                    2500 * self.critical_density.to('Msun / kpc**3').d])
+
+        # Dertermine the type of physics included in this simulation
+        self.physics = {'hydro':False,
+                        'metals':False,
+                        'magnetic':False,
+                        'cr':False,
+                        'rt':False,
+                        'bh':False,
+                        'AGN':False,
+                        'dust':False}
+        varIDs = part2.io_ramses.hydroID()
+        part2.io_ramses.read_hydrofile_descriptor(self.fullpath,varIDs)
+
+        if varIDs.density != 0 and varIDs.vx != 0:
+            self.physics['hydro'] = True
+        if varIDs.metallicity != 0:
+            self.physics['metals'] = True
+        if varIDs.blx != 0:
+            self.physics['magnetic'] = True
+        if varIDs.ecr != 0:
+            self.physics['cr'] = True
+        if varIDs.xhii != 0:
+            self.physics['rt'] = True
+
+        
         
     def _serialise(self, obj, hd):
         """This makes possible to save the simulation attributes as dataset attributes of an HDF5 file."""

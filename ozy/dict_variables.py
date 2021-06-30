@@ -48,11 +48,17 @@ grid_variables = dict(
     magnetic_energy_density = 'code_density*code_velocity*code_velocity',
     cr_energy = 'code_energy',
     cr_energy_density = 'code_density*code_velocity*code_velocity',
-    cr_energy_specific = 'code_specific_energy'
+    cr_energy_specific = 'code_specific_energy',
+    xHII = 'dimensionless',
+    xHeII = 'dimensionless',
+    xHeIII = 'dimensionless'
 )
 particle_variables = dict(
     age = 'Gyr',
     tform = 'code_time',
+    sfr = 'code_mass/code_time',
+    sfr_density = 'code_mass/Gyr/code_length**3',
+    sfr_surface = 'code_density*code_velocity'
 )
 
 basic_conv = dict(
@@ -64,12 +70,13 @@ basic_conv = dict(
     code_specific_energy = 'erg*g**-1',
     code_energy_density = 'erg*cm**-3',
     code_density_code_velocity_code_velocity = 'erg*cm**-3',
+    code_density_code_velocity = 'Msun*yr**-1*kpc**-2',
     dimensionless = 'dimensionless',
     radian = 'radian',
     code_magnetic = 'gauss',
     code_temperature = 'K',
     code_metallicity = 'dimensionless',
-    code_time = 'Gyr',
+    code_time = 'yr',
     Gyr = 'Gyr'
 )
 

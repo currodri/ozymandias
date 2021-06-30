@@ -328,8 +328,8 @@ subroutine f90wrap_rotate_vector_single(vec, rotation_matrix, n0, n1)
 end subroutine f90wrap_rotate_vector_single
 
 subroutine f90wrap_rotate_vector_array(vec, rotation_matrix, n0, n1)
-    use vectors, only: array_vectors
     use rotations, only: rotate_vector
+    use vectors, only: array_vectors
     implicit none
     
     type array_vectors_ptr_type

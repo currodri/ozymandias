@@ -2,7 +2,7 @@
 Module part_profiles
 
 
-Defined at profiles_module.fpp lines 5-280
+Defined at profiles_module.fpp lines 5-281
 
 """
 from __future__ import print_function, absolute_import, division
@@ -347,7 +347,7 @@ def get_parts_onedprofile(repository, amr, sim, reg, filt, prof_data):
     get_parts_onedprofile(repository, amr, sim, reg, filt, prof_data)
     
     
-    Defined at profiles_module.fpp lines 119-257
+    Defined at profiles_module.fpp lines 119-258
     
     Parameters
     ----------
@@ -368,7 +368,7 @@ def onedprofile(repository, reg, filt, prof_data, lmax):
     onedprofile(repository, reg, filt, prof_data, lmax)
     
     
-    Defined at profiles_module.fpp lines 259-280
+    Defined at profiles_module.fpp lines 260-281
     
     Parameters
     ----------

@@ -77,6 +77,7 @@ class Profile(object):
 
 def init_region(group, region_type):
     """Initialise region Fortran derived type with details of group."""
+    from yt import YTArray
     reg = geo.region()
 
     if region_type == 'sphere':
@@ -89,11 +90,12 @@ def init_region(group, region_type):
         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
         reg.axis = axis
         bulk = vectors.vector()
-        bulk.x, bulk.y, bulk.z = group.velocity[0], group.velocity[1], group.velocity[2]
+        velocity = group.velocity.in_units('code_velocity')
+        bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
         reg.bulk_velocity = bulk
         reg.rmin = 0.0
-        # Basic configuration: 0.2 of the virial radius of the host halo
-        reg.rmax = 0.2*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        # Basic configuration: 0.4 of the virial radius of the host halo
+        reg.rmax = 0.4*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
     else:
         raise KeyError('Region type not supported. Please check!')
     return reg
@@ -125,7 +127,7 @@ def init_filter(cond_strs, name, group):
         raise ValueError("Condition strings are given, but a name for the filter. Please set!")
 
 def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region_type='sphere',filter_conds='none',
-                    filter_name='none',recompute=False,save=False):
+                    filter_name='none',recompute=False,save=False,logscale=False):
     """Function which computes a 1D profile for a given group object."""
 
     if not isinstance(xvar, str):
@@ -231,7 +233,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
     
     # And now, compute hydro data profiles!
     if hydro_data.nyvar > 0 and hydro_data.nwvar > 0:
-        amrprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,hydro_data,lmax)
+        amrprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,hydro_data,lmax,logscale)
 
     # Initialise particles profile data object
     star_data = partprofmod.profile_handler()
@@ -331,6 +333,7 @@ def write_profiles(obj, ozy_file, hydro, star, dm, prof):
             clean_hydro.create_dataset(var, data=hydro.ydata[:,v,:,0:2])
             clean_hydro[var].attrs.create('units', get_code_units(prof.yvars['for_hydro'][v]))
             clean_hydro[var].attrs.create('weightvars', prof.weightvars['for_hydro'][:])
+            # print(var,hydro.ydata[:,v,:,0:2])
     # Save star y data
     if star != None:
         clean_star = hdprof.create_group('star')

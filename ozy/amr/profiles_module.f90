@@ -1,3 +1,24 @@
+!--------------------------------------------------------------------------
+! ozymandias:profiles_module.f90
+!--------------------------------------------------------------------------
+!
+! MODULE: amr_profiles
+!
+!> @author F. Rodriguez Montero
+!
+!> @brief 
+!> types and routines useful for the computation and storage of 1D and 2D
+!> profiles using the AMR data of RAMSES.
+!
+!> @details  
+!> defines profile_handler for 1D and profile_handler_twod, routines for
+!> for the binning of cells and the computation of profiles
+! 
+!
+!> @date 10/4/2021   0.1 fortran routines for ozymandias
+!> @update 20/4/2021   0.1.1 adding 2D profiles
+!--------------------------------------------------------------------------
+
 module amr_profiles
     use local
     use io_ramses
@@ -514,12 +535,13 @@ module amr_profiles
                             call rotate_vector(xtemp,trans_matrix)
                             x(i,:) = xtemp
                             call checkifinside(x(i,:),reg,ok_cell,distance)
+                            vtemp = var(i,ind,varIDs%vx:varIDs%vz)
+                            call rotate_vector(vtemp,trans_matrix)
+                            var(i,ind,varIDs%vx:varIDs%vz) = vtemp
                             ok_filter = filter_cell(varIDs,reg,filt,xtemp,dx,var(i,ind,:))
                             ok_cell= ok_cell.and..not.ref(i).and.ok_filter
+                            ! write(*,*)'ok_cell: ',ok_cell
                             if (ok_cell) then
-                                vtemp = var(i,ind,varIDs%vx:varIDs%vz)
-                                call rotate_vector(vtemp,trans_matrix)
-                                var(i,ind,varIDs%vx:varIDs%vz) = vtemp
                                 binpos = 0
                                 call findbinpos(reg,varIDs,distance,x(i,:),var(i,ind,:),dx,prof_data,binpos)
                                 if (binpos.ne.0) call bindata(reg,varIDs,x(i,:),var(i,ind,:),dx,prof_data,binpos)

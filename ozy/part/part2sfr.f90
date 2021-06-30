@@ -46,8 +46,11 @@ subroutine sphere(repository,xcenter,ycenter,zcenter,radius,indicators,nind,&
   logical,dimension(:),allocatable::cpu_read
   integer,dimension(:),allocatable::cpu_list
   logical::cosmo=.true.
+  integer :: count
+  integer,dimension(1:2) :: sfr_count
 
-
+   sfr_count = 0
+   count = 0
   !-----------------------------------------------
   ! Lecture du fichier particules au format RAMSES
   !-----------------------------------------------
@@ -292,24 +295,33 @@ subroutine sphere(repository,xcenter,ycenter,zcenter,radius,indicators,nind,&
         
         if(ok_part)then
 
+         count = count + 1
+
            if(cosmo)then
               iii=1
               do while(tau_frw(iii)>birth(i).and.iii<n_frw)
                  iii=iii+1
               end do
+            !   write(*,*)'iii: ',iii
               ! Interploate time
               time=t_frw(iii)*(birth(i)-tau_frw(iii-1))/(tau_frw(iii)-tau_frw(iii-1))+ &
                    & t_frw(iii-1)*(birth(i)-tau_frw(iii))/(tau_frw(iii-1)-tau_frw(iii))
               age=(time_simu-time)/(h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
               birth_date=(time_tot+time)/(h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+            !   write(*,*)t_frw(iii),birth(i),tau_frw(iii-1),tau_frw(iii),tau_frw(iii-1),&
+            !   & tau_frw(iii-1)
+
            else
               age=(time_simu-birth(i))*unit_t/(365.*24.*3600.*1d9)
               birth_date=birth(i)*unit_t/(365.*24.*3600.*1d9)          
            endif
            
            do nsfr=1,nind
+               ! write(*,*)current_age_univ-indicators(nsfr)
               if (birth_date >= current_age_univ-indicators(nsfr))then
                   sfr(nsfr)=sfr(nsfr)+m(i)*unit_m/2d33
+                  sfr_count(nsfr) = sfr_count(nsfr) + 1
+                  ! if (nsfr == 1) write(*,*)'birth_dat found: ',birth_date
               endif
            end do  
         end if
@@ -321,7 +333,8 @@ subroutine sphere(repository,xcenter,ycenter,zcenter,radius,indicators,nind,&
   do i=1,nind
       sfr(i)=sfr(i)/(indicators(i)*1d9)
   end do
-
+  write(*,*)'sfr_count:',sfr_count
+  write(*,*)'count: ',count
 end subroutine sphere
 
 !=======================================================================

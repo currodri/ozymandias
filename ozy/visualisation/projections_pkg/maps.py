@@ -2,7 +2,7 @@
 Module maps
 
 
-Defined at ramses2map.fpp lines 194-989
+Defined at ramses2map.fpp lines 194-1011
 
 """
 from __future__ import print_function, absolute_import, division
@@ -191,7 +191,7 @@ def projection_hydro(repository, cam, bulk_velocity, proj):
     projection_hydro(repository, cam, bulk_velocity, proj)
     
     
-    Defined at ramses2map.fpp lines 214-241
+    Defined at ramses2map.fpp lines 214-242
     
     Parameters
     ----------
@@ -209,7 +209,7 @@ def project_cells(repository, amr, bbox, varids, cam, proj):
     project_cells(repository, amr, bbox, varids, cam, proj)
     
     
-    Defined at ramses2map.fpp lines 243-538
+    Defined at ramses2map.fpp lines 244-539
     
     Parameters
     ----------
@@ -230,7 +230,7 @@ def projection_parts(repository, cam, bulk_velocity, proj):
     projection_parts(repository, cam, bulk_velocity, proj)
     
     
-    Defined at ramses2map.fpp lines 540-560
+    Defined at ramses2map.fpp lines 541-561
     
     Parameters
     ----------
@@ -248,7 +248,7 @@ def project_particles(repository, amr, sim, bbox, cam, proj):
     project_particles(repository, amr, sim, bbox, cam, proj)
     
     
-    Defined at ramses2map.fpp lines 562-718
+    Defined at ramses2map.fpp lines 563-740
     
     Parameters
     ----------
@@ -269,7 +269,7 @@ def healpix_hydro(repository, reg, nside, proj):
     healpix_hydro(repository, reg, nside, proj)
     
     
-    Defined at ramses2map.fpp lines 720-735
+    Defined at ramses2map.fpp lines 742-757
     
     Parameters
     ----------
@@ -287,7 +287,7 @@ def project_cells_hpix(repository, amr, reg, varids, nside, proj):
     project_cells_hpix(repository, amr, reg, varids, nside, proj)
     
     
-    Defined at ramses2map.fpp lines 737-989
+    Defined at ramses2map.fpp lines 759-1011
     
     Parameters
     ----------

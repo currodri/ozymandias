@@ -275,6 +275,7 @@ module maps
         bbox%bulk_velocity = bulk_velocity
         bbox%criteria_name = 'd_euclid'
         call get_cpu_map(bbox,amr)
+        write(*,*)'ncpu: ',amr%ncpu_read
         call get_map_box(cam,bbox)
 
         ! Perform projections
@@ -657,8 +658,10 @@ module maps
         real(dbl) :: dx,dy,ddx,ddy,dex,dey
         real(dbl),dimension(1:3,1:3) :: trans_matrix
         character(5) :: nchar,ncharcpu
+        character(6) :: ptype
         character(128) :: nomfich
-        type(vector) :: xtemp,vtemp
+        type(vector) :: xtemp,vtemp,dcell
+        type(particle) :: part
         integer,dimension(:),allocatable :: id
         integer,dimension(1:2) :: n_map
         real(dbl),dimension(:),allocatable :: m,age,met,imass
@@ -671,6 +674,7 @@ module maps
         call get_map_size(cam,n_map)
         dx = (bbox%xmax-bbox%xmin)/n_map(1)
         dy = (bbox%ymax-bbox%ymin)/n_map(2)
+        dcell = (/dx,dy,0D0/)
 
         ! Allocate toto
 
@@ -695,7 +699,7 @@ module maps
             icpu = amr%cpu_list(k)
             call title(icpu,ncharcpu)
             nomfich=TRIM(repository)//'/part_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
-            write(*,*)'Processing file '//TRIM(nomfich)
+            ! write(*,*)'Processing file '//TRIM(nomfich)
             open(unit=1,file=nomfich,status='old',form='unformatted')
             read(1)ncpu2
             read(1)ndim2
@@ -766,23 +770,42 @@ module maps
                 weight = 1D0
                 distance = 0D0
                 mapvalue = 0D0
+                part%x = x(i,:)
+                part%v = v(i,:)
+                part%m = m(i)
+                if (nstar>0) then
+                    part%id = id(i)
+                    part%age = age(i)
+                    part%met = met(i)
+                    part%imass = imass(i)
+                else
+                    part%id = 0
+                    part%age = 0D0
+                    part%met = 0D0
+                    part%imass = 0D0
+                endif
                 call checkifinside(x(i,:),bbox,ok_part,distance)
                 if (ok_part) then
-                    xtemp = x(i,:)
-                    vtemp = v(i,:)
-                    call rotate_vector(vtemp,trans_matrix)
+                    call rotate_vector(part%v,trans_matrix)
                     if (nstar>0) then
-                        call getpartvalue(sim,bbox,xtemp,vtemp,id(i),m(i),age(i),met(i),imass(i),proj%weightvar,weight)
+                        if (TRIM(proj%weightvar).eq.'star/cumulative'.or.&
+                            &TRIM(proj%weightvar).eq.'dm/cumulative') then
+                            weight = 1D0
+                        else
+                            call getparttype(part,ptype)
+                            if (ptype.eq.'star') then
+                                call getpartvalue(sim,bbox,dcell,part,proj%weightvar,weight)
+                            else
+                                weight = 1D0
+                            endif
+                        endif
                     else
-                        call getpartvalue(sim,bbox,xtemp,vtemp,0,m(i),0D0,0D0,0D0,proj%weightvar,weight)
+                        weight = 1D0
+                        ! call getpartvalue(sim,bbox,xtemp,vtemp,0,m(i),0D0,0D0,0D0,proj%weightvar,weight)
                     endif
 
                     projvarloop: do ivar=1,proj%nvars
-                        if (nstar>0) then
-                            call getpartvalue(sim,bbox,xtemp,vtemp,id(i),m(i),age(i),met(i),imass(i),proj%varnames(ivar),mapvalue)
-                        else
-                            call getpartvalue(sim,bbox,xtemp,vtemp,0,m(i),0D0,0D0,0D0,proj%varnames(ivar),mapvalue)
-                        endif
+                        call getpartvalue(sim,bbox,dcell,part,proj%varnames(ivar),mapvalue)
                         if (weight.ne.0D0) then
                             ! TODO: Properly understand WOH is going on here
                             ddx = (x(i,1)-bbox%xmin)/dx
@@ -798,7 +821,6 @@ module maps
                             if (ix>=0.and.ix<(n_map(1)-1).and.&
                                 &iy>=0.and.iy<(n_map(2)-1).and.&
                                 &ddx>0.and.ddy>0) then
-                                if (mapvalue<0D0.or.weight<0D0)write(*,*)mapvalue,weight
                                 proj%toto(ivar,ix  ,iy  ) = proj%toto(ivar,ix  ,iy  ) + mapvalue*dex*dey*weight
                                 proj%toto(ivar,ix  ,iyp1) = proj%toto(ivar,ix  ,iyp1) + mapvalue*dex*ddy*weight
                                 proj%toto(ivar,ixp1,iy  ) = proj%toto(ivar,ixp1,iy  ) + mapvalue*ddx*dey*weight

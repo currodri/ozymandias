@@ -23,6 +23,7 @@ def galaxies_to_halos(obj):
             halo           = obj.halos[i]
             vec_dist       = galaxy.position - halo.position
             d              = np.linalg.norm(vec_dist)
+            # TODO: Change to virial radius
             halo_linking_l = 0.5 * halo.radius[linking_variable]
             # If the galaxy is below the halo linking length, save distance.
             if d <= halo_linking_l:

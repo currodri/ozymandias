@@ -754,6 +754,34 @@ subroutine f90wrap_amr_info__set__lmax(this, f90wrap_lmax)
     this_ptr%p%lmax = f90wrap_lmax
 end subroutine f90wrap_amr_info__set__lmax
 
+subroutine f90wrap_amr_info__get__lmin(this, f90wrap_lmin)
+    use io_ramses, only: amr_info
+    implicit none
+    type amr_info_ptr_type
+        type(amr_info), pointer :: p => NULL()
+    end type amr_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(amr_info_ptr_type) :: this_ptr
+    integer, intent(out) :: f90wrap_lmin
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_lmin = this_ptr%p%lmin
+end subroutine f90wrap_amr_info__get__lmin
+
+subroutine f90wrap_amr_info__set__lmin(this, f90wrap_lmin)
+    use io_ramses, only: amr_info
+    implicit none
+    type amr_info_ptr_type
+        type(amr_info), pointer :: p => NULL()
+    end type amr_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(amr_info_ptr_type) :: this_ptr
+    integer, intent(in) :: f90wrap_lmin
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%lmin = f90wrap_lmin
+end subroutine f90wrap_amr_info__set__lmin
+
 subroutine f90wrap_amr_info__get__ncpu_read(this, f90wrap_ncpu_read)
     use io_ramses, only: amr_info
     implicit none
@@ -956,174 +984,6 @@ subroutine f90wrap_sim_info__set__cosmo(this, f90wrap_cosmo)
     this_ptr%p%cosmo = f90wrap_cosmo
 end subroutine f90wrap_sim_info__set__cosmo
 
-subroutine f90wrap_sim_info__get__t(this, f90wrap_t)
-    use io_ramses, only: sim_info
-    implicit none
-    type sim_info_ptr_type
-        type(sim_info), pointer :: p => NULL()
-    end type sim_info_ptr_type
-    integer, intent(in)   :: this(2)
-    type(sim_info_ptr_type) :: this_ptr
-    real(4), intent(out) :: f90wrap_t
-    
-    this_ptr = transfer(this, this_ptr)
-    f90wrap_t = this_ptr%p%t
-end subroutine f90wrap_sim_info__get__t
-
-subroutine f90wrap_sim_info__set__t(this, f90wrap_t)
-    use io_ramses, only: sim_info
-    implicit none
-    type sim_info_ptr_type
-        type(sim_info), pointer :: p => NULL()
-    end type sim_info_ptr_type
-    integer, intent(in)   :: this(2)
-    type(sim_info_ptr_type) :: this_ptr
-    real(4), intent(in) :: f90wrap_t
-    
-    this_ptr = transfer(this, this_ptr)
-    this_ptr%p%t = f90wrap_t
-end subroutine f90wrap_sim_info__set__t
-
-subroutine f90wrap_sim_info__get__aexp(this, f90wrap_aexp)
-    use io_ramses, only: sim_info
-    implicit none
-    type sim_info_ptr_type
-        type(sim_info), pointer :: p => NULL()
-    end type sim_info_ptr_type
-    integer, intent(in)   :: this(2)
-    type(sim_info_ptr_type) :: this_ptr
-    real(4), intent(out) :: f90wrap_aexp
-    
-    this_ptr = transfer(this, this_ptr)
-    f90wrap_aexp = this_ptr%p%aexp
-end subroutine f90wrap_sim_info__get__aexp
-
-subroutine f90wrap_sim_info__set__aexp(this, f90wrap_aexp)
-    use io_ramses, only: sim_info
-    implicit none
-    type sim_info_ptr_type
-        type(sim_info), pointer :: p => NULL()
-    end type sim_info_ptr_type
-    integer, intent(in)   :: this(2)
-    type(sim_info_ptr_type) :: this_ptr
-    real(4), intent(in) :: f90wrap_aexp
-    
-    this_ptr = transfer(this, this_ptr)
-    this_ptr%p%aexp = f90wrap_aexp
-end subroutine f90wrap_sim_info__set__aexp
-
-subroutine f90wrap_sim_info__get__omega_m(this, f90wrap_omega_m)
-    use io_ramses, only: sim_info
-    implicit none
-    type sim_info_ptr_type
-        type(sim_info), pointer :: p => NULL()
-    end type sim_info_ptr_type
-    integer, intent(in)   :: this(2)
-    type(sim_info_ptr_type) :: this_ptr
-    real(4), intent(out) :: f90wrap_omega_m
-    
-    this_ptr = transfer(this, this_ptr)
-    f90wrap_omega_m = this_ptr%p%omega_m
-end subroutine f90wrap_sim_info__get__omega_m
-
-subroutine f90wrap_sim_info__set__omega_m(this, f90wrap_omega_m)
-    use io_ramses, only: sim_info
-    implicit none
-    type sim_info_ptr_type
-        type(sim_info), pointer :: p => NULL()
-    end type sim_info_ptr_type
-    integer, intent(in)   :: this(2)
-    type(sim_info_ptr_type) :: this_ptr
-    real(4), intent(in) :: f90wrap_omega_m
-    
-    this_ptr = transfer(this, this_ptr)
-    this_ptr%p%omega_m = f90wrap_omega_m
-end subroutine f90wrap_sim_info__set__omega_m
-
-subroutine f90wrap_sim_info__get__omega_l(this, f90wrap_omega_l)
-    use io_ramses, only: sim_info
-    implicit none
-    type sim_info_ptr_type
-        type(sim_info), pointer :: p => NULL()
-    end type sim_info_ptr_type
-    integer, intent(in)   :: this(2)
-    type(sim_info_ptr_type) :: this_ptr
-    real(4), intent(out) :: f90wrap_omega_l
-    
-    this_ptr = transfer(this, this_ptr)
-    f90wrap_omega_l = this_ptr%p%omega_l
-end subroutine f90wrap_sim_info__get__omega_l
-
-subroutine f90wrap_sim_info__set__omega_l(this, f90wrap_omega_l)
-    use io_ramses, only: sim_info
-    implicit none
-    type sim_info_ptr_type
-        type(sim_info), pointer :: p => NULL()
-    end type sim_info_ptr_type
-    integer, intent(in)   :: this(2)
-    type(sim_info_ptr_type) :: this_ptr
-    real(4), intent(in) :: f90wrap_omega_l
-    
-    this_ptr = transfer(this, this_ptr)
-    this_ptr%p%omega_l = f90wrap_omega_l
-end subroutine f90wrap_sim_info__set__omega_l
-
-subroutine f90wrap_sim_info__get__omega_k(this, f90wrap_omega_k)
-    use io_ramses, only: sim_info
-    implicit none
-    type sim_info_ptr_type
-        type(sim_info), pointer :: p => NULL()
-    end type sim_info_ptr_type
-    integer, intent(in)   :: this(2)
-    type(sim_info_ptr_type) :: this_ptr
-    real(4), intent(out) :: f90wrap_omega_k
-    
-    this_ptr = transfer(this, this_ptr)
-    f90wrap_omega_k = this_ptr%p%omega_k
-end subroutine f90wrap_sim_info__get__omega_k
-
-subroutine f90wrap_sim_info__set__omega_k(this, f90wrap_omega_k)
-    use io_ramses, only: sim_info
-    implicit none
-    type sim_info_ptr_type
-        type(sim_info), pointer :: p => NULL()
-    end type sim_info_ptr_type
-    integer, intent(in)   :: this(2)
-    type(sim_info_ptr_type) :: this_ptr
-    real(4), intent(in) :: f90wrap_omega_k
-    
-    this_ptr = transfer(this, this_ptr)
-    this_ptr%p%omega_k = f90wrap_omega_k
-end subroutine f90wrap_sim_info__set__omega_k
-
-subroutine f90wrap_sim_info__get__omega_b(this, f90wrap_omega_b)
-    use io_ramses, only: sim_info
-    implicit none
-    type sim_info_ptr_type
-        type(sim_info), pointer :: p => NULL()
-    end type sim_info_ptr_type
-    integer, intent(in)   :: this(2)
-    type(sim_info_ptr_type) :: this_ptr
-    real(4), intent(out) :: f90wrap_omega_b
-    
-    this_ptr = transfer(this, this_ptr)
-    f90wrap_omega_b = this_ptr%p%omega_b
-end subroutine f90wrap_sim_info__get__omega_b
-
-subroutine f90wrap_sim_info__set__omega_b(this, f90wrap_omega_b)
-    use io_ramses, only: sim_info
-    implicit none
-    type sim_info_ptr_type
-        type(sim_info), pointer :: p => NULL()
-    end type sim_info_ptr_type
-    integer, intent(in)   :: this(2)
-    type(sim_info_ptr_type) :: this_ptr
-    real(4), intent(in) :: f90wrap_omega_b
-    
-    this_ptr = transfer(this, this_ptr)
-    this_ptr%p%omega_b = f90wrap_omega_b
-end subroutine f90wrap_sim_info__set__omega_b
-
 subroutine f90wrap_sim_info__get__h0(this, f90wrap_h0)
     use io_ramses, only: sim_info
     implicit none
@@ -1151,6 +1011,62 @@ subroutine f90wrap_sim_info__set__h0(this, f90wrap_h0)
     this_ptr = transfer(this, this_ptr)
     this_ptr%p%h0 = f90wrap_h0
 end subroutine f90wrap_sim_info__set__h0
+
+subroutine f90wrap_sim_info__get__t(this, f90wrap_t)
+    use io_ramses, only: sim_info
+    implicit none
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(sim_info_ptr_type) :: this_ptr
+    real(8), intent(out) :: f90wrap_t
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_t = this_ptr%p%t
+end subroutine f90wrap_sim_info__get__t
+
+subroutine f90wrap_sim_info__set__t(this, f90wrap_t)
+    use io_ramses, only: sim_info
+    implicit none
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(sim_info_ptr_type) :: this_ptr
+    real(8), intent(in) :: f90wrap_t
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%t = f90wrap_t
+end subroutine f90wrap_sim_info__set__t
+
+subroutine f90wrap_sim_info__get__aexp(this, f90wrap_aexp)
+    use io_ramses, only: sim_info
+    implicit none
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(sim_info_ptr_type) :: this_ptr
+    real(8), intent(out) :: f90wrap_aexp
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_aexp = this_ptr%p%aexp
+end subroutine f90wrap_sim_info__get__aexp
+
+subroutine f90wrap_sim_info__set__aexp(this, f90wrap_aexp)
+    use io_ramses, only: sim_info
+    implicit none
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(sim_info_ptr_type) :: this_ptr
+    real(8), intent(in) :: f90wrap_aexp
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%aexp = f90wrap_aexp
+end subroutine f90wrap_sim_info__set__aexp
 
 subroutine f90wrap_sim_info__get__unit_l(this, f90wrap_unit_l)
     use io_ramses, only: sim_info
@@ -1236,6 +1152,34 @@ subroutine f90wrap_sim_info__set__unit_t(this, f90wrap_unit_t)
     this_ptr%p%unit_t = f90wrap_unit_t
 end subroutine f90wrap_sim_info__set__unit_t
 
+subroutine f90wrap_sim_info__get__unit_m(this, f90wrap_unit_m)
+    use io_ramses, only: sim_info
+    implicit none
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(sim_info_ptr_type) :: this_ptr
+    real(8), intent(out) :: f90wrap_unit_m
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_unit_m = this_ptr%p%unit_m
+end subroutine f90wrap_sim_info__get__unit_m
+
+subroutine f90wrap_sim_info__set__unit_m(this, f90wrap_unit_m)
+    use io_ramses, only: sim_info
+    implicit none
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(sim_info_ptr_type) :: this_ptr
+    real(8), intent(in) :: f90wrap_unit_m
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%unit_m = f90wrap_unit_m
+end subroutine f90wrap_sim_info__set__unit_m
+
 subroutine f90wrap_sim_info__get__boxlen(this, f90wrap_boxlen)
     use io_ramses, only: sim_info
     implicit none
@@ -1263,6 +1207,118 @@ subroutine f90wrap_sim_info__set__boxlen(this, f90wrap_boxlen)
     this_ptr = transfer(this, this_ptr)
     this_ptr%p%boxlen = f90wrap_boxlen
 end subroutine f90wrap_sim_info__set__boxlen
+
+subroutine f90wrap_sim_info__get__omega_m(this, f90wrap_omega_m)
+    use io_ramses, only: sim_info
+    implicit none
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(sim_info_ptr_type) :: this_ptr
+    real(8), intent(out) :: f90wrap_omega_m
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_omega_m = this_ptr%p%omega_m
+end subroutine f90wrap_sim_info__get__omega_m
+
+subroutine f90wrap_sim_info__set__omega_m(this, f90wrap_omega_m)
+    use io_ramses, only: sim_info
+    implicit none
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(sim_info_ptr_type) :: this_ptr
+    real(8), intent(in) :: f90wrap_omega_m
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%omega_m = f90wrap_omega_m
+end subroutine f90wrap_sim_info__set__omega_m
+
+subroutine f90wrap_sim_info__get__omega_l(this, f90wrap_omega_l)
+    use io_ramses, only: sim_info
+    implicit none
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(sim_info_ptr_type) :: this_ptr
+    real(8), intent(out) :: f90wrap_omega_l
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_omega_l = this_ptr%p%omega_l
+end subroutine f90wrap_sim_info__get__omega_l
+
+subroutine f90wrap_sim_info__set__omega_l(this, f90wrap_omega_l)
+    use io_ramses, only: sim_info
+    implicit none
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(sim_info_ptr_type) :: this_ptr
+    real(8), intent(in) :: f90wrap_omega_l
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%omega_l = f90wrap_omega_l
+end subroutine f90wrap_sim_info__set__omega_l
+
+subroutine f90wrap_sim_info__get__omega_k(this, f90wrap_omega_k)
+    use io_ramses, only: sim_info
+    implicit none
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(sim_info_ptr_type) :: this_ptr
+    real(8), intent(out) :: f90wrap_omega_k
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_omega_k = this_ptr%p%omega_k
+end subroutine f90wrap_sim_info__get__omega_k
+
+subroutine f90wrap_sim_info__set__omega_k(this, f90wrap_omega_k)
+    use io_ramses, only: sim_info
+    implicit none
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(sim_info_ptr_type) :: this_ptr
+    real(8), intent(in) :: f90wrap_omega_k
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%omega_k = f90wrap_omega_k
+end subroutine f90wrap_sim_info__set__omega_k
+
+subroutine f90wrap_sim_info__get__omega_b(this, f90wrap_omega_b)
+    use io_ramses, only: sim_info
+    implicit none
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(sim_info_ptr_type) :: this_ptr
+    real(8), intent(out) :: f90wrap_omega_b
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_omega_b = this_ptr%p%omega_b
+end subroutine f90wrap_sim_info__get__omega_b
+
+subroutine f90wrap_sim_info__set__omega_b(this, f90wrap_omega_b)
+    use io_ramses, only: sim_info
+    implicit none
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(sim_info_ptr_type) :: this_ptr
+    real(8), intent(in) :: f90wrap_omega_b
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%omega_b = f90wrap_omega_b
+end subroutine f90wrap_sim_info__set__omega_b
 
 subroutine f90wrap_sim_info__get__time_tot(this, f90wrap_time_tot)
     use io_ramses, only: sim_info
@@ -2050,6 +2106,280 @@ subroutine f90wrap_data_handler_finalise(this)
     deallocate(this_ptr%p)
 end subroutine f90wrap_data_handler_finalise
 
+subroutine f90wrap_particle__get__id(this, f90wrap_id)
+    use io_ramses, only: particle
+    implicit none
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+    integer, intent(in)   :: this(2)
+    type(particle_ptr_type) :: this_ptr
+    integer, intent(out) :: f90wrap_id
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_id = this_ptr%p%id
+end subroutine f90wrap_particle__get__id
+
+subroutine f90wrap_particle__set__id(this, f90wrap_id)
+    use io_ramses, only: particle
+    implicit none
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+    integer, intent(in)   :: this(2)
+    type(particle_ptr_type) :: this_ptr
+    integer, intent(in) :: f90wrap_id
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%id = f90wrap_id
+end subroutine f90wrap_particle__set__id
+
+subroutine f90wrap_particle__get__x(this, f90wrap_x)
+    use io_ramses, only: particle
+    use vectors, only: vector
+    implicit none
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+    type vector_ptr_type
+        type(vector), pointer :: p => NULL()
+    end type vector_ptr_type
+    integer, intent(in)   :: this(2)
+    type(particle_ptr_type) :: this_ptr
+    integer, intent(out) :: f90wrap_x(2)
+    type(vector_ptr_type) :: x_ptr
+    
+    this_ptr = transfer(this, this_ptr)
+    x_ptr%p => this_ptr%p%x
+    f90wrap_x = transfer(x_ptr,f90wrap_x)
+end subroutine f90wrap_particle__get__x
+
+subroutine f90wrap_particle__set__x(this, f90wrap_x)
+    use io_ramses, only: particle
+    use vectors, only: vector
+    implicit none
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+    type vector_ptr_type
+        type(vector), pointer :: p => NULL()
+    end type vector_ptr_type
+    integer, intent(in)   :: this(2)
+    type(particle_ptr_type) :: this_ptr
+    integer, intent(in) :: f90wrap_x(2)
+    type(vector_ptr_type) :: x_ptr
+    
+    this_ptr = transfer(this, this_ptr)
+    x_ptr = transfer(f90wrap_x,x_ptr)
+    this_ptr%p%x = x_ptr%p
+end subroutine f90wrap_particle__set__x
+
+subroutine f90wrap_particle__get__v(this, f90wrap_v)
+    use io_ramses, only: particle
+    use vectors, only: vector
+    implicit none
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+    type vector_ptr_type
+        type(vector), pointer :: p => NULL()
+    end type vector_ptr_type
+    integer, intent(in)   :: this(2)
+    type(particle_ptr_type) :: this_ptr
+    integer, intent(out) :: f90wrap_v(2)
+    type(vector_ptr_type) :: v_ptr
+    
+    this_ptr = transfer(this, this_ptr)
+    v_ptr%p => this_ptr%p%v
+    f90wrap_v = transfer(v_ptr,f90wrap_v)
+end subroutine f90wrap_particle__get__v
+
+subroutine f90wrap_particle__set__v(this, f90wrap_v)
+    use io_ramses, only: particle
+    use vectors, only: vector
+    implicit none
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+    type vector_ptr_type
+        type(vector), pointer :: p => NULL()
+    end type vector_ptr_type
+    integer, intent(in)   :: this(2)
+    type(particle_ptr_type) :: this_ptr
+    integer, intent(in) :: f90wrap_v(2)
+    type(vector_ptr_type) :: v_ptr
+    
+    this_ptr = transfer(this, this_ptr)
+    v_ptr = transfer(f90wrap_v,v_ptr)
+    this_ptr%p%v = v_ptr%p
+end subroutine f90wrap_particle__set__v
+
+subroutine f90wrap_particle__get__m(this, f90wrap_m)
+    use io_ramses, only: particle
+    implicit none
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+    integer, intent(in)   :: this(2)
+    type(particle_ptr_type) :: this_ptr
+    real(8), intent(out) :: f90wrap_m
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_m = this_ptr%p%m
+end subroutine f90wrap_particle__get__m
+
+subroutine f90wrap_particle__set__m(this, f90wrap_m)
+    use io_ramses, only: particle
+    implicit none
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+    integer, intent(in)   :: this(2)
+    type(particle_ptr_type) :: this_ptr
+    real(8), intent(in) :: f90wrap_m
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%m = f90wrap_m
+end subroutine f90wrap_particle__set__m
+
+subroutine f90wrap_particle__get__met(this, f90wrap_met)
+    use io_ramses, only: particle
+    implicit none
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+    integer, intent(in)   :: this(2)
+    type(particle_ptr_type) :: this_ptr
+    real(8), intent(out) :: f90wrap_met
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_met = this_ptr%p%met
+end subroutine f90wrap_particle__get__met
+
+subroutine f90wrap_particle__set__met(this, f90wrap_met)
+    use io_ramses, only: particle
+    implicit none
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+    integer, intent(in)   :: this(2)
+    type(particle_ptr_type) :: this_ptr
+    real(8), intent(in) :: f90wrap_met
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%met = f90wrap_met
+end subroutine f90wrap_particle__set__met
+
+subroutine f90wrap_particle__get__imass(this, f90wrap_imass)
+    use io_ramses, only: particle
+    implicit none
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+    integer, intent(in)   :: this(2)
+    type(particle_ptr_type) :: this_ptr
+    real(8), intent(out) :: f90wrap_imass
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_imass = this_ptr%p%imass
+end subroutine f90wrap_particle__get__imass
+
+subroutine f90wrap_particle__set__imass(this, f90wrap_imass)
+    use io_ramses, only: particle
+    implicit none
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+    integer, intent(in)   :: this(2)
+    type(particle_ptr_type) :: this_ptr
+    real(8), intent(in) :: f90wrap_imass
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%imass = f90wrap_imass
+end subroutine f90wrap_particle__set__imass
+
+subroutine f90wrap_particle__get__age(this, f90wrap_age)
+    use io_ramses, only: particle
+    implicit none
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+    integer, intent(in)   :: this(2)
+    type(particle_ptr_type) :: this_ptr
+    real(8), intent(out) :: f90wrap_age
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_age = this_ptr%p%age
+end subroutine f90wrap_particle__get__age
+
+subroutine f90wrap_particle__set__age(this, f90wrap_age)
+    use io_ramses, only: particle
+    implicit none
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+    integer, intent(in)   :: this(2)
+    type(particle_ptr_type) :: this_ptr
+    real(8), intent(in) :: f90wrap_age
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%age = f90wrap_age
+end subroutine f90wrap_particle__set__age
+
+subroutine f90wrap_particle__get__tform(this, f90wrap_tform)
+    use io_ramses, only: particle
+    implicit none
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+    integer, intent(in)   :: this(2)
+    type(particle_ptr_type) :: this_ptr
+    real(8), intent(out) :: f90wrap_tform
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_tform = this_ptr%p%tform
+end subroutine f90wrap_particle__get__tform
+
+subroutine f90wrap_particle__set__tform(this, f90wrap_tform)
+    use io_ramses, only: particle
+    implicit none
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+    integer, intent(in)   :: this(2)
+    type(particle_ptr_type) :: this_ptr
+    real(8), intent(in) :: f90wrap_tform
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%tform = f90wrap_tform
+end subroutine f90wrap_particle__set__tform
+
+subroutine f90wrap_particle_initialise(this)
+    use io_ramses, only: particle
+    implicit none
+    
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+    type(particle_ptr_type) :: this_ptr
+    integer, intent(out), dimension(2) :: this
+    allocate(this_ptr%p)
+    this = transfer(this_ptr, this)
+end subroutine f90wrap_particle_initialise
+
+subroutine f90wrap_particle_finalise(this)
+    use io_ramses, only: particle
+    implicit none
+    
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+    type(particle_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    this_ptr = transfer(this, this_ptr)
+    deallocate(this_ptr%p)
+end subroutine f90wrap_particle_finalise
+
 subroutine f90wrap_title(n, nchar)
     use io_ramses, only: title
     implicit none
@@ -2113,7 +2443,7 @@ subroutine f90wrap_read_hydrofile_descriptor(repository, varids)
 end subroutine f90wrap_read_hydrofile_descriptor
 
 subroutine f90wrap_select_from_descriptor_ids(varids, newvar, newid)
-    use io_ramses, only: hydroid, select_from_descriptor_ids
+    use io_ramses, only: select_from_descriptor_ids, hydroid
     implicit none
     
     type hydroid_ptr_type
@@ -2136,12 +2466,12 @@ subroutine f90wrap_getvarvalue(varids, reg, dx, x, var, varname, value, n0)
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
-    type hydroid_ptr_type
-        type(hydroid), pointer :: p => NULL()
-    end type hydroid_ptr_type
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
+    type hydroid_ptr_type
+        type(hydroid), pointer :: p => NULL()
+    end type hydroid_ptr_type
     type(hydroid_ptr_type) :: varids_ptr
     integer, intent(in), dimension(2) :: varids
     type(region_ptr_type) :: reg_ptr
@@ -2161,7 +2491,7 @@ subroutine f90wrap_getvarvalue(varids, reg, dx, x, var, varname, value, n0)
 end subroutine f90wrap_getvarvalue
 
 subroutine f90wrap_init_amr_read(repository, amr, sim)
-    use io_ramses, only: init_amr_read, sim_info, amr_info
+    use io_ramses, only: amr_info, sim_info, init_amr_read
     implicit none
     
     type sim_info_ptr_type
@@ -2181,16 +2511,16 @@ subroutine f90wrap_init_amr_read(repository, amr, sim)
 end subroutine f90wrap_init_amr_read
 
 subroutine f90wrap_get_cpu_map(reg, amr)
-    use geometrical_regions, only: region
     use io_ramses, only: get_cpu_map, amr_info
+    use geometrical_regions, only: region
     implicit none
     
-    type amr_info_ptr_type
-        type(amr_info), pointer :: p => NULL()
-    end type amr_info_ptr_type
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
+    type amr_info_ptr_type
+        type(amr_info), pointer :: p => NULL()
+    end type amr_info_ptr_type
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg
     type(amr_info_ptr_type) :: amr_ptr
@@ -2200,52 +2530,53 @@ subroutine f90wrap_get_cpu_map(reg, amr)
     call get_cpu_map(reg=reg_ptr%p, amr=amr_ptr%p)
 end subroutine f90wrap_get_cpu_map
 
-subroutine f90wrap_getparttype(id, age, ptype)
-    use io_ramses, only: getparttype
+subroutine f90wrap_getparttype(part, ptype)
+    use io_ramses, only: particle, getparttype
     implicit none
     
-    integer, intent(in) :: id
-    real(8), intent(in) :: age
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+    type(particle_ptr_type) :: part_ptr
+    integer, intent(in), dimension(2) :: part
     character(6), intent(inout) :: ptype
-    call getparttype(id=id, age=age, ptype=ptype)
+    part_ptr = transfer(part, part_ptr)
+    call getparttype(part=part_ptr%p, ptype=ptype)
 end subroutine f90wrap_getparttype
 
-subroutine f90wrap_getpartvalue(sim, reg, x, v, id, m, age, met, imass, var, value)
+subroutine f90wrap_getpartvalue(sim, reg, dx, part, var, value)
     use geometrical_regions, only: region
-    use io_ramses, only: getpartvalue, sim_info
+    use io_ramses, only: particle, sim_info, getpartvalue
     use vectors, only: vector
     implicit none
     
-    type sim_info_ptr_type
-        type(sim_info), pointer :: p => NULL()
-    end type sim_info_ptr_type
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
     type(sim_info_ptr_type) :: sim_ptr
     integer, intent(in), dimension(2) :: sim
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg
-    type(vector_ptr_type) :: x_ptr
-    integer, intent(in), dimension(2) :: x
-    type(vector_ptr_type) :: v_ptr
-    integer, intent(in), dimension(2) :: v
-    integer, intent(in) :: id
-    real(8), intent(in) :: m
-    real(8), intent(in) :: age
-    real(8), intent(in) :: met
-    real(8), intent(in) :: imass
+    type(vector_ptr_type) :: dx_ptr
+    integer, intent(in), dimension(2) :: dx
+    type(particle_ptr_type) :: part_ptr
+    integer, intent(in), dimension(2) :: part
     character(128), intent(in) :: var
     real(8), intent(inout) :: value
     sim_ptr = transfer(sim, sim_ptr)
     reg_ptr = transfer(reg, reg_ptr)
-    x_ptr = transfer(x, x_ptr)
-    v_ptr = transfer(v, v_ptr)
-    call getpartvalue(sim=sim_ptr%p, reg=reg_ptr%p, x=x_ptr%p, v=v_ptr%p, id=id, m=m, age=age, met=met, imass=imass, &
-        var=var, value=value)
+    dx_ptr = transfer(dx, dx_ptr)
+    part_ptr = transfer(part, part_ptr)
+    call getpartvalue(sim=sim_ptr%p, reg=reg_ptr%p, dx=dx_ptr%p, part=part_ptr%p, var=var, value=value)
 end subroutine f90wrap_getpartvalue
 
 ! End of module io_ramses defined in file read_amr_module.fpp
@@ -2434,24 +2765,24 @@ subroutine f90wrap_cond_string_to_filter(str, filt)
 end subroutine f90wrap_cond_string_to_filter
 
 subroutine f90wrap_filter_cell(varids, reg, filt, cell_x, cell_dx, ret_filter_cell, cell_var, n0)
-    use geometrical_regions, only: region
     use filtering, only: filter_cell, filter
-    use vectors, only: vector
+    use geometrical_regions, only: region
     use io_ramses, only: hydroid
+    use vectors, only: vector
     implicit none
     
-    type filter_ptr_type
-        type(filter), pointer :: p => NULL()
-    end type filter_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
-    type hydroid_ptr_type
-        type(hydroid), pointer :: p => NULL()
-    end type hydroid_ptr_type
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
+    type filter_ptr_type
+        type(filter), pointer :: p => NULL()
+    end type filter_ptr_type
+    type hydroid_ptr_type
+        type(hydroid), pointer :: p => NULL()
+    end type hydroid_ptr_type
     type(hydroid_ptr_type) :: varids_ptr
     integer, intent(in), dimension(2) :: varids
     type(region_ptr_type) :: reg_ptr
@@ -2472,6 +2803,47 @@ subroutine f90wrap_filter_cell(varids, reg, filt, cell_x, cell_dx, ret_filter_ce
     ret_filter_cell = filter_cell(varIDs=varids_ptr%p, reg=reg_ptr%p, filt=filt_ptr%p, cell_x=cell_x_ptr%p, cell_dx=cell_dx, &
         cell_var=cell_var)
 end subroutine f90wrap_filter_cell
+
+subroutine f90wrap_filter_particle(sim, reg, filt, dx, ret_filter_particle, part)
+    use filtering, only: filter, filter_particle
+    use geometrical_regions, only: region
+    use io_ramses, only: particle, sim_info
+    use vectors, only: vector
+    implicit none
+    
+    type vector_ptr_type
+        type(vector), pointer :: p => NULL()
+    end type vector_ptr_type
+    type filter_ptr_type
+        type(filter), pointer :: p => NULL()
+    end type filter_ptr_type
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
+    type(sim_info_ptr_type) :: sim_ptr
+    integer, intent(in), dimension(2) :: sim
+    type(region_ptr_type) :: reg_ptr
+    integer, intent(in), dimension(2) :: reg
+    type(filter_ptr_type) :: filt_ptr
+    integer, intent(in), dimension(2) :: filt
+    type(vector_ptr_type) :: dx_ptr
+    integer, intent(in), dimension(2) :: dx
+    logical, intent(out) :: ret_filter_particle
+    type(particle_ptr_type) :: part_ptr
+    integer, intent(in), dimension(2) :: part
+    sim_ptr = transfer(sim, sim_ptr)
+    reg_ptr = transfer(reg, reg_ptr)
+    filt_ptr = transfer(filt, filt_ptr)
+    dx_ptr = transfer(dx, dx_ptr)
+    part_ptr = transfer(part, part_ptr)
+    ret_filter_particle = filter_particle(sim=sim_ptr%p, reg=reg_ptr%p, filt=filt_ptr%p, dx=dx_ptr%p, part=part_ptr%p)
+end subroutine f90wrap_filter_particle
 
 ! End of module filtering defined in file read_amr_module.fpp
 
