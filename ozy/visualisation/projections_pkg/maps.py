@@ -2,7 +2,7 @@
 Module maps
 
 
-Defined at ramses2map.fpp lines 194-1011
+Defined at ramses2map.fpp lines 194-1016
 
 """
 from __future__ import print_function, absolute_import, division
@@ -230,7 +230,7 @@ def projection_parts(repository, cam, bulk_velocity, proj):
     projection_parts(repository, cam, bulk_velocity, proj)
     
     
-    Defined at ramses2map.fpp lines 541-561
+    Defined at ramses2map.fpp lines 541-562
     
     Parameters
     ----------
@@ -248,7 +248,7 @@ def project_particles(repository, amr, sim, bbox, cam, proj):
     project_particles(repository, amr, sim, bbox, cam, proj)
     
     
-    Defined at ramses2map.fpp lines 563-740
+    Defined at ramses2map.fpp lines 564-745
     
     Parameters
     ----------
@@ -269,7 +269,7 @@ def healpix_hydro(repository, reg, nside, proj):
     healpix_hydro(repository, reg, nside, proj)
     
     
-    Defined at ramses2map.fpp lines 742-757
+    Defined at ramses2map.fpp lines 747-762
     
     Parameters
     ----------
@@ -287,7 +287,7 @@ def project_cells_hpix(repository, amr, reg, varids, nside, proj):
     project_cells_hpix(repository, amr, reg, varids, nside, proj)
     
     
-    Defined at ramses2map.fpp lines 759-1011
+    Defined at ramses2map.fpp lines 764-1016
     
     Parameters
     ----------

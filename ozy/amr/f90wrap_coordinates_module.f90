@@ -97,8 +97,8 @@ subroutine f90wrap_spherical_basis_from_cartesian(p, spher_basis)
 end subroutine f90wrap_spherical_basis_from_cartesian
 
 subroutine f90wrap_cylindrical_basis_from_cartesian(p, cyl_basis)
-    use coordinate_systems, only: cylindrical_basis_from_cartesian
     use basis_representations, only: basis
+    use coordinate_systems, only: cylindrical_basis_from_cartesian
     use vectors, only: vector
     implicit none
     
@@ -610,7 +610,7 @@ subroutine f90wrap_limits(reg, lim, n0, n1)
 end subroutine f90wrap_limits
 
 subroutine f90wrap_checkifinside(pos, reg, ok, distance, n0)
-    use geometrical_regions, only: checkifinside, region
+    use geometrical_regions, only: region, checkifinside
     implicit none
     
     type region_ptr_type
@@ -650,7 +650,7 @@ subroutine f90wrap_cube(p, reg, ok, distance)
 end subroutine f90wrap_cube
 
 subroutine f90wrap_sphere(p, reg, ok, distance)
-    use geometrical_regions, only: region, sphere
+    use geometrical_regions, only: sphere, region
     use vectors, only: vector
     implicit none
     
@@ -672,7 +672,7 @@ subroutine f90wrap_sphere(p, reg, ok, distance)
 end subroutine f90wrap_sphere
 
 subroutine f90wrap_cylinder(p, reg, ok, distance)
-    use geometrical_regions, only: region, cylinder
+    use geometrical_regions, only: cylinder, region
     use vectors, only: vector
     implicit none
     
@@ -694,7 +694,7 @@ subroutine f90wrap_cylinder(p, reg, ok, distance)
 end subroutine f90wrap_cylinder
 
 subroutine f90wrap_cone(p, reg, ok, distance)
-    use geometrical_regions, only: region, cone
+    use geometrical_regions, only: cone, region
     use vectors, only: vector
     implicit none
     

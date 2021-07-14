@@ -625,6 +625,7 @@ module maps
         amr%lmax = min(get_required_resolution(cam),amr%nlevelmax)
         write(*,*)'Maximum resolution level: ',amr%nlevelmax
         write(*,*)'Using: ',amr%lmax
+        call check_families(repository,sim)
         call get_bounding_box(cam,bbox)
         bbox%name = 'cube'
         bbox%bulk_velocity = bulk_velocity
@@ -751,6 +752,10 @@ module maps
             if (nstar>0) then
                 read(1)id
                 read(1) ! Skip level
+                if (sim%family) then
+                    read(1) ! Skip family
+                    read(1) ! Skip tags
+                endif
                 read(1)age
                 read(1)met
                 read(1)imass
@@ -790,7 +795,7 @@ module maps
                         else
                             call getparttype(part,ptype)
                             if (ptype.eq.'star') then
-                                call getpartvalue(sim,bbox,dcell,part,proj%weightvar,weight)
+                                call getpartvalue(sim,bbox,part,proj%weightvar,weight,dcell)
                             else
                                 weight = 1D0
                             endif
@@ -801,7 +806,7 @@ module maps
                     endif
 
                     projvarloop: do ivar=1,proj%nvars
-                        call getpartvalue(sim,bbox,dcell,part,proj%varnames(ivar),mapvalue)
+                        call getpartvalue(sim,bbox,part,proj%varnames(ivar),mapvalue,dcell)
                         if (weight.ne.0D0) then
                             ! TODO: Properly understand WOH is going on here
                             ddx = (x(i,1)-bbox%xmin)/dx

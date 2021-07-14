@@ -235,6 +235,10 @@ module part_profiles
             if (nstar>0) then
                 read(1)id
                 read(1) ! Skip level
+                if (sim%family) then
+                    read(1) ! Skip family
+                    read(1) ! Skip tags
+                endif
                 read(1)age
                 read(1)met
                 read(1)imass
@@ -296,6 +300,7 @@ module part_profiles
         call init_amr_read(repository,amr,sim)
         amr%lmax = lmax
         if (lmax.eq.0) amr%lmax = amr%nlevelmax
+        call check_families(repository,sim)
         prof_data%xdata = 0D0
         prof_data%ydata = 0D0
         call makebins(reg,prof_data%xvarname,prof_data%nbins,prof_data%xdata)

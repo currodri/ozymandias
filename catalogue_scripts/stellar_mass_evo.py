@@ -57,9 +57,12 @@ if __name__ == '__main__':
         
         if args.model[i][0] != '/':
             simfolder = os.path.join(os.getcwd(), args.model[i])
+            args.model[i] = args.model[i].replace('_','\_')
         else:
             simfolder = args.model[i]
             args.model[i] = args.model[i].split('/')[-1]
+            args.model[i] = args.model[i].replace('_','\_')
+        print(args.model[i])
         
         if not os.path.exists(simfolder):
             raise Exception('The given simulation name is not found in this directory!')

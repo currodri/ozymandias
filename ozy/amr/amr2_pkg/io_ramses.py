@@ -2,7 +2,7 @@
 Module io_ramses
 
 
-Defined at read_amr_module.fpp lines 24-835
+Defined at read_amr_module.fpp lines 24-1250
 
 """
 from __future__ import print_function, absolute_import, division
@@ -541,6 +541,21 @@ class amr_info(f90wrap.runtime.FortranDerivedType):
         _amr2_pkg.f90wrap_amr_info__set__lmax(self._handle, lmax)
     
     @property
+    def lmin(self):
+        """
+        Element lmin ftype=integer  pytype=int
+        
+        
+        Defined at read_amr_module.fpp line 36
+        
+        """
+        return _amr2_pkg.f90wrap_amr_info__get__lmin(self._handle)
+    
+    @lmin.setter
+    def lmin(self, lmin):
+        _amr2_pkg.f90wrap_amr_info__set__lmin(self._handle, lmin)
+    
+    @property
     def ncpu_read(self):
         """
         Element ncpu_read ftype=integer  pytype=int
@@ -686,6 +701,8 @@ class amr_info(f90wrap.runtime.FortranDerivedType):
         ret.append(repr(self.levelmax))
         ret.append(',\n    lmax : ')
         ret.append(repr(self.lmax))
+        ret.append(',\n    lmin : ')
+        ret.append(repr(self.lmin))
         ret.append(',\n    ncpu_read : ')
         ret.append(repr(self.ncpu_read))
         ret.append(',\n    ordering : ')
@@ -1943,7 +1960,7 @@ def read_hydrofile_descriptor(repository, varids):
     read_hydrofile_descriptor(repository, varids)
     
     
-    Defined at read_amr_module.fpp lines 214-271
+    Defined at read_amr_module.fpp lines 214-249
     
     Parameters
     ----------
@@ -1954,12 +1971,28 @@ def read_hydrofile_descriptor(repository, varids):
     _amr2_pkg.f90wrap_read_hydrofile_descriptor(repository=repository, \
         varids=varids._handle)
 
+def read_hydrofile_descriptor_old(repository, varids):
+    """
+    read_hydrofile_descriptor_old(repository, varids)
+    
+    
+    Defined at read_amr_module.fpp lines 259-316
+    
+    Parameters
+    ----------
+    repository : str
+    varids : Hydroid
+    
+    """
+    _amr2_pkg.f90wrap_read_hydrofile_descriptor_old(repository=repository, \
+        varids=varids._handle)
+
 def select_from_descriptor_ids(self, newvar, newid):
     """
     select_from_descriptor_ids(self, newvar, newid)
     
     
-    Defined at read_amr_module.fpp lines 273-322
+    Defined at read_amr_module.fpp lines 318-395
     
     Parameters
     ----------
@@ -1971,12 +2004,28 @@ def select_from_descriptor_ids(self, newvar, newid):
     _amr2_pkg.f90wrap_select_from_descriptor_ids(varids=self._handle, newvar=newvar, \
         newid=newid)
 
+def read_hydrofile_descriptor_new(repository, varids):
+    """
+    read_hydrofile_descriptor_new(repository, varids)
+    
+    
+    Defined at read_amr_module.fpp lines 405-437
+    
+    Parameters
+    ----------
+    repository : str
+    varids : Hydroid
+    
+    """
+    _amr2_pkg.f90wrap_read_hydrofile_descriptor_new(repository=repository, \
+        varids=varids._handle)
+
 def getvarvalue(self, reg, dx, x, var, varname, value):
     """
     getvarvalue(self, reg, dx, x, var, varname, value)
     
     
-    Defined at read_amr_module.fpp lines 331-548
+    Defined at read_amr_module.fpp lines 446-663
     
     Parameters
     ----------
@@ -1997,7 +2046,7 @@ def init_amr_read(repository, amr, sim):
     init_amr_read(repository, amr, sim)
     
     
-    Defined at read_amr_module.fpp lines 557-633
+    Defined at read_amr_module.fpp lines 672-748
     
     Parameters
     ----------
@@ -2014,7 +2063,7 @@ def get_cpu_map(self, amr):
     get_cpu_map(self, amr)
     
     
-    Defined at read_amr_module.fpp lines 641-730
+    Defined at read_amr_module.fpp lines 756-845
     
     Parameters
     ----------
@@ -2029,7 +2078,7 @@ def getparttype(self, ptype):
     getparttype(self, ptype)
     
     
-    Defined at read_amr_module.fpp lines 732-740
+    Defined at read_amr_module.fpp lines 847-855
     
     Parameters
     ----------
@@ -2039,12 +2088,12 @@ def getparttype(self, ptype):
     """
     _amr2_pkg.f90wrap_getparttype(part=self._handle, ptype=ptype)
 
-def getpartvalue(self, reg, part, var, value):
+def getpartvalue(self, reg, part, var, value, dx=None):
     """
-    getpartvalue(self, reg, part, var, value)
+    getpartvalue(self, reg, part, var, value[, dx])
     
     
-    Defined at read_amr_module.fpp lines 742-834
+    Defined at read_amr_module.fpp lines 857-1249
     
     Parameters
     ----------
@@ -2053,10 +2102,12 @@ def getpartvalue(self, reg, part, var, value):
     part : Particle
     var : str
     value : float
+    dx : Vector
     
     """
     _amr2_pkg.f90wrap_getpartvalue(sim=self._handle, reg=reg._handle, \
-        part=part._handle, var=var, value=value)
+        part=part._handle, var=var, value=value, dx=None if dx is None else \
+        dx._handle)
 
 
 _array_initialisers = []

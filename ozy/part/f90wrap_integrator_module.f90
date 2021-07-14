@@ -224,14 +224,11 @@ subroutine f90wrap_allocate_part_regions_attrs(attrs)
 end subroutine f90wrap_allocate_part_regions_attrs
 
 subroutine f90wrap_extract_data(sim, reg, part, attrs)
+    use geometrical_regions, only: region
     use io_ramses, only: sim_info, particle
     use part_integrator, only: part_region_attrs, extract_data
-    use geometrical_regions, only: region
     implicit none
     
-    type part_region_attrs_ptr_type
-        type(part_region_attrs), pointer :: p => NULL()
-    end type part_region_attrs_ptr_type
     type sim_info_ptr_type
         type(sim_info), pointer :: p => NULL()
     end type sim_info_ptr_type
@@ -241,6 +238,9 @@ subroutine f90wrap_extract_data(sim, reg, part, attrs)
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
+    type part_region_attrs_ptr_type
+        type(part_region_attrs), pointer :: p => NULL()
+    end type part_region_attrs_ptr_type
     type(sim_info_ptr_type) :: sim_ptr
     integer, intent(in), dimension(2) :: sim
     type(region_ptr_type) :: reg_ptr
@@ -261,12 +261,12 @@ subroutine f90wrap_renormalise(sim, attrs)
     use io_ramses, only: sim_info
     implicit none
     
-    type part_region_attrs_ptr_type
-        type(part_region_attrs), pointer :: p => NULL()
-    end type part_region_attrs_ptr_type
     type sim_info_ptr_type
         type(sim_info), pointer :: p => NULL()
     end type sim_info_ptr_type
+    type part_region_attrs_ptr_type
+        type(part_region_attrs), pointer :: p => NULL()
+    end type part_region_attrs_ptr_type
     type(sim_info_ptr_type) :: sim_ptr
     integer, intent(in), dimension(2) :: sim
     type(part_region_attrs_ptr_type) :: attrs_ptr
@@ -278,19 +278,19 @@ end subroutine f90wrap_renormalise
 
 subroutine f90wrap_integrate_region(repository, reg, filt, attrs)
     use part_integrator, only: part_region_attrs, integrate_region
-    use geometrical_regions, only: region
     use filtering, only: filter
+    use geometrical_regions, only: region
     implicit none
     
-    type part_region_attrs_ptr_type
-        type(part_region_attrs), pointer :: p => NULL()
-    end type part_region_attrs_ptr_type
     type filter_ptr_type
         type(filter), pointer :: p => NULL()
     end type filter_ptr_type
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
+    type part_region_attrs_ptr_type
+        type(part_region_attrs), pointer :: p => NULL()
+    end type part_region_attrs_ptr_type
     character(128), intent(in) :: repository
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg

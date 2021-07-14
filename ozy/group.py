@@ -153,8 +153,6 @@ class Galaxy(Group):
         # Begin integration
         part_integrator.integrate_region(output_path,selected_reg,filt,glob_attrs)
 
-        print(glob_attrs.data)
-
         # DM details
         self.mass['dm'] = self.obj.yt_dataset.quan(glob_attrs.data[-1,0,0], 'code_mass')
         self.ndm = glob_attrs.ndm
@@ -197,7 +195,7 @@ class Galaxy(Group):
             
         nvar = len(quantity_names)
         if self.obj.simulation.physics['rt']:
-            quantity_names += ['xHII','xHeII','xHeII']
+            quantity_names += ['xHII','xHeII','xHeIII']
                 
         # Initialise Fortran derived type with attributes
         # This object hold the following attributes:
@@ -220,7 +218,6 @@ class Galaxy(Group):
         amr_integrator.integrate_region(output_path,selected_reg,filt,glob_attrs)
 
         # Assign results to galaxy object
-        print(self.obj.simulation.physics)
         if self.obj.simulation.physics['hydro']:
             self.mass['gas'] = self.obj.yt_dataset.quan(glob_attrs.data[0,0,0], 'code_mass')
             self.gas_density['mass_weighted'] = self.obj.yt_dataset.quan(glob_attrs.data[1,1,0], 'code_density')
@@ -257,28 +254,28 @@ class Galaxy(Group):
 
         if self.obj.simulation.physics['rt']:
             print('Computing ionisation fractions')
-            self.radiation['xHII'] = glob_attrs.data[nvar,1,0]
-            self.radiation['xHeII'] = glob_attrs.data[nvar+1,1,0]
-            self.radiation['xHeIII'] = glob_attrs.data[nvar+2,1,0]
+            self.radiation['xHII'] = glob_attrs.data[nvar,2,0]
+            self.radiation['xHeII'] = glob_attrs.data[nvar+1,2,0]
+            self.radiation['xHeIII'] = glob_attrs.data[nvar+2,2,0]
             
-    def _calculate_star_quantities(self):
-        """Calculate star quantities..."""
-        # TODO
-        indicators = np.array([0.01, 0.1]) # in Gyr. These should be taken as arguments in the future
-        output_path = self.obj.simulation.fullpath
+    # def _calculate_star_quantities(self):
+    #     """Calculate star quantities..."""
+    #     # TODO
+    #     indicators = np.array([0.01, 0.1]) # in Gyr. These should be taken as arguments in the future
+    #     output_path = self.obj.simulation.fullpath
 
-        # Region for selection -- Using: 0.2 radius of host DM halo (following Martin-Alvarez et al. 2018)
-        r_region = 0.2*self.obj.halos[self.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
-        x_center = self.position.in_units('code_length')[0].d
-        y_center = self.position.in_units('code_length')[1].d
-        z_center = self.position.in_units('code_length')[2].d
+    #     # Region for selection -- Using: 0.2 radius of host DM halo (following Martin-Alvarez et al. 2018)
+    #     r_region = 0.2*self.obj.halos[self.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
+    #     x_center = self.position.in_units('code_length')[0].d
+    #     y_center = self.position.in_units('code_length')[1].d
+    #     z_center = self.position.in_units('code_length')[2].d
         
-        sfr = part2sfr.sphere(output_path, x_center, y_center,
-                                z_center, r_region, indicators, 
-                                len(indicators))
+    #     sfr = part2sfr.sphere(output_path, x_center, y_center,
+    #                             z_center, r_region, indicators, 
+    #                             len(indicators))
 
-        for i in range(0, len(indicators)):
-            self.sfr[str(int(indicators[i]*1e+3))+'Myr'] = self.obj.yt_dataset.quan(sfr[i],'Msun/yr')
+    #     for i in range(0, len(indicators)):
+    #         self.sfr[str(int(indicators[i]*1e+3))+'Myr'] = self.obj.yt_dataset.quan(sfr[i],'Msun/yr')
 
     def _calculate_velocity_dispersions(self):
         """Calculate velocity dispersions for the various components."""

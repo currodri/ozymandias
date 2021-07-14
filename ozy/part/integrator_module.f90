@@ -169,6 +169,9 @@ module part_integrator
         call init_amr_read(repository,amr,sim)
         amr%lmax = amr%nlevelmax
 
+        ! Check if particle data uses family
+        call check_families(repository,sim)
+
         ! Compute the Hilbert curve
         call get_cpu_map(reg,amr)
         write(*,*)'ncpu_read:',amr%ncpu_read
@@ -259,6 +262,10 @@ module part_integrator
             if (nstar>0) then
                 read(1)id
                 read(1) ! Skip level
+                if (sim%family) then
+                    read(1) ! Skip family
+                    read(1) ! Skip tags
+                endif
                 read(1)age
                 read(1)met
                 read(1)imass

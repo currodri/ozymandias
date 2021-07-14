@@ -754,6 +754,34 @@ subroutine f90wrap_amr_info__set__lmax(this, f90wrap_lmax)
     this_ptr%p%lmax = f90wrap_lmax
 end subroutine f90wrap_amr_info__set__lmax
 
+subroutine f90wrap_amr_info__get__lmin(this, f90wrap_lmin)
+    use io_ramses, only: amr_info
+    implicit none
+    type amr_info_ptr_type
+        type(amr_info), pointer :: p => NULL()
+    end type amr_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(amr_info_ptr_type) :: this_ptr
+    integer, intent(out) :: f90wrap_lmin
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_lmin = this_ptr%p%lmin
+end subroutine f90wrap_amr_info__get__lmin
+
+subroutine f90wrap_amr_info__set__lmin(this, f90wrap_lmin)
+    use io_ramses, only: amr_info
+    implicit none
+    type amr_info_ptr_type
+        type(amr_info), pointer :: p => NULL()
+    end type amr_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(amr_info_ptr_type) :: this_ptr
+    integer, intent(in) :: f90wrap_lmin
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%lmin = f90wrap_lmin
+end subroutine f90wrap_amr_info__set__lmin
+
 subroutine f90wrap_amr_info__get__ncpu_read(this, f90wrap_ncpu_read)
     use io_ramses, only: amr_info
     implicit none
@@ -955,6 +983,34 @@ subroutine f90wrap_sim_info__set__cosmo(this, f90wrap_cosmo)
     this_ptr = transfer(this, this_ptr)
     this_ptr%p%cosmo = f90wrap_cosmo
 end subroutine f90wrap_sim_info__set__cosmo
+
+subroutine f90wrap_sim_info__get__family(this, f90wrap_family)
+    use io_ramses, only: sim_info
+    implicit none
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(sim_info_ptr_type) :: this_ptr
+    logical, intent(out) :: f90wrap_family
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_family = this_ptr%p%family
+end subroutine f90wrap_sim_info__get__family
+
+subroutine f90wrap_sim_info__set__family(this, f90wrap_family)
+    use io_ramses, only: sim_info
+    implicit none
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    integer, intent(in)   :: this(2)
+    type(sim_info_ptr_type) :: this_ptr
+    logical, intent(in) :: f90wrap_family
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%family = f90wrap_family
+end subroutine f90wrap_sim_info__set__family
 
 subroutine f90wrap_sim_info__get__h0(this, f90wrap_h0)
     use io_ramses, only: sim_info
@@ -2400,6 +2456,20 @@ subroutine f90wrap_check_lmax(ngridfile, amr, n0, n1)
     call check_lmax(ngridfile=ngridfile, amr=amr_ptr%p)
 end subroutine f90wrap_check_lmax
 
+subroutine f90wrap_check_families(repository, sim)
+    use io_ramses, only: sim_info, check_families
+    implicit none
+    
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    character(128), intent(in) :: repository
+    type(sim_info_ptr_type) :: sim_ptr
+    integer, intent(in), dimension(2) :: sim
+    sim_ptr = transfer(sim, sim_ptr)
+    call check_families(repository=repository, sim=sim_ptr%p)
+end subroutine f90wrap_check_families
+
 subroutine f90wrap_read_hydrofile_descriptor(repository, varids)
     use io_ramses, only: read_hydrofile_descriptor, hydroid
     implicit none
@@ -2414,8 +2484,22 @@ subroutine f90wrap_read_hydrofile_descriptor(repository, varids)
     call read_hydrofile_descriptor(repository=repository, varIDs=varids_ptr%p)
 end subroutine f90wrap_read_hydrofile_descriptor
 
+subroutine f90wrap_read_hydrofile_descriptor_old(repository, varids)
+    use io_ramses, only: hydroid, read_hydrofile_descriptor_old
+    implicit none
+    
+    type hydroid_ptr_type
+        type(hydroid), pointer :: p => NULL()
+    end type hydroid_ptr_type
+    character(128), intent(in) :: repository
+    type(hydroid_ptr_type) :: varids_ptr
+    integer, intent(in), dimension(2) :: varids
+    varids_ptr = transfer(varids, varids_ptr)
+    call read_hydrofile_descriptor_old(repository=repository, varIDs=varids_ptr%p)
+end subroutine f90wrap_read_hydrofile_descriptor_old
+
 subroutine f90wrap_select_from_descriptor_ids(varids, newvar, newid)
-    use io_ramses, only: select_from_descriptor_ids, hydroid
+    use io_ramses, only: hydroid, select_from_descriptor_ids
     implicit none
     
     type hydroid_ptr_type
@@ -2429,21 +2513,35 @@ subroutine f90wrap_select_from_descriptor_ids(varids, newvar, newid)
     call select_from_descriptor_ids(varIDs=varids_ptr%p, newvar=newvar, newID=newid)
 end subroutine f90wrap_select_from_descriptor_ids
 
-subroutine f90wrap_getvarvalue(varids, reg, dx, x, var, varname, value, n0)
-    use io_ramses, only: getvarvalue, hydroid
-    use geometrical_regions, only: region
-    use vectors, only: vector
+subroutine f90wrap_read_hydrofile_descriptor_new(repository, varids)
+    use io_ramses, only: hydroid, read_hydrofile_descriptor_new
     implicit none
     
-    type vector_ptr_type
-        type(vector), pointer :: p => NULL()
-    end type vector_ptr_type
+    type hydroid_ptr_type
+        type(hydroid), pointer :: p => NULL()
+    end type hydroid_ptr_type
+    character(128), intent(in) :: repository
+    type(hydroid_ptr_type) :: varids_ptr
+    integer, intent(in), dimension(2) :: varids
+    varids_ptr = transfer(varids, varids_ptr)
+    call read_hydrofile_descriptor_new(repository=repository, varIDs=varids_ptr%p)
+end subroutine f90wrap_read_hydrofile_descriptor_new
+
+subroutine f90wrap_getvarvalue(varids, reg, dx, x, var, varname, value, n0)
+    use io_ramses, only: hydroid, getvarvalue
+    use vectors, only: vector
+    use geometrical_regions, only: region
+    implicit none
+    
     type hydroid_ptr_type
         type(hydroid), pointer :: p => NULL()
     end type hydroid_ptr_type
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
+    type vector_ptr_type
+        type(vector), pointer :: p => NULL()
+    end type vector_ptr_type
     type(hydroid_ptr_type) :: varids_ptr
     integer, intent(in), dimension(2) :: varids
     type(region_ptr_type) :: reg_ptr
@@ -2516,9 +2614,10 @@ subroutine f90wrap_getparttype(part, ptype)
     call getparttype(part=part_ptr%p, ptype=ptype)
 end subroutine f90wrap_getparttype
 
-subroutine f90wrap_getpartvalue(sim, reg, part, var, value)
-    use io_ramses, only: sim_info, particle, getpartvalue
+subroutine f90wrap_getpartvalue(sim, reg, part, var, value, dx)
+    use io_ramses, only: sim_info, getpartvalue, particle
     use geometrical_regions, only: region
+    use vectors, only: vector
     implicit none
     
     type sim_info_ptr_type
@@ -2530,6 +2629,9 @@ subroutine f90wrap_getpartvalue(sim, reg, part, var, value)
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
+    type vector_ptr_type
+        type(vector), pointer :: p => NULL()
+    end type vector_ptr_type
     type(sim_info_ptr_type) :: sim_ptr
     integer, intent(in), dimension(2) :: sim
     type(region_ptr_type) :: reg_ptr
@@ -2538,10 +2640,17 @@ subroutine f90wrap_getpartvalue(sim, reg, part, var, value)
     integer, intent(in), dimension(2) :: part
     character(128), intent(in) :: var
     real(8), intent(inout) :: value
+    type(vector_ptr_type) :: dx_ptr
+    integer, optional, intent(in), dimension(2) :: dx
     sim_ptr = transfer(sim, sim_ptr)
     reg_ptr = transfer(reg, reg_ptr)
     part_ptr = transfer(part, part_ptr)
-    call getpartvalue(sim=sim_ptr%p, reg=reg_ptr%p, part=part_ptr%p, var=var, value=value)
+    if (present(dx)) then
+        dx_ptr = transfer(dx, dx_ptr)
+    else
+        dx_ptr%p => null()
+    end if
+    call getpartvalue(sim=sim_ptr%p, reg=reg_ptr%p, part=part_ptr%p, var=var, value=value, dx=dx_ptr%p)
 end subroutine f90wrap_getpartvalue
 
 ! End of module io_ramses defined in file read_amr_module.fpp
@@ -2703,7 +2812,7 @@ subroutine f90wrap_filter_finalise(this)
 end subroutine f90wrap_filter_finalise
 
 subroutine f90wrap_allocate_filter(filt)
-    use filtering, only: allocate_filter, filter
+    use filtering, only: filter, allocate_filter
     implicit none
     
     type filter_ptr_type
@@ -2716,7 +2825,7 @@ subroutine f90wrap_allocate_filter(filt)
 end subroutine f90wrap_allocate_filter
 
 subroutine f90wrap_cond_string_to_filter(str, filt)
-    use filtering, only: cond_string_to_filter, filter
+    use filtering, only: filter, cond_string_to_filter
     implicit none
     
     type filter_ptr_type
@@ -2731,23 +2840,23 @@ end subroutine f90wrap_cond_string_to_filter
 
 subroutine f90wrap_filter_cell(varids, reg, filt, cell_x, cell_dx, ret_filter_cell, cell_var, n0)
     use io_ramses, only: hydroid
-    use vectors, only: vector
-    use filtering, only: filter_cell, filter
+    use filtering, only: filter, filter_cell
     use geometrical_regions, only: region
+    use vectors, only: vector
     implicit none
     
-    type vector_ptr_type
-        type(vector), pointer :: p => NULL()
-    end type vector_ptr_type
-    type hydroid_ptr_type
-        type(hydroid), pointer :: p => NULL()
-    end type hydroid_ptr_type
     type filter_ptr_type
         type(filter), pointer :: p => NULL()
     end type filter_ptr_type
+    type hydroid_ptr_type
+        type(hydroid), pointer :: p => NULL()
+    end type hydroid_ptr_type
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
+    type vector_ptr_type
+        type(vector), pointer :: p => NULL()
+    end type vector_ptr_type
     type(hydroid_ptr_type) :: varids_ptr
     integer, intent(in), dimension(2) :: varids
     type(region_ptr_type) :: reg_ptr
@@ -2769,38 +2878,49 @@ subroutine f90wrap_filter_cell(varids, reg, filt, cell_x, cell_dx, ret_filter_ce
         cell_var=cell_var)
 end subroutine f90wrap_filter_cell
 
-subroutine f90wrap_filter_particle(sim, reg, filt, ret_filter_particle, part)
-    use io_ramses, only: sim_info, particle
-    use filtering, only: filter_particle, filter
+subroutine f90wrap_filter_particle(sim, reg, filt, part, ret_filter_particle, dx)
+    use filtering, only: filter, filter_particle
     use geometrical_regions, only: region
+    use io_ramses, only: sim_info, particle
+    use vectors, only: vector
     implicit none
     
+    type filter_ptr_type
+        type(filter), pointer :: p => NULL()
+    end type filter_ptr_type
+    type vector_ptr_type
+        type(vector), pointer :: p => NULL()
+    end type vector_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type sim_info_ptr_type
         type(sim_info), pointer :: p => NULL()
     end type sim_info_ptr_type
     type particle_ptr_type
         type(particle), pointer :: p => NULL()
     end type particle_ptr_type
-    type filter_ptr_type
-        type(filter), pointer :: p => NULL()
-    end type filter_ptr_type
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type(sim_info_ptr_type) :: sim_ptr
     integer, intent(in), dimension(2) :: sim
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg
     type(filter_ptr_type) :: filt_ptr
     integer, intent(in), dimension(2) :: filt
-    logical, intent(out) :: ret_filter_particle
     type(particle_ptr_type) :: part_ptr
     integer, intent(in), dimension(2) :: part
+    logical, intent(out) :: ret_filter_particle
+    type(vector_ptr_type) :: dx_ptr
+    integer, optional, intent(in), dimension(2) :: dx
     sim_ptr = transfer(sim, sim_ptr)
     reg_ptr = transfer(reg, reg_ptr)
     filt_ptr = transfer(filt, filt_ptr)
     part_ptr = transfer(part, part_ptr)
-    ret_filter_particle = filter_particle(sim=sim_ptr%p, reg=reg_ptr%p, filt=filt_ptr%p, part=part_ptr%p)
+    if (present(dx)) then
+        dx_ptr = transfer(dx, dx_ptr)
+    else
+        dx_ptr%p => null()
+    end if
+    ret_filter_particle = filter_particle(sim=sim_ptr%p, reg=reg_ptr%p, filt=filt_ptr%p, part=part_ptr%p, dx=dx_ptr%p)
 end subroutine f90wrap_filter_particle
 
 ! End of module filtering defined in file read_amr_module.fpp

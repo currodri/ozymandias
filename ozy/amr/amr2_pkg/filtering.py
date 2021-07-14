@@ -2,7 +2,7 @@
 Module filtering
 
 
-Defined at read_amr_module.fpp lines 837-927
+Defined at read_amr_module.fpp lines 1252-1346
 
 """
 from __future__ import print_function, absolute_import, division
@@ -19,7 +19,7 @@ class filter(f90wrap.runtime.FortranDerivedType):
     Type(name=filter)
     
     
-    Defined at read_amr_module.fpp lines 840-845
+    Defined at read_amr_module.fpp lines 1255-1260
     
     """
     def __init__(self, handle=None):
@@ -27,7 +27,7 @@ class filter(f90wrap.runtime.FortranDerivedType):
         self = Filter()
         
         
-        Defined at read_amr_module.fpp lines 840-845
+        Defined at read_amr_module.fpp lines 1255-1260
         
         
         Returns
@@ -47,7 +47,7 @@ class filter(f90wrap.runtime.FortranDerivedType):
         Destructor for class Filter
         
         
-        Defined at read_amr_module.fpp lines 840-845
+        Defined at read_amr_module.fpp lines 1255-1260
         
         Parameters
         ----------
@@ -66,7 +66,7 @@ class filter(f90wrap.runtime.FortranDerivedType):
         Element name ftype=character(128) pytype=str
         
         
-        Defined at read_amr_module.fpp line 841
+        Defined at read_amr_module.fpp line 1256
         
         """
         return _amr2_pkg.f90wrap_filter__get__name(self._handle)
@@ -81,7 +81,7 @@ class filter(f90wrap.runtime.FortranDerivedType):
         Element ncond ftype=integer  pytype=int
         
         
-        Defined at read_amr_module.fpp line 842
+        Defined at read_amr_module.fpp line 1257
         
         """
         return _amr2_pkg.f90wrap_filter__get__ncond(self._handle)
@@ -96,7 +96,7 @@ class filter(f90wrap.runtime.FortranDerivedType):
         Element cond_vars ftype=character(128) pytype=str
         
         
-        Defined at read_amr_module.fpp line 843
+        Defined at read_amr_module.fpp line 1258
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -120,7 +120,7 @@ class filter(f90wrap.runtime.FortranDerivedType):
         Element cond_ops ftype=character(2) pytype=str
         
         
-        Defined at read_amr_module.fpp line 844
+        Defined at read_amr_module.fpp line 1259
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -144,7 +144,7 @@ class filter(f90wrap.runtime.FortranDerivedType):
         Element cond_vals ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 845
+        Defined at read_amr_module.fpp line 1260
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -185,7 +185,7 @@ def allocate_filter(self):
     allocate_filter(self)
     
     
-    Defined at read_amr_module.fpp lines 848-853
+    Defined at read_amr_module.fpp lines 1263-1268
     
     Parameters
     ----------
@@ -199,7 +199,7 @@ def cond_string_to_filter(str, filt):
     cond_string_to_filter(str, filt)
     
     
-    Defined at read_amr_module.fpp lines 855-859
+    Defined at read_amr_module.fpp lines 1270-1274
     
     Parameters
     ----------
@@ -214,7 +214,7 @@ def filter_cell(self, reg, filt, cell_x, cell_dx, cell_var):
     filter_cell = filter_cell(self, reg, filt, cell_x, cell_dx, cell_var)
     
     
-    Defined at read_amr_module.fpp lines 861-895
+    Defined at read_amr_module.fpp lines 1276-1309
     
     Parameters
     ----------
@@ -235,12 +235,12 @@ def filter_cell(self, reg, filt, cell_x, cell_dx, cell_var):
         cell_var=cell_var)
     return filter_cell
 
-def filter_particle(self, reg, filt, part):
+def filter_particle(self, reg, filt, part, dx=None):
     """
-    filter_particle = filter_particle(self, reg, filt, part)
+    filter_particle = filter_particle(self, reg, filt, part[, dx])
     
     
-    Defined at read_amr_module.fpp lines 897-927
+    Defined at read_amr_module.fpp lines 1311-1346
     
     Parameters
     ----------
@@ -248,6 +248,7 @@ def filter_particle(self, reg, filt, part):
     reg : Region
     filt : Filter
     part : Particle
+    dx : Vector
     
     Returns
     -------
@@ -255,7 +256,8 @@ def filter_particle(self, reg, filt, part):
     
     """
     filter_particle = _amr2_pkg.f90wrap_filter_particle(sim=self._handle, \
-        reg=reg._handle, filt=filt._handle, part=part._handle)
+        reg=reg._handle, filt=filt._handle, part=part._handle, dx=None if dx is None \
+        else dx._handle)
     return filter_particle
 
 

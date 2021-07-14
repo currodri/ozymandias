@@ -2,7 +2,7 @@
 Module io_ramses
 
 
-Defined at read_amr_module.fpp lines 24-835
+Defined at read_amr_module.fpp lines 24-1283
 
 """
 from __future__ import print_function, absolute_import, division
@@ -542,6 +542,21 @@ class amr_info(f90wrap.runtime.FortranDerivedType):
         _part2_pkg.f90wrap_amr_info__set__lmax(self._handle, lmax)
     
     @property
+    def lmin(self):
+        """
+        Element lmin ftype=integer  pytype=int
+        
+        
+        Defined at read_amr_module.fpp line 36
+        
+        """
+        return _part2_pkg.f90wrap_amr_info__get__lmin(self._handle)
+    
+    @lmin.setter
+    def lmin(self, lmin):
+        _part2_pkg.f90wrap_amr_info__set__lmin(self._handle, lmin)
+    
+    @property
     def ncpu_read(self):
         """
         Element ncpu_read ftype=integer  pytype=int
@@ -687,6 +702,8 @@ class amr_info(f90wrap.runtime.FortranDerivedType):
         ret.append(repr(self.levelmax))
         ret.append(',\n    lmax : ')
         ret.append(repr(self.lmax))
+        ret.append(',\n    lmin : ')
+        ret.append(repr(self.lmin))
         ret.append(',\n    ncpu_read : ')
         ret.append(repr(self.ncpu_read))
         ret.append(',\n    ordering : ')
@@ -766,6 +783,21 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
     @cosmo.setter
     def cosmo(self, cosmo):
         _part2_pkg.f90wrap_sim_info__set__cosmo(self._handle, cosmo)
+    
+    @property
+    def family(self):
+        """
+        Element family ftype=logical pytype=bool
+        
+        
+        Defined at read_amr_module.fpp line 45
+        
+        """
+        return _part2_pkg.f90wrap_sim_info__get__family(self._handle)
+    
+    @family.setter
+    def family(self, family):
+        _part2_pkg.f90wrap_sim_info__set__family(self._handle, family)
     
     @property
     def h0(self):
@@ -1092,6 +1124,8 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         ret = ['<sim_info>{\n']
         ret.append('    cosmo : ')
         ret.append(repr(self.cosmo))
+        ret.append(',\n    family : ')
+        ret.append(repr(self.family))
         ret.append(',\n    h0 : ')
         ret.append(repr(self.h0))
         ret.append(',\n    t : ')
@@ -1939,12 +1973,27 @@ def check_lmax(ngridfile, amr):
     """
     _part2_pkg.f90wrap_check_lmax(ngridfile=ngridfile, amr=amr._handle)
 
+def check_families(repository, sim):
+    """
+    check_families(repository, sim)
+    
+    
+    Defined at read_amr_module.fpp lines 214-240
+    
+    Parameters
+    ----------
+    repository : str
+    sim : Sim_Info
+    
+    """
+    _part2_pkg.f90wrap_check_families(repository=repository, sim=sim._handle)
+
 def read_hydrofile_descriptor(repository, varids):
     """
     read_hydrofile_descriptor(repository, varids)
     
     
-    Defined at read_amr_module.fpp lines 214-271
+    Defined at read_amr_module.fpp lines 249-284
     
     Parameters
     ----------
@@ -1955,12 +2004,28 @@ def read_hydrofile_descriptor(repository, varids):
     _part2_pkg.f90wrap_read_hydrofile_descriptor(repository=repository, \
         varids=varids._handle)
 
+def read_hydrofile_descriptor_old(repository, varids):
+    """
+    read_hydrofile_descriptor_old(repository, varids)
+    
+    
+    Defined at read_amr_module.fpp lines 294-351
+    
+    Parameters
+    ----------
+    repository : str
+    varids : Hydroid
+    
+    """
+    _part2_pkg.f90wrap_read_hydrofile_descriptor_old(repository=repository, \
+        varids=varids._handle)
+
 def select_from_descriptor_ids(self, newvar, newid):
     """
     select_from_descriptor_ids(self, newvar, newid)
     
     
-    Defined at read_amr_module.fpp lines 273-322
+    Defined at read_amr_module.fpp lines 353-428
     
     Parameters
     ----------
@@ -1972,12 +2037,28 @@ def select_from_descriptor_ids(self, newvar, newid):
     _part2_pkg.f90wrap_select_from_descriptor_ids(varids=self._handle, \
         newvar=newvar, newid=newid)
 
+def read_hydrofile_descriptor_new(repository, varids):
+    """
+    read_hydrofile_descriptor_new(repository, varids)
+    
+    
+    Defined at read_amr_module.fpp lines 438-470
+    
+    Parameters
+    ----------
+    repository : str
+    varids : Hydroid
+    
+    """
+    _part2_pkg.f90wrap_read_hydrofile_descriptor_new(repository=repository, \
+        varids=varids._handle)
+
 def getvarvalue(self, reg, dx, x, var, varname, value):
     """
     getvarvalue(self, reg, dx, x, var, varname, value)
     
     
-    Defined at read_amr_module.fpp lines 331-548
+    Defined at read_amr_module.fpp lines 479-696
     
     Parameters
     ----------
@@ -1998,7 +2079,7 @@ def init_amr_read(repository, amr, sim):
     init_amr_read(repository, amr, sim)
     
     
-    Defined at read_amr_module.fpp lines 557-633
+    Defined at read_amr_module.fpp lines 705-781
     
     Parameters
     ----------
@@ -2015,7 +2096,7 @@ def get_cpu_map(self, amr):
     get_cpu_map(self, amr)
     
     
-    Defined at read_amr_module.fpp lines 641-730
+    Defined at read_amr_module.fpp lines 789-878
     
     Parameters
     ----------
@@ -2030,7 +2111,7 @@ def getparttype(self, ptype):
     getparttype(self, ptype)
     
     
-    Defined at read_amr_module.fpp lines 732-740
+    Defined at read_amr_module.fpp lines 880-888
     
     Parameters
     ----------
@@ -2040,12 +2121,12 @@ def getparttype(self, ptype):
     """
     _part2_pkg.f90wrap_getparttype(part=self._handle, ptype=ptype)
 
-def getpartvalue(self, reg, part, var, value):
+def getpartvalue(self, reg, part, var, value, dx=None):
     """
-    getpartvalue(self, reg, part, var, value)
+    getpartvalue(self, reg, part, var, value[, dx])
     
     
-    Defined at read_amr_module.fpp lines 742-834
+    Defined at read_amr_module.fpp lines 890-1282
     
     Parameters
     ----------
@@ -2054,10 +2135,12 @@ def getpartvalue(self, reg, part, var, value):
     part : Particle
     var : str
     value : float
+    dx : Vector
     
     """
     _part2_pkg.f90wrap_getpartvalue(sim=self._handle, reg=reg._handle, \
-        part=part._handle, var=var, value=value)
+        part=part._handle, var=var, value=value, dx=None if dx is None else \
+        dx._handle)
 
 
 _array_initialisers = []

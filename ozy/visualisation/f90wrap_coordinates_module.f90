@@ -1,8 +1,8 @@
 ! Module coordinate_systems defined in file coordinates_module.fpp
 
 subroutine f90wrap_r_sphere(ret_r_sphere, p)
-    use coordinate_systems, only: r_sphere
     use vectors, only: vector
+    use coordinate_systems, only: r_sphere
     implicit none
     
     type vector_ptr_type
@@ -16,8 +16,8 @@ subroutine f90wrap_r_sphere(ret_r_sphere, p)
 end subroutine f90wrap_r_sphere
 
 subroutine f90wrap_theta_sphere(ret_theta_sphere, p)
-    use coordinate_systems, only: theta_sphere
     use vectors, only: vector
+    use coordinate_systems, only: theta_sphere
     implicit none
     
     type vector_ptr_type
@@ -31,8 +31,8 @@ subroutine f90wrap_theta_sphere(ret_theta_sphere, p)
 end subroutine f90wrap_theta_sphere
 
 subroutine f90wrap_phi_sphere(ret_phi_sphere, p)
-    use coordinate_systems, only: phi_sphere
     use vectors, only: vector
+    use coordinate_systems, only: phi_sphere
     implicit none
     
     type vector_ptr_type
@@ -118,8 +118,8 @@ subroutine f90wrap_cylindrical_basis_from_cartesian(p, cyl_basis)
 end subroutine f90wrap_cylindrical_basis_from_cartesian
 
 subroutine f90wrap_new_z_coordinates(axis, transformation_matrix, errormsg)
-    use coordinate_systems, only: new_z_coordinates
     use vectors, only: vector
+    use coordinate_systems, only: new_z_coordinates
     implicit none
     
     type vector_ptr_type
@@ -632,12 +632,12 @@ subroutine f90wrap_cube(p, reg, ok, distance)
     use vectors, only: vector
     implicit none
     
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type(vector_ptr_type) :: p_ptr
     integer, intent(in), dimension(2) :: p
     type(region_ptr_type) :: reg_ptr
@@ -654,12 +654,12 @@ subroutine f90wrap_sphere(p, reg, ok, distance)
     use vectors, only: vector
     implicit none
     
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type(vector_ptr_type) :: p_ptr
     integer, intent(in), dimension(2) :: p
     type(region_ptr_type) :: reg_ptr
@@ -672,16 +672,16 @@ subroutine f90wrap_sphere(p, reg, ok, distance)
 end subroutine f90wrap_sphere
 
 subroutine f90wrap_cylinder(p, reg, ok, distance)
-    use vectors, only: vector
     use geometrical_regions, only: region, cylinder
+    use vectors, only: vector
     implicit none
     
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type(vector_ptr_type) :: p_ptr
     integer, intent(in), dimension(2) :: p
     type(region_ptr_type) :: reg_ptr
@@ -694,16 +694,16 @@ subroutine f90wrap_cylinder(p, reg, ok, distance)
 end subroutine f90wrap_cylinder
 
 subroutine f90wrap_cone(p, reg, ok, distance)
-    use geometrical_regions, only: region, cone
     use vectors, only: vector
+    use geometrical_regions, only: region, cone
     implicit none
     
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type(vector_ptr_type) :: p_ptr
     integer, intent(in), dimension(2) :: p
     type(region_ptr_type) :: reg_ptr

@@ -75,7 +75,7 @@ class Profile(object):
                 cond_str = cond_var+'/'+cond_op+'/'+str(cond_value.d)+'/'+cond_units
                 self.filter['conditions'].append(cond_str)
 
-def init_region(group, region_type):
+def init_region(group, region_type, rmax=0.2):
     """Initialise region Fortran derived type with details of group."""
     from yt import YTArray
     reg = geo.region()
@@ -94,8 +94,8 @@ def init_region(group, region_type):
         bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
         reg.bulk_velocity = bulk
         reg.rmin = 0.0
-        # Basic configuration: 0.4 of the virial radius of the host halo
-        reg.rmax = 0.4*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        # Basic configuration: 0.2 of the virial radius of the host halo
+        reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
     else:
         raise KeyError('Region type not supported. Please check!')
     return reg
@@ -127,7 +127,7 @@ def init_filter(cond_strs, name, group):
         raise ValueError("Condition strings are given, but a name for the filter. Please set!")
 
 def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region_type='sphere',filter_conds='none',
-                    filter_name='none',recompute=False,save=False,logscale=False):
+                    filter_name='none',recompute=False,save=False,logscale=False,rmax=0.2):
     """Function which computes a 1D profile for a given group object."""
 
     if not isinstance(xvar, str):
@@ -188,7 +188,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
     if isinstance(region_type, geo.region):
         selected_reg = region_type
     else:
-        selected_reg = init_region(group,region_type)
+        selected_reg = init_region(group,region_type,rmax=rmax)
     
     # Save region details to profile object
     prof._get_python_region(selected_reg)

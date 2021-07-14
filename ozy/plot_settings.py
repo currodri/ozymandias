@@ -119,7 +119,7 @@ plotting_dictionary = dict(
     },
     xHII = {'cmap':'bone',
             'text_over':'white',
-            'label':r'$X_{{\rm H}_{\rm II}}$',
+            'label':r'$X_{\rm HII}$',
             'label_log':r'$\log(X_{\rm HII})$',
             'units':'dimensionless',
             'vmin':5e-4,
@@ -128,11 +128,20 @@ plotting_dictionary = dict(
     },
     xHeII = {'cmap':'swift.red',
             'text_over':'white',
-            'label':r'$X_{{\rm He}_{\rm II}}$',
+            'label':r'$X_{\rm HeII}$',
             'label_log':r'$\log(X_{\rm HeII})$',
             'units':'dimensionless',
             'vmin':5e-4,
             'vmax':0.8
+
+    },
+    xHeIII = {'cmap':'swift.red',
+                'text_over':'white',
+                'label':r'$X_{\rm HeIII}$',
+                'label_log':r'$\log(X_{\rm HeIII})$',
+                'units':'dimensionless',
+                'vmin':5e-4,
+                'vmax':0.8
 
     },
     v_sphere_r = {'cmap':sns.color_palette("vlag", as_cmap=True),
