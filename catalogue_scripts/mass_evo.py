@@ -56,9 +56,12 @@ if __name__ == '__main__':
         ax.tick_params(which='both',axis="both",direction="in")
         if args.model[i][0] != '/':
             simfolder = os.path.join(os.getcwd(), args.model[i])
+            args.model[i] = args.model[i].replace('_','\_')
         else:
             simfolder = args.model[i]
             args.model[i] = args.model[i].split('/')[-1]
+            args.model[i] = args.model[i].replace('_','\_')
+        print(args.model[i])
         
         ax.text(0.5, 0.2, args.model[i],transform=ax.transAxes,fontsize=16)
         if not os.path.exists(simfolder):
