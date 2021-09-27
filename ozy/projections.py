@@ -339,7 +339,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     bulk.x, bulk.y, bulk.z = velocity.d[0], velocity.d[1], velocity.d[2]
     if proj.pov == 'faceon':
         axis = vectors.vector()
-        norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
+        norm_L = group.angular_mom['gas'].d/np.linalg.norm(group.angular_mom['gas'].d)
         up = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
         up /= np.linalg.norm(up)
         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
@@ -351,7 +351,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         far_cut_depth = rmax
     elif proj.pov == 'edgeon':
         axis = vectors.vector()
-        norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
+        norm_L = group.angular_mom['gas'].d/np.linalg.norm(group.angular_mom['gas'].d)
         los = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
         los /= np.linalg.norm(los)
         axis.x,axis.y,axis.z = los[0], los[1], los[2]
@@ -792,7 +792,7 @@ def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=True,redshi
     fig.savefig(proj_FITS.split('.')[0]+'_rgb.png',format='png',dpi=300)
 
 
-def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,pov='edgeon'):
+def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,pov='edgeon',r=1.0,dr=1./150.):
     """Function which computes a 2D spherical projection of particular object using the HEALPix
         pixelisation scheme."""
     
@@ -853,13 +853,13 @@ def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,
         velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
         bulk.x, bulk.y, bulk.z = velocity.d[0], velocity.d[1], velocity.d[2]
         reg.bulk_velocity = bulk
-        norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
+        norm_L = group.angular_mom['gas'].d/np.linalg.norm(group.angular_mom['gas'].d)
         axis = vectors.vector()
         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
         reg.axis = axis
-        rmax = 0.4*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-        reg.rmin = 0.85*rmax
-        reg.rmax = 1.15*rmax
+        rmax = r*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        reg.rmin = (1-0.5*dr)*rmax
+        reg.rmax = (1.+0.5*dr)*rmax
 
         # Update projection details with the ones used for the region
         proj.up_vector = norm_L

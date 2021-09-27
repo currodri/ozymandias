@@ -3,13 +3,13 @@ import swiftascmaps
 import seaborn as sns
 sns.set(style="white")
 plotting_dictionary = dict(
-    density = {'cmap':sns.color_palette("mako", as_cmap=True),
+    density = {'cmap': sns.color_palette("mako", as_cmap=True),
                 'text_over':'white',
                 'label':r'$\rho$ [g/cm$^{-3}$]',
                 'label_log':r'$\log\left(\frac{\rho}{{\rm g/cm}^{-3}}\right)$',
                 'units':'g*cm**-3',
                 'vmin':2e-28,
-                'vmax':5e-21,
+                'vmax':7e-22,
                 'vmin_galaxy':2e-28,
                 'vmax_galaxy':5e-22
     },
@@ -26,8 +26,8 @@ plotting_dictionary = dict(
                     'label':r'$T$ [K]',
                     'label_log':r'$\log\left(\frac{T}{{\rm K}}\right)$',
                     'units':'K',
-                    'vmin':5e+1,
-                    'vmax':2e+6,
+                    'vmin':2e+2,
+                    'vmax':8e+5,
                     'vmin_galaxy':5e+3,
                     'vmax_galaxy':8e+6
     },
@@ -81,7 +81,7 @@ plotting_dictionary = dict(
                                 'label':r'$\varepsilon_{\rm mag}$ [erg/cm$^{3}$]',
                                 'label_log':r'$\log(\frac{\varepsilon_{\rm mag}}{{\rm erg/cm}^{3}})$',
                                 'units':'erg*cm**-3',
-                                'vmin':4e-18,
+                                'vmin':4e-17,
                                 'vmax':5e-11
 
     },
@@ -102,10 +102,10 @@ plotting_dictionary = dict(
                         'label':r'$\varepsilon_{\rm CR}$ [erg/cm$^{3}$]',
                         'label_log':r'$\log(\frac{\varepsilon_{\rm CR}}{{\rm erg/cm}^{3}})$',
                         'units':'erg*cm**-3',
-                        'vmin':4e-14,
+                        'vmin':7e-14,
                         'vmax':8e-11,
                         'vmin_galaxy':4e-14,
-                        'vmax_galaxy':8e-11
+                        'vmax_galaxy':4e-11
 
     },
     cr_energy_specific = {'cmap':sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),
@@ -156,6 +156,11 @@ plotting_dictionary = dict(
                     'label':r'$p_r$ [M$_{\odot}$ km/s]',
                     'units':'Msun*km*s**-1'
     },
+    massflow_rate_sphere_r = {'cmap':sns.color_palette("vlag", as_cmap=True),
+                                'text_over':'black',
+                                'label':r'$dM/dt$ [M$_{\odot}$ yr$^{-1}$]',
+                                'units':'Msun*yr**-1'
+    },
     star_mass = {'cmap':'gray',
                 'text_over':'white',
                 'label':r'$M_{*}$ [M$_{\odot}$]',
@@ -163,6 +168,15 @@ plotting_dictionary = dict(
                 'units':'Msun',
                 'vmin':5.0,
                 'vmax':2e+7
+    },
+    star_sdensity = {'cmap':'gray',
+                        'text_over':'white',
+                        'label':r'$\Sigma_{*}$ [M$_{\odot}$ kpc$^{-2}$]',
+                        'label_log':r'$\log\left(\frac{\Sigma_{*}}{{\rmM}_{\odot}{\rm kpc}^{-2}}\right)$',
+                        'units':'Msun/(kpc**2)',
+                        'vmin':3e+4,
+                        'vmax':5e+9
+
     },
     dm_mass = {'cmap':'cividis',
                 'text_over':'white',
@@ -191,7 +205,7 @@ plotting_dictionary = dict(
                             'label':r'$\Sigma_{\rm SFR}$ [M$_{\odot}$ yr$^{-1}$ kpc$^{-2}$]',
                             'label_log':r'$\log\left(\frac{\Sigma_{\rm SFR}}{{\rmM}_{\odot}{\rm yr}^{-1}{\rm kpc}^{-2}}\right)$',
                             'units':'Msun/(yr*kpc**2)',
-                            'vmin':0.008,
+                            'vmin':3e-4,
                             'vmax':90
     }
 )

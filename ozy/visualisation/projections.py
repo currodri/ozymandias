@@ -1081,7 +1081,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
     Module io_ramses
     
     
-    Defined at read_amr_module.fpp lines 24-1285
+    Defined at read_amr_module.fpp lines 24-1291
     
     """
     @f90wrap.runtime.register_class("projections.hydroID")
@@ -3137,7 +3137,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         getvarvalue(self, reg, dx, x, var, varname, value)
         
         
-        Defined at read_amr_module.fpp lines 481-698
+        Defined at read_amr_module.fpp lines 481-704
         
         Parameters
         ----------
@@ -3159,7 +3159,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         init_amr_read(repository, amr, sim)
         
         
-        Defined at read_amr_module.fpp lines 707-783
+        Defined at read_amr_module.fpp lines 713-789
         
         Parameters
         ----------
@@ -3177,7 +3177,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         get_cpu_map(self, amr)
         
         
-        Defined at read_amr_module.fpp lines 791-880
+        Defined at read_amr_module.fpp lines 797-886
         
         Parameters
         ----------
@@ -3193,7 +3193,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         getparttype(self, ptype)
         
         
-        Defined at read_amr_module.fpp lines 882-890
+        Defined at read_amr_module.fpp lines 888-896
         
         Parameters
         ----------
@@ -3209,7 +3209,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         getpartvalue(self, reg, part, var, value[, dx])
         
         
-        Defined at read_amr_module.fpp lines 892-1284
+        Defined at read_amr_module.fpp lines 898-1290
         
         Parameters
         ----------
@@ -3235,7 +3235,7 @@ class Filtering(f90wrap.runtime.FortranModule):
     Module filtering
     
     
-    Defined at read_amr_module.fpp lines 1287-1381
+    Defined at read_amr_module.fpp lines 1293-1387
     
     """
     @f90wrap.runtime.register_class("projections.filter")
@@ -3244,7 +3244,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         Type(name=filter)
         
         
-        Defined at read_amr_module.fpp lines 1290-1295
+        Defined at read_amr_module.fpp lines 1296-1301
         
         """
         def __init__(self, handle=None):
@@ -3252,7 +3252,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             self = Filter()
             
             
-            Defined at read_amr_module.fpp lines 1290-1295
+            Defined at read_amr_module.fpp lines 1296-1301
             
             
             Returns
@@ -3272,7 +3272,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Destructor for class Filter
             
             
-            Defined at read_amr_module.fpp lines 1290-1295
+            Defined at read_amr_module.fpp lines 1296-1301
             
             Parameters
             ----------
@@ -3291,7 +3291,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element name ftype=character(128) pytype=str
             
             
-            Defined at read_amr_module.fpp line 1291
+            Defined at read_amr_module.fpp line 1297
             
             """
             return _projections.f90wrap_filter__get__name(self._handle)
@@ -3306,7 +3306,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element ncond ftype=integer  pytype=int
             
             
-            Defined at read_amr_module.fpp line 1292
+            Defined at read_amr_module.fpp line 1298
             
             """
             return _projections.f90wrap_filter__get__ncond(self._handle)
@@ -3321,7 +3321,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element cond_vars ftype=character(128) pytype=str
             
             
-            Defined at read_amr_module.fpp line 1293
+            Defined at read_amr_module.fpp line 1299
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -3345,7 +3345,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element cond_ops ftype=character(2) pytype=str
             
             
-            Defined at read_amr_module.fpp line 1294
+            Defined at read_amr_module.fpp line 1300
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -3369,7 +3369,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element cond_vals ftype=real(dbl) pytype=float
             
             
-            Defined at read_amr_module.fpp line 1295
+            Defined at read_amr_module.fpp line 1301
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -3411,7 +3411,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         allocate_filter(self)
         
         
-        Defined at read_amr_module.fpp lines 1298-1303
+        Defined at read_amr_module.fpp lines 1304-1309
         
         Parameters
         ----------
@@ -3426,7 +3426,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         cond_string_to_filter(str, filt)
         
         
-        Defined at read_amr_module.fpp lines 1305-1309
+        Defined at read_amr_module.fpp lines 1311-1315
         
         Parameters
         ----------
@@ -3442,7 +3442,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         filter_cell = filter_cell(self, reg, filt, cell_x, cell_dx, cell_var)
         
         
-        Defined at read_amr_module.fpp lines 1311-1344
+        Defined at read_amr_module.fpp lines 1317-1350
         
         Parameters
         ----------
@@ -3469,7 +3469,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         filter_particle = filter_particle(self, reg, filt, part[, dx])
         
         
-        Defined at read_amr_module.fpp lines 1346-1381
+        Defined at read_amr_module.fpp lines 1352-1387
         
         Parameters
         ----------

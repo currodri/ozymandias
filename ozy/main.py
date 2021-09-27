@@ -150,6 +150,8 @@ class OZY(object):
                     main_gal_ID = self.galaxies[np.argmax(masses)].ID
                     
             if main_gal_ID != -1:
+                for gal in self.galaxies:
+                    gal._empty_galaxy()
                 self.galaxies[np.argmax(masses)]._process_galaxy()
             else:
                 for gal in self.galaxies:

@@ -730,6 +730,20 @@ module io_ramses
             v_corrected = v_corrected - reg%bulk_velocity
             L = x * v_corrected
             value = ((var(varIDs%density) * (dx*dx)) * dx) * magnitude(L)
+        case ('massflow_rate_sphere_r')
+            ! Mass flow rate through the cell in the radial direction
+            ! Mass per unit time
+            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
+            v_corrected = v_corrected - reg%bulk_velocity
+            call spherical_basis_from_cartesian(x,temp_basis)
+            value = (var(varIDs%density) * (dx*dx)) * (v_corrected .DOT. temp_basis%u(1))
+        case ('massflux_rate_sphere_r')
+            ! Mass flux through the cell in the radial direction
+            ! Mass per unit time per unit surface
+            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
+            v_corrected = v_corrected - reg%bulk_velocity
+            call spherical_basis_from_cartesian(x,temp_basis)
+            value = var(varIDs%density) * (v_corrected .DOT. temp_basis%u(1))
         case default
             write(*,*)'Variable not supported: ',TRIM(varname)
             write(*,*)'Aborting!'

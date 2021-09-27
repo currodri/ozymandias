@@ -75,7 +75,7 @@ class Profile(object):
                 cond_str = cond_var+'/'+cond_op+'/'+str(cond_value.d)+'/'+cond_units
                 self.filter['conditions'].append(cond_str)
 
-def init_region(group, region_type, rmax=0.2):
+def init_region(group, region_type, rmin=0.0, rmax=0.2):
     """Initialise region Fortran derived type with details of group."""
     from yt import YTArray
     reg = geo.region()
@@ -90,12 +90,20 @@ def init_region(group, region_type, rmax=0.2):
         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
         reg.axis = axis
         bulk = vectors.vector()
-        velocity = group.velocity.in_units('code_velocity')
+        try:
+            velocity = group.velocity.in_units('code_velocity')
+        except:
+            velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
         bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
         reg.bulk_velocity = bulk
-        reg.rmin = 0.0
-        # Basic configuration: 0.2 of the virial radius of the host halo
-        reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        try:
+            reg.rmin = rmin*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            # Basic configuration: 0.2 of the virial radius of the host halo
+            reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        except:
+            reg.rmin = rmin*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            # Basic configuration: 0.2 of the virial radius of the host halo
+            reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
     else:
         raise KeyError('Region type not supported. Please check!')
     return reg
@@ -120,8 +128,12 @@ def init_filter(cond_strs, name, group):
             # Expresion operator
             filt.cond_ops.T.view('S2')[i] = cond_strs[i].split('/')[1].ljust(2)
             # Value transformed to code units
-            value = YTQuantity(float(cond_strs[i].split('/')[2]), cond_strs[i].split('/')[3], registry=group.obj.unit_registry)
-            filt.cond_vals[i] = value.in_units(get_code_units(cond_strs[i].split('/')[0])).d
+            try:
+                value = group.obj.yt_dataset.quan(float(cond_strs[i].split('/')[2]), cond_strs[i].split('/')[3])
+                filt.cond_vals[i] = value.in_units(get_code_units(cond_strs[i].split('/')[0])).d
+            except:
+                value = YTQuantity(float(cond_strs[i].split('/')[2]), cond_strs[i].split('/')[3], registry=group.obj.unit_registry)
+                filt.cond_vals[i] = value.in_units(get_code_units(cond_strs[i].split('/')[0])).d
         return filt
     else:
         raise ValueError("Condition strings are given, but a name for the filter. Please set!")

@@ -327,16 +327,16 @@ class OZY:
                                          lambda i: Galaxy(self, i))
 
                 if 'galaxy_data/profiles' in hd:
-                    indices = []
-                    keys = []
+                    prof_indices = []
+                    prof_keys = []
                     for k in hd['galaxy_data/profiles'].keys():
                         for j in hd['galaxy_data/profiles/'+k].keys():
-                            indices.append(int(k))
-                            keys.append(j)
+                            prof_indices.append(int(k))
+                            prof_keys.append(j)
                     self._galaxy_profile_index_list = LazyList(
-                        len(indices), lambda i: int(indices[i])
+                        len(prof_indices), lambda i: int(prof_indices[i])
                     )
-                    self._galaxy_profiles = [Profile(self,int(indices[i]),'galaxy', keys[i],hd) for i in range(0, len(indices))]
+                    self._galaxy_profiles = [Profile(self,int(prof_indices[i]),'galaxy', prof_keys[i],hd) for i in range(0, len(prof_indices))]
                 if 'galaxy_data/phase_diagrams' in hd:
                     indices = []
                     keys = []

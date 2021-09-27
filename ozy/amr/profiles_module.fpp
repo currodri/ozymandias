@@ -621,7 +621,7 @@ module amr_profiles
         call get_cpu_map(reg,amr)
         write(*,*)'ncpu_read:',amr%ncpu_read
         call get_cells_twodprofile(repository,amr,reg,filt,varIDs,prof_data,logscale)
-
+        ! write(*,*)prof_data%zdata
         call renormalise_bins_twod(prof_data)
 
     end subroutine twodprofile
@@ -677,7 +677,7 @@ module amr_profiles
             ! Open AMR file and skip header
             nomfich = TRIM(repository)//'/amr_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
             open(unit=10,file=nomfich,status='old',form='unformatted')
-            write(*,*)'Processing file '//TRIM(nomfich)
+            ! write(*,*)'Processing file '//TRIM(nomfich)
             do i=1,21
                 read(10) ! Skip header
             end do

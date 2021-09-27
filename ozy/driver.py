@@ -56,7 +56,7 @@ def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
     """Driver function for running `ÒZYMANDIAS``on multiple snapshots.
     
     """
-    # Just in the case we are giv a single simulation directory or
+    # Just in the case we are given a single simulation directory or
     # a single snap…
     if isinstance(snapdirs, str):
         snapdirs = [snapdirs]
