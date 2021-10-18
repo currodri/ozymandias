@@ -157,14 +157,11 @@ plotting_dictionary = dict(
                     'label':r'$p_r$ [M$_{\odot}$ km/s]',
                     'units':'Msun*km*s**-1'
     },
-<<<<<<< HEAD
     massflow_rate = {'cmap':sns.color_palette("vlag", as_cmap=True),
                                 'text_over':'black',
                                 'label':r'$dM/dt$ [M$_{\odot}$ yr$^{-1}$]',
                                 'units':'Msun*yr**-1'
     },
-=======
->>>>>>> 2fe29f6cd2a2b2f6a393973835311a85476523be
     massflow_rate_sphere_r = {'cmap':sns.color_palette("vlag", as_cmap=True),
                                 'text_over':'black',
                                 'label':r'$dM/dt$ [M$_{\odot}$ yr$^{-1}$]',
