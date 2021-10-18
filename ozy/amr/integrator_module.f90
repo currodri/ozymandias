@@ -328,12 +328,12 @@ module amr_integrator
                             call rotate_vector(xtemp,trans_matrix)
                             x(i,:) = xtemp
                             call checkifinside(x(i,:),reg,ok_cell,distance)
+                            vtemp = var(i,ind,varIDs%vx:varIDs%vz)
+                            call rotate_vector(vtemp,trans_matrix)
+                            var(i,ind,varIDs%vx:varIDs%vz) = vtemp
                             ok_filter = filter_cell(varIDs,reg,filt,xtemp,dx,var(i,ind,:))
                             ok_cell= ok_cell.and..not.ref(i).and.ok_filter
                             if (ok_cell) then
-                                vtemp = var(i,ind,varIDs%vx:varIDs%vz)
-                                call rotate_vector(vtemp,trans_matrix)
-                                var(i,ind,varIDs%vx:varIDs%vz) = vtemp
                                 call extract_data(reg,varIDs,x(i,:),var(i,ind,:),dx,attrs)
                             endif
                         end do ngridaloop

@@ -2,7 +2,7 @@
 Module amr_profiles
 
 
-Defined at profiles_module.fpp lines 25-770
+Defined at profiles_module.fpp lines 25-771
 
 """
 from __future__ import print_function, absolute_import, division
@@ -770,7 +770,7 @@ def twodprofile(repository, reg, filt, prof_data, lmax, logscale):
     twodprofile(repository, reg, filt, prof_data, lmax, logscale)
     
     
-    Defined at profiles_module.fpp lines 541-566
+    Defined at profiles_module.fpp lines 541-567
     
     Parameters
     ----------
@@ -792,7 +792,7 @@ def get_cells_twodprofile(repository, amr, reg, filt, varids, prof_data, \
     get_cells_twodprofile(repository, amr, reg, filt, varids, prof_data, logscale)
     
     
-    Defined at profiles_module.fpp lines 568-770
+    Defined at profiles_module.fpp lines 569-771
     
     Parameters
     ----------

@@ -4,11 +4,11 @@ import os
 from yt import YTArray
 import ozy
 from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units
-# TODO: Allow for paralllel computation of phase diagrams.
+# TODO: Allow for parallel computation of phase diagrams.
 from joblib import Parallel, delayed
 import sys
-sys.path.append('/mnt/extraspace/currodri/Codes/ozymandias/ozy/amr')
-sys.path.append('/mnt/extraspace/currodri/Codes/ozymandias/ozy/part')
+sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/amr')
+sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/part')
 from amr2 import vectors
 from amr2 import geometrical_regions as geo
 from amr2 import filtering
@@ -430,7 +430,162 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
             a = np.nansum(y * z[:,i])
             b = np.nansum(z[:,i])
             y_mean[i] = a/b
-        print(x,y_mean)
         ax.plot(x,y_mean,color='r',linewidth=2)
     fig.subplots_adjust(top=0.97,bottom=0.1,left=0.1,right=0.99)
     fig.savefig(name+'.png',format='png',dpi=300)
+
+def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=True,redshift=True,powell=False,gent=False,stats='none',extra_labels='none'):
+
+    # Make required imports
+    import matplotlib
+    import matplotlib.pyplot as plt
+    import matplotlib.font_manager as fm
+    from mpl_toolkits.axes_grid1 import AxesGrid, make_axes_locatable
+    from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    from matplotlib.colors import LogNorm
+    import seaborn as sns
+    from ozy.plot_settings import plotting_dictionary
+    sns.set(style="white")
+    plt.rc('text', usetex=True)
+    plt.rc('font', family='serif')
+    hfont = {'fontname':'Helvetica'}
+    matplotlib.rc('text', usetex = True)
+    matplotlib.rc('font', **{'family' : "serif"})
+    params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
+    matplotlib.rcParams.update(params)
+
+    # How many phase diagram datasets have been provided
+    if isinstance(pds,list):
+        npds = len(pds)
+    else:
+        raise TypeError('You need to provide all phase diagram datasets in a list!')
+    
+    # Check that the required field is actually in the PDs provided
+    field_indexes = []
+    weight_indexes = []
+    for pd in pds:
+        if field not in pd.zvars['hydro']:
+            raise KeyError('The field %s is not included in this PhaseDiagram object. Aborting!'%field)
+        else:
+            for f in range(0,len(pd.zvars['hydro'])):
+                if pd.zvars['hydro'][f] == field:
+                    field_indexes.append(f)
+                    break
+            if weightvar not in pd.weightvars['hydro']:
+                raise KeyError('The weight field %s is not included in this PhaseDiagram object. Aborting!'%weightvar)
+                exit
+            else:
+                for w in range(0, len(pd.weightvars['hydro'])):
+                    if pd.weightvars['hydro'][w] == weightvar:
+                        weight_indexes.append(w)
+                        break
+    if len(field_indexes) != npds or len(weight_indexes) != npds:
+        print('You should check the fields and weights available, not all your phase diagrams have them!')
+        exit
+    
+    # With everything fine, we begin plotting…
+    figsize = plt.figaspect(5.0 / float(5 * npds))
+    fig = plt.figure(figsize=figsize, facecolor='w',edgecolor='k')
+    plot_grid = fig.add_gridspec(1, npds, wspace=0)#,  hspace=0,left=0,right=1, bottom=0, top=1)
+    ax = []
+    for j in range(0,npds):
+        ax.append(fig.add_subplot(plot_grid[j]))
+    ax = np.asarray(ax)
+    for i in range(0, npds):
+        pd = pds[i]
+        plotting_x = plotting_dictionary[pd.xvar]
+        plotting_y = plotting_dictionary[pd.yvar]
+        plotting_z = plotting_dictionary[field]
+        ax[i].set_xlabel(plotting_x['label'],fontsize=18)
+        if i == 0:
+            ax[i].set_ylabel(plotting_y['label'],fontsize=18)
+        else:
+            ax[i].axes.yaxis.set_visible(False)
+
+        ax[i].tick_params(labelsize=14,direction='in')
+        ax[i].xaxis.set_ticks_position('both')
+        ax[i].yaxis.set_ticks_position('both')
+        ax[i].minorticks_on()
+        ax[i].tick_params(which='major',axis="both",direction="in")
+
+        ax[i].set_xscale('log')
+        ax[i].set_yscale('log')
+        code_units_x = get_code_units(pd.xvar)
+
+        x = YTArray(10**(pd.xdata[0].d),code_units_x,
+                registry=pd.obj.unit_registry)
+        x = x.in_units(plotting_x['units'])
+        code_units_y = get_code_units(pd.yvar)
+        y = YTArray(10**(pd.ydata[0].d),code_units_y,
+                    registry=pd.obj.unit_registry)
+        y = y.in_units(plotting_y['units'])
+        code_units_z = get_code_units(field)
+        z = np.array(pd.zdata['hydro'][field_indexes[i]][:,:,weight_indexes[i],0].d,order='F')
+        z = YTArray(z,code_units_z,
+                    registry=pd.obj.unit_registry)
+        sim_z = pd.obj.simulation.redshift
+
+        if logscale:
+            plot = ax[i].pcolormesh(x,y,
+                                z.in_units(plotting_z['units']).T,
+                                shading='auto',
+                                cmap=plotting_z['cmap'],
+                                norm=LogNorm(vmin=plotting_z['vmin'],
+                                vmax=plotting_z['vmax']))
+        else:
+            plot = ax[i].pcolormesh(x,y,
+                                z.in_units(plotting_z['units']).T,
+                                shading='auto',
+                                cmap=plotting_z['cmap'],
+                                vmin=plotting_z['vmin'],
+                                vmax=plotting_z['vmax'])
+        if redshift:
+            ax[i].text(0.05, 0.1, 'z = '+str(round(sim_z, 2)),
+                        transform=ax[i].transAxes, fontsize=20,verticalalignment='top',
+                        color='black')
+        if isinstance(extra_labels,list):
+            ax[i].text(0.5, 0.9, extra_labels[i],
+                        transform=ax[i].transAxes, fontsize=20,verticalalignment='top',
+                        color='black')
+
+        if powell:
+            ax[i].text(1e-29, 1e6, 'HD', fontsize=16,verticalalignment='top',
+                        color='black')
+            ax[i].text(1e-29, 5e4, 'WD', fontsize=16,verticalalignment='top',
+                        color='black')
+            ax[i].text(1e-28, 1e3, 'CD', fontsize=16,verticalalignment='top',
+                        color='black')
+            ax[i].text(1e-24, 3e2, 'F', fontsize=16,verticalalignment='top',
+                        color='white')
+            ax[i].text(4e-22, 1e6, 'CL', fontsize=16,verticalalignment='top',
+                        color='black')
+            ax[i].plot([1e-30,1e-23],[2e5,2e5],color='k',linewidth=1)
+            ax[i].plot([1e-30,1e-23],[2e4,2e4],color='k',linewidth=1)
+            ax[i].plot([1e-25,1e-25],[0,2e4],color='k',linewidth=1)
+            ax[i].plot([1e-23,1e-23],[0,1e8],color='k',linewidth=1)
+        
+        if gent:
+            ax[i].plot([1e-30,1e-23],[2e5,2e5],color='k',linewidth=1)
+            ax[i].plot([1e-30,1e-23],[2e4,2e4],color='k',linewidth=1)
+
+        if stats == 'mean':
+            y_mean = np.zeros(len(x))
+            z = z.T
+            for k in range(0, len(x)):
+                a = np.nansum(y * z[:,k])
+                b = np.nansum(z[:,k])
+                y_mean[k] = a/b
+            ax[i].plot(x,y_mean,color='r',linewidth=2)
+        
+        if i==npds-1:
+            cbaxes = inset_axes(ax[i], width="5%", height="100%", loc='lower left',
+                                bbox_to_anchor=(1.05, 0., 1, 1),
+                                bbox_transform=ax[i].transAxes,borderpad=0)
+            cbar = fig.colorbar(plot, cax=cbaxes, orientation='vertical')
+            cbar.set_label(plotting_z['label'],fontsize=20)
+            cbar.ax.tick_params(labelsize=14)
+            
+        
+        fig.subplots_adjust(top=0.97,bottom=0.12,left=0.07,right=0.88)
+        fig.savefig(name+'.png',format='png',dpi=300)

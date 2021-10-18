@@ -34,6 +34,8 @@ common_variables = dict(
 grid_variables = dict(
     temperature = 'code_temperature',
     volume = 'code_volume',
+    massflow_rate = 'code_mass/code_time',
+    massflow_rate_sphere_r = 'code_mass/code_time',
     B_left_x = 'code_magnetic',
     B_left_y = 'code_magnetic',
     B_left_z = 'code_magnetic',
@@ -42,6 +44,7 @@ grid_variables = dict(
     B_right_z = 'code_magnetic',
     thermal_pressure = 'code_pressure',
     thermal_energy = 'code_energy',
+    thermal_energy_specific = 'code_specific_energy',
     magnetic_magnitude = 'code_magnetic',
     magnetic_energy = 'code_energy',
     magnetic_energy_specific = 'code_specific_energy',
@@ -58,7 +61,8 @@ particle_variables = dict(
     tform = 'code_time',
     sfr = 'code_mass/code_time',
     sfr_density = 'code_mass/Gyr/code_length**3',
-    sfr_surface = 'code_density*code_velocity'
+    sfr_surface = 'code_density*code_velocity',
+    sdensity = 'code_density*code_length'
 )
 
 basic_conv = dict(
@@ -71,6 +75,7 @@ basic_conv = dict(
     code_energy_density = 'erg*cm**-3',
     code_density_code_velocity_code_velocity = 'erg*cm**-3',
     code_density_code_velocity = 'Msun*yr**-1*kpc**-2',
+    code_density_code_length = 'Msun*kpc**-2',
     dimensionless = 'dimensionless',
     radian = 'radian',
     code_magnetic = 'gauss',
@@ -82,11 +87,12 @@ basic_conv = dict(
 
 def get_code_units(varname):
 
-    unit = 'code_length'
     if varname in common_variables:
         unit = common_variables[varname]
     elif varname in grid_variables:
         unit = grid_variables[varname]
     elif varname in particle_variables:
         unit = particle_variables[varname]
+    else:
+        raise KeyError('Variable not found, check: '+str(varname))
     return unit

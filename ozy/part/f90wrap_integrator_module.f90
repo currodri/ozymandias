@@ -211,7 +211,7 @@ subroutine f90wrap_part_region_attrs_finalise(this)
 end subroutine f90wrap_part_region_attrs_finalise
 
 subroutine f90wrap_allocate_part_regions_attrs(attrs)
-    use part_integrator, only: part_region_attrs, allocate_part_regions_attrs
+    use part_integrator, only: allocate_part_regions_attrs, part_region_attrs
     implicit none
     
     type part_region_attrs_ptr_type
@@ -224,20 +224,20 @@ subroutine f90wrap_allocate_part_regions_attrs(attrs)
 end subroutine f90wrap_allocate_part_regions_attrs
 
 subroutine f90wrap_extract_data(sim, reg, part, attrs)
+    use io_ramses, only: particle, sim_info
+    use part_integrator, only: extract_data, part_region_attrs
     use geometrical_regions, only: region
-    use io_ramses, only: sim_info, particle
-    use part_integrator, only: part_region_attrs, extract_data
     implicit none
     
-    type sim_info_ptr_type
-        type(sim_info), pointer :: p => NULL()
-    end type sim_info_ptr_type
     type particle_ptr_type
         type(particle), pointer :: p => NULL()
     end type particle_ptr_type
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
     type part_region_attrs_ptr_type
         type(part_region_attrs), pointer :: p => NULL()
     end type part_region_attrs_ptr_type
@@ -257,7 +257,7 @@ subroutine f90wrap_extract_data(sim, reg, part, attrs)
 end subroutine f90wrap_extract_data
 
 subroutine f90wrap_renormalise(sim, attrs)
-    use part_integrator, only: part_region_attrs, renormalise
+    use part_integrator, only: renormalise, part_region_attrs
     use io_ramses, only: sim_info
     implicit none
     
@@ -277,20 +277,20 @@ subroutine f90wrap_renormalise(sim, attrs)
 end subroutine f90wrap_renormalise
 
 subroutine f90wrap_integrate_region(repository, reg, filt, attrs)
-    use part_integrator, only: part_region_attrs, integrate_region
-    use filtering, only: filter
     use geometrical_regions, only: region
+    use part_integrator, only: integrate_region, part_region_attrs
+    use filtering, only: filter
     implicit none
     
-    type filter_ptr_type
-        type(filter), pointer :: p => NULL()
-    end type filter_ptr_type
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
     type part_region_attrs_ptr_type
         type(part_region_attrs), pointer :: p => NULL()
     end type part_region_attrs_ptr_type
+    type filter_ptr_type
+        type(filter), pointer :: p => NULL()
+    end type filter_ptr_type
     character(128), intent(in) :: repository
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg

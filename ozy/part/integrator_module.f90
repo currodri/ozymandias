@@ -114,7 +114,7 @@ module part_integrator
             varname = tempvar(index+1:)
             index2 = scan(varname,'_')
             wvarloop: do j=1,attrs%nwvars
-                if (attrs%wvarnames(j) .eq. 'cumulative' .and. index2.ne.0) then
+                if (attrs%wvarnames(j) .eq. 'cumulative' .and. index2.ne.0 .and. varname(1:index2-1).eq.'sfr') then
                     sfrstr = varname(index2+1:)
                     read(sfrstr,'(F10.0)') sfrind
                     attrs%data(i,j,1) = attrs%data(i,j,1) * sim%unit_m/ (sfrind*1D6*2D33) ! We now have it in Msun/yr

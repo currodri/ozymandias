@@ -6,7 +6,7 @@ import ozy
 from ozy.plot_settings import plotting_dictionary
 from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units,basic_conv
 import sys
-sys.path.append('/mnt/extraspace/currodri/Codes/ozymandias/ozy/visualisation')
+sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/visualisation')
 import re
 import healpy as hp
 from astropy.io import fits
@@ -339,7 +339,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     bulk.x, bulk.y, bulk.z = velocity.d[0], velocity.d[1], velocity.d[2]
     if proj.pov == 'faceon':
         axis = vectors.vector()
-        norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
+        norm_L = group.angular_mom['gas'].d/np.linalg.norm(group.angular_mom['gas'].d)
         up = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
         up /= np.linalg.norm(up)
         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
@@ -347,11 +347,11 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         up_vector.x, up_vector.y, up_vector.z = up[0], up[1], up[2]
         rmax = window
         region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
-        distance = rmax
-        far_cut_depth = rmax
+        distance = 0.3*rmax
+        far_cut_depth = 0.3*rmax
     elif proj.pov == 'edgeon':
         axis = vectors.vector()
-        norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
+        norm_L = group.angular_mom['gas'].d/np.linalg.norm(group.angular_mom['gas'].d)
         los = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
         los /= np.linalg.norm(los)
         axis.x,axis.y,axis.z = los[0], los[1], los[2]
@@ -359,8 +359,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         up_vector.x,up_vector.y,up_vector.z = norm_L[0], norm_L[1], norm_L[2]
         rmax = window
         region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
-        distance = rmax
-        far_cut_depth = rmax
+        distance = 0.3*rmax
+        far_cut_depth = 0.3*rmax
     elif proj.pov == 'x':
         axis = vectors.vector()
         axis.x,axis.y,axis.z = 1.0, 0.0, 0.0
@@ -461,105 +461,6 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
 
     return proj
 
-# def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,redshift=True):
-#     """This function uses the projection information in a FITS file following the 
-#         OZY format and plots it following the OZY standards."""
-    
-#     # Make required imports
-#     import matplotlib
-#     import matplotlib.pyplot as plt
-#     import matplotlib.font_manager as fm
-#     from mpl_toolkits.axes_grid1 import AxesGrid, make_axes_locatable
-#     from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
-#     from matplotlib.colors import LogNorm
-#     import seaborn as sns
-#     sns.set(style="white")
-#     plt.rc('text', usetex=True)
-#     plt.rc('font', family='serif')
-#     hfont = {'fontname':'Helvetica'}
-#     matplotlib.rc('text', usetex = True)
-#     matplotlib.rc('font', **{'family' : "serif"})
-#     params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
-#     matplotlib.rcParams.update(params)
-
-
-#     # First,check that FITS file actually exists
-#     if not os.path.exists(proj_FITS):
-#         raise ImportError('File not found. Please check!')
-    
-#     # Load FITS file
-#     hdul = fits.open(proj_FITS)
-#     hdul_fields = [h.header['btype'] for h in hdul]
-
-#     # Check that the required fields for plotting are in this FITS
-#     for i,f in enumerate(fields):
-#         if f not in hdul_fields:
-#             print('The field %s is not included in this file. Ignoring...'%f)
-#             del fields[i]
-#     if len(fields) == 0:
-#         print('Not a single field of the ones you provided are here... Check!')
-#         exit
-
-#     # Since everything is fine, we begin plotting…
-#     ncolumns = len(fields)
-#     fig = plt.figure(figsize=(11,5))
-#     grid = AxesGrid(fig, (111),
-#                     nrows_ncols = (1, ncolumns),
-#                     axes_pad = 0.0,
-#                     label_mode = "L",
-#                     share_all = True,
-#                     cbar_location="top",
-#                     cbar_mode="edge",
-#                     cbar_size="2%",
-#                     cbar_pad=0.0)
-#     width_x =  hdul[0].header['CDELT1']*hdul[0].header['NAXIS1']
-#     width_y =  hdul[0].header['CDELT2']*hdul[0].header['NAXIS2']
-#     ex = [-0.5*width_x,0.5*width_x,-0.5*width_y,0.5*width_y]
-
-#     stellar = False
-#     for i in range(0, len(fields)):
-#         h = [j for j in range(0,len(hdul)) if hdul[j].header['btype']==fields[i]][0]
-#         ax = grid[i].axes
-#         ax.axes.xaxis.set_visible(False)
-#         ax.axes.yaxis.set_visible(False)
-#         if fields[i].split('/')[0] == 'star' or fields[i].split('/')[0] == 'dm':
-#             plotting_def = plotting_dictionary[fields[i].split('/')[0]+'_'+fields[i].split('/')[1]]
-#             stellar = True
-#         else:
-#             plotting_def = plotting_dictionary[fields[i].split('/')[1]]
-#         if logscale:
-#             print(fields[i],np.min(hdul[h].data.T),np.max(hdul[h].data.T))
-#             plot = ax.imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
-#                             origin='upper',norm=LogNorm(vmin=plotting_def['vmin'],
-#                             vmax=plotting_def['vmax']),extent=ex,
-#                             interpolation='nearest')
-#         else:
-#             plot = ax.imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
-#                             origin='upper',extent=ex,interpolation='nearest',
-#                             vmin=plotting_def['vmin'],vmax=plotting_def['vmax'])
-#         fontprops = fm.FontProperties(size=14)
-#         if scalebar:
-#             scalebar = AnchoredSizeBar(ax.transData,
-#                                         3, '3 kpc', 'lower left', 
-#                                         pad=0.1,
-#                                         color=plotting_def['text_over'],
-#                                         frameon=False,
-#                                         size_vertical=0.2,
-#                                         fontproperties=fontprops)
-#             ax.add_artist(scalebar)
-#         axcb = fig.colorbar(plot, cax = grid.cbar_axes[i], orientation='horizontal')
-#         axcb.set_label(plotting_def['label'], fontsize=16,labelpad=-50, y=0.85)
-#         axcb.ax.xaxis.set_ticks_position("top")
-#         if redshift:
-#             ax.text(0.7, 0.12, 'z = '+str(round(hdul[h].header['redshift'], 2)),
-#                     transform=ax.transAxes, fontsize=18,verticalalignment='top',
-#                     color=plotting_def['text_over'])
-
-#     fig.subplots_adjust(hspace=0, wspace=0,top = 0.95,bottom = 0.02,left = 0.02,right = 0.98)
-#     if stellar:
-#         fig.savefig(proj_FITS.split('.')[0]+'_stars.png',format='png',dpi=300)
-#     else:
-#         fig.savefig(proj_FITS.split('.')[0]+'.png',format='png',dpi=300)
 
 def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,redshift=True):
     """This function uses the projection information in a FITS file following the 
@@ -571,7 +472,7 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
     import matplotlib.font_manager as fm
     from mpl_toolkits.axes_grid1 import AxesGrid, make_axes_locatable
     from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
-    from matplotlib.colors import LogNorm
+    from matplotlib.colors import LogNorm,SymLogNorm
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
     import seaborn as sns
     sns.set(style="dark")
@@ -639,20 +540,26 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
                 stellar = True
             else:
                 plotting_def = plotting_dictionary[fields[ivar].split('/')[1]]
-            if logscale:
+            if logscale and fields[ivar].split('/')[1] != 'v_sphere_r':
                 print(fields[ivar],np.min(hdul[h].data.T),np.max(hdul[h].data.T))
                 plot = ax[i,j].imshow(np.log10(hdul[h].data.T), cmap=plotting_def['cmap'],
                                 origin='upper',vmin=np.log10(plotting_def['vmin']),
                                 vmax=np.log10(plotting_def['vmax']),extent=ex,
                                 interpolation='nearest')
+            elif logscale and fields[ivar].split('/')[1] == 'v_sphere_r':
+                plot = ax[i,j].imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
+                                origin='upper',norm=SymLogNorm(linthresh=10, linscale=1,vmin=plotting_def['vmin'], vmax=plotting_def['vmax']),
+                                extent=ex,
+                                interpolation='nearest')
             else:
+                print(fields[ivar],np.min(hdul[h].data.T),np.max(hdul[h].data.T))
                 plot = ax[i,j].imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
                                 origin='upper',extent=ex,interpolation='nearest',
                                 vmin=plotting_def['vmin'],vmax=plotting_def['vmax'])
 
             cbaxes = inset_axes(ax[i,j], width="80%", height="5%", loc='lower center')
             cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
-            if logscale:
+            if logscale and fields[ivar].split('/')[1] != 'v_sphere_r':
                 cbar.set_label(plotting_def['label_log'],color=plotting_def['text_over'],fontsize=20,labelpad=-25, y=0.85,weight='bold')
             else:
                 cbar.set_label(plotting_def['label'],color=plotting_def['text_over'],fontsize=16,labelpad=-25, y=0.85)
@@ -683,6 +590,10 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
         fig.savefig(proj_FITS.split('.')[0]+'_stars.png',format='png',dpi=300)
     else:
         fig.savefig(proj_FITS.split('.')[0]+'.png',format='png',dpi=300)
+
+def plot_galaxy_with_halos(proj_FITS,ozy_file,field,gasstars=True,dm=True,scalebar=True,redshift=True):
+
+    return
 
 def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=True,redshift=True):
     """This function uses the projection information in a FITS file following the 
@@ -792,7 +703,7 @@ def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=True,redshi
     fig.savefig(proj_FITS.split('.')[0]+'_rgb.png',format='png',dpi=300)
 
 
-def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,pov='edgeon'):
+def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,pov='edgeon',r=1.0,dr=1./150.):
     """Function which computes a 2D spherical projection of particular object using the HEALPix
         pixelisation scheme."""
     
@@ -853,13 +764,13 @@ def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,
         velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
         bulk.x, bulk.y, bulk.z = velocity.d[0], velocity.d[1], velocity.d[2]
         reg.bulk_velocity = bulk
-        norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
+        norm_L = group.angular_mom['gas'].d/np.linalg.norm(group.angular_mom['gas'].d)
         axis = vectors.vector()
         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
         reg.axis = axis
-        rmax = 0.4*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-        reg.rmin = 0.85*rmax
-        reg.rmax = 1.15*rmax
+        rmax = r*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        reg.rmin = (1-0.5*dr)*rmax
+        reg.rmax = (1.+0.5*dr)*rmax
 
         # Update projection details with the ones used for the region
         proj.up_vector = norm_L

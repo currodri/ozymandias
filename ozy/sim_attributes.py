@@ -1,7 +1,7 @@
 import numpy as np
 # TODO: It should use a global fortran module, not the particles one
 import sys
-sys.path.append('/mnt/extraspace/currodri/Codes/ozymandias/ozy/part')
+sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/part')
 import part2
 
 class SimulationAttributes(object):
@@ -54,6 +54,7 @@ class SimulationAttributes(object):
                                    2500 * self.critical_density.to('Msun / kpc**3').d])
 
         # Dertermine the type of physics included in this simulation
+        # TODO Rewrite this so it is saved to the OZY file (not currently working)
         self.physics = {'hydro':False,
                         'metals':False,
                         'magnetic':False,

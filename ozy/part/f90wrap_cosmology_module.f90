@@ -1,8 +1,8 @@
 ! Module cosmology defined in file cosmology_module.fpp
 
 subroutine f90wrap_cosmology_model(sim)
-    use cosmology, only: cosmology_model
     use io_ramses, only: sim_info
+    use cosmology, only: cosmology_model
     implicit none
     
     type sim_info_ptr_type

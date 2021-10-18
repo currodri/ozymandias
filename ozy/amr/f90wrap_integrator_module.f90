@@ -155,7 +155,7 @@ subroutine f90wrap_amr_region_attrs_finalise(this)
 end subroutine f90wrap_amr_region_attrs_finalise
 
 subroutine f90wrap_allocate_amr_regions_attrs(attrs)
-    use amr_integrator, only: allocate_amr_regions_attrs, amr_region_attrs
+    use amr_integrator, only: amr_region_attrs, allocate_amr_regions_attrs
     implicit none
     
     type amr_region_attrs_ptr_type
@@ -168,17 +168,17 @@ subroutine f90wrap_allocate_amr_regions_attrs(attrs)
 end subroutine f90wrap_allocate_amr_regions_attrs
 
 subroutine f90wrap_extract_data(reg, varids, pos, cellvars, cellsize, attrs, n0, n1)
-    use amr_integrator, only: extract_data, amr_region_attrs
+    use amr_integrator, only: amr_region_attrs, extract_data
     use geometrical_regions, only: region
     use io_ramses, only: hydroid
     implicit none
     
-    type hydroid_ptr_type
-        type(hydroid), pointer :: p => NULL()
-    end type hydroid_ptr_type
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
+    type hydroid_ptr_type
+        type(hydroid), pointer :: p => NULL()
+    end type hydroid_ptr_type
     type amr_region_attrs_ptr_type
         type(amr_region_attrs), pointer :: p => NULL()
     end type amr_region_attrs_ptr_type
@@ -202,7 +202,7 @@ subroutine f90wrap_extract_data(reg, varids, pos, cellvars, cellsize, attrs, n0,
 end subroutine f90wrap_extract_data
 
 subroutine f90wrap_renormalise(attrs)
-    use amr_integrator, only: renormalise, amr_region_attrs
+    use amr_integrator, only: amr_region_attrs, renormalise
     implicit none
     
     type amr_region_attrs_ptr_type
@@ -215,20 +215,20 @@ subroutine f90wrap_renormalise(attrs)
 end subroutine f90wrap_renormalise
 
 subroutine f90wrap_integrate_region(repository, reg, filt, attrs)
-    use amr_integrator, only: integrate_region, amr_region_attrs
-    use geometrical_regions, only: region
     use filtering, only: filter
+    use amr_integrator, only: amr_region_attrs, integrate_region
+    use geometrical_regions, only: region
     implicit none
     
-    type filter_ptr_type
-        type(filter), pointer :: p => NULL()
-    end type filter_ptr_type
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
     type amr_region_attrs_ptr_type
         type(amr_region_attrs), pointer :: p => NULL()
     end type amr_region_attrs_ptr_type
+    type filter_ptr_type
+        type(filter), pointer :: p => NULL()
+    end type filter_ptr_type
     character(128), intent(in) :: repository
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg
