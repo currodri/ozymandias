@@ -2411,7 +2411,7 @@ subroutine f90wrap_hilbert3d(x, y, z, order, bit_length, npoint, n0, n1, n2, n3)
 end subroutine f90wrap_hilbert3d
 
 subroutine f90wrap_check_lmax(ngridfile, amr, n0, n1)
-    use io_ramses, only: check_lmax, amr_info
+    use io_ramses, only: amr_info, check_lmax
     implicit none
     
     type amr_info_ptr_type
@@ -2491,15 +2491,24 @@ subroutine f90wrap_getvarvalue(varids, reg, dx, x, var, varname, value, n0)
     use vectors, only: vector
     implicit none
     
+<<<<<<< HEAD
+=======
+    type hydroid_ptr_type
+        type(hydroid), pointer :: p => NULL()
+    end type hydroid_ptr_type
+>>>>>>> 2fe29f6cd2a2b2f6a393973835311a85476523be
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
+<<<<<<< HEAD
     type hydroid_ptr_type
         type(hydroid), pointer :: p => NULL()
     end type hydroid_ptr_type
+=======
+>>>>>>> 2fe29f6cd2a2b2f6a393973835311a85476523be
     type(hydroid_ptr_type) :: varids_ptr
     integer, intent(in), dimension(2) :: varids
     type(region_ptr_type) :: reg_ptr
@@ -2539,7 +2548,11 @@ subroutine f90wrap_init_amr_read(repository, amr, sim)
 end subroutine f90wrap_init_amr_read
 
 subroutine f90wrap_get_cpu_map(reg, amr)
+<<<<<<< HEAD
     use io_ramses, only: get_cpu_map, amr_info
+=======
+    use io_ramses, only: amr_info, get_cpu_map
+>>>>>>> 2fe29f6cd2a2b2f6a393973835311a85476523be
     use geometrical_regions, only: region
     implicit none
     
@@ -2559,7 +2572,7 @@ subroutine f90wrap_get_cpu_map(reg, amr)
 end subroutine f90wrap_get_cpu_map
 
 subroutine f90wrap_getparttype(part, ptype)
-    use io_ramses, only: particle, getparttype
+    use io_ramses, only: getparttype, particle
     implicit none
     
     type particle_ptr_type
@@ -2573,11 +2586,17 @@ subroutine f90wrap_getparttype(part, ptype)
 end subroutine f90wrap_getparttype
 
 subroutine f90wrap_getpartvalue(sim, reg, part, var, value, dx)
+<<<<<<< HEAD
+=======
+    use io_ramses, only: getpartvalue, particle, sim_info
+    use vectors, only: vector
+>>>>>>> 2fe29f6cd2a2b2f6a393973835311a85476523be
     use geometrical_regions, only: region
     use vectors, only: vector
     use io_ramses, only: sim_info, particle, getpartvalue
     implicit none
     
+<<<<<<< HEAD
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
@@ -2590,6 +2609,20 @@ subroutine f90wrap_getpartvalue(sim, reg, part, var, value, dx)
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
+=======
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
+    type vector_ptr_type
+        type(vector), pointer :: p => NULL()
+    end type vector_ptr_type
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+>>>>>>> 2fe29f6cd2a2b2f6a393973835311a85476523be
     type(sim_info_ptr_type) :: sim_ptr
     integer, intent(in), dimension(2) :: sim
     type(region_ptr_type) :: reg_ptr
@@ -2797,24 +2830,42 @@ subroutine f90wrap_cond_string_to_filter(str, filt)
 end subroutine f90wrap_cond_string_to_filter
 
 subroutine f90wrap_filter_cell(varids, reg, filt, cell_x, cell_dx, ret_filter_cell, cell_var, n0)
+<<<<<<< HEAD
     use geometrical_regions, only: region
     use filtering, only: filter_cell, filter
     use io_ramses, only: hydroid
     use vectors, only: vector
     implicit none
     
+=======
+    use vectors, only: vector
+    use filtering, only: filter, filter_cell
+    use geometrical_regions, only: region
+    use io_ramses, only: hydroid
+    implicit none
+    
+    type filter_ptr_type
+        type(filter), pointer :: p => NULL()
+    end type filter_ptr_type
+    type hydroid_ptr_type
+        type(hydroid), pointer :: p => NULL()
+    end type hydroid_ptr_type
+>>>>>>> 2fe29f6cd2a2b2f6a393973835311a85476523be
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
+<<<<<<< HEAD
     type hydroid_ptr_type
         type(hydroid), pointer :: p => NULL()
     end type hydroid_ptr_type
     type filter_ptr_type
         type(filter), pointer :: p => NULL()
     end type filter_ptr_type
+=======
+>>>>>>> 2fe29f6cd2a2b2f6a393973835311a85476523be
     type(hydroid_ptr_type) :: varids_ptr
     integer, intent(in), dimension(2) :: varids
     type(region_ptr_type) :: reg_ptr
@@ -2837,6 +2888,7 @@ subroutine f90wrap_filter_cell(varids, reg, filt, cell_x, cell_dx, ret_filter_ce
 end subroutine f90wrap_filter_cell
 
 subroutine f90wrap_filter_particle(sim, reg, filt, part, ret_filter_particle, dx)
+<<<<<<< HEAD
     use io_ramses, only: sim_info, particle
     use geometrical_regions, only: region
     use filtering, only: filter_particle, filter
@@ -2858,6 +2910,29 @@ subroutine f90wrap_filter_particle(sim, reg, filt, part, ret_filter_particle, dx
     type filter_ptr_type
         type(filter), pointer :: p => NULL()
     end type filter_ptr_type
+=======
+    use vectors, only: vector
+    use filtering, only: filter_particle, filter
+    use geometrical_regions, only: region
+    use io_ramses, only: sim_info, particle
+    implicit none
+    
+    type filter_ptr_type
+        type(filter), pointer :: p => NULL()
+    end type filter_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
+    type vector_ptr_type
+        type(vector), pointer :: p => NULL()
+    end type vector_ptr_type
+>>>>>>> 2fe29f6cd2a2b2f6a393973835311a85476523be
     type(sim_info_ptr_type) :: sim_ptr
     integer, intent(in), dimension(2) :: sim
     type(region_ptr_type) :: reg_ptr

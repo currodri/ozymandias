@@ -168,9 +168,14 @@ subroutine f90wrap_allocate_amr_regions_attrs(attrs)
 end subroutine f90wrap_allocate_amr_regions_attrs
 
 subroutine f90wrap_extract_data(reg, varids, pos, cellvars, cellsize, attrs, n0, n1)
+<<<<<<< HEAD
     use amr_integrator, only: amr_region_attrs, extract_data
     use geometrical_regions, only: region
+=======
+>>>>>>> 2fe29f6cd2a2b2f6a393973835311a85476523be
     use io_ramses, only: hydroid
+    use geometrical_regions, only: region
+    use amr_integrator, only: extract_data, amr_region_attrs
     implicit none
     
     type region_ptr_type
@@ -216,8 +221,13 @@ end subroutine f90wrap_renormalise
 
 subroutine f90wrap_integrate_region(repository, reg, filt, attrs)
     use filtering, only: filter
+<<<<<<< HEAD
     use amr_integrator, only: amr_region_attrs, integrate_region
     use geometrical_regions, only: region
+=======
+    use geometrical_regions, only: region
+    use amr_integrator, only: amr_region_attrs, integrate_region
+>>>>>>> 2fe29f6cd2a2b2f6a393973835311a85476523be
     implicit none
     
     type region_ptr_type

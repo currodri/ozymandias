@@ -46,8 +46,8 @@ subroutine f90wrap_phi_sphere(ret_phi_sphere, p)
 end subroutine f90wrap_phi_sphere
 
 subroutine f90wrap_r_cyl(ret_r_cyl, p)
-    use coordinate_systems, only: r_cyl
     use vectors, only: vector
+    use coordinate_systems, only: r_cyl
     implicit none
     
     type vector_ptr_type
@@ -61,8 +61,8 @@ subroutine f90wrap_r_cyl(ret_r_cyl, p)
 end subroutine f90wrap_r_cyl
 
 subroutine f90wrap_phi_cyl(ret_phi_cyl, p)
-    use coordinate_systems, only: phi_cyl
     use vectors, only: vector
+    use coordinate_systems, only: phi_cyl
     implicit none
     
     type vector_ptr_type
@@ -76,9 +76,15 @@ subroutine f90wrap_phi_cyl(ret_phi_cyl, p)
 end subroutine f90wrap_phi_cyl
 
 subroutine f90wrap_spherical_basis_from_cartesian(p, spher_basis)
+<<<<<<< HEAD
     use basis_representations, only: basis
     use vectors, only: vector
     use coordinate_systems, only: spherical_basis_from_cartesian
+=======
+    use coordinate_systems, only: spherical_basis_from_cartesian
+    use vectors, only: vector
+    use basis_representations, only: basis
+>>>>>>> 2fe29f6cd2a2b2f6a393973835311a85476523be
     implicit none
     
     type vector_ptr_type
@@ -97,9 +103,14 @@ subroutine f90wrap_spherical_basis_from_cartesian(p, spher_basis)
 end subroutine f90wrap_spherical_basis_from_cartesian
 
 subroutine f90wrap_cylindrical_basis_from_cartesian(p, cyl_basis)
+<<<<<<< HEAD
     use coordinate_systems, only: cylindrical_basis_from_cartesian
     use basis_representations, only: basis
+=======
+>>>>>>> 2fe29f6cd2a2b2f6a393973835311a85476523be
     use vectors, only: vector
+    use coordinate_systems, only: cylindrical_basis_from_cartesian
+    use basis_representations, only: basis
     implicit none
     
     type vector_ptr_type
@@ -650,8 +661,12 @@ subroutine f90wrap_cube(p, reg, ok, distance)
 end subroutine f90wrap_cube
 
 subroutine f90wrap_sphere(p, reg, ok, distance)
+<<<<<<< HEAD
     use geometrical_regions, only: region, sphere
+=======
+>>>>>>> 2fe29f6cd2a2b2f6a393973835311a85476523be
     use vectors, only: vector
+    use geometrical_regions, only: sphere, region
     implicit none
     
     type region_ptr_type

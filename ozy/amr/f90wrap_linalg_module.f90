@@ -451,7 +451,7 @@ subroutine f90wrap_basis_finalise(this)
 end subroutine f90wrap_basis_finalise
 
 subroutine f90wrap_initialise_basis(this)
-    use basis_representations, only: basis, initialise_basis
+    use basis_representations, only: initialise_basis, basis
     implicit none
     
     type basis_ptr_type

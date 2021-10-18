@@ -434,7 +434,11 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
     fig.subplots_adjust(top=0.97,bottom=0.1,left=0.1,right=0.99)
     fig.savefig(name+'.png',format='png',dpi=300)
 
+<<<<<<< HEAD
 def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=True,redshift=True,powell=False,gent=False,stats='none',extra_labels='none'):
+=======
+def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=True,redshift=True,stats='none',extra_labels='none'):
+>>>>>>> 2fe29f6cd2a2b2f6a393973835311a85476523be
 
     # Make required imports
     import matplotlib
@@ -588,4 +592,8 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=Tr
             
         
         fig.subplots_adjust(top=0.97,bottom=0.12,left=0.07,right=0.88)
+<<<<<<< HEAD
         fig.savefig(name+'.png',format='png',dpi=300)
+=======
+        fig.savefig(name+'.png',format='png',dpi=300)
+>>>>>>> 2fe29f6cd2a2b2f6a393973835311a85476523be
