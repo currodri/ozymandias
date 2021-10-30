@@ -53,8 +53,7 @@ class SimulationAttributes(object):
                                    500 * self.critical_density.to('Msun / kpc**3').d,
                                    2500 * self.critical_density.to('Msun / kpc**3').d])
 
-        # Dertermine the type of physics included in this simulation
-        # TODO Rewrite this so it is saved to the OZY file (not currently working)
+        # Determine the type of physics included in this simulation
         self.physics = {'hydro':False,
                         'metals':False,
                         'magnetic':False,
@@ -72,7 +71,7 @@ class SimulationAttributes(object):
             self.physics['metals'] = True
         if varIDs.blx != 0:
             self.physics['magnetic'] = True
-        if varIDs.ecr != 0:
+        if varIDs.cr_pressure != 0:
             self.physics['cr'] = True
         if varIDs.xhii != 0:
             self.physics['rt'] = True
@@ -101,6 +100,11 @@ class SimulationAttributes(object):
         for k,v in self.parameters.items():
             if k != 'namelist':
                 phdd.attrs.create(k, v)
+
+        phyhdd = hdd.create_group('physics')
+        for k,v in self.physics.items():
+            if k != 'namelist':
+                phyhdd.attrs.create(k, v)
     
     def _unpack(self, obj, hd):
         """Get, if they exist, the simulation attributes from the input HDF5 file and assign them to OZY object."""

@@ -72,6 +72,8 @@ class Projection(object):
             fields = []
             if len(varlist)>0:
                 imap = self.data_maps[counter]
+                if not isinstance(imap,list) and not isinstance(imap,np.ndarray):
+                    imap = [imap]
                 for f in varlist:
                     fields.append(datatype+'/'+f)
                 for i,field in enumerate(fields):
@@ -88,8 +90,11 @@ class Projection(object):
                         code_units = get_code_units(sfrstr)
                     else:
                         code_units = get_code_units(field.split('/')[1])
-                    temp_map = YTArray(imap[i],code_units,
-                                        registry=self.group.obj.unit_registry)
+                    try:
+                        temp_map = YTArray(imap[i],code_units,
+                                            registry=self.group.obj.unit_registry)
+                    except:
+                        temp_map = self.group.obj.yt_dataset.arr(imap[i],code_units)
                     first_unit = True
                     for u in code_units.split('*'):
                         if first_unit:
@@ -114,10 +119,14 @@ class Projection(object):
             counter += 1
         # Setup WCS in the coordinate systems of the camera
         w = WCS(header=self.hdulist[0].header,naxis=2)
-        dx = YTQuantity(self.width[0],'code_length',
-                        registry=self.group.obj.unit_registry).in_units(unit_system['code_length']).d
-        dy = YTQuantity(self.width[1],'code_length',
-                        registry=self.group.obj.unit_registry).in_units(unit_system['code_length']).d
+        try:
+            dx = YTQuantity(self.width[0],'code_length',
+                            registry=self.group.obj.unit_registry).in_units(unit_system['code_length']).d
+            dy = YTQuantity(self.width[1],'code_length',
+                            registry=self.group.obj.unit_registry).in_units(unit_system['code_length']).d
+        except:
+            dx = self.group.obj.yt_dataset.quan(self.width[0],'code_length').in_units(unit_system['code_length']).d
+            dy = self.group.obj.yt_dataset.quan(self.width[1],'code_length').in_units(unit_system['code_length']).d
         dx /= self.resolution[0]
         dy /= self.resolution[1]
         centre = [0.0,0.0]
@@ -331,15 +340,20 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     if window != 0.0:
         window = YTArray(window,'kpc',registry=group.obj.unit_registry).in_units('code_length')
     else:
-        window = 0.2*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        if group.obj_type == 'halo':
+             window = 1.2*group.virial_quantities['radius'].in_units('code_length').d
+        else:
+            window = 0.2*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
     centre = vectors.vector()
     centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
     bulk = vectors.vector()
-    velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
-    bulk.x, bulk.y, bulk.z = velocity.d[0], velocity.d[1], velocity.d[2]
+    if group.obj_type != 'halo':
+        velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
+        bulk.x, bulk.y, bulk.z = velocity.d[0], velocity.d[1], velocity.d[2]
+
     if proj.pov == 'faceon':
         axis = vectors.vector()
-        norm_L = group.angular_mom['gas'].d/np.linalg.norm(group.angular_mom['gas'].d)
+        norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
         up = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
         up /= np.linalg.norm(up)
         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
@@ -351,7 +365,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         far_cut_depth = 0.3*rmax
     elif proj.pov == 'edgeon':
         axis = vectors.vector()
-        norm_L = group.angular_mom['gas'].d/np.linalg.norm(group.angular_mom['gas'].d)
+        norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
         los = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
         los /= np.linalg.norm(los)
         axis.x,axis.y,axis.z = los[0], los[1], los[2]
@@ -427,6 +441,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     
     # COMPUTE HYDRO PROJECTION
     if len(proj.vars['gas']) != 0:
+        print('Performing hydro projection for '+str(len(proj.vars['gas']))+' variables')
         if lmax != 0:
             maps.projection_hydro(group.obj.simulation.fullpath,cam,bulk,hydro_handler,int(lmax),int(lmin))
         else:
@@ -434,6 +449,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         # TODO: Weird issue when the direct toto array is given.
         data = np.copy(hydro_handler.toto)
         proj.data_maps.append(data)
+    else:
+        del proj.vars['gas']
 
     # Create projection_handler Fortran derived type for the results of the hydro data projection
     parts_handler = maps.projection_handler()
@@ -451,22 +468,39 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
 
     # COMPUTE PARTICLES PROJECTION
     if len(proj.vars['star'])+len(proj.vars['dm']) != 0:
+        print('Performing particle projection for '+str(len(proj.vars['star'])+len(proj.vars['dm']))+' variables')
         maps.projection_parts(group.obj.simulation.fullpath,cam,bulk,parts_handler)
         # TODO: Weird issue when the direct toto array is given.
         data = np.copy(parts_handler.toto)
-        data_star = data[:len(proj.vars['star'])].reshape(len(proj.vars['star']),data.shape[1],data.shape[2])
-        proj.data_maps.append(data_star)
-        data_dm = data[len(proj.vars['star']):].reshape(len(proj.vars['dm']),data.shape[1],data.shape[2])
-        proj.data_maps.append(data_dm)
+        if len(proj.vars['star']) == 0:
+            data_dm = data.reshape(len(proj.vars['dm']),data.shape[1],data.shape[2])
+            proj.data_maps.append(data_dm)
+        elif len(proj.vars['dm']) == 0:
+            data_star = data[:len(proj.vars['star'])].reshape(len(proj.vars['star']),data.shape[1],data.shape[2])
+            proj.data_maps.append(data_star)
+        else:
+            data_star = data[:len(proj.vars['star'])].reshape(len(proj.vars['star']),data.shape[1],data.shape[2])
+            proj.data_maps.append(data_star)
+            data_dm = data[len(proj.vars['star']):].reshape(len(proj.vars['dm']),data.shape[1],data.shape[2])
+            proj.data_maps.append(data_dm)
+    else:
+        del proj.vars['star']
+        del proj.vars['dm']
+    if len(proj.vars['star']) == 0:
+        del proj.vars['star']
+    if len(proj.vars['dm']) == 0:
+        del proj.vars['dm']
 
     return proj
 
 
-def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,redshift=True):
+def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,redshift=True,returnfig=False,pov='x',centers=[],radii=[],circle_keys=[]):
     """This function uses the projection information in a FITS file following the 
         OZY format and plots it following the OZY standards."""
     
     # Make required imports
+    from ozy.utils import tidal_radius
+    from ozy.plot_settings import circle_dictionary
     import matplotlib
     import matplotlib.pyplot as plt
     import matplotlib.font_manager as fm
@@ -543,8 +577,8 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
             if logscale and fields[ivar].split('/')[1] != 'v_sphere_r':
                 print(fields[ivar],np.min(hdul[h].data.T),np.max(hdul[h].data.T))
                 plot = ax[i,j].imshow(np.log10(hdul[h].data.T), cmap=plotting_def['cmap'],
-                                origin='upper',vmin=np.log10(plotting_def['vmin']),
-                                vmax=np.log10(plotting_def['vmax']),extent=ex,
+                                origin='upper',vmin=np.log10(plotting_def['vmin_galaxy']),
+                                vmax=np.log10(plotting_def['vmax_galaxy']),extent=ex,
                                 interpolation='nearest')
             elif logscale and fields[ivar].split('/')[1] == 'v_sphere_r':
                 plot = ax[i,j].imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
@@ -584,6 +618,144 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
                                             fontproperties=fontprops)
                 ax[i,j].add_artist(scalebar)
 
+            if len(centers) != 0 and len(radii) != 0 and len(circle_keys) != 0:
+                if pov == 'x':
+                    centrecircle = (centers[0][1].in_units('kpc').d,centers[0][2].in_units('kpc').d)
+                elif pov == 'z':
+                    centrecircle = (centers[0][0].in_units('kpc').d,centers[0][1].in_units('kpc').d)
+                else:
+                    centrecircle = centers[0].in_units('kpc').d
+                r = radii[0].in_units('kpc').d
+                circle_settings = circle_dictionary[circle_keys[0]]
+                circle = plt.Circle(centrecircle,r,fill=False,edgecolor=circle_settings['edgecolor'],linestyle=circle_settings['linestyle'])
+                ax[i,j].add_patch(circle)
+                if len(centers) > 1:
+                    for c in range(1, len(centers)):
+                        if pov == 'x':
+                            centrecircle = (centers[c][1].in_units('kpc').d,centers[c][2].in_units('kpc').d)
+                        elif pov == 'z':
+                            centrecircle = (-centers[c][1].in_units('kpc').d,-centers[c][0].in_units('kpc').d)
+                        else:
+                            centrecircle = centers[c].in_units('kpc').d
+                        r = radii[c].in_units('kpc').d
+                        circle_settings = circle_dictionary[circle_keys[c]]
+                        circle = plt.Circle(centrecircle,r,fill=False,edgecolor=circle_settings['edgecolor'],linestyle=circle_settings['linestyle'])
+                        ax[i,j].add_patch(circle)
+
+    fig.subplots_adjust(hspace=0,wspace=0,left=0,right=1, bottom=0, top=1)
+    if stellar:
+        fig.savefig(proj_FITS.split('.')[0]+'_stars.png',format='png',dpi=300)
+    elif returnfig:
+        return fig
+    else:
+        fig.savefig(proj_FITS.split('.')[0]+'.png',format='png',dpi=300)
+
+def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redshift=True,centers=[],radii=[]):
+    """This function uses the projection information in a FITS file following the 
+        OZY format and plots it following the OZY standards."""
+    
+    # Make required imports
+    import matplotlib
+    import matplotlib.pyplot as plt
+    import matplotlib.font_manager as fm
+    from mpl_toolkits.axes_grid1 import AxesGrid, make_axes_locatable
+    from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+    from matplotlib.colors import LogNorm,SymLogNorm
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    import seaborn as sns
+    sns.set(style="dark")
+    plt.rcParams["axes.axisbelow"] = False
+    # plt.rc('text', usetex=True)
+    # plt.rc('font', family='serif')
+    # hfont = {'fontname':'Helvetica'}
+    # matplotlib.rc('text', usetex = True)
+    # matplotlib.rc('font', **{'family' : "serif"})
+    # params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
+    # matplotlib.rcParams.update(params)
+
+    stellar = False
+    # First,check that FITS file actually exists
+    if not os.path.exists(proj_FITS):
+        raise ImportError('File not found. Please check!')
+    
+    # Load FITS file
+    hdul = fits.open(proj_FITS)
+    hdul_fields = [h.header['btype'] for h in hdul]
+
+    # Check that the required fields for plotting are in this FITS
+    if field not in hdul_fields:
+        print('Field %s is not between the ones you provided... Check!'%field)
+        exit
+
+    # Since everything is fine, we begin plotting…
+    figsize = plt.figaspect(float(7) / float(7))
+    fig = plt.figure(figsize=figsize, facecolor='k', edgecolor='k')
+    fig, ax = plt.subplots(1, 1, figsize=(7,7), dpi=200, facecolor='k', edgecolor='k')
+
+    width_x =  hdul[0].header['CDELT1']*hdul[0].header['NAXIS1']
+    width_y =  hdul[0].header['CDELT2']*hdul[0].header['NAXIS2']
+    ex = [-0.5*width_x,0.5*width_x,-0.5*width_y,0.5*width_y]
+    print(ex)
+    ax.set_xlim([-0.5*width_x,0.5*width_y])
+    ax.set_ylim([-0.5*width_x,0.5*width_y])
+    ax.axes.xaxis.set_visible(False)
+    ax.axes.yaxis.set_visible(False)
+    ax.axis('off')
+    h = [k for k in range(0,len(hdul)) if hdul[k].header['btype']==field][0]
+    if field.split('/')[0] == 'star' or field.split('/')[0] == 'dm':
+        plotting_def = plotting_dictionary[field.split('/')[0]+'_'+field.split('/')[1]]
+        stellar = True
+    else:
+        plotting_def = plotting_dictionary[field.split('/')[1]]
+    print(np.min(np.log10(hdul[h].data.T)),np.max(np.log10(hdul[h].data.T)))
+    if logscale and field.split('/')[1] != 'v_sphere_r':
+        plot = ax.imshow(np.log10(hdul[h].data.T), cmap=plotting_def['cmap'],
+                        origin='upper',vmin=np.log10(plotting_def['vmin']),
+                        vmax=np.log10(plotting_def['vmax']),extent=ex,
+                        interpolation='nearest')
+    elif logscale and field.split('/')[1] == 'v_sphere_r':
+        plot = ax.imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
+                        origin='upper',norm=SymLogNorm(linthresh=10, linscale=1,vmin=plotting_def['vmin'], vmax=plotting_def['vmax']),
+                        extent=ex,
+                        interpolation='nearest')
+    else:
+        plot = ax.imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
+                        origin='upper',extent=ex,interpolation='nearest',
+                        vmin=plotting_def['vmin'],vmax=plotting_def['vmax'])
+
+    cbaxes = inset_axes(ax, width="80%", height="5%", loc='lower center')
+    cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
+    if logscale and field.split('/')[1] != 'v_sphere_r':
+        cbar.set_label(plotting_def['label_log'],color=plotting_def['text_over'],fontsize=20,labelpad=-60, y=0.85,weight='bold')
+    else:
+        cbar.set_label(plotting_def['label'],color=plotting_def['text_over'],fontsize=20,labelpad=-10, y=1.25)
+    cbar.ax.xaxis.label.set_font_properties(matplotlib.font_manager.FontProperties(weight='bold',size=15))
+    cbar.ax.tick_params(axis='x', pad=-16, labelsize=13,labelcolor=plotting_def['text_over'])
+    cbar.ax.tick_params(length=0,width=0)
+
+    if redshift:
+        ax.text(0.03, 0.95, r'$z = ${z:.2f}'.format(z=hdul[h].header['redshift']), # Redshift
+                            verticalalignment='bottom', horizontalalignment='left',
+                            transform=ax.transAxes,
+                            color=plotting_def['text_over'], fontsize=20,fontweight='bold')
+
+    fontprops = fm.FontProperties(size=20,weight='bold')
+    if scalebar:
+        scalebar = AnchoredSizeBar(ax.transData,
+                                    10, '10 kpc', 'upper right', 
+                                    pad=0.1,
+                                    color=plotting_def['text_over'],
+                                    frameon=False,
+                                    size_vertical=0.2,
+                                    fontproperties=fontprops)
+        ax.add_artist(scalebar)
+
+    if len(centers) != 0 and len(radii) != 0:
+        for c in range(0, len(centers)):
+            centrecircle = (-centers[c][2]*1000,-centers[c][1]*1000)
+            r = radii[c] * 1000
+            circle = plt.Circle(centrecircle,r,fill=False,edgecolor='w',linestyle='--')
+            ax.add_patch(circle)
 
     fig.subplots_adjust(hspace=0,wspace=0,left=0,right=1, bottom=0, top=1)
     if stellar:
@@ -595,7 +767,7 @@ def plot_galaxy_with_halos(proj_FITS,ozy_file,field,gasstars=True,dm=True,scaleb
 
     return
 
-def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=True,redshift=True):
+def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=True,redshift=True, type_scale='galaxy'):
     """This function uses the projection information in a FITS file following the 
         OZY format and combines three variables into an RGB image using the Lupton et al.
         (2004) method."""
@@ -662,10 +834,14 @@ def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=True,redshi
 
         data = hdul[h].data.T
         print(fields[i],data.min(),data.max())
-        data[data < plotting_def['vmin_galaxy']] = plotting_def['vmin_galaxy']
-        data[data > plotting_def['vmax_galaxy']] = plotting_def['vmax_galaxy']
-        data = (np.log10(data)-np.log10(plotting_def['vmin_galaxy']*0.99))/(np.log10(plotting_def['vmax_galaxy']) - np.log10(plotting_def['vmin_galaxy']*0.99))
-
+        if type_scale == 'galaxy':
+            data[data < plotting_def['vmin_galaxy']] = plotting_def['vmin_galaxy']
+            data[data > plotting_def['vmax_galaxy']] = plotting_def['vmax_galaxy']
+            data = (np.log10(data)-np.log10(plotting_def['vmin_galaxy']*0.99))/(np.log10(plotting_def['vmax_galaxy']) - np.log10(plotting_def['vmin_galaxy']*0.99))
+        else:
+            data[data < plotting_def['vmin']] = plotting_def['vmin']
+            data[data > plotting_def['vmax']] = plotting_def['vmax']
+            data = (np.log10(data)-np.log10(plotting_def['vmin']*0.99))/(np.log10(plotting_def['vmax']) - np.log10(plotting_def['vmin']*0.99))
         images.append(data)
         custom_lines.append(mpatches.Patch(color=rgb_colours[i],label=plotting_def['label']))
     
@@ -691,7 +867,7 @@ def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=True,redshi
     fontprops = fm.FontProperties(size=16,weight='bold')
     if scalebar:
         scalebar = AnchoredSizeBar(ax.transData,
-                                    1, '1 kpc', 'upper right', 
+                                    50, '50 kpc', 'upper right', 
                                     pad=0.1,
                                     color='white',
                                     frameon=False,

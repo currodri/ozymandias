@@ -114,7 +114,7 @@ def init_filter(cond_strs, name, group):
     if isinstance(cond_strs, str):
         cond_strs = [cond_strs]
     filt = filtering.filter()
-    if cond_strs[0] == None:
+    if cond_strs[0] == 'none':
         filt.ncond = 0
         filt.name = 'none'
         return filt

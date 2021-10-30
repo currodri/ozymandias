@@ -622,10 +622,10 @@ module maps
         type(region) :: bbox
 
         call init_amr_read(repository,amr,sim)
-        amr%lmax = min(get_required_resolution(cam),amr%nlevelmax)
+        amr%lmax = amr%nlevelmax !min(get_required_resolution(cam),amr%nlevelmax)
         write(*,*)'Maximum resolution level: ',amr%nlevelmax
         write(*,*)'Using: ',amr%lmax
-        call check_families(repository,sim)
+        if (.not.sim%dmonly) call check_families(repository,sim)
         call get_bounding_box(cam,bbox)
         bbox%name = 'cube'
         bbox%bulk_velocity = bulk_velocity
@@ -650,7 +650,7 @@ module maps
         logical :: ok_part
         integer :: i,j,k
         integer :: ipos,icpu,ix,iy,ixp1,iyp1,ivar
-        integer :: npart,npart2,nstar,ncpu2,ndim2
+        integer :: npart,npart2,nstar,ncpu2,ndim2,nparttoto
         real(dbl) :: weight,distance,mapvalue
         real(dbl) :: dx,dy,ddx,ddy,dex,dey
         real(dbl),dimension(1:3,1:3) :: trans_matrix
@@ -692,6 +692,7 @@ module maps
         ipos = INDEX(repository,'output_')
         nchar = repository(ipos+7:ipos+13)
         npart = 0
+        nparttoto = 0
         do k=1,amr%ncpu_read
             icpu = amr%cpu_list(k)
             call title(icpu,ncharcpu)
@@ -726,9 +727,9 @@ module maps
             read(1)
             read(1)
             allocate(m(1:npart2))
+            allocate(id(1:npart2))
             if(nstar>0)then
                 allocate(age(1:npart2))
-                allocate(id(1:npart2))
                 allocate(met(1:npart2))
                 allocate(imass(1:npart2))
             endif
@@ -749,9 +750,9 @@ module maps
 
             ! Read mass
             read(1)m
+            read(1)id
+            read(1) ! Skip level
             if (nstar>0) then
-                read(1)id
-                read(1) ! Skip level
                 if (sim%family) then
                     read(1) ! Skip family
                     read(1) ! Skip tags
@@ -826,14 +827,16 @@ module maps
                                 proj%toto(ivar,ix  ,iyp1) = proj%toto(ivar,ix  ,iyp1) + mapvalue*dex*ddy*weight
                                 proj%toto(ivar,ixp1,iy  ) = proj%toto(ivar,ixp1,iy  ) + mapvalue*ddx*dey*weight
                                 proj%toto(ivar,ixp1,iyp1) = proj%toto(ivar,ixp1,iyp1) + mapvalue*ddx*ddy*weight
+                                nparttoto = nparttoto + 1
                             endif
                         endif
                     end do projvarloop
                 endif
             end do partloop
-            deallocate(m,x,v)
-            if (nstar>0)deallocate(id,age,met,imass)
+            deallocate(id,m,x,v)
+            if (nstar>0)deallocate(age,met,imass)
         end do cpuloop
+        write(*,*)'> nparttoto: ',nparttoto
     end subroutine project_particles
 
     subroutine healpix_hydro(repository,reg,nside,proj)

@@ -1,8 +1,8 @@
 ! Module coordinate_systems defined in file coordinates_module.fpp
 
 subroutine f90wrap_r_sphere(ret_r_sphere, p)
-    use coordinate_systems, only: r_sphere
     use vectors, only: vector
+    use coordinate_systems, only: r_sphere
     implicit none
     
     type vector_ptr_type
@@ -16,8 +16,8 @@ subroutine f90wrap_r_sphere(ret_r_sphere, p)
 end subroutine f90wrap_r_sphere
 
 subroutine f90wrap_theta_sphere(ret_theta_sphere, p)
-    use coordinate_systems, only: theta_sphere
     use vectors, only: vector
+    use coordinate_systems, only: theta_sphere
     implicit none
     
     type vector_ptr_type
@@ -31,8 +31,8 @@ subroutine f90wrap_theta_sphere(ret_theta_sphere, p)
 end subroutine f90wrap_theta_sphere
 
 subroutine f90wrap_phi_sphere(ret_phi_sphere, p)
-    use coordinate_systems, only: phi_sphere
     use vectors, only: vector
+    use coordinate_systems, only: phi_sphere
     implicit none
     
     type vector_ptr_type
@@ -46,8 +46,8 @@ subroutine f90wrap_phi_sphere(ret_phi_sphere, p)
 end subroutine f90wrap_phi_sphere
 
 subroutine f90wrap_r_cyl(ret_r_cyl, p)
-    use vectors, only: vector
     use coordinate_systems, only: r_cyl
+    use vectors, only: vector
     implicit none
     
     type vector_ptr_type
@@ -76,15 +76,9 @@ subroutine f90wrap_phi_cyl(ret_phi_cyl, p)
 end subroutine f90wrap_phi_cyl
 
 subroutine f90wrap_spherical_basis_from_cartesian(p, spher_basis)
-<<<<<<< HEAD
-    use basis_representations, only: basis
-    use vectors, only: vector
-    use coordinate_systems, only: spherical_basis_from_cartesian
-=======
-    use coordinate_systems, only: spherical_basis_from_cartesian
     use vectors, only: vector
     use basis_representations, only: basis
->>>>>>> 2fe29f6cd2a2b2f6a393973835311a85476523be
+    use coordinate_systems, only: spherical_basis_from_cartesian
     implicit none
     
     type vector_ptr_type
@@ -103,11 +97,6 @@ subroutine f90wrap_spherical_basis_from_cartesian(p, spher_basis)
 end subroutine f90wrap_spherical_basis_from_cartesian
 
 subroutine f90wrap_cylindrical_basis_from_cartesian(p, cyl_basis)
-<<<<<<< HEAD
-    use coordinate_systems, only: cylindrical_basis_from_cartesian
-    use basis_representations, only: basis
-=======
->>>>>>> 2fe29f6cd2a2b2f6a393973835311a85476523be
     use vectors, only: vector
     use coordinate_systems, only: cylindrical_basis_from_cartesian
     use basis_representations, only: basis
@@ -129,8 +118,8 @@ subroutine f90wrap_cylindrical_basis_from_cartesian(p, cyl_basis)
 end subroutine f90wrap_cylindrical_basis_from_cartesian
 
 subroutine f90wrap_new_z_coordinates(axis, transformation_matrix, errormsg)
-    use coordinate_systems, only: new_z_coordinates
     use vectors, only: vector
+    use coordinate_systems, only: new_z_coordinates
     implicit none
     
     type vector_ptr_type
@@ -603,7 +592,7 @@ subroutine f90wrap_region_finalise(this)
 end subroutine f90wrap_region_finalise
 
 subroutine f90wrap_limits(reg, lim, n0, n1)
-    use geometrical_regions, only: region, limits
+    use geometrical_regions, only: limits, region
     implicit none
     
     type region_ptr_type
@@ -639,16 +628,16 @@ subroutine f90wrap_checkifinside(pos, reg, ok, distance, n0)
 end subroutine f90wrap_checkifinside
 
 subroutine f90wrap_cube(p, reg, ok, distance)
-    use geometrical_regions, only: region, cube
     use vectors, only: vector
+    use geometrical_regions, only: cube, region
     implicit none
     
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type(vector_ptr_type) :: p_ptr
     integer, intent(in), dimension(2) :: p
     type(region_ptr_type) :: reg_ptr
@@ -661,20 +650,16 @@ subroutine f90wrap_cube(p, reg, ok, distance)
 end subroutine f90wrap_cube
 
 subroutine f90wrap_sphere(p, reg, ok, distance)
-<<<<<<< HEAD
-    use geometrical_regions, only: region, sphere
-=======
->>>>>>> 2fe29f6cd2a2b2f6a393973835311a85476523be
-    use vectors, only: vector
     use geometrical_regions, only: sphere, region
+    use vectors, only: vector
     implicit none
     
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type(vector_ptr_type) :: p_ptr
     integer, intent(in), dimension(2) :: p
     type(region_ptr_type) :: reg_ptr
@@ -687,16 +672,16 @@ subroutine f90wrap_sphere(p, reg, ok, distance)
 end subroutine f90wrap_sphere
 
 subroutine f90wrap_cylinder(p, reg, ok, distance)
-    use geometrical_regions, only: region, cylinder
     use vectors, only: vector
+    use geometrical_regions, only: cylinder, region
     implicit none
     
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type(vector_ptr_type) :: p_ptr
     integer, intent(in), dimension(2) :: p
     type(region_ptr_type) :: reg_ptr
@@ -709,16 +694,16 @@ subroutine f90wrap_cylinder(p, reg, ok, distance)
 end subroutine f90wrap_cylinder
 
 subroutine f90wrap_cone(p, reg, ok, distance)
-    use geometrical_regions, only: region, cone
     use vectors, only: vector
+    use geometrical_regions, only: cone, region
     implicit none
     
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type(vector_ptr_type) :: p_ptr
     integer, intent(in), dimension(2) :: p
     type(region_ptr_type) :: reg_ptr

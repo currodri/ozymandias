@@ -25,7 +25,7 @@ module io_ramses
         integer :: nvar
         integer :: density=0,vx=0,vy=0,vz=0,thermal_pressure=0,metallicity=0
         integer :: Blx=0,Bly=0,Blz=0,Brx=0,Bry=0,Brz=0
-        integer :: eCR=0
+        integer :: cr_pressure=0
         integer :: xHII=0,xHeII=0,xHeIII=0
     end type hydroID
 
@@ -41,7 +41,8 @@ module io_ramses
     end type amr_info
 
     type sim_info
-        logical :: cosmo=.true.
+        logical :: cosmo=.true.,family=.false.
+        logical :: dm=.false.,hydro=.false.,mhd=.false.,cr=.false.,rt=.false.,bh=.false.
         real(dbl) :: h0,t,aexp,unit_l,unit_d,unit_t,unit_m,boxlen,omega_m,omega_l,omega_k,omega_b
         real(dbl) :: time_tot,time_simu
         integer :: n_frw
@@ -226,6 +227,46 @@ module io_ramses
     end subroutine check_lmax
 
     !---------------------------------------------------------------
+    ! Subroutine: CHECK FAMILY
+    !
+    ! This routine reads the header_xxxxx.txt file from a snapshot
+    ! in order to determine if particle files follow or not the
+    ! family/tag format
+    !---------------------------------------------------------------
+    
+    subroutine check_families(repository,sim)
+        implicit none
+
+        character(len=128),intent(in) ::  repository
+        type(sim_info),intent(inout) :: sim
+
+        character(len=128) :: nomfich,line,fline
+        character(len=10) :: var1,var2,var3,var4,var5,var6
+        character(5) :: nchar
+        integer :: ipos,status
+
+        ipos = index(repository,'output_')
+        nchar = repository(ipos+7:ipos+13)
+        nomfich = TRIM(repository)//'/header_'//TRIM(nchar)//'.txt'
+        open(unit=10,file=nomfich,form='formatted',status='old')
+        do
+            read(10,'(A)',iostat=status)line
+            if (status /= 0) exit
+            fline = line
+        end do
+        read(fline,*)var1,var2,var3,var4,var5,var6
+        if (trim(var6) .eq. 'family') then
+            write(*,*)': This simulation uses particle families'
+            sim%family = .true.
+        else if (trim(var6) .eq. 'tform') then
+            write(*,*)': This simulation uses the old particle format'
+        else
+            write(*,*)': This simulation format for particles is not recognised!'
+            stop
+        endif
+    end subroutine check_families
+
+    !---------------------------------------------------------------
     ! Subroutine: READ HYDRO IDs
     !
     ! This routine extracts the HYDRO variable IDs for a given
@@ -386,11 +427,11 @@ module io_ramses
         case ('pressure')
             varIDs%thermal_pressure = newID
         case ('non_thermal_pressure_1')
-            write(*,'(": Using non_thermal_pressure_1 as cosmic rays energy density (variable ",I2,")")') newID
-            varIDs%eCR = newID
+            write(*,'(": Using non_thermal_pressure_1 as cosmic ray pressure (variable ",I2,")")') newID
+            varIDs%cr_pressure = newID
         case ('cosmic_ray_01')
-            write(*,'(": Using cosmic_ray_01 as cosmic rays energy density (variable ",I2,")")') newID
-            varIDs%eCR = newID
+            write(*,'(": Using cosmic_ray_01 as cosmic ray pressure (variable ",I2,")")') newID
+            varIDs%cr_pressure = newID
         case ('passive_scalar_1')
             write(*,'(": Using passive_scalar_1 as metallicity (variable ",I2,")")') newID
             varIDs%metallicity = newID
@@ -585,17 +626,17 @@ module io_ramses
             ! Thermal pressure
             value = var(varIDs%thermal_pressure)
         case ('thermal_energy')
-            ! Thermal energy, computed as (gamma - 1)*thermal_pressure*volume
-            value = ((5D0/3d0 - 1d0) * var(varIDs%thermal_pressure) * (dx * dx)) * dx
+            ! Thermal energy, computed as thermal_pressure*volume/(gamma - 1)
+            value = ((var(varIDs%thermal_pressure) / (5D0/3d0 - 1d0)) * (dx * dx)) * dx
         case ('thermal_energy_specific')
             ! Specific thermal energy as E_ther/cell mass
-            value = ((5D0/3d0 - 1d0) * var(varIDs%thermal_pressure)) / var(varIDs%density)
+            value = (var(varIDs%thermal_pressure) / (5D0/3d0 - 1d0)) / var(varIDs%density)
         case ('thermal_energy_density')
             ! Thermal energy density  as E_ther/cell volume
-            value = (5D0/3d0 - 1d0) * var(varIDs%thermal_pressure)
+            value = var(varIDs%thermal_pressure) / (5D0/3d0 - 1d0)
         case ('entropy_specific')
             ! Specific entropy, following Gent 2012 equation
-            
+            ! TODO: Write this
         case ('kinetic_energy')
             ! Kinetic energy, computed as 1/2*density*volume*magnitude(velocity)
             ! DISCLAIMER: Velocity not corrected for bulk velocity
@@ -628,12 +669,14 @@ module io_ramses
             value = var(varIDs%Brz)
         case ('cr_energy')
             ! CR energy, computed as CR_energydensity*volume
-            value = (var(varIDs%eCR) * (dx*dx)) * dx
+            value = ((var(varIDs%cr_pressure) / (4D0/3d0 - 1d0)) * (dx*dx)) * dx
         case ('cr_energy_density')
-            value = var(varIDs%eCR)
+            value = var(varIDs%cr_pressure) / (4D0/3d0 - 1d0)
+        case ('cr_pressure')
+            value = var(varIDs%cr_pressure)
         case ('cr_energy_specific')
             ! Specific CR energy, computed as CR_energydensity*volume/cell mass
-            value = var(varIDs%eCR) / var(varIDs%density)
+            value = (var(varIDs%cr_pressure) / (4D0/3d0 - 1d0)) / var(varIDs%density)
         case ('xHII')
             ! Hydrogen ionisation fraction
             value = var(varIDs%xHII)
@@ -738,8 +781,20 @@ module io_ramses
         inquire(file=nomfich, exist=ok)
         if ( .not. ok ) then
             print *,TRIM(nomfich)//' not found.'
-            stop
+            write(*,*)': No hydro data in this simulation.'
+        else
+            sim%hydro = .true.
         endif
+        nomfich=TRIM(repository)//'/part_'//TRIM(nchar)//'.out00001'
+        ! Verify input part file
+        inquire(file=nomfich, exist=ok)
+        if ( .not. ok ) then
+            print *,TRIM(nomfich)//' not found.'
+            write(*,*)': No particles in this simulation.'
+        else
+            sim%dm = .true.
+        endif
+        if (sim%dm .and. .not. sim%hydro) write(*,*)': This is a DM only simulation.'
         nomfich=TRIM(repository)//'/amr_'//TRIM(nchar)//'.out00001'
         ! Verify input amr file
         inquire(file=nomfich, exist=ok)
@@ -946,7 +1001,11 @@ module io_ramses
         vartype = tempvar(1:index-1)
         varname = tempvar(index+1:)
 
-        call getparttype(part,ptype)
+        if (sim%dm .and. .not. sim%hydro) then
+            ptype = 'dm'
+        else
+            call getparttype(part,ptype)
+        endif
 
         if (vartype.eq.'dm'.and.ptype.eq.'dm') then
             select case (TRIM(varname))

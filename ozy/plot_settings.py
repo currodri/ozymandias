@@ -6,9 +6,9 @@ plotting_dictionary = dict(
     density = {'cmap': sns.color_palette("mako", as_cmap=True),
                 'text_over':'white',
                 'label':r'$\rho$ [g/cm$^{-3}$]',
-                'label_log':r'$\log\left(\rho/{\rm g/cm}^{-3}\right)$',
+                'label_log':r'$\log\left(\frac{\rho}{{\rm g cm}^{-3}}\right)$',
                 'units':'g*cm**-3',
-                'vmin':2e-28,
+                'vmin':2e-30,
                 'vmax':7e-22,
                 'vmin_galaxy':2e-28,
                 'vmax_galaxy':5e-22
@@ -26,10 +26,10 @@ plotting_dictionary = dict(
                     'label':r'$T$ [K]',
                     'label_log':r'$\log\left(\frac{T}{{\rm K}}\right)$',
                     'units':'K',
-                    'vmin':2e+2,
-                    'vmax':8e+5,
-                    'vmin_galaxy':5e+3,
-                    'vmax_galaxy':8e+6
+                    'vmin':2e+4,
+                    'vmax':8e+6,
+                    'vmin_galaxy':5e+2,
+                    'vmax_galaxy':8e+5
     },
     thermal_energy = {'cmap':sns.color_palette("rocket", as_cmap=True),
                             'text_over':'white',
@@ -57,7 +57,9 @@ plotting_dictionary = dict(
                     'label_log':r'$\log\left(Z/Z_{\odot}\right)$',
                     'units':'dimensionless',
                     'vmin':5e-3,
-                    'vmax':1.5
+                    'vmax':1.5,
+                    'vmin_galaxy':5e-3,
+                    'vmax_galaxy':1.5
     },
     magnetic_energy = {'cmap':sns.cubehelix_palette(reverse=True,as_cmap=True),
                                 'text_over':'white',
@@ -73,7 +75,9 @@ plotting_dictionary = dict(
                                 'label':r'$\epsilon_{\rm mag}$ [erg/g]',
                                 'units':'erg*g**-1',
                                 'vmin':5e+8,
-                                'vmax':3e+11
+                                'vmax':3e+11,
+                                'vmin_galaxy':5e+8,
+                                'vmax_galaxy':3e+11
 
     },
     magnetic_energy_density = {'cmap':sns.cubehelix_palette(reverse=True,as_cmap=True),
@@ -82,7 +86,9 @@ plotting_dictionary = dict(
                                 'label_log':r'$\log(\frac{\varepsilon_{\rm mag}}{{\rm erg/cm}^{3}})$',
                                 'units':'erg*cm**-3',
                                 'vmin':4e-17,
-                                'vmax':5e-11
+                                'vmax':5e-11,
+                                'vmin_galaxy':4e-17,
+                                'vmax_galaxy':5e-11
 
     },
     total_crs_energy = {'cmap':sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),
@@ -102,10 +108,10 @@ plotting_dictionary = dict(
                         'label':r'$\varepsilon_{\rm CR}$ [erg/cm$^{3}$]',
                         'label_log':r'$\log(\frac{\varepsilon_{\rm CR}}{{\rm erg/cm}^{3}})$',
                         'units':'erg*cm**-3',
-                        'vmin':7e-14,
-                        'vmax':8e-11,
-                        'vmin_galaxy':4e-14,
-                        'vmax_galaxy':4e-11
+                        'vmin':7e-18,
+                        'vmax':8e-12,
+                        'vmin_galaxy':8e-14,
+                        'vmax_galaxy':8e-11
 
     },
     cr_energy_specific = {'cmap':sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),
@@ -114,7 +120,9 @@ plotting_dictionary = dict(
                                 'label_log':r'$\log(\frac{\epsilon_{\rm CR}}{\rm erg/g})$',
                                 'units':'erg*g**-1',
                                 'vmin':5e+12,
-                                'vmax':7e+14
+                                'vmax':7e+14,
+                                'vmin_galaxy':5e+12,
+                                'vmax_galaxy':7e+14
 
     },
     xHII = {'cmap':'bone',
@@ -181,7 +189,18 @@ plotting_dictionary = dict(
                         'label_log':r'$\log\left(\frac{\Sigma_{*}}{{\rmM}_{\odot}{\rm kpc}^{-2}}\right)$',
                         'units':'Msun/(kpc**2)',
                         'vmin':3e+4,
-                        'vmax':5e+9
+                        'vmax':5e+9,
+                        'vmin_galaxy':3e+4,
+                        'vmax_galaxy':5e+9
+
+    },
+    dm_sdensity = {'cmap':'cividis',
+                        'text_over':'white',
+                        'label':r'$\Sigma_{\rm DM}$ [M$_{\odot}$ kpc$^{-2}$]',
+                        'label_log':r'$\log\left(\frac{\Sigma_{\rm DM}}{{\rmM}_{\odot}{\rm kpc}^{-2}}\right)$',
+                        'units':'Msun/(kpc**2)',
+                        'vmin':4e+5,
+                        'vmax':8e+8
 
     },
     dm_mass = {'cmap':'cividis',
@@ -212,6 +231,23 @@ plotting_dictionary = dict(
                             'label_log':r'$\log\left(\frac{\Sigma_{\rm SFR}}{{\rmM}_{\odot}{\rm yr}^{-1}{\rm kpc}^{-2}}\right)$',
                             'units':'Msun/(yr*kpc**2)',
                             'vmin':3e-4,
-                            'vmax':90
+                            'vmax':90,
+                            'vmin_galaxy':3e-4,
+                            'vmax_galaxy':90
     }
+)
+
+circle_dictionary = dict(
+        rvir_galaxy = {'edgecolor': 'y',
+                        'linestyle':'--'
+        },
+        rvir_satellite = {'edgecolor': 'w',
+                          'linestyle':'--'
+        },
+        tidal_BT87_simple = {'edgecolor': 'r',
+                          'linestyle':':'
+        },
+        tidal_BT87_centrifugal = {'edgecolor': 'b',
+                          'linestyle':':'
+        }
 )

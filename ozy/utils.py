@@ -133,3 +133,26 @@ def RunningMedian(seq, M):
         insort(s, item)            # insert newest such that new sort is not required        
         medians.append(median())  
     return medians
+
+
+def tidal_radius(central, satellite, method='BT87_simple'):
+    """
+    Computation of the tidal radius of a satellite with respect to a central galaxy.
+    """
+
+    if method == 'BT87_simple':
+        r = (satellite.virial_quantities['mass']/(2.0*central.virial_quantities['mass']))**(1.0/3.0)
+        r = r * satellite.virial_quantities['radius']
+
+    elif method == 'BT87_centrifugal':
+        mass_ratio = satellite.virial_quantities['mass']/central.virial_quantities['mass']
+        r = (mass_ratio/(3.0 + mass_ratio))**(1.0/3.0)
+        r = r * satellite.virial_quantities['radius']
+    elif method == 'King62':
+        #TODO: Add this calculation, which is significantly more complex
+        pass
+    else:
+        print('This tidal radius method is not contemplated. Stoping!')
+        exit
+    
+    return r

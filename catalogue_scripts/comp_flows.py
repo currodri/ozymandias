@@ -493,6 +493,7 @@ if __name__ == '__main__':
                         for f in line_styles.keys():
                             v = plotting_vars[d][0]
                             plt_setting = plotting_dictionary[v]
+                            print(v+'_'+d_key+'rvir_'+str(f))
                             try:
                                 value = gf.data[v+'_'+d_key+'rvir_'+str(f)].in_units(plt_setting['units'])
                                 if args.type == 'inflow':

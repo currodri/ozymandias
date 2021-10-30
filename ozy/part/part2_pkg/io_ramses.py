@@ -2,7 +2,7 @@
 Module io_ramses
 
 
-Defined at read_amr_module.fpp lines 24-1283
+Defined at read_amr_module.fpp lines 24-1321
 
 """
 from __future__ import print_function, absolute_import, division
@@ -258,19 +258,19 @@ class hydroID(f90wrap.runtime.FortranDerivedType):
         _part2_pkg.f90wrap_hydroid__set__brz(self._handle, brz)
     
     @property
-    def ecr(self):
+    def cr_pressure(self):
         """
-        Element ecr ftype=integer  pytype=int
+        Element cr_pressure ftype=integer  pytype=int
         
         
         Defined at read_amr_module.fpp line 31
         
         """
-        return _part2_pkg.f90wrap_hydroid__get__ecr(self._handle)
+        return _part2_pkg.f90wrap_hydroid__get__cr_pressure(self._handle)
     
-    @ecr.setter
-    def ecr(self, ecr):
-        _part2_pkg.f90wrap_hydroid__set__ecr(self._handle, ecr)
+    @cr_pressure.setter
+    def cr_pressure(self, cr_pressure):
+        _part2_pkg.f90wrap_hydroid__set__cr_pressure(self._handle, cr_pressure)
     
     @property
     def xhii(self):
@@ -345,8 +345,8 @@ class hydroID(f90wrap.runtime.FortranDerivedType):
         ret.append(repr(self.bry))
         ret.append(',\n    brz : ')
         ret.append(repr(self.brz))
-        ret.append(',\n    ecr : ')
-        ret.append(repr(self.ecr))
+        ret.append(',\n    cr_pressure : ')
+        ret.append(repr(self.cr_pressure))
         ret.append(',\n    xhii : ')
         ret.append(repr(self.xhii))
         ret.append(',\n    xheii : ')
@@ -728,7 +728,7 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
     Type(name=sim_info)
     
     
-    Defined at read_amr_module.fpp lines 44-49
+    Defined at read_amr_module.fpp lines 44-50
     
     """
     def __init__(self, handle=None):
@@ -736,7 +736,7 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         self = Sim_Info()
         
         
-        Defined at read_amr_module.fpp lines 44-49
+        Defined at read_amr_module.fpp lines 44-50
         
         
         Returns
@@ -756,7 +756,7 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         Destructor for class Sim_Info
         
         
-        Defined at read_amr_module.fpp lines 44-49
+        Defined at read_amr_module.fpp lines 44-50
         
         Parameters
         ----------
@@ -800,12 +800,102 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         _part2_pkg.f90wrap_sim_info__set__family(self._handle, family)
     
     @property
+    def dm(self):
+        """
+        Element dm ftype=logical pytype=bool
+        
+        
+        Defined at read_amr_module.fpp line 46
+        
+        """
+        return _part2_pkg.f90wrap_sim_info__get__dm(self._handle)
+    
+    @dm.setter
+    def dm(self, dm):
+        _part2_pkg.f90wrap_sim_info__set__dm(self._handle, dm)
+    
+    @property
+    def hydro(self):
+        """
+        Element hydro ftype=logical pytype=bool
+        
+        
+        Defined at read_amr_module.fpp line 46
+        
+        """
+        return _part2_pkg.f90wrap_sim_info__get__hydro(self._handle)
+    
+    @hydro.setter
+    def hydro(self, hydro):
+        _part2_pkg.f90wrap_sim_info__set__hydro(self._handle, hydro)
+    
+    @property
+    def mhd(self):
+        """
+        Element mhd ftype=logical pytype=bool
+        
+        
+        Defined at read_amr_module.fpp line 46
+        
+        """
+        return _part2_pkg.f90wrap_sim_info__get__mhd(self._handle)
+    
+    @mhd.setter
+    def mhd(self, mhd):
+        _part2_pkg.f90wrap_sim_info__set__mhd(self._handle, mhd)
+    
+    @property
+    def cr(self):
+        """
+        Element cr ftype=logical pytype=bool
+        
+        
+        Defined at read_amr_module.fpp line 46
+        
+        """
+        return _part2_pkg.f90wrap_sim_info__get__cr(self._handle)
+    
+    @cr.setter
+    def cr(self, cr):
+        _part2_pkg.f90wrap_sim_info__set__cr(self._handle, cr)
+    
+    @property
+    def rt(self):
+        """
+        Element rt ftype=logical pytype=bool
+        
+        
+        Defined at read_amr_module.fpp line 46
+        
+        """
+        return _part2_pkg.f90wrap_sim_info__get__rt(self._handle)
+    
+    @rt.setter
+    def rt(self, rt):
+        _part2_pkg.f90wrap_sim_info__set__rt(self._handle, rt)
+    
+    @property
+    def bh(self):
+        """
+        Element bh ftype=logical pytype=bool
+        
+        
+        Defined at read_amr_module.fpp line 46
+        
+        """
+        return _part2_pkg.f90wrap_sim_info__get__bh(self._handle)
+    
+    @bh.setter
+    def bh(self, bh):
+        _part2_pkg.f90wrap_sim_info__set__bh(self._handle, bh)
+    
+    @property
     def h0(self):
         """
         Element h0 ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 46
+        Defined at read_amr_module.fpp line 47
         
         """
         return _part2_pkg.f90wrap_sim_info__get__h0(self._handle)
@@ -820,7 +910,7 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         Element t ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 46
+        Defined at read_amr_module.fpp line 47
         
         """
         return _part2_pkg.f90wrap_sim_info__get__t(self._handle)
@@ -835,7 +925,7 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         Element aexp ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 46
+        Defined at read_amr_module.fpp line 47
         
         """
         return _part2_pkg.f90wrap_sim_info__get__aexp(self._handle)
@@ -850,7 +940,7 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         Element unit_l ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 46
+        Defined at read_amr_module.fpp line 47
         
         """
         return _part2_pkg.f90wrap_sim_info__get__unit_l(self._handle)
@@ -865,7 +955,7 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         Element unit_d ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 46
+        Defined at read_amr_module.fpp line 47
         
         """
         return _part2_pkg.f90wrap_sim_info__get__unit_d(self._handle)
@@ -880,7 +970,7 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         Element unit_t ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 46
+        Defined at read_amr_module.fpp line 47
         
         """
         return _part2_pkg.f90wrap_sim_info__get__unit_t(self._handle)
@@ -895,7 +985,7 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         Element unit_m ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 46
+        Defined at read_amr_module.fpp line 47
         
         """
         return _part2_pkg.f90wrap_sim_info__get__unit_m(self._handle)
@@ -910,7 +1000,7 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         Element boxlen ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 46
+        Defined at read_amr_module.fpp line 47
         
         """
         return _part2_pkg.f90wrap_sim_info__get__boxlen(self._handle)
@@ -925,7 +1015,7 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         Element omega_m ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 46
+        Defined at read_amr_module.fpp line 47
         
         """
         return _part2_pkg.f90wrap_sim_info__get__omega_m(self._handle)
@@ -940,7 +1030,7 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         Element omega_l ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 46
+        Defined at read_amr_module.fpp line 47
         
         """
         return _part2_pkg.f90wrap_sim_info__get__omega_l(self._handle)
@@ -955,7 +1045,7 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         Element omega_k ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 46
+        Defined at read_amr_module.fpp line 47
         
         """
         return _part2_pkg.f90wrap_sim_info__get__omega_k(self._handle)
@@ -970,7 +1060,7 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         Element omega_b ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 46
+        Defined at read_amr_module.fpp line 47
         
         """
         return _part2_pkg.f90wrap_sim_info__get__omega_b(self._handle)
@@ -985,7 +1075,7 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         Element time_tot ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 47
+        Defined at read_amr_module.fpp line 48
         
         """
         return _part2_pkg.f90wrap_sim_info__get__time_tot(self._handle)
@@ -1000,7 +1090,7 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         Element time_simu ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 47
+        Defined at read_amr_module.fpp line 48
         
         """
         return _part2_pkg.f90wrap_sim_info__get__time_simu(self._handle)
@@ -1015,7 +1105,7 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         Element n_frw ftype=integer  pytype=int
         
         
-        Defined at read_amr_module.fpp line 48
+        Defined at read_amr_module.fpp line 49
         
         """
         return _part2_pkg.f90wrap_sim_info__get__n_frw(self._handle)
@@ -1030,7 +1120,7 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         Element aexp_frw ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 49
+        Defined at read_amr_module.fpp line 50
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -1054,7 +1144,7 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         Element hexp_frw ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 49
+        Defined at read_amr_module.fpp line 50
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -1078,7 +1168,7 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         Element tau_frw ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 49
+        Defined at read_amr_module.fpp line 50
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -1102,7 +1192,7 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         Element t_frw ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 49
+        Defined at read_amr_module.fpp line 50
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -1126,6 +1216,18 @@ class sim_info(f90wrap.runtime.FortranDerivedType):
         ret.append(repr(self.cosmo))
         ret.append(',\n    family : ')
         ret.append(repr(self.family))
+        ret.append(',\n    dm : ')
+        ret.append(repr(self.dm))
+        ret.append(',\n    hydro : ')
+        ret.append(repr(self.hydro))
+        ret.append(',\n    mhd : ')
+        ret.append(repr(self.mhd))
+        ret.append(',\n    cr : ')
+        ret.append(repr(self.cr))
+        ret.append(',\n    rt : ')
+        ret.append(repr(self.rt))
+        ret.append(',\n    bh : ')
+        ret.append(repr(self.bh))
         ret.append(',\n    h0 : ')
         ret.append(repr(self.h0))
         ret.append(',\n    t : ')
@@ -1176,7 +1278,7 @@ class level(f90wrap.runtime.FortranDerivedType):
     Type(name=level)
     
     
-    Defined at read_amr_module.fpp lines 51-62
+    Defined at read_amr_module.fpp lines 52-63
     
     """
     def __init__(self, handle=None):
@@ -1184,7 +1286,7 @@ class level(f90wrap.runtime.FortranDerivedType):
         self = Level()
         
         
-        Defined at read_amr_module.fpp lines 51-62
+        Defined at read_amr_module.fpp lines 52-63
         
         
         Returns
@@ -1204,7 +1306,7 @@ class level(f90wrap.runtime.FortranDerivedType):
         Destructor for class Level
         
         
-        Defined at read_amr_module.fpp lines 51-62
+        Defined at read_amr_module.fpp lines 52-63
         
         Parameters
         ----------
@@ -1223,7 +1325,7 @@ class level(f90wrap.runtime.FortranDerivedType):
         Element ilevel ftype=integer pytype=int
         
         
-        Defined at read_amr_module.fpp line 52
+        Defined at read_amr_module.fpp line 53
         
         """
         return _part2_pkg.f90wrap_level__get__ilevel(self._handle)
@@ -1238,7 +1340,7 @@ class level(f90wrap.runtime.FortranDerivedType):
         Element ngrid ftype=integer pytype=int
         
         
-        Defined at read_amr_module.fpp line 53
+        Defined at read_amr_module.fpp line 54
         
         """
         return _part2_pkg.f90wrap_level__get__ngrid(self._handle)
@@ -1253,7 +1355,7 @@ class level(f90wrap.runtime.FortranDerivedType):
         Element cube ftype=real(sgl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 54
+        Defined at read_amr_module.fpp line 55
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -1277,7 +1379,7 @@ class level(f90wrap.runtime.FortranDerivedType):
         Element map ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 55
+        Defined at read_amr_module.fpp line 56
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -1301,7 +1403,7 @@ class level(f90wrap.runtime.FortranDerivedType):
         Element rho ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 56
+        Defined at read_amr_module.fpp line 57
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -1325,7 +1427,7 @@ class level(f90wrap.runtime.FortranDerivedType):
         Element imin ftype=integer pytype=int
         
         
-        Defined at read_amr_module.fpp line 57
+        Defined at read_amr_module.fpp line 58
         
         """
         return _part2_pkg.f90wrap_level__get__imin(self._handle)
@@ -1340,7 +1442,7 @@ class level(f90wrap.runtime.FortranDerivedType):
         Element imax ftype=integer pytype=int
         
         
-        Defined at read_amr_module.fpp line 58
+        Defined at read_amr_module.fpp line 59
         
         """
         return _part2_pkg.f90wrap_level__get__imax(self._handle)
@@ -1355,7 +1457,7 @@ class level(f90wrap.runtime.FortranDerivedType):
         Element jmin ftype=integer pytype=int
         
         
-        Defined at read_amr_module.fpp line 59
+        Defined at read_amr_module.fpp line 60
         
         """
         return _part2_pkg.f90wrap_level__get__jmin(self._handle)
@@ -1370,7 +1472,7 @@ class level(f90wrap.runtime.FortranDerivedType):
         Element jmax ftype=integer pytype=int
         
         
-        Defined at read_amr_module.fpp line 60
+        Defined at read_amr_module.fpp line 61
         
         """
         return _part2_pkg.f90wrap_level__get__jmax(self._handle)
@@ -1385,7 +1487,7 @@ class level(f90wrap.runtime.FortranDerivedType):
         Element kmin ftype=integer pytype=int
         
         
-        Defined at read_amr_module.fpp line 61
+        Defined at read_amr_module.fpp line 62
         
         """
         return _part2_pkg.f90wrap_level__get__kmin(self._handle)
@@ -1400,7 +1502,7 @@ class level(f90wrap.runtime.FortranDerivedType):
         Element kmax ftype=integer pytype=int
         
         
-        Defined at read_amr_module.fpp line 62
+        Defined at read_amr_module.fpp line 63
         
         """
         return _part2_pkg.f90wrap_level__get__kmax(self._handle)
@@ -1445,7 +1547,7 @@ class data_handler(f90wrap.runtime.FortranDerivedType):
     Type(name=data_handler)
     
     
-    Defined at read_amr_module.fpp lines 64-68
+    Defined at read_amr_module.fpp lines 65-69
     
     """
     def __init__(self, handle=None):
@@ -1453,7 +1555,7 @@ class data_handler(f90wrap.runtime.FortranDerivedType):
         self = Data_Handler()
         
         
-        Defined at read_amr_module.fpp lines 64-68
+        Defined at read_amr_module.fpp lines 65-69
         
         
         Returns
@@ -1473,7 +1575,7 @@ class data_handler(f90wrap.runtime.FortranDerivedType):
         Destructor for class Data_Handler
         
         
-        Defined at read_amr_module.fpp lines 64-68
+        Defined at read_amr_module.fpp lines 65-69
         
         Parameters
         ----------
@@ -1492,7 +1594,7 @@ class data_handler(f90wrap.runtime.FortranDerivedType):
         Element name ftype=character(80) pytype=str
         
         
-        Defined at read_amr_module.fpp line 65
+        Defined at read_amr_module.fpp line 66
         
         """
         return _part2_pkg.f90wrap_data_handler__get__name(self._handle)
@@ -1507,7 +1609,7 @@ class data_handler(f90wrap.runtime.FortranDerivedType):
         Element x_data ftype=logical pytype=bool
         
         
-        Defined at read_amr_module.fpp line 66
+        Defined at read_amr_module.fpp line 67
         
         """
         return _part2_pkg.f90wrap_data_handler__get__x_data(self._handle)
@@ -1522,7 +1624,7 @@ class data_handler(f90wrap.runtime.FortranDerivedType):
         Element y_data ftype=logical pytype=bool
         
         
-        Defined at read_amr_module.fpp line 66
+        Defined at read_amr_module.fpp line 67
         
         """
         return _part2_pkg.f90wrap_data_handler__get__y_data(self._handle)
@@ -1537,7 +1639,7 @@ class data_handler(f90wrap.runtime.FortranDerivedType):
         Element z_data ftype=logical pytype=bool
         
         
-        Defined at read_amr_module.fpp line 66
+        Defined at read_amr_module.fpp line 67
         
         """
         return _part2_pkg.f90wrap_data_handler__get__z_data(self._handle)
@@ -1552,7 +1654,7 @@ class data_handler(f90wrap.runtime.FortranDerivedType):
         Element nx ftype=integer pytype=int
         
         
-        Defined at read_amr_module.fpp line 67
+        Defined at read_amr_module.fpp line 68
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -1576,7 +1678,7 @@ class data_handler(f90wrap.runtime.FortranDerivedType):
         Element ny ftype=integer pytype=int
         
         
-        Defined at read_amr_module.fpp line 67
+        Defined at read_amr_module.fpp line 68
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -1600,7 +1702,7 @@ class data_handler(f90wrap.runtime.FortranDerivedType):
         Element nz ftype=integer pytype=int
         
         
-        Defined at read_amr_module.fpp line 67
+        Defined at read_amr_module.fpp line 68
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -1624,7 +1726,7 @@ class data_handler(f90wrap.runtime.FortranDerivedType):
         Element x ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 68
+        Defined at read_amr_module.fpp line 69
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -1648,7 +1750,7 @@ class data_handler(f90wrap.runtime.FortranDerivedType):
         Element y ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 68
+        Defined at read_amr_module.fpp line 69
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -1672,7 +1774,7 @@ class data_handler(f90wrap.runtime.FortranDerivedType):
         Element z ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 68
+        Defined at read_amr_module.fpp line 69
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -1724,7 +1826,7 @@ class particle(f90wrap.runtime.FortranDerivedType):
     Type(name=particle)
     
     
-    Defined at read_amr_module.fpp lines 70-73
+    Defined at read_amr_module.fpp lines 71-74
     
     """
     def __init__(self, handle=None):
@@ -1732,7 +1834,7 @@ class particle(f90wrap.runtime.FortranDerivedType):
         self = Particle()
         
         
-        Defined at read_amr_module.fpp lines 70-73
+        Defined at read_amr_module.fpp lines 71-74
         
         
         Returns
@@ -1752,7 +1854,7 @@ class particle(f90wrap.runtime.FortranDerivedType):
         Destructor for class Particle
         
         
-        Defined at read_amr_module.fpp lines 70-73
+        Defined at read_amr_module.fpp lines 71-74
         
         Parameters
         ----------
@@ -1771,7 +1873,7 @@ class particle(f90wrap.runtime.FortranDerivedType):
         Element id ftype=integer  pytype=int
         
         
-        Defined at read_amr_module.fpp line 71
+        Defined at read_amr_module.fpp line 72
         
         """
         return _part2_pkg.f90wrap_particle__get__id(self._handle)
@@ -1786,7 +1888,7 @@ class particle(f90wrap.runtime.FortranDerivedType):
         Element x ftype=type(vector) pytype=Vector
         
         
-        Defined at read_amr_module.fpp line 72
+        Defined at read_amr_module.fpp line 73
         
         """
         x_handle = _part2_pkg.f90wrap_particle__get__x(self._handle)
@@ -1808,7 +1910,7 @@ class particle(f90wrap.runtime.FortranDerivedType):
         Element v ftype=type(vector) pytype=Vector
         
         
-        Defined at read_amr_module.fpp line 72
+        Defined at read_amr_module.fpp line 73
         
         """
         v_handle = _part2_pkg.f90wrap_particle__get__v(self._handle)
@@ -1830,7 +1932,7 @@ class particle(f90wrap.runtime.FortranDerivedType):
         Element m ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 73
+        Defined at read_amr_module.fpp line 74
         
         """
         return _part2_pkg.f90wrap_particle__get__m(self._handle)
@@ -1845,7 +1947,7 @@ class particle(f90wrap.runtime.FortranDerivedType):
         Element met ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 73
+        Defined at read_amr_module.fpp line 74
         
         """
         return _part2_pkg.f90wrap_particle__get__met(self._handle)
@@ -1860,7 +1962,7 @@ class particle(f90wrap.runtime.FortranDerivedType):
         Element imass ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 73
+        Defined at read_amr_module.fpp line 74
         
         """
         return _part2_pkg.f90wrap_particle__get__imass(self._handle)
@@ -1875,7 +1977,7 @@ class particle(f90wrap.runtime.FortranDerivedType):
         Element age ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 73
+        Defined at read_amr_module.fpp line 74
         
         """
         return _part2_pkg.f90wrap_particle__get__age(self._handle)
@@ -1890,7 +1992,7 @@ class particle(f90wrap.runtime.FortranDerivedType):
         Element tform ftype=real(dbl) pytype=float
         
         
-        Defined at read_amr_module.fpp line 73
+        Defined at read_amr_module.fpp line 74
         
         """
         return _part2_pkg.f90wrap_particle__get__tform(self._handle)
@@ -1928,7 +2030,7 @@ def title(n, nchar):
     title(n, nchar)
     
     
-    Defined at read_amr_module.fpp lines 81-105
+    Defined at read_amr_module.fpp lines 82-106
     
     Parameters
     ----------
@@ -1943,7 +2045,7 @@ def hilbert3d(x, y, z, order, bit_length, npoint):
     hilbert3d(x, y, z, order, bit_length, npoint)
     
     
-    Defined at read_amr_module.fpp lines 112-184
+    Defined at read_amr_module.fpp lines 113-185
     
     Parameters
     ----------
@@ -1963,7 +2065,7 @@ def check_lmax(ngridfile, amr):
     check_lmax(ngridfile, amr)
     
     
-    Defined at read_amr_module.fpp lines 192-205
+    Defined at read_amr_module.fpp lines 193-206
     
     Parameters
     ----------
@@ -1978,7 +2080,7 @@ def check_families(repository, sim):
     check_families(repository, sim)
     
     
-    Defined at read_amr_module.fpp lines 214-240
+    Defined at read_amr_module.fpp lines 215-241
     
     Parameters
     ----------
@@ -1993,7 +2095,7 @@ def read_hydrofile_descriptor(repository, varids):
     read_hydrofile_descriptor(repository, varids)
     
     
-    Defined at read_amr_module.fpp lines 249-284
+    Defined at read_amr_module.fpp lines 250-285
     
     Parameters
     ----------
@@ -2009,7 +2111,7 @@ def read_hydrofile_descriptor_old(repository, varids):
     read_hydrofile_descriptor_old(repository, varids)
     
     
-    Defined at read_amr_module.fpp lines 294-351
+    Defined at read_amr_module.fpp lines 295-352
     
     Parameters
     ----------
@@ -2025,7 +2127,7 @@ def select_from_descriptor_ids(self, newvar, newid):
     select_from_descriptor_ids(self, newvar, newid)
     
     
-    Defined at read_amr_module.fpp lines 353-428
+    Defined at read_amr_module.fpp lines 354-431
     
     Parameters
     ----------
@@ -2042,7 +2144,7 @@ def read_hydrofile_descriptor_new(repository, varids):
     read_hydrofile_descriptor_new(repository, varids)
     
     
-    Defined at read_amr_module.fpp lines 438-470
+    Defined at read_amr_module.fpp lines 441-473
     
     Parameters
     ----------
@@ -2058,7 +2160,7 @@ def getvarvalue(self, reg, dx, x, var, varname, value):
     getvarvalue(self, reg, dx, x, var, varname, value)
     
     
-    Defined at read_amr_module.fpp lines 479-696
+    Defined at read_amr_module.fpp lines 482-718
     
     Parameters
     ----------
@@ -2079,7 +2181,7 @@ def init_amr_read(repository, amr, sim):
     init_amr_read(repository, amr, sim)
     
     
-    Defined at read_amr_module.fpp lines 705-781
+    Defined at read_amr_module.fpp lines 727-815
     
     Parameters
     ----------
@@ -2096,7 +2198,7 @@ def get_cpu_map(self, amr):
     get_cpu_map(self, amr)
     
     
-    Defined at read_amr_module.fpp lines 789-878
+    Defined at read_amr_module.fpp lines 823-912
     
     Parameters
     ----------
@@ -2111,7 +2213,7 @@ def getparttype(self, ptype):
     getparttype(self, ptype)
     
     
-    Defined at read_amr_module.fpp lines 880-888
+    Defined at read_amr_module.fpp lines 914-922
     
     Parameters
     ----------
@@ -2126,7 +2228,7 @@ def getpartvalue(self, reg, part, var, value, dx=None):
     getpartvalue(self, reg, part, var, value[, dx])
     
     
-    Defined at read_amr_module.fpp lines 890-1282
+    Defined at read_amr_module.fpp lines 924-1320
     
     Parameters
     ----------
