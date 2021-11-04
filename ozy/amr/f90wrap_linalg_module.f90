@@ -248,7 +248,7 @@ subroutine f90wrap_array_vectors_finalise(this)
 end subroutine f90wrap_array_vectors_finalise
 
 subroutine f90wrap_magnitude(ret_magnitude, vec_1)
-    use vectors, only: vector, magnitude
+    use vectors, only: magnitude, vector
     implicit none
     
     type vector_ptr_type
@@ -262,7 +262,7 @@ subroutine f90wrap_magnitude(ret_magnitude, vec_1)
 end subroutine f90wrap_magnitude
 
 subroutine f90wrap_array_to_vector(vec_result, array)
-    use vectors, only: vector, assignment(=)
+    use vectors, only: assignment(=), vector
     implicit none
     
     type vector_ptr_type
@@ -276,7 +276,7 @@ subroutine f90wrap_array_to_vector(vec_result, array)
 end subroutine f90wrap_array_to_vector
 
 subroutine f90wrap_vector_to_array(array_result, vec_1)
-    use vectors, only: vector, assignment(=)
+    use vectors, only: assignment(=), vector
     implicit none
     
     type vector_ptr_type
@@ -309,8 +309,8 @@ subroutine f90wrap_euler_matrix(r, dim, angle, ap, n0, n1)
 end subroutine f90wrap_euler_matrix
 
 subroutine f90wrap_rotate_vector_single(vec, rotation_matrix, n0, n1)
-    use vectors, only: vector
     use rotations, only: rotate_vector
+    use vectors, only: vector
     implicit none
     
     type vector_ptr_type

@@ -188,10 +188,12 @@ class Profile:
             if k != 'xdata' and k != 'conditions':
                 self.yvars[k] = []
                 self.ydata[k] = []
+                self.weightvars[k] = []
                 for j in profile_gp[k].keys():
                     self.yvars[k].append(j)
                     data = profile_gp[k+'/'+j]
                     self.ydata[k].append(YTArray(data[:], str(data.attrs['units']), registry=self.obj.unit_registry))
+                    self.weightvars[k] = list(data.attrs['weightvars'])
             else:
                 self.xdata = YTArray(profile_gp['xdata'][:], profile_gp['xdata'].attrs['units'], registry=self.obj.unit_registry)
 

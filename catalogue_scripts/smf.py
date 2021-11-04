@@ -166,11 +166,11 @@ if __name__ == '__main__':
         mhalo = sim.galaxies[progind].halo.virial_quantities['mass']
         mhalo = YTQuantity(mhalo, 'code_mass', registry=sim.unit_registry)
         if not physics['cr'] and not physics['magnetic']:
-            ax.plot(mhalo.in_units('Msun').d,mstellar.in_units('Msun').d, marker='s', markeredgecolor='b', markerfacecolor='none')
+            ax.plot(mhalo.in_units('Msun').d,mstellar.in_units('Msun').d, marker='s', markeredgecolor='b', markerfacecolor='none',label=args.model[i])
         elif not physics['cr'] and physics['magnetic']:
-            ax.plot(mhalo.in_units('Msun').d,mstellar.in_units('Msun').d, marker='s', markeredgecolor='m', markerfacecolor='none')
+            ax.plot(mhalo.in_units('Msun').d,mstellar.in_units('Msun').d, marker='s', markeredgecolor='m', markerfacecolor='none',label=args.model[i])
         elif physics['cr']:
-            ax.plot(mhalo.in_units('Msun').d,mstellar.in_units('Msun').d, marker='s', markeredgecolor='g', markerfacecolor='none')
+            ax.plot(mhalo.in_units('Msun').d,mstellar.in_units('Msun').d, marker='s', markeredgecolor='g', markerfacecolor='none',label=args.model[i])
     fig.subplots_adjust(top=0.91, bottom=0.1,right=0.97,hspace=0.0)
     if args.NUT:
         args.ind = 'NUT'

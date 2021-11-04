@@ -268,7 +268,6 @@ module io_ramses
             write(*,*)': This simulation format for particles is not recognised!'
             stop
         endif
-
     end subroutine check_families
 
     !---------------------------------------------------------------
@@ -658,6 +657,9 @@ module io_ramses
             B = 0.5 *(/(var(varIDs%Blx)+var(varIDs%Brx)),(var(varIDs%Bly)+var(varIDs%Bry)),(var(varIDs%Blz)+var(varIDs%Brz))/)
             value = (0.5 * (B.DOT.B)) / var(varIDs%density)
         case ('magnetic_energy_density')
+            B = 0.5 *(/(var(varIDs%Blx)+var(varIDs%Brx)),(var(varIDs%Bly)+var(varIDs%Bry)),(var(varIDs%Blz)+var(varIDs%Brz))/)
+            value = 0.5 * (B.DOT.B)
+        case ('magnetic_pressure')
             B = 0.5 *(/(var(varIDs%Blx)+var(varIDs%Brx)),(var(varIDs%Bly)+var(varIDs%Bry)),(var(varIDs%Blz)+var(varIDs%Brz))/)
             value = 0.5 * (B.DOT.B)
         case ('B_left_x')

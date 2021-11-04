@@ -262,7 +262,7 @@ subroutine f90wrap_magnitude(ret_magnitude, vec_1)
 end subroutine f90wrap_magnitude
 
 subroutine f90wrap_array_to_vector(vec_result, array)
-    use vectors, only: assignment(=), vector
+    use vectors, only: vector, assignment(=)
     implicit none
     
     type vector_ptr_type
@@ -276,7 +276,7 @@ subroutine f90wrap_array_to_vector(vec_result, array)
 end subroutine f90wrap_array_to_vector
 
 subroutine f90wrap_vector_to_array(array_result, vec_1)
-    use vectors, only: assignment(=), vector
+    use vectors, only: vector, assignment(=)
     implicit none
     
     type vector_ptr_type
@@ -328,8 +328,8 @@ subroutine f90wrap_rotate_vector_single(vec, rotation_matrix, n0, n1)
 end subroutine f90wrap_rotate_vector_single
 
 subroutine f90wrap_rotate_vector_array(vec, rotation_matrix, n0, n1)
-    use rotations, only: rotate_vector
     use vectors, only: array_vectors
+    use rotations, only: rotate_vector
     implicit none
     
     type array_vectors_ptr_type
@@ -451,7 +451,7 @@ subroutine f90wrap_basis_finalise(this)
 end subroutine f90wrap_basis_finalise
 
 subroutine f90wrap_initialise_basis(this)
-    use basis_representations, only: initialise_basis, basis
+    use basis_representations, only: basis, initialise_basis
     implicit none
     
     type basis_ptr_type

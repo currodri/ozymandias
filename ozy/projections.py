@@ -650,7 +650,7 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
     else:
         fig.savefig(proj_FITS.split('.')[0]+'.png',format='png',dpi=300)
 
-def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redshift=True,centers=[],radii=[]):
+def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redshift=True,centers=[],radii=[],names=[]):
     """This function uses the projection information in a FITS file following the 
         OZY format and plots it following the OZY standards."""
     
@@ -742,7 +742,7 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
     fontprops = fm.FontProperties(size=20,weight='bold')
     if scalebar:
         scalebar = AnchoredSizeBar(ax.transData,
-                                    10, '10 kpc', 'upper right', 
+                                    1000, '1 Mpc', 'upper right', 
                                     pad=0.1,
                                     color=plotting_def['text_over'],
                                     frameon=False,
@@ -751,11 +751,22 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
         ax.add_artist(scalebar)
 
     if len(centers) != 0 and len(radii) != 0:
-        for c in range(0, len(centers)):
-            centrecircle = (-centers[c][2]*1000,-centers[c][1]*1000)
-            r = radii[c] * 1000
-            circle = plt.Circle(centrecircle,r,fill=False,edgecolor='w',linestyle='--')
-            ax.add_patch(circle)
+        # for c in range(0, len(centers)):
+        #     centrecircle = (-centers[c][2]*1000,-centers[c][1]*1000)
+        #     r = radii[c] * 1000
+        #     circle = plt.Circle(centrecircle,r,fill=False,edgecolor='w',linestyle='--')
+        #     ax.add_patch(circle)
+        #     ax.text(centrecircle[0]+1.1*r, centrecircle[1]+1.1*r, names[c], # Name of object
+        #                     verticalalignment='bottom', horizontalalignment='left',
+        #                     color=plotting_def['text_over'], fontsize=10,fontweight='bold')
+        centrecircle = (-centers[0][2]*1000,-centers[0][1]*1000)
+        r = radii[0] * 1000
+        circle = plt.Circle(centrecircle,r,fill=False,edgecolor='w',linestyle='--')
+        ax.add_patch(circle)
+        ax.text(centrecircle[0]+1.1*r, centrecircle[1]+1.1*r, names[0], # Name of object
+                        verticalalignment='bottom', horizontalalignment='left',
+                        color=plotting_def['text_over'], fontsize=10,fontweight='bold')
+        ax.scatter(-centers[1:][2]*1000,-centers[1:][1]*1000)#,s=0.1,alpha=0.4,facecolor='r')
 
     fig.subplots_adjust(hspace=0,wspace=0,left=0,right=1, bottom=0, top=1)
     if stellar:

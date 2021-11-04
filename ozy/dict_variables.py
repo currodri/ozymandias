@@ -49,6 +49,7 @@ grid_variables = dict(
     magnetic_energy = 'code_energy',
     magnetic_energy_specific = 'code_specific_energy',
     magnetic_energy_density = 'code_density*code_velocity*code_velocity',
+    magnetic_pressure = 'code_pressure',
     cr_energy = 'code_energy',
     cr_energy_density = 'code_density*code_velocity*code_velocity',
     cr_pressure = 'code_pressure',

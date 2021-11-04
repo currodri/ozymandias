@@ -625,7 +625,7 @@ module maps
         amr%lmax = amr%nlevelmax !min(get_required_resolution(cam),amr%nlevelmax)
         write(*,*)'Maximum resolution level: ',amr%nlevelmax
         write(*,*)'Using: ',amr%lmax
-        if (.not.sim%dmonly) call check_families(repository,sim)
+        if (sim%dm .and. sim%hydro) call check_families(repository,sim)
         call get_bounding_box(cam,bbox)
         bbox%name = 'cube'
         bbox%bulk_velocity = bulk_velocity
