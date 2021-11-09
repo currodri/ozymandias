@@ -4011,7 +4011,7 @@ class Maps(f90wrap.runtime.FortranModule):
     Module maps
     
     
-    Defined at ramses2map.fpp lines 194-1019
+    Defined at ramses2map.fpp lines 194-1054
     
     """
     @f90wrap.runtime.register_class("projections.projection_handler")
@@ -4229,12 +4229,12 @@ class Maps(f90wrap.runtime.FortranModule):
             proj=proj._handle)
     
     @staticmethod
-    def projection_parts(repository, cam, bulk_velocity, proj):
+    def projection_parts(repository, cam, bulk_velocity, proj, tag_file=None):
         """
-        projection_parts(repository, cam, bulk_velocity, proj)
+        projection_parts(repository, cam, bulk_velocity, proj[, tag_file])
         
         
-        Defined at ramses2map.fpp lines 541-562
+        Defined at ramses2map.fpp lines 541-567
         
         Parameters
         ----------
@@ -4242,18 +4242,19 @@ class Maps(f90wrap.runtime.FortranModule):
         cam : Camera
         bulk_velocity : Vector
         proj : Projection_Handler
+        tag_file : str
         
         """
         _projections.f90wrap_projection_parts(repository=repository, cam=cam._handle, \
-            bulk_velocity=bulk_velocity._handle, proj=proj._handle)
+            bulk_velocity=bulk_velocity._handle, proj=proj._handle, tag_file=tag_file)
     
     @staticmethod
-    def project_particles(repository, amr, sim, bbox, cam, proj):
+    def project_particles(repository, amr, sim, bbox, cam, proj, tag_file=None):
         """
-        project_particles(repository, amr, sim, bbox, cam, proj)
+        project_particles(repository, amr, sim, bbox, cam, proj[, tag_file])
         
         
-        Defined at ramses2map.fpp lines 564-748
+        Defined at ramses2map.fpp lines 569-783
         
         Parameters
         ----------
@@ -4263,10 +4264,12 @@ class Maps(f90wrap.runtime.FortranModule):
         bbox : Region
         cam : Camera
         proj : Projection_Handler
+        tag_file : str
         
         """
         _projections.f90wrap_project_particles(repository=repository, amr=amr._handle, \
-            sim=sim._handle, bbox=bbox._handle, cam=cam._handle, proj=proj._handle)
+            sim=sim._handle, bbox=bbox._handle, cam=cam._handle, proj=proj._handle, \
+            tag_file=tag_file)
     
     @staticmethod
     def healpix_hydro(repository, reg, nside, proj):
@@ -4274,7 +4277,7 @@ class Maps(f90wrap.runtime.FortranModule):
         healpix_hydro(repository, reg, nside, proj)
         
         
-        Defined at ramses2map.fpp lines 750-765
+        Defined at ramses2map.fpp lines 785-800
         
         Parameters
         ----------
@@ -4293,7 +4296,7 @@ class Maps(f90wrap.runtime.FortranModule):
         project_cells_hpix(repository, amr, reg, varids, nside, proj)
         
         
-        Defined at ramses2map.fpp lines 767-1019
+        Defined at ramses2map.fpp lines 802-1054
         
         Parameters
         ----------

@@ -10,6 +10,26 @@ class OZY(object):
 
     It can be saved as a portable, standalone HDF5 file which allows
     general analysis without requiring the original snapshot.
+
+    Parameters
+    ----------
+    ds : yt dataset, optional
+        A dataset via ``ds = yt.load(snapshot)``
+    mass : str, optional
+        Mass unit to store data with. Defaults to 'Msun'.
+    length : str, optional
+        Length unit to store data with. Defaults to 'kpccm'.
+    velocity : str, optional
+        Velocity unit to store data with. Defaults to 'km/s'.
+    time : str, optional
+        Time unit to store data with. Defaults to 'yr'.
+    temperature : str, optional
+        Temperature unit to store data with. Defaults to 'K'.
+
+    Examples
+    --------
+    >>> import ozy
+    >>> obj = ozy.OZY()
     """
     def __init__(self, ds = 0, *args, **kwargs):
         self._args   = args

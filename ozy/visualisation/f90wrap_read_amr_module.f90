@@ -2607,7 +2607,7 @@ subroutine f90wrap_hilbert3d(x, y, z, order, bit_length, npoint, n0, n1, n2, n3)
 end subroutine f90wrap_hilbert3d
 
 subroutine f90wrap_check_lmax(ngridfile, amr, n0, n1)
-    use io_ramses, only: amr_info, check_lmax
+    use io_ramses, only: check_lmax, amr_info
     implicit none
     
     type amr_info_ptr_type
@@ -2682,7 +2682,7 @@ subroutine f90wrap_select_from_descriptor_ids(varids, newvar, newid)
 end subroutine f90wrap_select_from_descriptor_ids
 
 subroutine f90wrap_read_hydrofile_descriptor_new(repository, varids)
-    use io_ramses, only: read_hydrofile_descriptor_new, hydroid
+    use io_ramses, only: hydroid, read_hydrofile_descriptor_new
     implicit none
     
     type hydroid_ptr_type
@@ -2696,17 +2696,17 @@ subroutine f90wrap_read_hydrofile_descriptor_new(repository, varids)
 end subroutine f90wrap_read_hydrofile_descriptor_new
 
 subroutine f90wrap_getvarvalue(varids, reg, dx, x, var, varname, value, n0)
-    use vectors, only: vector
-    use io_ramses, only: hydroid, getvarvalue
+    use io_ramses, only: getvarvalue, hydroid
     use geometrical_regions, only: region
+    use vectors, only: vector
     implicit none
     
-    type hydroid_ptr_type
-        type(hydroid), pointer :: p => NULL()
-    end type hydroid_ptr_type
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
+    type hydroid_ptr_type
+        type(hydroid), pointer :: p => NULL()
+    end type hydroid_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
@@ -2783,20 +2783,20 @@ subroutine f90wrap_getparttype(part, ptype)
 end subroutine f90wrap_getparttype
 
 subroutine f90wrap_getpartvalue(sim, reg, part, var, value, dx)
-    use vectors, only: vector
-    use io_ramses, only: sim_info, particle, getpartvalue
+    use io_ramses, only: sim_info, getpartvalue, particle
     use geometrical_regions, only: region
+    use vectors, only: vector
     implicit none
     
     type sim_info_ptr_type
         type(sim_info), pointer :: p => NULL()
     end type sim_info_ptr_type
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type particle_ptr_type
         type(particle), pointer :: p => NULL()
     end type particle_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
@@ -3007,21 +3007,21 @@ subroutine f90wrap_cond_string_to_filter(str, filt)
 end subroutine f90wrap_cond_string_to_filter
 
 subroutine f90wrap_filter_cell(varids, reg, filt, cell_x, cell_dx, ret_filter_cell, cell_var, n0)
-    use vectors, only: vector
-    use filtering, only: filter, filter_cell
-    use io_ramses, only: hydroid
     use geometrical_regions, only: region
+    use io_ramses, only: hydroid
+    use filtering, only: filter, filter_cell
+    use vectors, only: vector
     implicit none
     
-    type hydroid_ptr_type
-        type(hydroid), pointer :: p => NULL()
-    end type hydroid_ptr_type
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type filter_ptr_type
         type(filter), pointer :: p => NULL()
     end type filter_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
+    type hydroid_ptr_type
+        type(hydroid), pointer :: p => NULL()
+    end type hydroid_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
@@ -3047,12 +3047,15 @@ subroutine f90wrap_filter_cell(varids, reg, filt, cell_x, cell_dx, ret_filter_ce
 end subroutine f90wrap_filter_cell
 
 subroutine f90wrap_filter_particle(sim, reg, filt, part, ret_filter_particle, dx)
-    use vectors, only: vector
-    use filtering, only: filter, filter_particle
     use io_ramses, only: sim_info, particle
+    use filtering, only: filter, filter_particle
     use geometrical_regions, only: region
+    use vectors, only: vector
     implicit none
     
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
@@ -3065,9 +3068,6 @@ subroutine f90wrap_filter_particle(sim, reg, filt, part, ret_filter_particle, dx
     type filter_ptr_type
         type(filter), pointer :: p => NULL()
     end type filter_ptr_type
-    type particle_ptr_type
-        type(particle), pointer :: p => NULL()
-    end type particle_ptr_type
     type(sim_info_ptr_type) :: sim_ptr
     integer, intent(in), dimension(2) :: sim
     type(region_ptr_type) :: reg_ptr

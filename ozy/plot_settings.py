@@ -199,8 +199,8 @@ plotting_dictionary = dict(
                         'label':r'$\Sigma_{\rm DM}$ [M$_{\odot}$ kpc$^{-2}$]',
                         'label_log':r'$\log\left(\frac{\Sigma_{\rm DM}}{{\rmM}_{\odot}{\rm kpc}^{-2}}\right)$',
                         'units':'Msun/(kpc**2)',
-                        # 'vmin':4e+5,
-                        # 'vmax':8e+8
+                        'vmin_galaxy':4e+5,
+                        'vmax_galaxy':8e+8,
                         'vmin':4e+7,
                         'vmax':3e+9
 

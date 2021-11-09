@@ -107,6 +107,44 @@ def init_region(group, region_type, rmin=0.0, rmax=0.2):
             reg.rmin = rmin*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
             # Basic configuration: 0.2 of the virial radius of the host halo
             reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+    elif region_type == 'basic_sphere':
+        reg.name = 'sphere'
+        centre = vectors.vector()
+        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        reg.centre = centre
+        axis = vectors.vector()
+        norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
+        axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
+        reg.axis = axis
+        bulk = vectors.vector()
+        bulk.x, bulk.y, bulk.z = 0,0,0
+        reg.bulk_velocity = bulk
+        reg.rmin = rmin
+        reg.rmax = rmax
+    elif region_type == 'cylinder':
+        reg.name = 'cylinder'
+        centre = vectors.vector()
+        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        reg.centre = centre
+        axis = vectors.vector()
+        norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
+        axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
+        reg.axis = axis
+        bulk = vectors.vector()
+        try:
+            velocity = group.velocity.in_units('code_velocity')
+        except:
+            velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
+        bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
+        reg.bulk_velocity = bulk
+        try:
+            reg.rmin = rmin*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            # Basic configuration: 0.2 of the virial radius of the host halo
+            reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        except:
+            reg.rmin = rmin*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            # Basic configuration: 0.2 of the virial radius of the host halo
+            reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
     else:
         raise KeyError('Region type not supported. Please check!')
     return reg

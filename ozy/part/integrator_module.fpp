@@ -33,8 +33,9 @@ module part_integrator
         character(128),dimension(:),allocatable :: varnames
         integer :: nwvars
         character(128),dimension(:),allocatable :: wvarnames
-        integer :: ndm,nstar
+        integer :: ndm,nstar,nids
         real(dbl),dimension(:,:,:),allocatable :: data
+        integer, dimension(:),allocatable :: ids
     end type part_region_attrs
 
     contains
@@ -129,7 +130,7 @@ module part_integrator
         end do varloop
     end subroutine renormalise
 
-    subroutine integrate_region(repository,reg,filt,attrs)
+    subroutine integrate_region(repository,reg,filt,attrs,get_ids)
         use vectors
         use coordinate_systems
         use geometrical_regions
@@ -140,6 +141,7 @@ module part_integrator
         type(region),intent(inout) :: reg
         type(filter),intent(in) :: filt
         type(part_region_attrs),intent(inout) :: attrs
+        logical,intent(in),optional :: get_ids
 
         ! Ozymandias derived types for RAMSES
         type(hydroID) :: varIDs
@@ -151,7 +153,7 @@ module part_integrator
         integer :: roterr
         integer :: i,j,k
         integer :: ipos,icpu,binpos
-        integer :: npart,npart2,nstar,ncpu2,ndim2
+        integer :: npart,npart2,nstar,ncpu2,ndim2,inpart=0
         real(dbl) :: distance
         real(dbl),dimension(1:3,1:3) :: trans_matrix
         character(5) :: nchar,ncharcpu
@@ -174,7 +176,7 @@ module part_integrator
         amr%lmax = amr%nlevelmax
 
         ! Check if particle data uses family
-        call check_families(repository,sim)
+        if (sim%dm .and. sim%hydro) call check_families(repository,sim)
 
         ! Compute the Hilbert curve
         call get_cpu_map(reg,amr)
@@ -225,6 +227,14 @@ module part_integrator
             write(*,*)'Found ',nstar,' star particles.'
         endif
 
+        ! If we're asked to get particle IDs, allocate array with maximum number of particles
+        ! and initiliase to zero
+        if (present(get_ids) .and. get_ids) then
+            allocate(attrs%ids(1:npart))
+            attrs%ids = 0
+            attrs%nids = npart
+        endif
+    
         ! Compute binned variables
         cpuloop: do k=1,amr%ncpu_read
             icpu = amr%cpu_list(k)
@@ -246,6 +256,7 @@ module part_integrator
                 allocate(met(1:npart2))
                 allocate(imass(1:npart2))
             endif
+            if (present(get_ids) .and. get_ids .and. (.not. allocated(id))) allocate(id(1:npart2))
             allocate(x(1:npart2,1:ndim2))
             allocate(v(1:npart2,1:ndim2))
 
@@ -263,8 +274,8 @@ module part_integrator
 
             ! Read mass
             read(1)m
+            if (allocated(id)) read(1)id
             if (nstar>0) then
-                read(1)id
                 read(1) ! Skip level
                 if (sim%family) then
                     read(1) ! Skip family
@@ -288,6 +299,11 @@ module part_integrator
                     part%age = age(i)
                     part%met = met(i)
                     part%imass = imass(i)
+                elseif (get_ids) then
+                    part%id = id(i)
+                    part%age = 0D0
+                    part%met = 0D0
+                    part%imass = 0D0
                 else
                     part%id = 0
                     part%age = 0D0
@@ -302,6 +318,7 @@ module part_integrator
                 ok_filter = filter_particle(sim,reg,filt,part)
                 ok_part = ok_part.and.ok_filter
                 if (ok_part) then
+                    attrs%ids(inpart+i) = part%id
                     call getparttype(part,ptype)
                     if (ptype.eq.'dm') attrs%ndm = attrs%ndm + 1
                     if (ptype.eq.'star') attrs%nstar = attrs%nstar + 1
@@ -311,6 +328,7 @@ module part_integrator
             end do partloop
             deallocate(m,x,v)
             if (nstar>0)deallocate(id,age,met,imass)
+            inpart = inpart + npart2
         end do cpuloop
 
         ! Finally, just renormalise fo weighted quantities

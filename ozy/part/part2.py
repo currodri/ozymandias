@@ -4088,7 +4088,7 @@ class Part_Integrator(f90wrap.runtime.FortranModule):
     Module part_integrator
     
     
-    Defined at integrator_module.fpp lines 24-283
+    Defined at integrator_module.fpp lines 24-300
     
     """
     @f90wrap.runtime.register_class("part2.part_region_attrs")
@@ -4097,7 +4097,7 @@ class Part_Integrator(f90wrap.runtime.FortranModule):
         Type(name=part_region_attrs)
         
         
-        Defined at integrator_module.fpp lines 29-35
+        Defined at integrator_module.fpp lines 29-36
         
         """
         def __init__(self, handle=None):
@@ -4105,7 +4105,7 @@ class Part_Integrator(f90wrap.runtime.FortranModule):
             self = Part_Region_Attrs()
             
             
-            Defined at integrator_module.fpp lines 29-35
+            Defined at integrator_module.fpp lines 29-36
             
             
             Returns
@@ -4125,7 +4125,7 @@ class Part_Integrator(f90wrap.runtime.FortranModule):
             Destructor for class Part_Region_Attrs
             
             
-            Defined at integrator_module.fpp lines 29-35
+            Defined at integrator_module.fpp lines 29-36
             
             Parameters
             ----------
@@ -4247,6 +4247,21 @@ class Part_Integrator(f90wrap.runtime.FortranModule):
             _part2.f90wrap_part_region_attrs__set__nstar(self._handle, nstar)
         
         @property
+        def nids(self):
+            """
+            Element nids ftype=integer  pytype=int
+            
+            
+            Defined at integrator_module.fpp line 34
+            
+            """
+            return _part2.f90wrap_part_region_attrs__get__nids(self._handle)
+        
+        @nids.setter
+        def nids(self, nids):
+            _part2.f90wrap_part_region_attrs__set__nids(self._handle, nids)
+        
+        @property
         def data(self):
             """
             Element data ftype=real(dbl) pytype=float
@@ -4270,6 +4285,30 @@ class Part_Integrator(f90wrap.runtime.FortranModule):
         def data(self, data):
             self.data[...] = data
         
+        @property
+        def ids(self):
+            """
+            Element ids ftype=integer pytype=int
+            
+            
+            Defined at integrator_module.fpp line 36
+            
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _part2.f90wrap_part_region_attrs__array__ids(self._handle)
+            if array_handle in self._arrays:
+                ids = self._arrays[array_handle]
+            else:
+                ids = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _part2.f90wrap_part_region_attrs__array__ids)
+                self._arrays[array_handle] = ids
+            return ids
+        
+        @ids.setter
+        def ids(self, ids):
+            self.ids[...] = ids
+        
         def __str__(self):
             ret = ['<part_region_attrs>{\n']
             ret.append('    nvars : ')
@@ -4284,8 +4323,12 @@ class Part_Integrator(f90wrap.runtime.FortranModule):
             ret.append(repr(self.ndm))
             ret.append(',\n    nstar : ')
             ret.append(repr(self.nstar))
+            ret.append(',\n    nids : ')
+            ret.append(repr(self.nids))
             ret.append(',\n    data : ')
             ret.append(repr(self.data))
+            ret.append(',\n    ids : ')
+            ret.append(repr(self.ids))
             ret.append('}')
             return ''.join(ret)
         
@@ -4298,7 +4341,7 @@ class Part_Integrator(f90wrap.runtime.FortranModule):
         allocate_part_regions_attrs(self)
         
         
-        Defined at integrator_module.fpp lines 38-43
+        Defined at integrator_module.fpp lines 39-44
         
         Parameters
         ----------
@@ -4313,7 +4356,7 @@ class Part_Integrator(f90wrap.runtime.FortranModule):
         extract_data(self, reg, part, attrs)
         
         
-        Defined at integrator_module.fpp lines 45-88
+        Defined at integrator_module.fpp lines 46-89
         
         Parameters
         ----------
@@ -4332,7 +4375,7 @@ class Part_Integrator(f90wrap.runtime.FortranModule):
         renormalise(self, attrs)
         
         
-        Defined at integrator_module.fpp lines 90-114
+        Defined at integrator_module.fpp lines 91-115
         
         Parameters
         ----------
@@ -4343,12 +4386,12 @@ class Part_Integrator(f90wrap.runtime.FortranModule):
         _part2.f90wrap_renormalise(sim=self._handle, attrs=attrs._handle)
     
     @staticmethod
-    def integrate_region(repository, reg, filt, attrs):
+    def integrate_region(repository, reg, filt, attrs, get_ids=None):
         """
-        integrate_region(repository, reg, filt, attrs)
+        integrate_region(repository, reg, filt, attrs[, get_ids])
         
         
-        Defined at integrator_module.fpp lines 116-283
+        Defined at integrator_module.fpp lines 117-300
         
         Parameters
         ----------
@@ -4356,10 +4399,11 @@ class Part_Integrator(f90wrap.runtime.FortranModule):
         reg : Region
         filt : Filter
         attrs : Part_Region_Attrs
+        get_ids : bool
         
         """
         _part2.f90wrap_integrate_region(repository=repository, reg=reg._handle, \
-            filt=filt._handle, attrs=attrs._handle)
+            filt=filt._handle, attrs=attrs._handle, get_ids=get_ids)
     
     _dt_array_initialisers = []
     

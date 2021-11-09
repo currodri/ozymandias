@@ -277,7 +277,7 @@ class Projection(object):
         except:
             pass
 
-def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_size=1024,pov='faceon',lmax=0,lmin=1,window=0.0):
+def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_size=1024,pov='faceon',lmax=0,lmin=1,window=0.0,tag_file='none'):
     """Function which computes a 2D projection centered on an objected from an OZY file."""
 
     if not isinstance(weight,list):
@@ -344,14 +344,14 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
              window = 1.2*group.virial_quantities['radius'].in_units('code_length').d
         else:
             window = 0.2*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-    centre = vectors.vector()
-    centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
     bulk = vectors.vector()
     if group.obj_type != 'halo':
         velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
         bulk.x, bulk.y, bulk.z = velocity.d[0], velocity.d[1], velocity.d[2]
 
     if proj.pov == 'faceon':
+        centre = vectors.vector()
+        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         axis = vectors.vector()
         norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
         up = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
@@ -364,6 +364,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         distance = 0.3*rmax
         far_cut_depth = 0.3*rmax
     elif proj.pov == 'edgeon':
+        centre = vectors.vector()
+        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         axis = vectors.vector()
         norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
         los = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
@@ -376,6 +378,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         distance = 0.3*rmax
         far_cut_depth = 0.3*rmax
     elif proj.pov == 'x':
+        centre = vectors.vector()
+        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         axis = vectors.vector()
         axis.x,axis.y,axis.z = 1.0, 0.0, 0.0
         up_vector = vectors.vector()
@@ -385,6 +389,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         distance = rmax
         far_cut_depth = rmax
     elif proj.pov == 'y':
+        centre = vectors.vector()
+        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         axis = vectors.vector()
         axis.x,axis.y,axis.z = 0.0, 1.0, 0.0
         up_vector = vectors.vector()
@@ -394,6 +400,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         distance = rmax
         far_cut_depth = rmax
     elif proj.pov == 'z':
+        centre = vectors.vector()
+        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         axis = vectors.vector()
         axis.x,axis.y,axis.z = 0.0, 0.0, 1.0
         up_vector = vectors.vector()
@@ -402,6 +410,22 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
         distance = rmax
         far_cut_depth = rmax
+    elif proj.pov == 'top_midplane':
+        axis = vectors.vector()
+        norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
+        print(norm_L, np.linalg.norm(norm_L))
+        los = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
+        los /= np.linalg.norm(los)
+        axis.x,axis.y,axis.z = los[0], los[1], los[2]
+        up_vector = vectors.vector()
+        up_vector.x,up_vector.y,up_vector.z = norm_L[0], norm_L[1], norm_L[2]
+        rmax = window
+        region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
+        distance = 0.3*rmax
+        far_cut_depth = 0.3*rmax
+        centre = vectors.vector()
+        im_centre = group.position + 0.99*norm_L * rmax.d
+        centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
     else:
         print("This point of view is not supported!")
         print("Falling back to 'faceon' (default).")
@@ -469,7 +493,10 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     # COMPUTE PARTICLES PROJECTION
     if len(proj.vars['star'])+len(proj.vars['dm']) != 0:
         print('Performing particle projection for '+str(len(proj.vars['star'])+len(proj.vars['dm']))+' variables')
-        maps.projection_parts(group.obj.simulation.fullpath,cam,bulk,parts_handler)
+        if tag_file != 'none':
+            maps.projection_parts(group.obj.simulation.fullpath,cam,bulk,parts_handler,tag_file)
+        else:
+            maps.projection_parts(group.obj.simulation.fullpath,cam,bulk,parts_handler)
         # TODO: Weird issue when the direct toto array is given.
         data = np.copy(parts_handler.toto)
         if len(proj.vars['star']) == 0:
@@ -742,7 +769,7 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
     fontprops = fm.FontProperties(size=20,weight='bold')
     if scalebar:
         scalebar = AnchoredSizeBar(ax.transData,
-                                    1000, '1 Mpc', 'upper right', 
+                                    50, '50 kpc', 'upper right', 
                                     pad=0.1,
                                     color=plotting_def['text_over'],
                                     frameon=False,
@@ -751,22 +778,14 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
         ax.add_artist(scalebar)
 
     if len(centers) != 0 and len(radii) != 0:
-        # for c in range(0, len(centers)):
-        #     centrecircle = (-centers[c][2]*1000,-centers[c][1]*1000)
-        #     r = radii[c] * 1000
-        #     circle = plt.Circle(centrecircle,r,fill=False,edgecolor='w',linestyle='--')
-        #     ax.add_patch(circle)
-        #     ax.text(centrecircle[0]+1.1*r, centrecircle[1]+1.1*r, names[c], # Name of object
-        #                     verticalalignment='bottom', horizontalalignment='left',
-        #                     color=plotting_def['text_over'], fontsize=10,fontweight='bold')
-        centrecircle = (-centers[0][2]*1000,-centers[0][1]*1000)
-        r = radii[0] * 1000
-        circle = plt.Circle(centrecircle,r,fill=False,edgecolor='w',linestyle='--')
-        ax.add_patch(circle)
-        ax.text(centrecircle[0]+1.1*r, centrecircle[1]+1.1*r, names[0], # Name of object
-                        verticalalignment='bottom', horizontalalignment='left',
-                        color=plotting_def['text_over'], fontsize=10,fontweight='bold')
-        ax.scatter(-centers[1:][2]*1000,-centers[1:][1]*1000)#,s=0.1,alpha=0.4,facecolor='r')
+        for c in range(0, len(centers)):
+            centrecircle = (-centers[c][2]*1000,-centers[c][1]*1000)
+            r = radii[c] * 1000
+            circle = plt.Circle(centrecircle,r,fill=False,edgecolor='w',linestyle='--')
+            ax.add_patch(circle)
+            ax.text(centrecircle[0]+1.01*r, centrecircle[1]+1.1*r, names[c], # Name of object
+                            verticalalignment='bottom', horizontalalignment='left',
+                            color=plotting_def['text_over'], fontsize=10,fontweight='bold')
 
     fig.subplots_adjust(hspace=0,wspace=0,left=0,right=1, bottom=0, top=1)
     if stellar:

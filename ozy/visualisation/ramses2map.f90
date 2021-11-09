@@ -610,12 +610,13 @@ module maps
         
     end subroutine project_cells
 
-    subroutine projection_parts(repository,cam,bulk_velocity,proj)
+    subroutine projection_parts(repository,cam,bulk_velocity,proj,tag_file)
         implicit none
         character(128),intent(in) :: repository
         type(camera),intent(in) :: cam
         type(vector),intent(in) :: bulk_velocity
         type(projection_handler),intent(inout) :: proj
+        character(128),intent(in),optional :: tag_file
 
         type(amr_info) :: amr
         type(sim_info) :: sim
@@ -632,12 +633,15 @@ module maps
         bbox%criteria_name = 'd_euclid'
         call get_cpu_map(bbox,amr)
         call get_map_box(cam,bbox)
-
-        call project_particles(repository,amr,sim,bbox,cam,proj)
+        if (present(tag_file)) then
+            call project_particles(repository,amr,sim,bbox,cam,proj,tag_file)
+        else
+            call project_particles(repository,amr,sim,bbox,cam,proj)
+        endif
         write(*,*)minval(proj%toto),maxval(proj%toto)
     end subroutine projection_parts
 
-    subroutine project_particles(repository,amr,sim,bbox,cam,proj)
+    subroutine project_particles(repository,amr,sim,bbox,cam,proj,tag_file)
         use cosmology
         implicit none
         character(128),intent(in) :: repository
@@ -646,11 +650,12 @@ module maps
         type(region),intent(in) :: bbox
         type(camera),intent(in) :: cam
         type(projection_handler),intent(inout) :: proj
+        character(128),intent(in),optional :: tag_file
 
-        logical :: ok_part
-        integer :: i,j,k
+        logical :: ok_part,ok_tag
+        integer :: i,j,k,itag
         integer :: ipos,icpu,ix,iy,ixp1,iyp1,ivar
-        integer :: npart,npart2,nstar,ncpu2,ndim2,nparttoto
+        integer :: npart,npart2,nstar,ncpu2,ndim2,nparttoto,ntag
         real(dbl) :: weight,distance,mapvalue
         real(dbl) :: dx,dy,ddx,ddy,dex,dey
         real(dbl),dimension(1:3,1:3) :: trans_matrix
@@ -659,10 +664,23 @@ module maps
         character(128) :: nomfich
         type(vector) :: xtemp,vtemp,dcell
         type(particle) :: part
-        integer,dimension(:),allocatable :: id
+        integer,dimension(:),allocatable :: id,tag_id
         integer,dimension(1:2) :: n_map
         real(dbl),dimension(:),allocatable :: m,age,met,imass
         real(dbl),dimension(:,:),allocatable :: x,v
+
+        ! If tagged particles file exists, read and allocate array
+        if (present(tag_file)) then
+            open(unit=58,file=TRIM(tag_file),status='old',form='formatted')
+            write(*,*)'Reading particle tags file '//TRIM(tag_file)
+            read(58,'(I11)')ntag
+            write(*,*)'Number of tagged particles in file: ',ntag
+            allocate(tag_id(1:ntag))
+            do itag=1,ntag
+                read(58,'(I11)')tag_id(itag)
+            end do
+            close(58)
+        endif
 
         ! Compute transformation matrix for camera LOS
         call los_transformation(cam,trans_matrix)
@@ -780,6 +798,11 @@ module maps
                     part%age = age(i)
                     part%met = met(i)
                     part%imass = imass(i)
+                elseif (present(tag_file)) then
+                    part%id = id(i)
+                    part%age = 0D0
+                    part%met = 0D0
+                    part%imass = 0D0
                 else
                     part%id = 0
                     part%age = 0D0
@@ -787,6 +810,18 @@ module maps
                     part%imass = 0D0
                 endif
                 call checkifinside(x(i,:),bbox,ok_part,distance)
+                ! Check if tags are present for particles
+                if (present(tag_file) .and. ok_part) then
+                    ok_tag = .false.
+                    do itag=1,ntag
+                        if ((tag_id(itag) .eq. part%id) .and. (part%id .ne. 0)) then
+                            ok_tag = .true.
+                            tag_id(itag) = 0
+                            exit
+                        endif
+                    end do
+                    ok_part = ok_tag .and. ok_part
+                endif
                 if (ok_part) then
                     call rotate_vector(part%v,trans_matrix)
                     if (nstar>0) then

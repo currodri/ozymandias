@@ -2,13 +2,13 @@ from __future__ import print_function, absolute_import, division
 import _projections_pkg
 import f90wrap.runtime
 import logging
-import projections_pkg.filtering
-import projections_pkg.coordinate_systems
-import projections_pkg.obs_instruments
-import projections_pkg.io_ramses
-import projections_pkg.maps
-import projections_pkg.basis_representations
-import projections_pkg.vectors
 import projections_pkg.rotations
 import projections_pkg.geometrical_regions
+import projections_pkg.basis_representations
+import projections_pkg.coordinate_systems
+import projections_pkg.maps
+import projections_pkg.filtering
+import projections_pkg.obs_instruments
+import projections_pkg.vectors
+import projections_pkg.io_ramses
 
