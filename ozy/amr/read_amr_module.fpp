@@ -540,6 +540,15 @@ module io_ramses
         case ('d_euclid')
             ! Euclidean distance
             value = magnitude(x)
+        case ('x')
+            ! x - coordinate
+            value = x%x
+        case ('y')
+            ! y - coordinate
+            value = x%y
+        case ('z')
+            ! z - coordinate
+            value = x%z
         case ('r_sphere')
             ! Radius from center of sphere
             value = r_sphere(x)
@@ -681,6 +690,8 @@ module io_ramses
             value = var(varIDs%cr_pressure) / (4D0/3d0 - 1d0)
         case ('cr_pressure')
             value = var(varIDs%cr_pressure)
+        case ('cr_temperature_eff')
+            value = var(varIDs%cr_pressure) / var(varIDs%density)
         case ('cr_energy_specific')
             ! Specific CR energy, computed as CR_energydensity*volume/cell mass
             value = (var(varIDs%cr_pressure) / (4D0/3d0 - 1d0)) / var(varIDs%density)
@@ -711,13 +722,23 @@ module io_ramses
         case ('momentum_sphere_r')
             ! Linear momentum in the spherical radial direction
             ! 1. Correct velocity for bulk velocity of region
-            ! 2. Dot product of velocity vector with spherical phi
+            ! 2. Dot product of velocity vector with spherical r
             !    unit vector
             ! 3. Multiply by mass of cell
             v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
             v_corrected = v_corrected - reg%bulk_velocity
             call spherical_basis_from_cartesian(x,temp_basis)
             value = (var(varIDs%density) * (dx*dx)) * dx * (v_corrected .DOT. temp_basis%u(1))
+        case ('momentum_cyl_z')
+            ! Linear momentum in the cylindrical z direction
+            ! 1. Correct velocity for bulk velocity of region
+            ! 2. Dot product of velocity vector with cylindrical z
+            !    unit vector
+            ! 3. Multiply by mass of cell
+            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
+            v_corrected = v_corrected - reg%bulk_velocity
+            call cylindrical_basis_from_cartesian(x,temp_basis)
+            value = (var(varIDs%density) * (dx*dx)) * dx * (v_corrected .DOT. temp_basis%u(3))
         case ('ang_momentum_x')
             ! Corrected angular momentum in the x direction
             v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
@@ -1035,6 +1056,15 @@ module io_ramses
                     write(*,*)'Can not compute a particle surface density without cell size!'
                     stop
                 endif
+            case ('x')
+                ! x - coordinate
+                value = part%x%x
+            case ('y')
+                ! y - coordinate
+                value = part%x%y
+            case ('z')
+                ! z - coordinate
+                value = part%x%z
             case ('d_euclid')
                 ! Euclidean distance
                 value = magnitude(part%x)
@@ -1170,6 +1200,15 @@ module io_ramses
                         write(*,*)'Can not compute a particle surface density without cell size!'
                         stop
                     endif
+                case ('x')
+                    ! x - coordinate
+                    value = part%x%x
+                case ('y')
+                    ! y - coordinate
+                    value = part%x%y
+                case ('z')
+                    ! z - coordinate
+                    value = part%x%z
                 case ('d_euclid')
                     ! Euclidean distance
                     value = magnitude(part%x)

@@ -399,7 +399,7 @@ module geometrical_regions
         logical,intent(inout)                     ::       ok
         real(dbl),intent(inout)                ::       distance
         type(vector) :: ptemp
-        ptemp = p !+ reg%centre
+        ptemp = p + reg%centre
         ok = (reg%xmin <= ptemp%x.and.ptemp%x <= reg%xmax.and.&
                 &reg%ymin <= ptemp%y.and.ptemp%y <= reg%ymax.and.&
                 &reg%zmin <= ptemp%z.and.ptemp%z <= reg%zmax)
@@ -427,8 +427,8 @@ module geometrical_regions
         real(dbl),intent(inout)                ::       distance
 
         distance = sqrt(p%x**2 + p%y**2)
-        ok = (reg%rmin <= distance.and.distance <= reg%rmax.and.&
-                &reg%zmin <= p%z.and.p%z <= reg%zmax)
+        ok = ((reg%rmin <= distance) .and. (distance <= reg%rmax) .and.&
+                &(reg%zmin <= p%z) .and. (p%z <= reg%zmax))
     end subroutine cylinder
 
     subroutine cone(p,reg,ok,distance)

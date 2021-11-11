@@ -1,8 +1,8 @@
 ! Module coordinate_systems defined in file coordinates_module.fpp
 
 subroutine f90wrap_r_sphere(ret_r_sphere, p)
-    use coordinate_systems, only: r_sphere
     use vectors, only: vector
+    use coordinate_systems, only: r_sphere
     implicit none
     
     type vector_ptr_type
@@ -16,8 +16,8 @@ subroutine f90wrap_r_sphere(ret_r_sphere, p)
 end subroutine f90wrap_r_sphere
 
 subroutine f90wrap_theta_sphere(ret_theta_sphere, p)
-    use vectors, only: vector
     use coordinate_systems, only: theta_sphere
+    use vectors, only: vector
     implicit none
     
     type vector_ptr_type
@@ -76,17 +76,17 @@ subroutine f90wrap_phi_cyl(ret_phi_cyl, p)
 end subroutine f90wrap_phi_cyl
 
 subroutine f90wrap_spherical_basis_from_cartesian(p, spher_basis)
-    use vectors, only: vector
     use basis_representations, only: basis
     use coordinate_systems, only: spherical_basis_from_cartesian
+    use vectors, only: vector
     implicit none
     
-    type basis_ptr_type
-        type(basis), pointer :: p => NULL()
-    end type basis_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
+    type basis_ptr_type
+        type(basis), pointer :: p => NULL()
+    end type basis_ptr_type
     type(vector_ptr_type) :: p_ptr
     integer, intent(in), dimension(2) :: p
     type(basis_ptr_type) :: spher_basis_ptr
@@ -97,17 +97,17 @@ subroutine f90wrap_spherical_basis_from_cartesian(p, spher_basis)
 end subroutine f90wrap_spherical_basis_from_cartesian
 
 subroutine f90wrap_cylindrical_basis_from_cartesian(p, cyl_basis)
-    use coordinate_systems, only: cylindrical_basis_from_cartesian
-    use vectors, only: vector
     use basis_representations, only: basis
+    use vectors, only: vector
+    use coordinate_systems, only: cylindrical_basis_from_cartesian
     implicit none
     
-    type basis_ptr_type
-        type(basis), pointer :: p => NULL()
-    end type basis_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
+    type basis_ptr_type
+        type(basis), pointer :: p => NULL()
+    end type basis_ptr_type
     type(vector_ptr_type) :: p_ptr
     integer, intent(in), dimension(2) :: p
     type(basis_ptr_type) :: cyl_basis_ptr
@@ -118,8 +118,8 @@ subroutine f90wrap_cylindrical_basis_from_cartesian(p, cyl_basis)
 end subroutine f90wrap_cylindrical_basis_from_cartesian
 
 subroutine f90wrap_new_z_coordinates(axis, transformation_matrix, errormsg)
-    use vectors, only: vector
     use coordinate_systems, only: new_z_coordinates
+    use vectors, only: vector
     implicit none
     
     type vector_ptr_type
@@ -592,7 +592,7 @@ subroutine f90wrap_region_finalise(this)
 end subroutine f90wrap_region_finalise
 
 subroutine f90wrap_limits(reg, lim, n0, n1)
-    use geometrical_regions, only: limits, region
+    use geometrical_regions, only: region, limits
     implicit none
     
     type region_ptr_type
@@ -610,7 +610,7 @@ subroutine f90wrap_limits(reg, lim, n0, n1)
 end subroutine f90wrap_limits
 
 subroutine f90wrap_checkifinside(pos, reg, ok, distance, n0)
-    use geometrical_regions, only: region, checkifinside
+    use geometrical_regions, only: checkifinside, region
     implicit none
     
     type region_ptr_type
@@ -628,7 +628,7 @@ subroutine f90wrap_checkifinside(pos, reg, ok, distance, n0)
 end subroutine f90wrap_checkifinside
 
 subroutine f90wrap_cube(p, reg, ok, distance)
-    use geometrical_regions, only: region, cube
+    use geometrical_regions, only: cube, region
     use vectors, only: vector
     implicit none
     
@@ -650,8 +650,8 @@ subroutine f90wrap_cube(p, reg, ok, distance)
 end subroutine f90wrap_cube
 
 subroutine f90wrap_sphere(p, reg, ok, distance)
-    use vectors, only: vector
     use geometrical_regions, only: region, sphere
+    use vectors, only: vector
     implicit none
     
     type region_ptr_type
@@ -672,8 +672,8 @@ subroutine f90wrap_sphere(p, reg, ok, distance)
 end subroutine f90wrap_sphere
 
 subroutine f90wrap_cylinder(p, reg, ok, distance)
-    use vectors, only: vector
     use geometrical_regions, only: region, cylinder
+    use vectors, only: vector
     implicit none
     
     type region_ptr_type
@@ -694,7 +694,7 @@ subroutine f90wrap_cylinder(p, reg, ok, distance)
 end subroutine f90wrap_cylinder
 
 subroutine f90wrap_cone(p, reg, ok, distance)
-    use geometrical_regions, only: region, cone
+    use geometrical_regions, only: cone, region
     use vectors, only: vector
     implicit none
     

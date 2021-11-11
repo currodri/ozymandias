@@ -2,7 +2,7 @@
 Module rotations
 
 
-Defined at linalg_module.fpp lines 167-240
+Defined at linalg_module.fpp lines 176-249
 
 """
 from __future__ import print_function, absolute_import, division
@@ -18,7 +18,7 @@ def euler_matrix(r, dim, angle, ap):
     euler_matrix(r, dim, angle, ap)
     
     
-    Defined at linalg_module.fpp lines 184-217
+    Defined at linalg_module.fpp lines 193-226
     
     Parameters
     ----------
@@ -35,7 +35,7 @@ def _rotate_vector_single(self, rotation_matrix):
     _rotate_vector_single(self, rotation_matrix)
     
     
-    Defined at linalg_module.fpp lines 228-231
+    Defined at linalg_module.fpp lines 237-240
     
     Parameters
     ----------
@@ -51,7 +51,7 @@ def _rotate_vector_array(self, rotation_matrix):
     _rotate_vector_array(self, rotation_matrix)
     
     
-    Defined at linalg_module.fpp lines 233-239
+    Defined at linalg_module.fpp lines 242-248
     
     Parameters
     ----------
@@ -67,7 +67,7 @@ def rotate_vector(*args, **kwargs):
     rotate_vector(*args, **kwargs)
     
     
-    Defined at linalg_module.fpp lines 171-173
+    Defined at linalg_module.fpp lines 180-182
     
     Overloaded interface containing the following procedures:
       _rotate_vector_single

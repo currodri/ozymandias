@@ -8,7 +8,7 @@ class Vectors(f90wrap.runtime.FortranModule):
     Module vectors
     
     
-    Defined at linalg_module.fpp lines 23-150
+    Defined at linalg_module.fpp lines 23-159
     
     """
     @f90wrap.runtime.register_class("amr2.vector")
@@ -209,7 +209,7 @@ class Vectors(f90wrap.runtime.FortranModule):
         magnitude = magnitude(self)
         
         
-        Defined at linalg_module.fpp lines 147-149
+        Defined at linalg_module.fpp lines 150-152
         
         Parameters
         ----------
@@ -229,7 +229,7 @@ class Vectors(f90wrap.runtime.FortranModule):
         _array_to_vector(self, array)
         
         
-        Defined at linalg_module.fpp lines 61-66
+        Defined at linalg_module.fpp lines 64-69
         
         Parameters
         ----------
@@ -245,7 +245,7 @@ class Vectors(f90wrap.runtime.FortranModule):
         _vector_to_array(array_result, vec_1)
         
         
-        Defined at linalg_module.fpp lines 68-73
+        Defined at linalg_module.fpp lines 71-76
         
         Parameters
         ----------
@@ -284,7 +284,7 @@ class Rotations(f90wrap.runtime.FortranModule):
     Module rotations
     
     
-    Defined at linalg_module.fpp lines 167-240
+    Defined at linalg_module.fpp lines 176-249
     
     """
     @staticmethod
@@ -293,7 +293,7 @@ class Rotations(f90wrap.runtime.FortranModule):
         euler_matrix(r, dim, angle, ap)
         
         
-        Defined at linalg_module.fpp lines 184-217
+        Defined at linalg_module.fpp lines 193-226
         
         Parameters
         ----------
@@ -311,7 +311,7 @@ class Rotations(f90wrap.runtime.FortranModule):
         _rotate_vector_single(self, rotation_matrix)
         
         
-        Defined at linalg_module.fpp lines 228-231
+        Defined at linalg_module.fpp lines 237-240
         
         Parameters
         ----------
@@ -328,7 +328,7 @@ class Rotations(f90wrap.runtime.FortranModule):
         _rotate_vector_array(self, rotation_matrix)
         
         
-        Defined at linalg_module.fpp lines 233-239
+        Defined at linalg_module.fpp lines 242-248
         
         Parameters
         ----------
@@ -345,7 +345,7 @@ class Rotations(f90wrap.runtime.FortranModule):
         rotate_vector(*args, **kwargs)
         
         
-        Defined at linalg_module.fpp lines 171-173
+        Defined at linalg_module.fpp lines 180-182
         
         Overloaded interface containing the following procedures:
           _rotate_vector_single
@@ -368,7 +368,7 @@ class Basis_Representations(f90wrap.runtime.FortranModule):
     Module basis_representations
     
     
-    Defined at linalg_module.fpp lines 257-290
+    Defined at linalg_module.fpp lines 266-299
     
     """
     @f90wrap.runtime.register_class("amr2.basis")
@@ -377,7 +377,7 @@ class Basis_Representations(f90wrap.runtime.FortranModule):
         Type(name=basis)
         
         
-        Defined at linalg_module.fpp lines 260-261
+        Defined at linalg_module.fpp lines 269-270
         
         """
         def __init__(self, handle=None):
@@ -385,7 +385,7 @@ class Basis_Representations(f90wrap.runtime.FortranModule):
             self = Basis()
             
             
-            Defined at linalg_module.fpp lines 260-261
+            Defined at linalg_module.fpp lines 269-270
             
             
             Returns
@@ -405,7 +405,7 @@ class Basis_Representations(f90wrap.runtime.FortranModule):
             Destructor for class Basis
             
             
-            Defined at linalg_module.fpp lines 260-261
+            Defined at linalg_module.fpp lines 269-270
             
             Parameters
             ----------
@@ -427,7 +427,7 @@ class Basis_Representations(f90wrap.runtime.FortranModule):
             Element u ftype=type(vector) pytype=Vector
             
             
-            Defined at linalg_module.fpp line 261
+            Defined at linalg_module.fpp line 270
             
             """, Vectors.vector)
             return self.u
@@ -441,7 +441,7 @@ class Basis_Representations(f90wrap.runtime.FortranModule):
         initialise_basis(self)
         
         
-        Defined at linalg_module.fpp lines 264-268
+        Defined at linalg_module.fpp lines 273-277
         
         Parameters
         ----------
@@ -456,7 +456,7 @@ class Basis_Representations(f90wrap.runtime.FortranModule):
         mgramschmidt(self, e)
         
         
-        Defined at linalg_module.fpp lines 277-289
+        Defined at linalg_module.fpp lines 286-298
         
         Parameters
         ----------
@@ -1075,7 +1075,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
     Module io_ramses
     
     
-    Defined at read_amr_module.fpp lines 24-1324
+    Defined at read_amr_module.fpp lines 24-1363
     
     """
     @f90wrap.runtime.register_class("amr2.hydroID")
@@ -3232,7 +3232,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         getvarvalue(self, reg, dx, x, var, varname, value)
         
         
-        Defined at read_amr_module.fpp lines 482-721
+        Defined at read_amr_module.fpp lines 482-742
         
         Parameters
         ----------
@@ -3254,7 +3254,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         init_amr_read(repository, amr, sim)
         
         
-        Defined at read_amr_module.fpp lines 730-818
+        Defined at read_amr_module.fpp lines 751-839
         
         Parameters
         ----------
@@ -3272,7 +3272,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         get_cpu_map(self, amr)
         
         
-        Defined at read_amr_module.fpp lines 826-915
+        Defined at read_amr_module.fpp lines 847-936
         
         Parameters
         ----------
@@ -3288,7 +3288,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         getparttype(self, ptype)
         
         
-        Defined at read_amr_module.fpp lines 917-925
+        Defined at read_amr_module.fpp lines 938-946
         
         Parameters
         ----------
@@ -3304,7 +3304,7 @@ class Io_Ramses(f90wrap.runtime.FortranModule):
         getpartvalue(self, reg, part, var, value[, dx])
         
         
-        Defined at read_amr_module.fpp lines 927-1323
+        Defined at read_amr_module.fpp lines 948-1362
         
         Parameters
         ----------
@@ -3329,7 +3329,7 @@ class Filtering(f90wrap.runtime.FortranModule):
     Module filtering
     
     
-    Defined at read_amr_module.fpp lines 1326-1420
+    Defined at read_amr_module.fpp lines 1365-1459
     
     """
     @f90wrap.runtime.register_class("amr2.filter")
@@ -3338,7 +3338,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         Type(name=filter)
         
         
-        Defined at read_amr_module.fpp lines 1329-1334
+        Defined at read_amr_module.fpp lines 1368-1373
         
         """
         def __init__(self, handle=None):
@@ -3346,7 +3346,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             self = Filter()
             
             
-            Defined at read_amr_module.fpp lines 1329-1334
+            Defined at read_amr_module.fpp lines 1368-1373
             
             
             Returns
@@ -3366,7 +3366,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Destructor for class Filter
             
             
-            Defined at read_amr_module.fpp lines 1329-1334
+            Defined at read_amr_module.fpp lines 1368-1373
             
             Parameters
             ----------
@@ -3385,7 +3385,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element name ftype=character(128) pytype=str
             
             
-            Defined at read_amr_module.fpp line 1330
+            Defined at read_amr_module.fpp line 1369
             
             """
             return _amr2.f90wrap_filter__get__name(self._handle)
@@ -3400,7 +3400,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element ncond ftype=integer  pytype=int
             
             
-            Defined at read_amr_module.fpp line 1331
+            Defined at read_amr_module.fpp line 1370
             
             """
             return _amr2.f90wrap_filter__get__ncond(self._handle)
@@ -3415,7 +3415,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element cond_vars ftype=character(128) pytype=str
             
             
-            Defined at read_amr_module.fpp line 1332
+            Defined at read_amr_module.fpp line 1371
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -3439,7 +3439,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element cond_ops ftype=character(2) pytype=str
             
             
-            Defined at read_amr_module.fpp line 1333
+            Defined at read_amr_module.fpp line 1372
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -3463,7 +3463,7 @@ class Filtering(f90wrap.runtime.FortranModule):
             Element cond_vals ftype=real(dbl) pytype=float
             
             
-            Defined at read_amr_module.fpp line 1334
+            Defined at read_amr_module.fpp line 1373
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -3505,7 +3505,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         allocate_filter(self)
         
         
-        Defined at read_amr_module.fpp lines 1337-1342
+        Defined at read_amr_module.fpp lines 1376-1381
         
         Parameters
         ----------
@@ -3520,7 +3520,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         cond_string_to_filter(str, filt)
         
         
-        Defined at read_amr_module.fpp lines 1344-1348
+        Defined at read_amr_module.fpp lines 1383-1387
         
         Parameters
         ----------
@@ -3536,7 +3536,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         filter_cell = filter_cell(self, reg, filt, cell_x, cell_dx, cell_var)
         
         
-        Defined at read_amr_module.fpp lines 1350-1383
+        Defined at read_amr_module.fpp lines 1389-1422
         
         Parameters
         ----------
@@ -3563,7 +3563,7 @@ class Filtering(f90wrap.runtime.FortranModule):
         filter_particle = filter_particle(self, reg, filt, part[, dx])
         
         
-        Defined at read_amr_module.fpp lines 1385-1420
+        Defined at read_amr_module.fpp lines 1424-1459
         
         Parameters
         ----------
@@ -3593,7 +3593,7 @@ class Amr_Profiles(f90wrap.runtime.FortranModule):
     Module amr_profiles
     
     
-    Defined at profiles_module.fpp lines 25-771
+    Defined at profiles_module.fpp lines 25-780
     
     """
     @f90wrap.runtime.register_class("amr2.profile_handler")
@@ -4172,7 +4172,7 @@ class Amr_Profiles(f90wrap.runtime.FortranModule):
         makebins(self, sim, varname, nbins, bins, logscale)
         
         
-        Defined at profiles_module.fpp lines 70-109
+        Defined at profiles_module.fpp lines 70-118
         
         Parameters
         ----------
@@ -4193,7 +4193,7 @@ class Amr_Profiles(f90wrap.runtime.FortranModule):
         findbinpos(self, varids, distance, pos, cellvars, cellsize, prof, ibin)
         
         
-        Defined at profiles_module.fpp lines 111-133
+        Defined at profiles_module.fpp lines 120-142
         
         Parameters
         ----------
@@ -4219,7 +4219,7 @@ class Amr_Profiles(f90wrap.runtime.FortranModule):
             ibinx, ibiny)
         
         
-        Defined at profiles_module.fpp lines 135-174
+        Defined at profiles_module.fpp lines 144-183
         
         Parameters
         ----------
@@ -4245,7 +4245,7 @@ class Amr_Profiles(f90wrap.runtime.FortranModule):
         bindata(self, varids, pos, cellvars, cellsize, prof, ibin)
         
         
-        Defined at profiles_module.fpp lines 176-223
+        Defined at profiles_module.fpp lines 185-232
         
         Parameters
         ----------
@@ -4267,7 +4267,7 @@ class Amr_Profiles(f90wrap.runtime.FortranModule):
         bindata_twod(self, varids, pos, cellvars, cellsize, prof, ibinx, ibiny)
         
         
-        Defined at profiles_module.fpp lines 225-258
+        Defined at profiles_module.fpp lines 234-267
         
         Parameters
         ----------
@@ -4291,7 +4291,7 @@ class Amr_Profiles(f90wrap.runtime.FortranModule):
         renormalise_bins(self)
         
         
-        Defined at profiles_module.fpp lines 260-285
+        Defined at profiles_module.fpp lines 269-294
         
         Parameters
         ----------
@@ -4306,7 +4306,7 @@ class Amr_Profiles(f90wrap.runtime.FortranModule):
         renormalise_bins_twod(self)
         
         
-        Defined at profiles_module.fpp lines 287-311
+        Defined at profiles_module.fpp lines 296-320
         
         Parameters
         ----------
@@ -4321,7 +4321,7 @@ class Amr_Profiles(f90wrap.runtime.FortranModule):
         get_cells_onedprofile(repository, amr, reg, filt, varids, prof_data)
         
         
-        Defined at profiles_module.fpp lines 313-515
+        Defined at profiles_module.fpp lines 322-524
         
         Parameters
         ----------
@@ -4343,7 +4343,7 @@ class Amr_Profiles(f90wrap.runtime.FortranModule):
         onedprofile(repository, reg, filt, prof_data, lmax, logscale)
         
         
-        Defined at profiles_module.fpp lines 517-539
+        Defined at profiles_module.fpp lines 526-548
         
         Parameters
         ----------
@@ -4365,7 +4365,7 @@ class Amr_Profiles(f90wrap.runtime.FortranModule):
         twodprofile(repository, reg, filt, prof_data, lmax, logscale)
         
         
-        Defined at profiles_module.fpp lines 541-567
+        Defined at profiles_module.fpp lines 550-576
         
         Parameters
         ----------
@@ -4388,7 +4388,7 @@ class Amr_Profiles(f90wrap.runtime.FortranModule):
         get_cells_twodprofile(repository, amr, reg, filt, varids, prof_data, logscale)
         
         
-        Defined at profiles_module.fpp lines 569-771
+        Defined at profiles_module.fpp lines 578-780
         
         Parameters
         ----------

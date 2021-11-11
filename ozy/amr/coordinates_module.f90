@@ -362,8 +362,8 @@ module geometrical_regions
         real(dbl),intent(inout)                ::       distance
 
         distance = sqrt(p%x**2 + p%y**2)
-        ok = (reg%rmin <= distance.and.distance <= reg%rmax.and.&
-                &reg%zmin <= p%z.and.p%z <= reg%zmax)
+        ok = ((reg%rmin <= distance) .and. (distance <= reg%rmax) .and.&
+                &(reg%zmin <= p%z) .and. (p%z <= reg%zmax))
     end subroutine cylinder
 
     subroutine cone(p,reg,ok,distance)

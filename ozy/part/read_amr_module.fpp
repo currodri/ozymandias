@@ -540,6 +540,15 @@ module io_ramses
         case ('d_euclid')
             ! Euclidean distance
             value = magnitude(x)
+        case ('x')
+            ! x - coordinate
+            value = x%x
+        case ('y')
+            ! y - coordinate
+            value = x%y
+        case ('z')
+            ! z - coordinate
+            value = x%z
         case ('r_sphere')
             ! Radius from center of sphere
             value = r_sphere(x)
@@ -659,6 +668,9 @@ module io_ramses
         case ('magnetic_energy_density')
             B = 0.5 *(/(var(varIDs%Blx)+var(varIDs%Brx)),(var(varIDs%Bly)+var(varIDs%Bry)),(var(varIDs%Blz)+var(varIDs%Brz))/)
             value = 0.5 * (B.DOT.B)
+        case ('magnetic_pressure')
+            B = 0.5 *(/(var(varIDs%Blx)+var(varIDs%Brx)),(var(varIDs%Bly)+var(varIDs%Bry)),(var(varIDs%Blz)+var(varIDs%Brz))/)
+            value = 0.5 * (B.DOT.B)
         case ('B_left_x')
             value = var(varIDs%Blx)
         case ('B_left_y')
@@ -678,6 +690,8 @@ module io_ramses
             value = var(varIDs%cr_pressure) / (4D0/3d0 - 1d0)
         case ('cr_pressure')
             value = var(varIDs%cr_pressure)
+        case ('cr_temperature_eff')
+            value = var(varIDs%cr_pressure) / var(varIDs%density)
         case ('cr_energy_specific')
             ! Specific CR energy, computed as CR_energydensity*volume/cell mass
             value = (var(varIDs%cr_pressure) / (4D0/3d0 - 1d0)) / var(varIDs%density)
@@ -708,13 +722,23 @@ module io_ramses
         case ('momentum_sphere_r')
             ! Linear momentum in the spherical radial direction
             ! 1. Correct velocity for bulk velocity of region
-            ! 2. Dot product of velocity vector with spherical phi
+            ! 2. Dot product of velocity vector with spherical r
             !    unit vector
             ! 3. Multiply by mass of cell
             v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
             v_corrected = v_corrected - reg%bulk_velocity
             call spherical_basis_from_cartesian(x,temp_basis)
             value = (var(varIDs%density) * (dx*dx)) * dx * (v_corrected .DOT. temp_basis%u(1))
+        case ('momentum_cyl_z')
+            ! Linear momentum in the cylindrical z direction
+            ! 1. Correct velocity for bulk velocity of region
+            ! 2. Dot product of velocity vector with cylindrical z
+            !    unit vector
+            ! 3. Multiply by mass of cell
+            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
+            v_corrected = v_corrected - reg%bulk_velocity
+            call cylindrical_basis_from_cartesian(x,temp_basis)
+            value = (var(varIDs%density) * (dx*dx)) * dx * (v_corrected .DOT. temp_basis%u(3))
         case ('ang_momentum_x')
             ! Corrected angular momentum in the x direction
             v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
@@ -1032,6 +1056,15 @@ module io_ramses
                     write(*,*)'Can not compute a particle surface density without cell size!'
                     stop
                 endif
+            case ('x')
+                ! x - coordinate
+                value = part%x%x
+            case ('y')
+                ! y - coordinate
+                value = part%x%y
+            case ('z')
+                ! z - coordinate
+                value = part%x%z
             case ('d_euclid')
                 ! Euclidean distance
                 value = magnitude(part%x)
@@ -1147,6 +1180,7 @@ module io_ramses
             index2 = scan(varname,'_')
             sfrstr = varname(1:index2-1)
             if (trim(sfrstr).ne.'sfr') then
+                ! write(*,*)TRIM(varname)
                 select case (TRIM(varname))
                 case ('mass')
                     ! Mass
@@ -1167,11 +1201,21 @@ module io_ramses
                         write(*,*)'Can not compute a particle surface density without cell size!'
                         stop
                     endif
+                case ('x')
+                    ! x - coordinate
+                    value = part%x%x
+                case ('y')
+                    ! y - coordinate
+                    value = part%x%y
+                case ('z')
+                    ! z - coordinate
+                    value = part%x%z
                 case ('d_euclid')
                     ! Euclidean distance
                     value = magnitude(part%x)
                 case ('r_sphere')
                     ! Radius from center of sphere
+                    ! write(*,*)'r_sphere',r_sphere(part%x)
                     value = r_sphere(part%x)
                 case ('theta_sphere')
                     ! Value of spherical theta angle measured from the z axis

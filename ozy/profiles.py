@@ -55,11 +55,11 @@ class Profile(object):
                         hdd.attrs.create(kd, vd.encode('utf8'))
                     elif isinstance(vd, list):
                         hdd.create_dataset('conditions', data=vd, compression=1)
-    def _get_python_region(self,reg):
+    def _get_python_region(self,reg,reg_type):
         """Save the Fortran derived type as a dictionary inside the Profile class (only the necessary info)."""
         from yt import YTArray
         self.region = {}
-        self.region['type'] = reg.name.decode().split(' ')[0]
+        self.region['type'] = reg_type
         self.region['centre'] = YTArray([reg.centre.x, reg.centre.y, reg.centre.z], 'code_length', registry=self.group.obj.unit_registry)
         self.region['axis'] = YTArray([reg.axis.x, reg.axis.y, reg.axis.z], 'dimensionless', registry=self.group.obj.unit_registry)
     
@@ -99,14 +99,16 @@ def init_region(group, region_type, rmin=0.0, rmax=0.2):
             velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
         bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
         reg.bulk_velocity = bulk
-        try:
-            reg.rmin = rmin*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-            # Basic configuration: 0.2 of the virial radius of the host halo
-            reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-        except:
-            reg.rmin = rmin*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-            # Basic configuration: 0.2 of the virial radius of the host halo
-            reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        reg.rmin = YTArray(rmin,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+        reg.rmax = YTArray(rmax,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+        # try:
+        #     reg.rmin = rmin*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        #     # Basic configuration: 0.2 of the virial radius of the host halo
+        #     reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        # except:
+        #     reg.rmin = rmin*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        #     # Basic configuration: 0.2 of the virial radius of the host halo
+        #     reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
     elif region_type == 'basic_sphere':
         reg.name = 'sphere'
         centre = vectors.vector()
@@ -145,6 +147,48 @@ def init_region(group, region_type, rmin=0.0, rmax=0.2):
             reg.rmin = rmin*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
             # Basic configuration: 0.2 of the virial radius of the host halo
             reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+    elif region_type == 'top_midplane_cylinder':
+        reg.name = 'cylinder'
+        axis = vectors.vector()
+        norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
+        axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
+        reg.axis = axis
+        reg.zmin = YTArray(rmin,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+        reg.zmax = YTArray(rmax,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+        reg.rmin = YTArray(0.5*rmin,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+        reg.rmax = YTArray(0.5*rmax,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+        centre = vectors.vector()
+        im_centre = group.position + 0.99 * norm_L.d * reg.zmax
+        centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
+        reg.centre = centre
+        bulk = vectors.vector()
+        try:
+            velocity = group.velocity.in_units('code_velocity')
+        except:
+            velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
+        bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
+        reg.bulk_velocity = bulk
+    elif region_type == 'bottom_midplane_cylinder':
+        reg.name = 'cylinder'
+        axis = vectors.vector()
+        norm_L = -group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
+        axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
+        reg.axis = axis
+        reg.zmin = YTArray(rmin,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+        reg.zmax = YTArray(rmax,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+        reg.rmin = YTArray(0.5*rmin,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+        reg.rmax = YTArray(0.5*rmax,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+        centre = vectors.vector()
+        im_centre = group.position + 0.99 * norm_L.d * reg.zmax
+        centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
+        reg.centre = centre
+        bulk = vectors.vector()
+        try:
+            velocity = group.velocity.in_units('code_velocity')
+        except:
+            velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
+        bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
+        reg.bulk_velocity = bulk
     else:
         raise KeyError('Region type not supported. Please check!')
     return reg
@@ -244,7 +288,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
         selected_reg = init_region(group,region_type,rmax=rmax)
     
     # Save region details to profile object
-    prof._get_python_region(selected_reg)
+    prof._get_python_region(selected_reg,region_type)
 
     # Now create filter, if any conditions have been given…
     filt = init_filter(filter_conds, filter_name, group)
@@ -263,6 +307,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
         group._init_profiles()
         for i,p in enumerate(group.profiles):
             if p.key == prof_key:
+                print(p.key)
                 selected_prof = i
                 break
         return group.profiles[selected_prof]
@@ -291,7 +336,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
     # Initialise particles profile data object
     star_data = partprofmod.profile_handler()
     star_data.profdim = 1
-    star_data.xvarname = xvar
+    star_data.xvarname = 'star/'+xvar
     star_data.nyvar = len(prof.yvars['star'])
     star_data.nwvar = len(prof.weightvars['star'])
     star_data.nbins = nbins
@@ -307,27 +352,25 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
     # And now, compute star data profiles!
     if star_data.nyvar > 0 and star_data.nwvar > 0:
         partprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,star_data,lmax)
-
     # And the same for dm particles
     dm_data = partprofmod.profile_handler()
     dm_data.profdim = 1
-    dm_data.xvarname = xvar
+    dm_data.xvarname = 'dm/'+xvar
     dm_data.nyvar = len(prof.yvars['dm'])
     dm_data.nwvar = len(prof.weightvars['dm'])
     dm_data.nbins = nbins
 
     partprofmod.allocate_profile_handler(dm_data)
     for i in range(0, len(prof.yvars['dm'])):
-        tempstr = 'dn/'+prof.yvars['dm'][i]
+        tempstr = 'dm/'+prof.yvars['dm'][i]
         dm_data.yvarnames.T.view('S128')[i] = tempstr.ljust(128)
     for i in range(0, len(prof.weightvars['dm'])):
-        tempstr = 'star/'+prof.weightvars['dm'][i]
+        tempstr = 'dm/'+prof.weightvars['dm'][i]
         dm_data.wvarnames.T.view('S128')[i] = tempstr.ljust(128)
 
     # And now, compute dm data profiles!
     if dm_data.nyvar > 0 and dm_data.nwvar > 0:
         partprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,dm_data,lmax)
-
     # Organise everything in the Profile object
     xdata = np.zeros((3,prof.nbins))
     if hydro_data != None:

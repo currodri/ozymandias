@@ -569,7 +569,7 @@ subroutine f90wrap_profile_handler_twod_finalise(this)
 end subroutine f90wrap_profile_handler_twod_finalise
 
 subroutine f90wrap_allocate_profile_handler(prof)
-    use amr_profiles, only: allocate_profile_handler, profile_handler
+    use amr_profiles, only: profile_handler, allocate_profile_handler
     implicit none
     
     type profile_handler_ptr_type
@@ -595,9 +595,9 @@ subroutine f90wrap_allocate_profile_handler_twod(prof)
 end subroutine f90wrap_allocate_profile_handler_twod
 
 subroutine f90wrap_makebins(reg, sim, varname, nbins, bins, logscale, n0)
+    use amr_profiles, only: makebins
     use geometrical_regions, only: region
     use io_ramses, only: sim_info
-    use amr_profiles, only: makebins
     implicit none
     
     type sim_info_ptr_type
@@ -622,20 +622,20 @@ subroutine f90wrap_makebins(reg, sim, varname, nbins, bins, logscale, n0)
 end subroutine f90wrap_makebins
 
 subroutine f90wrap_findbinpos(reg, varids, distance, pos, cellvars, cellsize, prof, ibin, n0, n1)
+    use amr_profiles, only: findbinpos, profile_handler
     use io_ramses, only: hydroid
-    use amr_profiles, only: profile_handler, findbinpos
     use geometrical_regions, only: region
     implicit none
     
     type hydroid_ptr_type
         type(hydroid), pointer :: p => NULL()
     end type hydroid_ptr_type
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type profile_handler_ptr_type
         type(profile_handler), pointer :: p => NULL()
     end type profile_handler_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg
     type(hydroid_ptr_type) :: varids_ptr
@@ -659,20 +659,20 @@ subroutine f90wrap_findbinpos(reg, varids, distance, pos, cellvars, cellsize, pr
 end subroutine f90wrap_findbinpos
 
 subroutine f90wrap_findbinpos_twod(reg, varids, distance, pos, cellvars, cellsize, prof, logscale, ibinx, ibiny, n0, n1)
+    use amr_profiles, only: profile_handler_twod, findbinpos_twod
     use io_ramses, only: hydroid
     use geometrical_regions, only: region
-    use amr_profiles, only: findbinpos_twod, profile_handler_twod
     implicit none
     
     type hydroid_ptr_type
         type(hydroid), pointer :: p => NULL()
     end type hydroid_ptr_type
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type profile_handler_twod_ptr_type
         type(profile_handler_twod), pointer :: p => NULL()
     end type profile_handler_twod_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg
     type(hydroid_ptr_type) :: varids_ptr
@@ -698,20 +698,20 @@ subroutine f90wrap_findbinpos_twod(reg, varids, distance, pos, cellvars, cellsiz
 end subroutine f90wrap_findbinpos_twod
 
 subroutine f90wrap_bindata(reg, varids, pos, cellvars, cellsize, prof, ibin, n0, n1)
+    use amr_profiles, only: profile_handler, bindata
     use io_ramses, only: hydroid
-    use amr_profiles, only: bindata, profile_handler
     use geometrical_regions, only: region
     implicit none
     
     type hydroid_ptr_type
         type(hydroid), pointer :: p => NULL()
     end type hydroid_ptr_type
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type profile_handler_ptr_type
         type(profile_handler), pointer :: p => NULL()
     end type profile_handler_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg
     type(hydroid_ptr_type) :: varids_ptr
@@ -734,20 +734,20 @@ subroutine f90wrap_bindata(reg, varids, pos, cellvars, cellsize, prof, ibin, n0,
 end subroutine f90wrap_bindata
 
 subroutine f90wrap_bindata_twod(reg, varids, pos, cellvars, cellsize, prof, ibinx, ibiny, n0, n1)
+    use amr_profiles, only: bindata_twod, profile_handler_twod
     use io_ramses, only: hydroid
     use geometrical_regions, only: region
-    use amr_profiles, only: profile_handler_twod, bindata_twod
     implicit none
     
     type hydroid_ptr_type
         type(hydroid), pointer :: p => NULL()
     end type hydroid_ptr_type
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type profile_handler_twod_ptr_type
         type(profile_handler_twod), pointer :: p => NULL()
     end type profile_handler_twod_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg
     type(hydroid_ptr_type) :: varids_ptr
@@ -771,7 +771,7 @@ subroutine f90wrap_bindata_twod(reg, varids, pos, cellvars, cellsize, prof, ibin
 end subroutine f90wrap_bindata_twod
 
 subroutine f90wrap_renormalise_bins(prof_data)
-    use amr_profiles, only: renormalise_bins, profile_handler
+    use amr_profiles, only: profile_handler, renormalise_bins
     implicit none
     
     type profile_handler_ptr_type
@@ -784,7 +784,7 @@ subroutine f90wrap_renormalise_bins(prof_data)
 end subroutine f90wrap_renormalise_bins
 
 subroutine f90wrap_renormalise_bins_twod(prof_data)
-    use amr_profiles, only: renormalise_bins_twod, profile_handler_twod
+    use amr_profiles, only: profile_handler_twod, renormalise_bins_twod
     implicit none
     
     type profile_handler_twod_ptr_type
@@ -797,27 +797,27 @@ subroutine f90wrap_renormalise_bins_twod(prof_data)
 end subroutine f90wrap_renormalise_bins_twod
 
 subroutine f90wrap_get_cells_onedprofile(repository, amr, reg, filt, varids, prof_data)
-    use amr_profiles, only: get_cells_onedprofile, profile_handler
+    use amr_profiles, only: profile_handler, get_cells_onedprofile
     use io_ramses, only: hydroid, amr_info
     use filtering, only: filter
     use geometrical_regions, only: region
     implicit none
     
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
-    type profile_handler_ptr_type
-        type(profile_handler), pointer :: p => NULL()
-    end type profile_handler_ptr_type
-    type hydroid_ptr_type
-        type(hydroid), pointer :: p => NULL()
-    end type hydroid_ptr_type
-    type filter_ptr_type
-        type(filter), pointer :: p => NULL()
-    end type filter_ptr_type
     type amr_info_ptr_type
         type(amr_info), pointer :: p => NULL()
     end type amr_info_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
+    type filter_ptr_type
+        type(filter), pointer :: p => NULL()
+    end type filter_ptr_type
+    type hydroid_ptr_type
+        type(hydroid), pointer :: p => NULL()
+    end type hydroid_ptr_type
+    type profile_handler_ptr_type
+        type(profile_handler), pointer :: p => NULL()
+    end type profile_handler_ptr_type
     character(128), intent(in) :: repository
     type(amr_info_ptr_type) :: amr_ptr
     integer, intent(in), dimension(2) :: amr
@@ -839,17 +839,17 @@ subroutine f90wrap_get_cells_onedprofile(repository, amr, reg, filt, varids, pro
 end subroutine f90wrap_get_cells_onedprofile
 
 subroutine f90wrap_onedprofile(repository, reg, filt, prof_data, lmax, logscale)
-    use filtering, only: filter
     use amr_profiles, only: profile_handler, onedprofile
+    use filtering, only: filter
     use geometrical_regions, only: region
     implicit none
     
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type profile_handler_ptr_type
         type(profile_handler), pointer :: p => NULL()
     end type profile_handler_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type filter_ptr_type
         type(filter), pointer :: p => NULL()
     end type filter_ptr_type
@@ -870,17 +870,17 @@ subroutine f90wrap_onedprofile(repository, reg, filt, prof_data, lmax, logscale)
 end subroutine f90wrap_onedprofile
 
 subroutine f90wrap_twodprofile(repository, reg, filt, prof_data, lmax, logscale)
+    use amr_profiles, only: profile_handler_twod, twodprofile
     use filtering, only: filter
     use geometrical_regions, only: region
-    use amr_profiles, only: twodprofile, profile_handler_twod
     implicit none
     
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type profile_handler_twod_ptr_type
         type(profile_handler_twod), pointer :: p => NULL()
     end type profile_handler_twod_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type filter_ptr_type
         type(filter), pointer :: p => NULL()
     end type filter_ptr_type
@@ -907,21 +907,21 @@ subroutine f90wrap_get_cells_twodprofile(repository, amr, reg, filt, varids, pro
     use geometrical_regions, only: region
     implicit none
     
+    type amr_info_ptr_type
+        type(amr_info), pointer :: p => NULL()
+    end type amr_info_ptr_type
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
     type profile_handler_twod_ptr_type
         type(profile_handler_twod), pointer :: p => NULL()
     end type profile_handler_twod_ptr_type
-    type hydroid_ptr_type
-        type(hydroid), pointer :: p => NULL()
-    end type hydroid_ptr_type
     type filter_ptr_type
         type(filter), pointer :: p => NULL()
     end type filter_ptr_type
-    type amr_info_ptr_type
-        type(amr_info), pointer :: p => NULL()
-    end type amr_info_ptr_type
+    type hydroid_ptr_type
+        type(hydroid), pointer :: p => NULL()
+    end type hydroid_ptr_type
     character(128), intent(in) :: repository
     type(amr_info_ptr_type) :: amr_ptr
     integer, intent(in), dimension(2) :: amr

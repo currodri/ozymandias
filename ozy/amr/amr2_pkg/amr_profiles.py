@@ -2,7 +2,7 @@
 Module amr_profiles
 
 
-Defined at profiles_module.fpp lines 25-771
+Defined at profiles_module.fpp lines 25-780
 
 """
 from __future__ import print_function, absolute_import, division
@@ -586,7 +586,7 @@ def makebins(self, sim, varname, nbins, bins, logscale):
     makebins(self, sim, varname, nbins, bins, logscale)
     
     
-    Defined at profiles_module.fpp lines 70-109
+    Defined at profiles_module.fpp lines 70-118
     
     Parameters
     ----------
@@ -606,7 +606,7 @@ def findbinpos(self, varids, distance, pos, cellvars, cellsize, prof, ibin):
     findbinpos(self, varids, distance, pos, cellvars, cellsize, prof, ibin)
     
     
-    Defined at profiles_module.fpp lines 111-133
+    Defined at profiles_module.fpp lines 120-142
     
     Parameters
     ----------
@@ -631,7 +631,7 @@ def findbinpos_twod(self, varids, distance, pos, cellvars, cellsize, prof, \
         ibinx, ibiny)
     
     
-    Defined at profiles_module.fpp lines 135-174
+    Defined at profiles_module.fpp lines 144-183
     
     Parameters
     ----------
@@ -656,7 +656,7 @@ def bindata(self, varids, pos, cellvars, cellsize, prof, ibin):
     bindata(self, varids, pos, cellvars, cellsize, prof, ibin)
     
     
-    Defined at profiles_module.fpp lines 176-223
+    Defined at profiles_module.fpp lines 185-232
     
     Parameters
     ----------
@@ -677,7 +677,7 @@ def bindata_twod(self, varids, pos, cellvars, cellsize, prof, ibinx, ibiny):
     bindata_twod(self, varids, pos, cellvars, cellsize, prof, ibinx, ibiny)
     
     
-    Defined at profiles_module.fpp lines 225-258
+    Defined at profiles_module.fpp lines 234-267
     
     Parameters
     ----------
@@ -700,7 +700,7 @@ def renormalise_bins(self):
     renormalise_bins(self)
     
     
-    Defined at profiles_module.fpp lines 260-285
+    Defined at profiles_module.fpp lines 269-294
     
     Parameters
     ----------
@@ -714,7 +714,7 @@ def renormalise_bins_twod(self):
     renormalise_bins_twod(self)
     
     
-    Defined at profiles_module.fpp lines 287-311
+    Defined at profiles_module.fpp lines 296-320
     
     Parameters
     ----------
@@ -728,7 +728,7 @@ def get_cells_onedprofile(repository, amr, reg, filt, varids, prof_data):
     get_cells_onedprofile(repository, amr, reg, filt, varids, prof_data)
     
     
-    Defined at profiles_module.fpp lines 313-515
+    Defined at profiles_module.fpp lines 322-524
     
     Parameters
     ----------
@@ -749,7 +749,7 @@ def onedprofile(repository, reg, filt, prof_data, lmax, logscale):
     onedprofile(repository, reg, filt, prof_data, lmax, logscale)
     
     
-    Defined at profiles_module.fpp lines 517-539
+    Defined at profiles_module.fpp lines 526-548
     
     Parameters
     ----------
@@ -770,7 +770,7 @@ def twodprofile(repository, reg, filt, prof_data, lmax, logscale):
     twodprofile(repository, reg, filt, prof_data, lmax, logscale)
     
     
-    Defined at profiles_module.fpp lines 541-567
+    Defined at profiles_module.fpp lines 550-576
     
     Parameters
     ----------
@@ -792,7 +792,7 @@ def get_cells_twodprofile(repository, amr, reg, filt, varids, prof_data, \
     get_cells_twodprofile(repository, amr, reg, filt, varids, prof_data, logscale)
     
     
-    Defined at profiles_module.fpp lines 569-771
+    Defined at profiles_module.fpp lines 578-780
     
     Parameters
     ----------

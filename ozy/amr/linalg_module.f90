@@ -63,6 +63,10 @@ module vectors
         module procedure my_dot_product
     end interface
 
+    interface operator (.eq.)
+        module procedure compare_vectors
+    end interface
+
     contains
     subroutine array_to_vector(vec_result,array)
         type(vector), intent(inout) :: vec_result
@@ -167,6 +171,13 @@ module vectors
         type(vector), intent(in) :: vec_1
         magnitude = sqrt(vec_1.DOT.vec_1)
     end function magnitude
+
+    logical function compare_vectors(vec_1,vec_2)
+        type(vector), intent(in) :: vec_1,vec_2
+        compare_vectors = (vec_1%x.eq.vec_2%x) .and.&
+                            &(vec_1%y.eq.vec_2%y).and.&
+                            &(vec_1%z.eq.vec_2%z)
+    end function compare_vectors
 end module vectors
 !--------------------------------------------------------------------------
 !

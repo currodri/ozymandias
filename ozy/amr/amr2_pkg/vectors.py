@@ -2,7 +2,7 @@
 Module vectors
 
 
-Defined at linalg_module.fpp lines 23-150
+Defined at linalg_module.fpp lines 23-159
 
 """
 from __future__ import print_function, absolute_import, division
@@ -210,7 +210,7 @@ def magnitude(self):
     magnitude = magnitude(self)
     
     
-    Defined at linalg_module.fpp lines 147-149
+    Defined at linalg_module.fpp lines 150-152
     
     Parameters
     ----------
@@ -229,7 +229,7 @@ def _array_to_vector(self, array):
     _array_to_vector(self, array)
     
     
-    Defined at linalg_module.fpp lines 61-66
+    Defined at linalg_module.fpp lines 64-69
     
     Parameters
     ----------
@@ -244,7 +244,7 @@ def _vector_to_array(array_result, vec_1):
     _vector_to_array(array_result, vec_1)
     
     
-    Defined at linalg_module.fpp lines 68-73
+    Defined at linalg_module.fpp lines 71-76
     
     Parameters
     ----------

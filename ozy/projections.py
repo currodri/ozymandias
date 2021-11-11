@@ -412,7 +412,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         far_cut_depth = rmax
     elif proj.pov == 'top_midplane':
         axis = vectors.vector()
-        norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
+        norm_L = group.angular_mom['gas'].d/np.linalg.norm(group.angular_mom['gas'].d)
         print(norm_L, np.linalg.norm(norm_L))
         los = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
         los /= np.linalg.norm(los)
@@ -425,6 +425,22 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         far_cut_depth = 0.3*rmax
         centre = vectors.vector()
         im_centre = group.position + 0.99*norm_L * rmax.d
+        centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
+    elif proj.pov == 'bottom_midplane':
+        axis = vectors.vector()
+        norm_L = -group.angular_mom['gas'].d/np.linalg.norm(group.angular_mom['gas'].d)
+        print(norm_L, np.linalg.norm(norm_L))
+        los = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
+        los /= np.linalg.norm(los)
+        axis.x,axis.y,axis.z = los[0], los[1], los[2]
+        up_vector = vectors.vector()
+        up_vector.x,up_vector.y,up_vector.z = norm_L[0], norm_L[1], norm_L[2]
+        rmax = window
+        region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
+        distance = 0.3*rmax
+        far_cut_depth = 0.3*rmax
+        centre = vectors.vector()
+        im_centre = group.position + 0.99 * norm_L * rmax.d
         centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
     else:
         print("This point of view is not supported!")

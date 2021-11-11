@@ -2,7 +2,7 @@
 Module part_profiles
 
 
-Defined at profiles_module.fpp lines 5-286
+Defined at profiles_module.fpp lines 5-299
 
 """
 from __future__ import print_function, absolute_import, division
@@ -276,7 +276,7 @@ def makebins(self, varname, nbins, bins):
     makebins(self, varname, nbins, bins)
     
     
-    Defined at profiles_module.fpp lines 30-44
+    Defined at profiles_module.fpp lines 30-54
     
     Parameters
     ----------
@@ -294,7 +294,7 @@ def findbinpos(self, reg, distance, part, prof, ibin):
     findbinpos(self, reg, distance, part, prof, ibin)
     
     
-    Defined at profiles_module.fpp lines 46-62
+    Defined at profiles_module.fpp lines 56-75
     
     Parameters
     ----------
@@ -314,7 +314,7 @@ def bindata(self, reg, part, prof, ibin):
     bindata(self, reg, part, prof, ibin)
     
     
-    Defined at profiles_module.fpp lines 64-93
+    Defined at profiles_module.fpp lines 77-106
     
     Parameters
     ----------
@@ -333,7 +333,7 @@ def renormalise_bins(self):
     renormalise_bins(self)
     
     
-    Defined at profiles_module.fpp lines 95-117
+    Defined at profiles_module.fpp lines 108-130
     
     Parameters
     ----------
@@ -347,7 +347,7 @@ def get_parts_onedprofile(repository, amr, sim, reg, filt, prof_data):
     get_parts_onedprofile(repository, amr, sim, reg, filt, prof_data)
     
     
-    Defined at profiles_module.fpp lines 119-262
+    Defined at profiles_module.fpp lines 132-275
     
     Parameters
     ----------
@@ -368,7 +368,7 @@ def onedprofile(repository, reg, filt, prof_data, lmax):
     onedprofile(repository, reg, filt, prof_data, lmax)
     
     
-    Defined at profiles_module.fpp lines 264-286
+    Defined at profiles_module.fpp lines 277-299
     
     Parameters
     ----------

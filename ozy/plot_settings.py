@@ -91,6 +91,17 @@ plotting_dictionary = dict(
                                 'vmax_galaxy':5e-11
 
     },
+    magnetic_magnitude = {'cmap':sns.cubehelix_palette(reverse=True,as_cmap=True),
+                                'text_over':'white',
+                                'label':r'$B$ [G]',
+                                'label_log':r'$\log(\frac{B}{\rm{G}})$',
+                                'units':'G',
+                                'vmin':4e-17,
+                                'vmax':5e-11,
+                                'vmin_galaxy':4e-12,
+                                'vmax_galaxy':5e-6
+
+    },
     total_crs_energy = {'cmap':sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),
                         'text_over':'white',
                         'label':r'$E_{\rm CR}$ [erg]',

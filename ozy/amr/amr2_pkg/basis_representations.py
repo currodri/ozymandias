@@ -2,7 +2,7 @@
 Module basis_representations
 
 
-Defined at linalg_module.fpp lines 257-290
+Defined at linalg_module.fpp lines 266-299
 
 """
 from __future__ import print_function, absolute_import, division
@@ -20,7 +20,7 @@ class basis(f90wrap.runtime.FortranDerivedType):
     Type(name=basis)
     
     
-    Defined at linalg_module.fpp lines 260-261
+    Defined at linalg_module.fpp lines 269-270
     
     """
     def __init__(self, handle=None):
@@ -28,7 +28,7 @@ class basis(f90wrap.runtime.FortranDerivedType):
         self = Basis()
         
         
-        Defined at linalg_module.fpp lines 260-261
+        Defined at linalg_module.fpp lines 269-270
         
         
         Returns
@@ -48,7 +48,7 @@ class basis(f90wrap.runtime.FortranDerivedType):
         Destructor for class Basis
         
         
-        Defined at linalg_module.fpp lines 260-261
+        Defined at linalg_module.fpp lines 269-270
         
         Parameters
         ----------
@@ -70,7 +70,7 @@ class basis(f90wrap.runtime.FortranDerivedType):
         Element u ftype=type(vector) pytype=Vector
         
         
-        Defined at linalg_module.fpp line 261
+        Defined at linalg_module.fpp line 270
         
         """, vector)
         return self.u
@@ -83,7 +83,7 @@ def initialise_basis(self):
     initialise_basis(self)
     
     
-    Defined at linalg_module.fpp lines 264-268
+    Defined at linalg_module.fpp lines 273-277
     
     Parameters
     ----------
@@ -97,7 +97,7 @@ def mgramschmidt(self, e):
     mgramschmidt(self, e)
     
     
-    Defined at linalg_module.fpp lines 277-289
+    Defined at linalg_module.fpp lines 286-298
     
     Parameters
     ----------

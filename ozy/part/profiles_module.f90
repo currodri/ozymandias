@@ -36,11 +36,21 @@ module part_profiles
         integer,intent(in) :: nbins
         real(dbl),dimension(1:nbins) :: bins
         integer :: n
+        character(128) :: tempvar,vartype,var
+        integer :: index
 
-        select case (TRIM(varname))
+        tempvar = TRIM(varname)
+        index = scan(tempvar,'/')
+        vartype = tempvar(1:index-1)
+        var = tempvar(index+1:)
+        select case (TRIM(var))
         case('r_sphere','r_cyl')
             do n=1,nbins
-                bins(n) = dble(n)*(reg%rmax-reg%rmin)/dble(nbins)
+                bins(n) = dble(n)*(reg%rmax-reg%rmin)/dble(nbins) + reg%rmin
+            end do
+        case('z')
+            do n=1,nbins
+                bins(n) = dble(n)*(reg%zmax-reg%zmin)/dble(nbins) + reg%zmin
             end do
         !TODO: Add more cases
         end select
@@ -63,7 +73,10 @@ module part_profiles
         else
             call getpartvalue(sim,reg,part,prof%xvarname,value)
         endif
-        ibin = int(dble(prof%nbins)*value/prof%xdata(prof%nbins)) + 1
+        ! write(*,*)value,prof%xdata(1)
+        ibin = int(dble(prof%nbins)*(value-prof%xdata(1))/(prof%xdata(prof%nbins)-prof%xdata(1)))
+        ibin = max(ibin,1)
+        ibin = min(ibin,prof%nbins)
     end subroutine findbinpos
 
 
@@ -179,7 +192,7 @@ module part_profiles
             icpu = amr%cpu_list(k)
             call title(icpu,ncharcpu)
             nomfich=TRIM(repository)//'/part_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
-            write(*,*)'Processing file '//TRIM(nomfich)
+            ! write(*,*)'Processing file '//TRIM(nomfich)
             open(unit=1,file=nomfich,status='old',form='unformatted')
             read(1)ncpu2
             read(1)ndim2
