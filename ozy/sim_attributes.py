@@ -4,12 +4,13 @@ import sys
 sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/part')
 import part2
 
+ # TODO: This all should be updated to get rid of yT
 class SimulationAttributes(object):
     """Class that contains the attributes of the simulation."""
 
     def __init__(self):
         pass
-    
+   
     def assign_attributes(self, obj):
         """Get attributes from yT and assign them to OZY object."""
         # TODO: Make sure to add an option that does not use yT but just

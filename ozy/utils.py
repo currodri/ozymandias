@@ -3,6 +3,40 @@ from collections import deque,Counter
 from bisect import insort, bisect_left
 from itertools import islice
 
+def read_infofile(infopath):
+    info = {}
+    info['aexp'] = 0.0
+    info['redshift'] = 0.0
+
+    # Open info file and read the units conversion factors from it
+    with open(infopath,'r') as infofile:
+        cc = 1
+        while (cc <= 20):
+            newline = infofile.readline()
+            linehead = newline[0:12].strip()
+            if (linehead == "ncpu")  : info['ncpu']  = int(newline[13:].strip())
+            if (linehead == "ndim")  : info['ndim'] = int(newline[13:].strip())
+            if (linehead == "levelmin")  : info['levelmin']  = int(newline[13:].strip())
+            if (linehead == "levelmax")  : info['levelmax'] = int(newline[13:].strip())
+            if (linehead == "ngridmax")  : info['ngridmax']  = int(newline[13:].strip())
+            if (linehead == "nstep_coarse")  : info['nstep_coarse'] = int(newline[13:].strip())
+
+            if (linehead == "aexp")  : info['aexp']  = float(newline[13:].strip())
+            if (linehead == "time")  : info['time'] = float(newline[13:].strip())
+            if (linehead == "H0"): info['H0']  = float(newline[13:].strip())
+            if (linehead == "omega_m"): info['omega_m']  = float(newline[13:].strip())
+            if (linehead == "omega_l"): info['omega_l']  = float(newline[13:].strip())
+            if (linehead == "omega_k"): info['omega_k']  = float(newline[13:].strip())
+            if (linehead == "omega_b"): info['omega_b']  = float(newline[13:].strip())
+            if (linehead == "unit_l"): info['unit_l']  = float(newline[13:].strip())
+            if (linehead == "unit_d"): info['unit_d']  = float(newline[13:].strip())
+            if (linehead == "unit_t"): info['unit_t']  = float(newline[13:].strip())
+
+            cc = cc + 1
+        
+        if info['aexp'] < 1.0 and info['time'] <= 0.0:
+            info['redshift'] = 1./info['aexp'] - 1.
+    return info
 def remove_out_zoom(obj, group):
     """Remove objects outside of zoom region.
     
