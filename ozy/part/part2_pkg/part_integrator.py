@@ -2,7 +2,7 @@
 Module part_integrator
 
 
-Defined at integrator_module.fpp lines 24-300
+Defined at integrator_module.fpp lines 24-301
 
 """
 from __future__ import print_function, absolute_import, division
@@ -309,7 +309,7 @@ def integrate_region(repository, reg, filt, attrs, get_ids=None):
     integrate_region(repository, reg, filt, attrs[, get_ids])
     
     
-    Defined at integrator_module.fpp lines 117-300
+    Defined at integrator_module.fpp lines 117-301
     
     Parameters
     ----------

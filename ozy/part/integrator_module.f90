@@ -230,7 +230,6 @@ module part_integrator
             attrs%ids = 0
             attrs%nids = npart
         endif
-    
         ! Compute binned variables
         cpuloop: do k=1,amr%ncpu_read
             icpu = amr%cpu_list(k)
@@ -282,7 +281,6 @@ module part_integrator
                 read(1)imass
             endif
             close(1)
-
             ! Get variable info for particles in the 
             ! region of interest
             partloop: do i=1,npart2
@@ -295,7 +293,7 @@ module part_integrator
                     part%age = age(i)
                     part%met = met(i)
                     part%imass = imass(i)
-                elseif (get_ids) then
+                elseif (present(get_ids) .and. get_ids) then
                     part%id = id(i)
                     part%age = 0D0
                     part%met = 0D0
@@ -314,7 +312,7 @@ module part_integrator
                 ok_filter = filter_particle(sim,reg,filt,part)
                 ok_part = ok_part.and.ok_filter
                 if (ok_part) then
-                    attrs%ids(inpart+i) = part%id
+                    if (present(get_ids) .and. get_ids) attrs%ids(inpart+i) = part%id
                     call getparttype(part,ptype)
                     if (ptype.eq.'dm') attrs%ndm = attrs%ndm + 1
                     if (ptype.eq.'star') attrs%nstar = attrs%nstar + 1
@@ -323,7 +321,8 @@ module part_integrator
                 endif
             end do partloop
             deallocate(m,x,v)
-            if (nstar>0)deallocate(id,age,met,imass)
+            if (allocated(id))deallocate(id)
+            if (nstar>0)deallocate(age,met,imass)
             inpart = inpart + npart2
         end do cpuloop
 

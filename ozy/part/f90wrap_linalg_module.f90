@@ -140,7 +140,7 @@ end subroutine f90wrap_array_vectors__set__n
 
 subroutine f90wrap_array_vectors__array_getitem__list(f90wrap_this, f90wrap_i, listitem)
     
-    use vectors, only: array_vectors, vector
+    use vectors, only: vector, array_vectors
     implicit none
     
     type array_vectors_ptr_type
@@ -170,7 +170,7 @@ end subroutine f90wrap_array_vectors__array_getitem__list
 
 subroutine f90wrap_array_vectors__array_setitem__list(f90wrap_this, f90wrap_i, listitem)
     
-    use vectors, only: array_vectors, vector
+    use vectors, only: vector, array_vectors
     implicit none
     
     type array_vectors_ptr_type
@@ -200,7 +200,7 @@ end subroutine f90wrap_array_vectors__array_setitem__list
 
 subroutine f90wrap_array_vectors__array_len__list(f90wrap_this, f90wrap_n)
     
-    use vectors, only: array_vectors, vector
+    use vectors, only: vector, array_vectors
     implicit none
     
     type array_vectors_ptr_type
@@ -451,7 +451,7 @@ subroutine f90wrap_basis_finalise(this)
 end subroutine f90wrap_basis_finalise
 
 subroutine f90wrap_initialise_basis(this)
-    use basis_representations, only: initialise_basis, basis
+    use basis_representations, only: basis, initialise_basis
     implicit none
     
     type basis_ptr_type
@@ -464,7 +464,7 @@ subroutine f90wrap_initialise_basis(this)
 end subroutine f90wrap_initialise_basis
 
 subroutine f90wrap_mgramschmidt(vecs, e)
-    use basis_representations, only: mgramschmidt, basis
+    use basis_representations, only: basis, mgramschmidt
     implicit none
     
     type basis_ptr_type

@@ -4088,7 +4088,7 @@ class Part_Integrator(f90wrap.runtime.FortranModule):
     Module part_integrator
     
     
-    Defined at integrator_module.fpp lines 24-300
+    Defined at integrator_module.fpp lines 24-301
     
     """
     @f90wrap.runtime.register_class("part2.part_region_attrs")
@@ -4391,7 +4391,7 @@ class Part_Integrator(f90wrap.runtime.FortranModule):
         integrate_region(repository, reg, filt, attrs[, get_ids])
         
         
-        Defined at integrator_module.fpp lines 117-300
+        Defined at integrator_module.fpp lines 117-301
         
         Parameters
         ----------
