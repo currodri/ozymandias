@@ -1,9 +1,14 @@
 program HalosExtractor
   implicit none
-  integer(kind=4),allocatable      :: first_part(:),nb_of_parts(:)
-  integer(kind=4),allocatable      :: linked_list(:), liste_parts(:)
+#ifndef LONGINT
+  integer,parameter::i8b=4  ! default long int are short int
+#else
+  integer,parameter::i8b=8  ! long int are long int
+#endif
+  integer(kind=i8b),allocatable      :: first_part(:),nb_of_parts(:)
+  integer(kind=i8b),allocatable      :: linked_list(:), liste_parts(:)
   integer(kind=4)                  :: nb_of_halos, nb_of_subhalos
-  integer(kind=4)                  :: nbodies
+  integer(kind=i8b)                  :: nbodies
   real(kind=4)                     :: massp
   real(kind=4)                     :: age_univ,Lbox_pt,Lbox_pt2,Hub_pt,omega_0,hubble,omega_lambda_0
   real(kind=4)                     :: omega_t,omega_lambda_t,omega_f,omega_lambda_f,omega_c_f
@@ -180,7 +185,7 @@ contains
   subroutine read_tree_brick
     implicit none
     integer(kind=4)                                         :: i,unitfile,start,j  
-    integer(kind=4) ,allocatable                            :: members(:)
+    integer(kind=i8b) ,allocatable                            :: members(:)
     logical                                                 :: done
     done = .false.
     unitfile = 44

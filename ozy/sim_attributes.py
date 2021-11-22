@@ -116,7 +116,6 @@ class SimulationAttributes(object):
         hdd = hd['simulation_attributes']
         for k,v in hdd.attrs.items():
             setattr(self, k, v)
-        
         uhdd = hdd['units']
         for k,v in uhdd.attrs.items():
             setattr(self, k, YTArray(getattr(self, k), v, registry=obj.unit_registry))

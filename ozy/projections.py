@@ -522,7 +522,7 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
 
     # First,check that FITS file actually exists
     if not os.path.exists(proj_FITS):
-        raise ImportError('File not found. Please check!')
+        raise ImportError('File not found. Please check!: '+str(proj_FITS))
     
     # Load FITS file
     hdul = fits.open(proj_FITS)

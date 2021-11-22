@@ -13,6 +13,7 @@ import ozy
 import numpy as np
 import os
 import argparse
+import subprocess
 from yt import YTQuantity
 import ozy
 from ozy.phase_diagrams import compute_phase_diagram, plot_compare_phase_diagram,plot_single_phase_diagram
@@ -50,46 +51,28 @@ if __name__ == '__main__':
             
             if not os.path.exists(simfolder):
                 raise Exception('The given simulation name is not found in this directory!')
-
+            
             groupspath = os.path.join(simfolder, 'Groups')
+            os.chdir(simfolder)
+            result = subprocess.run('IDtoZetas.out -ask '+str(args.z[0]), shell=True,stdout=subprocess.PIPE)
+            os.chdir('../')
+            indexout = int(result.stdout.decode('utf-8').split('is')[1].split('(z')[0])
 
-            files = os.listdir(groupspath)
+            ozyfile = 'ozy_%05d.hdf5' % (indexout)
 
-            ozyfiles = []
+            sim = ozy.load(os.path.join(groupspath, ozyfile))
 
-            for f in files:
-                if f.startswith('ozy_'):
-                    ozyfiles.append(f)
-            ozyfiles = sorted(ozyfiles, key=lambda x:x[4:-5], reverse=True)
             progind = args.ind
-
             if args.NUT:
-                sim = ozy.load(os.path.join(groupspath, ozyfiles[0]))
                 virial_mass = [i.virial_quantities['mass'] for i in sim.galaxies]
                 progind = np.argmax(virial_mass)
-            
-            for ozyfile in ozyfiles:
-                if progind == -1:
-                    continue
-
-                # Load OZY file
-                sim = ozy.load(os.path.join(groupspath, ozyfile))
-
-                redshift = sim.simulation.redshift
-                if redshift >= args.z:
-                    gal = sim.galaxies[progind]
-                    pd = compute_phase_diagram(gal,os.path.join(groupspath, ozyfile), 'density','temperature', [args.field],
-                                [args.weight],save=True,recompute=False)
-                    pds.append(pd)
-                    break
-                else:
-                    try:
-                        progind = sim.galaxies[progind].progen_galaxy_star
-                    except:
-                        print('I have lost this galaxy in the snapshot %s'%ozyfile)
-                        progind = -1
+                args.ind = 'NUT'
+            gal = sim.galaxies[progind]
+            pd = compute_phase_diagram(gal,os.path.join(groupspath, ozyfile), 'density','temperature', [args.field],
+                        [args.weight],save=True,recompute=False)
+            pds.append(pd)
         
-        plot_compare_phase_diagram(pds,args.field.split('/')[1],'compare_pd_'+args.field.split('/')[1]+'.png',weightvar=args.weight.split('/')[1],stats='mean',extra_labels=args.model,powell=True)
+        plot_compare_phase_diagram(pds,args.field.split('/')[1],'compare_pd_'+args.field.split('/')[1]+'_'+str(args.z[0])+'.png',weightvar=args.weight.split('/')[1],stats='mean',extra_labels=args.model)
     else:
         print('That comparison mode is not suported. Please check!')
         exit
