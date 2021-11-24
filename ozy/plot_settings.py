@@ -114,15 +114,15 @@ plotting_dictionary = dict(
                         'vmax_galaxy':8e-11
 
     },
-    cr_energy_density = {'cmap':sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),
+    cr_energy_density = {'cmap':sns.cubehelix_palette(start=.5, rot=-.75, as_cmap=True,reverse=True), #sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),
                         'text_over':'white',
                         'label':r'$\varepsilon_{\rm CR}$ [erg/cm$^{3}$]',
                         'label_log':r'$\log(\frac{\varepsilon_{\rm CR}}{{\rm erg/cm}^{3}})$',
                         'units':'erg*cm**-3',
                         'vmin':7e-18,
                         'vmax':8e-12,
-                        'vmin_galaxy':8e-14,
-                        'vmax_galaxy':8e-11
+                        'vmin_galaxy':3e-14,
+                        'vmax_galaxy':3e-11
 
     },
     cr_energy_specific = {'cmap':sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),

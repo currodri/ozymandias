@@ -99,16 +99,16 @@ def init_region(group, region_type, rmin=0.0, rmax=0.2):
             velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
         bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
         reg.bulk_velocity = bulk
-        # reg.rmin = YTArray(rmin,'kpc',registry=group.obj.unit_registry).in_units('code_length')
-        # reg.rmax = YTArray(rmax,'kpc',registry=group.obj.unit_registry).in_units('code_length')
-        try:
-            reg.rmin = rmin*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-            # Basic configuration: 0.2 of the virial radius of the host halo
-            reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-        except:
-            reg.rmin = rmin*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-            # Basic configuration: 0.2 of the virial radius of the host halo
-            reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        reg.rmin = YTArray(rmin,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+        reg.rmax = YTArray(rmax,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+        # try:
+        #     reg.rmin = rmin*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        #     # Basic configuration: 0.2 of the virial radius of the host halo
+        #     reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        # except:
+        #     reg.rmin = rmin*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        #     # Basic configuration: 0.2 of the virial radius of the host halo
+        #     reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
     elif region_type == 'basic_sphere':
         reg.name = 'sphere'
         centre = vectors.vector()
@@ -177,7 +177,7 @@ def init_region(group, region_type, rmin=0.0, rmax=0.2):
         reg.zmin = YTArray(rmin,'kpc',registry=group.obj.unit_registry).in_units('code_length')
         reg.zmax = YTArray(rmax,'kpc',registry=group.obj.unit_registry).in_units('code_length')
         reg.rmin = YTArray(0.5*rmin,'kpc',registry=group.obj.unit_registry).in_units('code_length')
-        reg.rmax = YTArray(0.5*rmax,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+        reg.rmax = YTArray(0.2*rmax,'kpc',registry=group.obj.unit_registry).in_units('code_length')
         centre = vectors.vector()
         im_centre = group.position + 0.99 * norm_L.d * reg.zmax
         centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]

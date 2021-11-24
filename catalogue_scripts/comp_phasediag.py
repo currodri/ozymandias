@@ -89,7 +89,7 @@ if __name__ == '__main__':
                         print('I have lost this galaxy in the snapshot %s'%ozyfile)
                         progind = -1
         
-        plot_compare_phase_diagram(pds,args.field.split('/')[1],'compare_pd_'+args.field.split('/')[1]+'.png',weightvar=args.weight.split('/')[1],stats='mean',extra_labels=args.model,powell=True)
+        plot_compare_phase_diagram(pds,args.field.split('/')[1],'compare_pd_'+args.field.split('/')[1]+'_'+str(args.z)+'.png',weightvar=args.weight.split('/')[1],stats='mean',extra_labels=args.model,powell=False)
     else:
         print('That comparison mode is not suported. Please check!')
         exit
