@@ -1,19 +1,22 @@
-import numpy as np
-import h5py
 import os
-import ozy
-from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units
-# TODO: Allow for parallel computation of profiles.
-from joblib import Parallel, delayed
 import sys
-from yt import YTQuantity, YTArray
+
+import h5py
+import numpy as np
+from unyt import unyt_array,unyt_quantity
+# TODO: Allow for parallel computation of profiles.
+import ozy
+from ozy.dict_variables import (common_variables, get_code_units,
+                                grid_variables, particle_variables)
+
 sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/amr')
 sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/part')
-from amr2 import vectors
-from amr2 import geometrical_regions as geo
-from amr2 import filtering
 from amr2 import amr_profiles as amrprofmod
+from amr2 import filtering
+from amr2 import geometrical_regions as geo
+from amr2 import vectors
 from part2 import part_profiles as partprofmod
+
 from ozy.saver import _write_attrib
 
 blacklist = [
@@ -35,11 +38,10 @@ class Profile(object):
     
     def _serialise(self, hdd):
         """This makes possible to save the group profile attrs as dataset attributes of an HDF5 group."""
-        from yt import YTArray
         for k,v in self.__dict__.items():
             if k in blacklist:
                 continue
-            if isinstance(v, YTArray):
+            if isinstance(v, unyt_array):
                 hdd.attrs.create(k, v.d)
             elif isinstance(v, (int, float, bool, np.number)):
                 hdd.attrs.create(k, v)
@@ -47,7 +49,7 @@ class Profile(object):
                 hdd.attrs.create(k, v.encode('utf8'))
             elif isinstance(v,dict):
                 for kd,vd in v.items():
-                    if isinstance(vd, YTArray):
+                    if isinstance(vd, unyt_array):
                         hdd.attrs.create(kd, vd.d)
                     elif isinstance(vd, (int, float, bool, np.number)):
                         hdd.attrs.create(kd, vd)
@@ -57,15 +59,13 @@ class Profile(object):
                         hdd.create_dataset('conditions', data=vd, compression=1)
     def _get_python_region(self,reg):
         """Save the Fortran derived type as a dictionary inside the Profile class (only the necessary info)."""
-        from yt import YTArray
         self.region = {}
         self.region['type'] = reg.name.decode().split(' ')[0]
-        self.region['centre'] = YTArray([reg.centre.x, reg.centre.y, reg.centre.z], 'code_length', registry=self.group.obj.unit_registry)
-        self.region['axis'] = YTArray([reg.axis.x, reg.axis.y, reg.axis.z], 'dimensionless', registry=self.group.obj.unit_registry)
+        self.region['centre'] = self.group.obj.array([reg.centre.x, reg.centre.y, reg.centre.z], 'code_length')
+        self.region['axis'] = self.group.obj.array([reg.axis.x, reg.axis.y, reg.axis.z], 'dimensionless')
     
     def _get_python_filter(self,filt):
         """Save the Fortran derived type as a dictionary inside the Profile class (only the necessary info)."""
-        from yt import YTQuantity
         self.filter = {}
         self.filter['name'] = filt.name.decode().split(' ')[0]
         self.filter['conditions'] = []
@@ -74,7 +74,7 @@ class Profile(object):
                 cond_var = filt.cond_vars.T.view('S128')[i][0].decode().split(' ')[0]
                 cond_op = filt.cond_ops.T.view('S2')[i][0].decode().split(' ')[0]
                 cond_units = get_code_units(cond_var)
-                cond_value = YTQuantity(filt.cond_vals[i], str(cond_units), registry=self.group.obj.unit_registry)
+                cond_value = self.group.obj.quantity(filt.cond_vals[i], str(cond_units))
                 cond_str = cond_var+'/'+cond_op+'/'+str(cond_value.d)+'/'+cond_units
                 self.filter['conditions'].append(cond_str)
 
@@ -110,6 +110,117 @@ def init_region(group, region_type, rmin=0.0, rmax=0.2):
     else:
         raise KeyError('Region type not supported. Please check!')
     return reg
+
+# def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir')):
+#     """Initialise region Fortran derived type with details of group."""
+
+#     if not isinstance(rmin,tuple) or not isinstance(rmax,tuple):
+#         raise TypeError('The format for rmin and rmax should be %s, instead you gave for rmin %s and for rmax %s' %(type(tuple),type(rmin),type(rmax)))
+#         exit
+#     reg = geo.region()
+
+#     if region_type == 'sphere':
+#         reg.name = 'sphere'
+#         centre = vectors.vector()
+#         centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+#         reg.centre = centre
+#         axis = vectors.vector()
+#         norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
+#         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
+#         reg.axis = axis
+#         bulk = vectors.vector()
+#         try:
+#             velocity = group.velocity.in_units('code_velocity')
+#         except:
+#             velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
+#         bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
+#         reg.bulk_velocity = bulk
+#         reg.rmin = YTArray(rmin,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+#         reg.rmax = YTArray(rmax,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+
+#     elif region_type == 'basic_sphere':
+#         reg.name = 'sphere'
+#         centre = vectors.vector()
+#         centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+#         reg.centre = centre
+#         axis = vectors.vector()
+#         norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
+#         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
+#         reg.axis = axis
+#         bulk = vectors.vector()
+#         bulk.x, bulk.y, bulk.z = 0,0,0
+#         reg.bulk_velocity = bulk
+#         reg.rmin = rmin
+#         reg.rmax = rmax
+#     elif region_type == 'cylinder':
+#         reg.name = 'cylinder'
+#         centre = vectors.vector()
+#         centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+#         reg.centre = centre
+#         axis = vectors.vector()
+#         norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
+#         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
+#         reg.axis = axis
+#         bulk = vectors.vector()
+#         try:
+#             velocity = group.velocity.in_units('code_velocity')
+#         except:
+#             velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
+#         bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
+#         reg.bulk_velocity = bulk
+#         try:
+#             reg.rmin = rmin*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+#             # Basic configuration: 0.2 of the virial radius of the host halo
+#             reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+#         except:
+#             reg.rmin = rmin*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+#             # Basic configuration: 0.2 of the virial radius of the host halo
+#             reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+#     elif region_type == 'top_midplane_cylinder':
+#         reg.name = 'cylinder'
+#         axis = vectors.vector()
+#         norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
+#         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
+#         reg.axis = axis
+#         reg.zmin = YTArray(rmin,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+#         reg.zmax = YTArray(rmax,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+#         reg.rmin = YTArray(0.5*rmin,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+#         reg.rmax = YTArray(0.5*rmax,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+#         centre = vectors.vector()
+#         im_centre = group.position + 0.99 * norm_L.d * reg.zmax
+#         centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
+#         reg.centre = centre
+#         bulk = vectors.vector()
+#         try:
+#             velocity = group.velocity.in_units('code_velocity')
+#         except:
+#             velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
+#         bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
+#         reg.bulk_velocity = bulk
+#     elif region_type == 'bottom_midplane_cylinder':
+#         reg.name = 'cylinder'
+#         axis = vectors.vector()
+#         norm_L = -group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
+#         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
+#         reg.axis = axis
+#         reg.zmin = YTArray(rmin,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+#         reg.zmax = YTArray(rmax,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+#         reg.rmin = YTArray(0.5*rmin,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+#         reg.rmax = YTArray(0.2*rmax,'kpc',registry=group.obj.unit_registry).in_units('code_length')
+#         centre = vectors.vector()
+#         im_centre = group.position + 0.99 * norm_L.d * reg.zmax
+#         centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
+#         reg.centre = centre
+#         bulk = vectors.vector()
+#         try:
+#             velocity = group.velocity.in_units('code_velocity')
+#         except:
+#             velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
+#         bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
+#         reg.bulk_velocity = bulk
+#     else:
+#         raise KeyError('Region type not supported. Please check!')
+#     return reg
 
 def init_filter(cond_strs, name, group):
     """Initialise filter Fortran derived type with the condition strings provided."""

@@ -1,6 +1,6 @@
 import numpy as np
 from ozy.sim_attributes import SimulationAttributes
-from unyt import UnitRegistry, Unit, unyt_array,unyt_quantity
+from unyt import UnitRegistry,unyt_array,unyt_quantity
 
 class OZY(object):
     """Master OZY class.
@@ -13,10 +13,19 @@ class OZY(object):
     def __init__(self, fullpath, *args, **kwargs):
         self._args   = args
         self._kwargs = kwargs
+
+        self.units = dict(
+            mass        = 'Msun',
+            length      = 'kpc',
+            velocity    = 'km/s',
+            time        = 'yr',
+            temperature = 'K'
+        )
+
         self._info = self._get_my_info(fullpath)
         self.unit_registry = self._get_unit_registry()
         self.simulation  = SimulationAttributes()
-        self._assign_simulation_attributes()
+        self._assign_simulation_attributes(fullpath)
         
         self.nhalos      = 0
         self.ngalaxies   = 0
@@ -25,10 +34,10 @@ class OZY(object):
         self.group_types = []
 
     def array(self, value, units):
-        return unyt_array(value, units, registry=self.registry)
+        return unyt_array(value, units, registry=self.unit_registry)
 
     def quantity(self, value, units):
-        return unyt_quantity(value, units, registry=self.registry)
+        return unyt_quantity(value, units, registry=self.unit_registry)
 
     @property
     def _has_halos(self):
@@ -56,7 +65,7 @@ class OZY(object):
         from unyt.dimensions import length,mass,time,temperature,dimensionless
         from unyt import mp,kb
         
-        registry = UnitRegistry(unit_system='cgs')
+        registry = UnitRegistry(unit_system='galactic')
 
         _X = 0.76  # H fraction, hardcoded
         _Y = 0.24  # He fraction, hardcoded
@@ -69,7 +78,7 @@ class OZY(object):
         magnetic_unit = np.sqrt(4 * np.pi * mass_unit / (time_unit ** 2 * length_unit))
         velocity_unit = length_unit / time_unit
         pressure_unit = density_unit * (length_unit / time_unit) ** 2
-        temperature_unit = velocity_unit ** 2 * mp.to('g') * mean_molecular_weight_factor / kb.to('g*cm**2/(K*s**2)')
+        temperature_unit = velocity_unit ** 2 * mp.to('g').d * mean_molecular_weight_factor / kb.to('g*cm**2/(K*s**2)').d
 
         # Code length
         registry.add("code_length", base_value=length_unit, dimensions=length)
@@ -91,7 +100,7 @@ class OZY(object):
                     dimensions=(length**2)/(time**2))
         # Code magnetic
         registry.add("code_magnetic", base_value=magnetic_unit, 
-                    dimensions=np.sqrt( mass / (time ** 2 * length)))
+                    dimensions=( mass / (time ** 2 * length))**(0.5))
         # Code temperature
         registry.add("code_temperature", base_value=temperature_unit, dimensions=temperature)
         # Code metallicity
@@ -100,9 +109,9 @@ class OZY(object):
         return registry
 
 
-    def _assign_simulation_attributes(self):
+    def _assign_simulation_attributes(self,fullpath):
         """Assign simulation attributes to the OZY object, if it has not been done before."""
-        self.simulation.assign_attributes(self)
+        self.simulation.assign_attributes(self,fullpath)
     
     def _assign_groups(self):
         """Assign galaxies to halos to galaxies.

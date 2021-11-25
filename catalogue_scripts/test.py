@@ -1,8 +1,6 @@
-import yt
 import ozy  
-ds = yt.load('/mnt/extraspace/currodri/NUT/cosmoNUThd/output_00007/info_00007.txt')
-obj = ozy.OZY(ds)
+obj = ozy.OZY('/mnt/extraspace/currodri/NUT/cosmoNUThd/output_00010')
 obj.build_HaloMaker()
 
-obj.save('test_00007.hdf5')
+obj.save('test_00010.hdf5')
 

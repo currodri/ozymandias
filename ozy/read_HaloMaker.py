@@ -1,5 +1,7 @@
-import numpy as np
 import os
+
+import numpy as np
+
 from ozy.group import create_new_group, grouptypes
 from ozy.utils import remove_out_zoom
 
@@ -16,7 +18,7 @@ def read_HM(obj, grouptype):
     S. Martin-Alvarez.
     
     """
-    # yT returns the fullpath something like '/mnt/extraspace/currodri/NUT/cosmoNUT/output_00013'
+    # simulation.fullpath returns something like '/mnt/extraspace/currodri/NUT/cosmoNUT/output_00013'
     # so need to get rid of the last bit to get the path to the simulation, not the snap.
     sim_folder = '/' + os.path.join(*obj.simulation.fullpath.split('/')[0:-1]) + '/'
     
@@ -82,7 +84,7 @@ def read_HM(obj, grouptype):
             ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
             new_group.slist = np.fromfile(file=HMfile, dtype=np.int32, count=new_group.npart)
             ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
-            # Get rid of IDs==0, since this are for the gas particles given by ramses2gadget
+            # Get rid of IDs==0, since these are for the gas particles given by ramses2gadget
             new_group.slist = new_group.slist[new_group.slist != 0]
             new_group.nstar = len(new_group.slist)
         # Halo integers.
@@ -106,37 +108,37 @@ def read_HM(obj, grouptype):
         # Halo total mass.
         tempR = np.fromfile(file=HMfile, dtype=np.float32, count=3)
         # Because of stupid HaloMaker, the units are in 10^11 Msun…
-        m = (tempR[1] * 1e+11)/obj.yt_dataset.quan(1.0, 'code_mass').in_units('Msun').d
-        new_group.mass['total'] = obj.yt_dataset.quan(m, 'code_mass')
+        m = (tempR[1] * 1e+11)/obj.quantity(1.0, 'code_mass').in_units('Msun').d
+        new_group.mass['total'] = obj.quantity(m, 'code_mass')
         
         # Halo positions
         ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
         tempR = np.fromfile(file=HMfile, dtype=np.float64, count=3)
         ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
-        new_group.position = obj.yt_dataset.arr(np.array([tempR[0]+0.5,tempR[1]+0.5,tempR[2]+0.5]), 'code_length')
+        new_group.position = obj.array(np.array([tempR[0]+0.5,tempR[1]+0.5,tempR[2]+0.5]), 'code_length')
         
         # Halo velocities
         ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
         tempR = np.fromfile(file=HMfile, dtype=np.float64, count=3)
         ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
-        new_group.velocity = obj.yt_dataset.arr(np.array([tempR[0],tempR[1],tempR[2]]), 'km/s')
+        new_group.velocity = obj.array(np.array([tempR[0],tempR[1],tempR[2]]), 'km/s')
         
         # Halo angular momenta
         ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
         tempR = np.fromfile(file=HMfile, dtype=np.float64, count=3)
         ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
-        new_group.angular_mom['total'] = obj.yt_dataset.arr(np.array([tempR[0],tempR[1],tempR[2]]), 
+        new_group.angular_mom['total'] = obj.array(np.array([tempR[0],tempR[1],tempR[2]]), 
         'code_mass*code_length*code_velocity')
         
         # Halo radius + a,b,c
         tempR = np.fromfile(file=HMfile, dtype=np.float32, count=6)
-        new_group.radius['total'] = obj.yt_dataset.quan(tempR[1], 'code_length')
+        new_group.radius['total'] = obj.quantity(tempR[1], 'code_length')
         new_group.shape['total'] = np.array([tempR[2],tempR[3],tempR[4]])
         
         # Halo Kinetic,Potential,Thermal
         tempR = np.fromfile(file=HMfile, dtype=np.float32, count=5)
-        new_group.energies['total_kinetic'] = obj.yt_dataset.quan(tempR[1], 'code_mass * code_velocity**2')
-        new_group.energies['total_potential'] = obj.yt_dataset.quan(tempR[1], 'code_mass * code_velocity**2')
+        new_group.energies['total_kinetic'] = obj.quantity(tempR[1], 'code_mass * code_velocity**2')
+        new_group.energies['total_potential'] = obj.quantity(tempR[1], 'code_mass * code_velocity**2')
         
         
         # Halo Spin
@@ -146,12 +148,12 @@ def read_HM(obj, grouptype):
         
         # Halo virials [radius, mass, temperature, circular velocity]
         tempR = np.fromfile(file=HMfile, dtype=np.float32, count=6)
-        new_group.virial_quantities['radius'] = obj.yt_dataset.quan(tempR[1], 'code_length')
+        new_group.virial_quantities['radius'] = obj.quantity(tempR[1], 'code_length')
         # Same here for the virial mass…
-        m = (tempR[2] * 1e+11)/obj.yt_dataset.quan(1.0, 'code_mass').in_units('Msun').d
-        new_group.virial_quantities['mass']   = obj.yt_dataset.quan(m, 'code_mass')
-        new_group.virial_quantities['temperature']   = obj.yt_dataset.quan(tempR[3], 'code_temperature')
-        new_group.virial_quantities['cvel']   = obj.yt_dataset.quan(tempR[4], 'code_velocity')
+        m = (tempR[2] * 1e+11)/obj.quantity(1.0, 'code_mass').in_units('Msun').d
+        new_group.virial_quantities['mass']   = obj.quantity(m, 'code_mass')
+        new_group.virial_quantities['temperature']   = obj.quantity(tempR[3], 'code_temperature')
+        new_group.virial_quantities['cvel']   = obj.quantity(tempR[4], 'code_velocity')
         
         # Halo profiles
         tempR = np.fromfile(file=HMfile, dtype=np.float32, count=4)

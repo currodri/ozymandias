@@ -1,7 +1,9 @@
 import argparse
-import h5py
 import os
+
+import h5py
 import numpy as np
+
 
 def run():
     """Main script for package entry point.
@@ -40,6 +42,7 @@ def run():
         
 def open_ozy_file(infile):
     import IPython
+
     from .loader import load
     
     obj = load(infile)
@@ -47,7 +50,6 @@ def open_ozy_file(infile):
     IPython.embed(header="OZY file loaded into the 'obj' variable.")
     
 def run_ozy(infile, args):
-    import yt
     
     if args['output'] is not None:
         if args['output'].endswith('.hdf5'):
@@ -64,23 +66,21 @@ def run_ozy(infile, args):
         else:
             outfile = 'ozy_%s.hdf5' % infile
             
-    if not infile.endswith('.txt'):
-        infile = infile + '/' + 'info_' + infile.split('/')[0][-5:] + '.txt'
-    elif not 'output_' in infile and len(infile) == 5:
-        infile = 'output_' + infile + '/' + 'info_' + infile + '.txt'
+
+    if not 'output_' in infile and len(infile) == 5:
+        infile = 'output_' + infile
     else:
         raise ImportError('Snapshot format not supported. Please check!')
             
     from .main import OZY
-    ds = yt.load(infile)
-    obj = OZY(yt.load(infile))
+    obj = OZY(infile)
     
     obj.build_HaloMaker(**args)
     obj.save(outfile)
     
 def run_multiple_ozy(dir, args):
     import glob
-    
+
     # Look for output folders.
     infiles = glob.glob('output_*')
     if len(infiles) == 0:
