@@ -403,7 +403,7 @@ module geometrical_regions
         logical,intent(inout)                     ::       ok
         real(dbl),intent(inout)                ::       distance
         type(vector) :: ptemp
-        ptemp = p !+ reg%centre
+        ptemp = p + reg%centre
         ok = (reg%xmin <= ptemp%x.and.ptemp%x <= reg%xmax.and.&
                 &reg%ymin <= ptemp%y.and.ptemp%y <= reg%ymax.and.&
                 &reg%zmin <= ptemp%z.and.ptemp%z <= reg%zmax)

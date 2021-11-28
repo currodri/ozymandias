@@ -6,18 +6,15 @@ import numpy as np
 from unyt import unyt_array,unyt_quantity
 # TODO: Allow for parallel computation of profiles.
 import ozy
+from ozy.utils import init_region,init_filter
 from ozy.dict_variables import (common_variables, get_code_units,
                                 grid_variables, particle_variables)
 
 sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/amr')
 sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/part')
 from amr2 import amr_profiles as amrprofmod
-from amr2 import filtering
 from amr2 import geometrical_regions as geo
-from amr2 import vectors
 from part2 import part_profiles as partprofmod
-
-from ozy.saver import _write_attrib
 
 blacklist = [
     'yvars','weightvars','data','xdata','ydata'
@@ -78,182 +75,11 @@ class Profile(object):
                 cond_str = cond_var+'/'+cond_op+'/'+str(cond_value.d)+'/'+cond_units
                 self.filter['conditions'].append(cond_str)
 
-def init_region(group, region_type, rmin=0.0, rmax=0.2):
-    """Initialise region Fortran derived type with details of group."""
-    from yt import YTArray
-    reg = geo.region()
 
-    if region_type == 'sphere':
-        reg.name = 'sphere'
-        centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
-        reg.centre = centre
-        axis = vectors.vector()
-        norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
-        axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
-        reg.axis = axis
-        bulk = vectors.vector()
-        try:
-            velocity = group.velocity.in_units('code_velocity')
-        except:
-            velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
-        bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
-        reg.bulk_velocity = bulk
-        try:
-            reg.rmin = rmin*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-            # Basic configuration: 0.2 of the virial radius of the host halo
-            reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-        except:
-            reg.rmin = rmin*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-            # Basic configuration: 0.2 of the virial radius of the host halo
-            reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-    else:
-        raise KeyError('Region type not supported. Please check!')
-    return reg
-
-# def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir')):
-#     """Initialise region Fortran derived type with details of group."""
-
-#     if not isinstance(rmin,tuple) or not isinstance(rmax,tuple):
-#         raise TypeError('The format for rmin and rmax should be %s, instead you gave for rmin %s and for rmax %s' %(type(tuple),type(rmin),type(rmax)))
-#         exit
-#     reg = geo.region()
-
-#     if region_type == 'sphere':
-#         reg.name = 'sphere'
-#         centre = vectors.vector()
-#         centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
-#         reg.centre = centre
-#         axis = vectors.vector()
-#         norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
-#         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
-#         reg.axis = axis
-#         bulk = vectors.vector()
-#         try:
-#             velocity = group.velocity.in_units('code_velocity')
-#         except:
-#             velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
-#         bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
-#         reg.bulk_velocity = bulk
-#         reg.rmin = YTArray(rmin,'kpc',registry=group.obj.unit_registry).in_units('code_length')
-#         reg.rmax = YTArray(rmax,'kpc',registry=group.obj.unit_registry).in_units('code_length')
-
-#     elif region_type == 'basic_sphere':
-#         reg.name = 'sphere'
-#         centre = vectors.vector()
-#         centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
-#         reg.centre = centre
-#         axis = vectors.vector()
-#         norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
-#         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
-#         reg.axis = axis
-#         bulk = vectors.vector()
-#         bulk.x, bulk.y, bulk.z = 0,0,0
-#         reg.bulk_velocity = bulk
-#         reg.rmin = rmin
-#         reg.rmax = rmax
-#     elif region_type == 'cylinder':
-#         reg.name = 'cylinder'
-#         centre = vectors.vector()
-#         centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
-#         reg.centre = centre
-#         axis = vectors.vector()
-#         norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
-#         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
-#         reg.axis = axis
-#         bulk = vectors.vector()
-#         try:
-#             velocity = group.velocity.in_units('code_velocity')
-#         except:
-#             velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
-#         bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
-#         reg.bulk_velocity = bulk
-#         try:
-#             reg.rmin = rmin*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-#             # Basic configuration: 0.2 of the virial radius of the host halo
-#             reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-#         except:
-#             reg.rmin = rmin*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-#             # Basic configuration: 0.2 of the virial radius of the host halo
-#             reg.rmax = rmax*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-#     elif region_type == 'top_midplane_cylinder':
-#         reg.name = 'cylinder'
-#         axis = vectors.vector()
-#         norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
-#         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
-#         reg.axis = axis
-#         reg.zmin = YTArray(rmin,'kpc',registry=group.obj.unit_registry).in_units('code_length')
-#         reg.zmax = YTArray(rmax,'kpc',registry=group.obj.unit_registry).in_units('code_length')
-#         reg.rmin = YTArray(0.5*rmin,'kpc',registry=group.obj.unit_registry).in_units('code_length')
-#         reg.rmax = YTArray(0.5*rmax,'kpc',registry=group.obj.unit_registry).in_units('code_length')
-#         centre = vectors.vector()
-#         im_centre = group.position + 0.99 * norm_L.d * reg.zmax
-#         centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
-#         reg.centre = centre
-#         bulk = vectors.vector()
-#         try:
-#             velocity = group.velocity.in_units('code_velocity')
-#         except:
-#             velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
-#         bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
-#         reg.bulk_velocity = bulk
-#     elif region_type == 'bottom_midplane_cylinder':
-#         reg.name = 'cylinder'
-#         axis = vectors.vector()
-#         norm_L = -group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
-#         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
-#         reg.axis = axis
-#         reg.zmin = YTArray(rmin,'kpc',registry=group.obj.unit_registry).in_units('code_length')
-#         reg.zmax = YTArray(rmax,'kpc',registry=group.obj.unit_registry).in_units('code_length')
-#         reg.rmin = YTArray(0.5*rmin,'kpc',registry=group.obj.unit_registry).in_units('code_length')
-#         reg.rmax = YTArray(0.2*rmax,'kpc',registry=group.obj.unit_registry).in_units('code_length')
-#         centre = vectors.vector()
-#         im_centre = group.position + 0.99 * norm_L.d * reg.zmax
-#         centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
-#         reg.centre = centre
-#         bulk = vectors.vector()
-#         try:
-#             velocity = group.velocity.in_units('code_velocity')
-#         except:
-#             velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
-#         bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
-#         reg.bulk_velocity = bulk
-#     else:
-#         raise KeyError('Region type not supported. Please check!')
-#     return reg
-
-def init_filter(cond_strs, name, group):
-    """Initialise filter Fortran derived type with the condition strings provided."""
-    from yt import YTQuantity
-    if isinstance(cond_strs, str):
-        cond_strs = [cond_strs]
-    filt = filtering.filter()
-    if cond_strs[0] == 'none':
-        filt.ncond = 0
-        filt.name = 'none'
-        return filt
-    elif name != 'none':
-        filt.ncond = len(cond_strs)
-        filt.name = name
-        filtering.allocate_filter(filt)
-        for i in range(0, filt.ncond):
-            # Variable name
-            filt.cond_vars.T.view('S128')[i] = cond_strs[i].split('/')[0].ljust(128)
-            # Expresion operator
-            filt.cond_ops.T.view('S2')[i] = cond_strs[i].split('/')[1].ljust(2)
-            # Value transformed to code units
-            try:
-                value = group.obj.yt_dataset.quan(float(cond_strs[i].split('/')[2]), cond_strs[i].split('/')[3])
-                filt.cond_vals[i] = value.in_units(get_code_units(cond_strs[i].split('/')[0])).d
-            except:
-                value = YTQuantity(float(cond_strs[i].split('/')[2]), cond_strs[i].split('/')[3], registry=group.obj.unit_registry)
-                filt.cond_vals[i] = value.in_units(get_code_units(cond_strs[i].split('/')[0])).d
-        return filt
-    else:
-        raise ValueError("Condition strings are given, but a name for the filter. Please set!")
 
 def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region_type='sphere',filter_conds='none',
-                    filter_name='none',recompute=False,save=False,logscale=False,rmax=0.2):
+                    filter_name='none',recompute=False,save=False,logscale=False,
+                    rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(0.0,'rvir'), zmax=(0.2,'rvir')):
     """Function which computes a 1D profile for a given group object."""
 
     if not isinstance(xvar, str):
@@ -314,7 +140,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
     if isinstance(region_type, geo.region):
         selected_reg = region_type
     else:
-        selected_reg = init_region(group,region_type,rmax=rmax)
+        selected_reg = init_region(group,region_type,rmin=rmin,rmax=rmax,zmin=zmin,zmax=zmax)
     
     # Save region details to profile object
     prof._get_python_region(selected_reg)
@@ -349,7 +175,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
     hydro_data.xvarname = xvar
     hydro_data.nyvar = len(prof.yvars['hydro'])
     hydro_data.nwvar = len(prof.weightvars['hydro'])
-    hydro_data.nbins = 100
+    hydro_data.nbins = nbins
 
     amrprofmod.allocate_profile_handler(hydro_data)
     for i in range(0, len(prof.yvars['hydro'])):
@@ -364,7 +190,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
     # Initialise particles profile data object
     star_data = partprofmod.profile_handler()
     star_data.profdim = 1
-    star_data.xvarname = xvar
+    star_data.xvarname = 'star/'+xvar
     star_data.nyvar = len(prof.yvars['star'])
     star_data.nwvar = len(prof.weightvars['star'])
     star_data.nbins = nbins
@@ -380,21 +206,20 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
     # And now, compute star data profiles!
     if star_data.nyvar > 0 and star_data.nwvar > 0:
         partprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,star_data,lmax)
-
     # And the same for dm particles
     dm_data = partprofmod.profile_handler()
     dm_data.profdim = 1
-    dm_data.xvarname = xvar
+    dm_data.xvarname = 'dm/'+xvar
     dm_data.nyvar = len(prof.yvars['dm'])
     dm_data.nwvar = len(prof.weightvars['dm'])
     dm_data.nbins = nbins
 
     partprofmod.allocate_profile_handler(dm_data)
     for i in range(0, len(prof.yvars['dm'])):
-        tempstr = 'dn/'+prof.yvars['dm'][i]
+        tempstr = 'dm/'+prof.yvars['dm'][i]
         dm_data.yvarnames.T.view('S128')[i] = tempstr.ljust(128)
     for i in range(0, len(prof.weightvars['dm'])):
-        tempstr = 'star/'+prof.weightvars['dm'][i]
+        tempstr = 'dm/'+prof.weightvars['dm'][i]
         dm_data.wvarnames.T.view('S128')[i] = tempstr.ljust(128)
 
     # And now, compute dm data profiles!
@@ -409,22 +234,22 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
         xdata[1,:] = star_data.xdata
     if dm_data != None:
         xdata[2,:] = dm_data.xdata
-    prof.xdata = YTArray(xdata, get_code_units(prof.xvar), registry=group.obj.unit_registry)
+    prof.xdata = group.obj.array(xdata, get_code_units(prof.xvar))
     # Save hydro y data
     if hydro_data != None:
         prof.ydata['hydro'] = []
         for v,var in enumerate(prof.yvars['hydro']):
-            prof.ydata['hydro'].append(YTArray(hydro_data.ydata[:,v,:,0:2], get_code_units(prof.yvars['hydro'][v]), registry=group.obj.unit_registry))
+            prof.ydata['hydro'].append(group.obj.array(hydro_data.ydata[:,v,:,0:2], get_code_units(prof.yvars['hydro'][v])))
     # Save star y data
     if star_data != None:
         prof.ydata['star'] = []
         for v,var in enumerate(prof.yvars['star']):
-            prof.ydata['star'].append(YTArray(star_data.ydata[:,v,:,0:2], get_code_units(prof.yvars['star'][v]), registry=group.obj.unit_registry))
+            prof.ydata['star'].append(group.obj.array(star_data.ydata[:,v,:,0:2], get_code_units(prof.yvars['star'][v])))
     # Save dm y data
     if dm_data != None:
         prof.ydata['dm'] = []
         for v,var in enumerate(prof.yvars['dm']):
-            prof.ydata['dm'].append(YTArray(dm_data.ydata[:,v,:,0:2], get_code_units(prof.yvars['dm'][v]), registry=group.obj.unit_registry))
+            prof.ydata['dm'].append(group.obj.array(dm_data.ydata[:,v,:,0:2], get_code_units(prof.yvars['dm'][v])))
     if save:
         write_profiles(group.obj, ozy_file, hydro_data, star_data, dm_data, prof)
     return prof
@@ -482,7 +307,6 @@ def write_profiles(obj, ozy_file, hydro, star, dm, prof):
             clean_hydro.create_dataset(var, data=hydro.ydata[:,v,:,0:2])
             clean_hydro[var].attrs.create('units', get_code_units(prof.yvars['hydro'][v]))
             clean_hydro[var].attrs.create('weightvars', prof.weightvars['hydro'][:])
-            # print(var,hydro.ydata[:,v,:,0:2])
     # Save star y data
     if star != None:
         clean_star = hdprof.create_group('star')

@@ -65,20 +65,22 @@ class OZY(object):
         from unyt.dimensions import length,mass,time,temperature,dimensionless
         from unyt import mp,kb
         
-        registry = UnitRegistry(unit_system='galactic')
+        registry = UnitRegistry(unit_system='cgs')
 
         _X = 0.76  # H fraction, hardcoded
         _Y = 0.24  # He fraction, hardcoded
         mean_molecular_weight_factor = _X ** -1
 
-        length_unit = self._info["unit_l"]
-        density_unit = self._info["unit_d"]
+        # unyt stores internally in MKS units (m,kg,s), so a couple of
+        # transformations are required to the CGS units in RAMSES
+        length_unit = self._info["unit_l"]/1e+2 # cm to m
+        density_unit = self._info["unit_d"] * 1e+3 # g/cm**3 to kg/m**3
         time_unit = self._info["unit_t"]
         mass_unit = density_unit * length_unit ** 3
         magnetic_unit = np.sqrt(4 * np.pi * mass_unit / (time_unit ** 2 * length_unit))
         velocity_unit = length_unit / time_unit
         pressure_unit = density_unit * (length_unit / time_unit) ** 2
-        temperature_unit = velocity_unit ** 2 * mp.to('g').d * mean_molecular_weight_factor / kb.to('g*cm**2/(K*s**2)').d
+        temperature_unit = velocity_unit ** 2 * mp.to('kg').d * mean_molecular_weight_factor / kb.to('kg*m**2/(K*s**2)').d
 
         # Code length
         registry.add("code_length", base_value=length_unit, dimensions=length)

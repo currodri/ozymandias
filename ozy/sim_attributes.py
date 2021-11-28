@@ -112,3 +112,15 @@ class SimulationAttributes(object):
         uhdd = hdd['units']
         for k,v in uhdd.attrs.items():
             setattr(self, k, obj.quantity(getattr(self, k), v))
+        
+        phyhdd = hdd['physics']
+        self.physics = {'hydro':False,
+                        'metals':False,
+                        'magnetic':False,
+                        'cr':False,
+                        'rt':False,
+                        'bh':False,
+                        'AGN':False,
+                        'dust':False}
+        for k,v in phyhdd.attrs.items():
+            self.physics[k] = v

@@ -2,7 +2,8 @@ import numpy as np
 from collections import deque,Counter
 from bisect import insort, bisect_left
 from itertools import islice
-
+import sys
+from ozy.dict_variables import get_code_units
 def read_infofile(infopath):
     info = {}
     info['aexp'] = 0.0
@@ -190,3 +191,179 @@ def tidal_radius(central, satellite, method='BT87_simple'):
         exit
     
     return r
+
+def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(0.0,'rvir'), zmax=(0.2,'rvir')):
+    """Initialise region Fortran derived type with details of group."""
+    sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/amr')
+    from amr2 import vectors
+    from amr2 import geometrical_regions as geo
+    if not isinstance(rmin,tuple) or not isinstance(rmax,tuple):
+        raise TypeError('The format for rmin and rmax should be %s, instead you gave for rmin %s and for rmax %s' %(type(tuple),type(rmin),type(rmax)))
+        exit
+    if not isinstance(zmin,tuple) or not isinstance(zmax,tuple):
+        raise TypeError('The format for zmin and zmax should be %s, instead you gave for zmin %s and for zmax %s' %(type(tuple),type(zmin),type(zmax)))
+        exit
+    reg = geo.region()
+
+    if region_type == 'sphere':
+        reg.name = 'sphere'
+        centre = vectors.vector()
+        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        reg.centre = centre
+        axis = vectors.vector()
+        norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
+        axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
+        reg.axis = axis
+        bulk = vectors.vector()
+        velocity = group.velocity.in_units('code_velocity')
+        bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
+        reg.bulk_velocity = bulk
+        if rmin[1] == 'rvir':
+            reg.rmin = rmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        else:
+            reg.rmin = group.obj.quantity(rmin[0],str(rmin[1])).in_units('code_length')
+        if rmax[1] == 'rvir':
+            reg.rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        else:
+            reg.rmax = group.obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')
+
+    elif region_type == 'basic_sphere':
+        reg.name = 'sphere'
+        centre = vectors.vector()
+        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        reg.centre = centre
+        axis = vectors.vector()
+        norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
+        axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
+        reg.axis = axis
+        bulk = vectors.vector()
+        bulk.x, bulk.y, bulk.z = 0,0,0
+        reg.bulk_velocity = bulk
+        reg.rmin = rmin[0]
+        reg.rmax = rmax[0]
+
+    elif region_type == 'cylinder':
+        reg.name = 'cylinder'
+        centre = vectors.vector()
+        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        reg.centre = centre
+        axis = vectors.vector()
+        norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
+        axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
+        reg.axis = axis
+        bulk = vectors.vector()
+        velocity = group.velocity.in_units('code_velocity')
+        bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
+        reg.bulk_velocity = bulk
+
+        if rmin[1] == 'rvir':
+            reg.rmin = rmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        else:
+            reg.rmin = group.obj.quantity(rmin[0],str(rmin[1])).in_units('code_length')
+        if rmax[1] == 'rvir':
+            reg.rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        else:
+            reg.rmax = group.obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')
+        
+        if zmin[1] == 'rvir':
+            reg.zmin = zmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        else:
+            reg.zmin = group.obj.quantity(zmin[0],str(zmin[1])).in_units('code_length')
+        if zmax[1] == 'rvir':
+            reg.zmax = zmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        else:
+            reg.zmax = group.obj.quantity(zmax[0],str(zmax[1])).in_units('code_length')
+    elif region_type == 'top_midplane_cylinder':
+        reg.name = 'cylinder'
+        axis = vectors.vector()
+        norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
+        axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
+        reg.axis = axis
+        if rmin[1] == 'rvir':
+            reg.rmin = rmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        else:
+            reg.rmin = group.obj.quantity(rmin[0],str(rmin[1])).in_units('code_length')
+        if rmax[1] == 'rvir':
+            reg.rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        else:
+            reg.rmax = group.obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')
+        
+        if zmin[1] == 'rvir':
+            reg.zmin = zmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        else:
+            reg.zmin = group.obj.quantity(zmin[0],str(zmin[1])).in_units('code_length')
+        if zmax[1] == 'rvir':
+            reg.zmax = zmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        else:
+            reg.zmax = group.obj.quantity(zmax[0],str(zmax[1])).in_units('code_length')
+        centre = vectors.vector()
+        im_centre = group.position + 0.99 * norm_L.d * reg.zmax
+        centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
+        reg.centre = centre
+        bulk = vectors.vector()
+        velocity = group.velocity.in_units('code_velocity')
+        bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
+        reg.bulk_velocity = bulk
+    elif region_type == 'bottom_midplane_cylinder':
+        reg.name = 'cylinder'
+        axis = vectors.vector()
+        norm_L = -group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
+        axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
+        reg.axis = axis
+
+        if rmin[1] == 'rvir':
+            reg.rmin = rmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        else:
+            reg.rmin = group.obj.quantity(rmin[0],str(rmin[1])).in_units('code_length')
+        if rmax[1] == 'rvir':
+            reg.rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        else:
+            reg.rmax = group.obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')
+        
+        if zmin[1] == 'rvir':
+            reg.zmin = zmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        else:
+            reg.zmin = group.obj.quantity(zmin[0],str(zmin[1])).in_units('code_length')
+        if zmax[1] == 'rvir':
+            reg.zmax = zmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        else:
+            reg.zmax = group.obj.quantity(zmax[0],str(zmax[1])).in_units('code_length')
+        centre = vectors.vector()
+        im_centre = group.position + 0.99 * norm_L.d * reg.zmax
+        centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
+        reg.centre = centre
+        bulk = vectors.vector()
+        velocity = group.velocity.in_units('code_velocity')
+        bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
+        reg.bulk_velocity = bulk
+    else:
+        raise KeyError('Region type not supported. Please check!')
+    return reg
+
+def init_filter(cond_strs, name, group):
+    """Initialise filter Fortran derived type with the condition strings provided."""
+    sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/amr')
+    from amr2 import filtering
+
+    if isinstance(cond_strs, str):
+        cond_strs = [cond_strs]
+    filt = filtering.filter()
+    if cond_strs[0] == 'none':
+        filt.ncond = 0
+        filt.name = 'none'
+        return filt
+    elif name != 'none':
+        filt.ncond = len(cond_strs)
+        filt.name = name
+        filtering.allocate_filter(filt)
+        for i in range(0, filt.ncond):
+            # Variable name
+            filt.cond_vars.T.view('S128')[i] = cond_strs[i].split('/')[0].ljust(128)
+            # Expresion operator
+            filt.cond_ops.T.view('S2')[i] = cond_strs[i].split('/')[1].ljust(2)
+            # Value transformed to code units
+            value = group.obj.quantity(float(cond_strs[i].split('/')[2]), cond_strs[i].split('/')[3])
+            filt.cond_vals[i] = value.in_units(get_code_units(cond_strs[i].split('/')[0])).d
+        return filt
+    else:
+        raise ValueError("Condition strings are given, but a name for the filter. Please set!")

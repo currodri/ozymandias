@@ -434,15 +434,15 @@ class Group:
     
     def info(self):
         pdict = {}
-        for k in getattr(self.obj, '_{}_data'.format(self.obj_type)):
+        for k in getattr(self.obj, '_{}_data'.format(self.type)):
             pdict[k] = getattr(self, k)
-        for k in getattr(self.obj, '_{}_dicts'.format(self.obj_type)):
+        for k in getattr(self.obj, '_{}_dicts'.format(self.type)):
             pdict[k] = dict(getattr(self, k))
         pprint(pdict)
         
 class Halo(Group):
     def __init__(self, obj, index):
-        self.obj_type = 'halo'
+        self.type = 'halo'
         self.obj = obj
         self._index = index
         self._galaxies = None
@@ -500,7 +500,7 @@ class Halo(Group):
 
 class Galaxy(Group):
     def __init__(self, obj, index):
-        self.obj_type = 'galaxy'
+        self.type = 'galaxy'
         self.obj = obj
         self._index = index
         self.halo = obj.halos[self.parent_halo_index]
@@ -546,7 +546,6 @@ class Galaxy(Group):
     @functools.lru_cache(maxsize=None)
     def __getattr__(self, attr):
         if attr in self.obj._galaxy_data:
-            print(type(self.obj._galaxy_data[attr]))
             return self.obj._galaxy_data[attr][self._index]
         if attr in self.obj._galaxy_dicts:
             return LazyDict(
@@ -557,7 +556,7 @@ class Galaxy(Group):
 
 class Cloud(Group):
     def __init__(self, obj, index):
-        self.obj_type = 'cloud'
+        self.type = 'cloud'
         self.obj = obj
         self._index = index
         self.galaxy = obj.galaxies[self.parent_galaxy_index]
