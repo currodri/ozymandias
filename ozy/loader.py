@@ -1,14 +1,16 @@
-import os.path
 import functools
-from pprint import pprint
+import os.path
 from collections import defaultdict
-from collections.abc import Sequence, Mapping
+from collections.abc import Mapping, Sequence
+from pprint import pprint
 
 import h5py
 import numpy as np
-from yt.units.yt_array import YTArray, UnitRegistry
-from ozy.utils import info_printer
+from unyt import UnitRegistry,unyt_array,unyt_quantity
+
 from ozy.sim_attributes import SimulationAttributes
+from ozy.utils import info_printer
+
 
 class LazyDataset:
     """A lazily-loaded HDF5 dataset.
@@ -22,7 +24,7 @@ class LazyDataset:
             with h5py.File(self._obj.data_file, 'r') as hd:
                 dataset = hd[self._dataset_path]
                 if 'unit' in dataset.attrs:
-                    self._data = YTArray(dataset[:],
+                    self._data = unyt_array(dataset[:],
                                          dataset.attrs['unit'],
                                          registry=self._obj.unit_registry)
                 else:
@@ -168,7 +170,6 @@ class Profile:
         self._unpack(hd)
     
     def _unpack(self, hd):
-        from yt import YTArray
         path = str(self.group_type+'_data/profiles/'+str(self._index)+'/'+self.key)
         profile_gp = hd[path]
         for k,v in profile_gp.attrs.items():
@@ -192,10 +193,10 @@ class Profile:
                 for j in profile_gp[k].keys():
                     self.yvars[k].append(j)
                     data = profile_gp[k+'/'+j]
-                    self.ydata[k].append(YTArray(data[:], str(data.attrs['units']), registry=self.obj.unit_registry))
+                    self.ydata[k].append(unyt_array(data[:], str(data.attrs['units']), registry=self.obj.unit_registry))
                     self.weightvars[k] = list(data.attrs['weightvars'])
             else:
-                self.xdata = YTArray(profile_gp['xdata'][:], profile_gp['xdata'].attrs['units'], registry=self.obj.unit_registry)
+                self.xdata = unyt_array(profile_gp['xdata'][:], profile_gp['xdata'].attrs['units'], registry=self.obj.unit_registry)
 
 class PhaseDiagram:
     def __init__(self,obj,index,group_type,key,hd):
@@ -222,7 +223,6 @@ class PhaseDiagram:
         self._unpack(hd)
 
     def _unpack(self, hd):
-        from yt import YTArray
         path = str(self.group_type+'_data/phase_diagrams/'+str(self._index)+'/'+self.key)
         phase_diagrams_gp = hd[path]
         for k,v in phase_diagrams_gp.attrs.items():
@@ -250,10 +250,10 @@ class PhaseDiagram:
                         continue
                     self.zvars[k].append(j)
                     data = phase_diagrams_gp[k+'/'+j]
-                    self.zdata[k].append(YTArray(data[:], str(data.attrs['units']), registry=self.obj.unit_registry))
+                    self.zdata[k].append(unyt_array(data[:], str(data.attrs['units']), registry=self.obj.unit_registry))
             else:
-                self.xdata = YTArray(phase_diagrams_gp['xdata'][:], phase_diagrams_gp['xdata'].attrs['units'], registry=self.obj.unit_registry)
-                self.ydata = YTArray(phase_diagrams_gp['ydata'][:], phase_diagrams_gp['ydata'].attrs['units'], registry=self.obj.unit_registry)
+                self.xdata = unyt_array(phase_diagrams_gp['xdata'][:], phase_diagrams_gp['xdata'].attrs['units'], registry=self.obj.unit_registry)
+                self.ydata = unyt_array(phase_diagrams_gp['ydata'][:], phase_diagrams_gp['ydata'].attrs['units'], registry=self.obj.unit_registry)
 
 class GalacticFlow:
     def __init__(self,obj,index,group_type,key,hd):
@@ -273,7 +273,6 @@ class GalacticFlow:
         self._unpack(hd)
 
     def _unpack(self,hd):
-        from yt import YTQuantity
         path = str(self.group_type+'_data/flows/'+str(self._index)+'/'+self.key)
         flows_gp = hd[path]
         for k,v in flows_gp.attrs.items():
@@ -295,7 +294,7 @@ class GalacticFlow:
                     unit = data[j].attrs['units']
                     if unit =='code_energy':
                         unit = 'code_mass * code_velocity**2'
-                    self.data[j] = YTQuantity(data[j][()], unit, registry=self.obj.unit_registry)
+                    self.data[j] = unyt_quantity(data[j][()], unit, registry=self.obj.unit_registry)
 
 class OZY:
     def __init__(self, filename):
@@ -403,15 +402,6 @@ class OZY:
                         len(gf_indices), lambda i: int(gf_indices[i])
                     )
                     self._galaxy_flows = [GalacticFlow(self,int(gf_indices[i]),'galaxy',gf_keys[i],hd) for i in range(0, len(gf_indices))]
-
-    @property
-    def yt_dataset(self):
-        """The yt dataset to perform actions on."""
-        if self._ds is None:
-            raise Exception('No yt_dataset assigned!\nPlease assign '
-                            'one via `obj.yt_dataset=<YT DATASET>` '
-                            'if you want to do further analysis.')
-        return self._ds
     
     @property
     def central_galaxies(self):
@@ -422,6 +412,12 @@ class OZY:
         galaxies = []
         for h in self.halos:
             galaxies.extend(h.satellite_galaxies)
+    
+    def array(self, value, units):
+        return unyt_array(value, units, registry=self.unit_registry)
+
+    def quantity(self, value, units):
+        return unyt_quantity(value, units, registry=self.unit_registry)
 
     def galinfo(self, top=10):
         info_printer(self, 'galaxy', top)
@@ -438,15 +434,15 @@ class Group:
     
     def info(self):
         pdict = {}
-        for k in getattr(self.obj, '_{}_data'.format(self.obj_type)):
+        for k in getattr(self.obj, '_{}_data'.format(self.type)):
             pdict[k] = getattr(self, k)
-        for k in getattr(self.obj, '_{}_dicts'.format(self.obj_type)):
+        for k in getattr(self.obj, '_{}_dicts'.format(self.type)):
             pdict[k] = dict(getattr(self, k))
         pprint(pdict)
         
 class Halo(Group):
     def __init__(self, obj, index):
-        self.obj_type = 'halo'
+        self.type = 'halo'
         self.obj = obj
         self._index = index
         self._galaxies = None
@@ -504,7 +500,7 @@ class Halo(Group):
 
 class Galaxy(Group):
     def __init__(self, obj, index):
-        self.obj_type = 'galaxy'
+        self.type = 'galaxy'
         self.obj = obj
         self._index = index
         self.halo = obj.halos[self.parent_halo_index]
@@ -560,7 +556,7 @@ class Galaxy(Group):
 
 class Cloud(Group):
     def __init__(self, obj, index):
-        self.obj_type = 'cloud'
+        self.type = 'cloud'
         self.obj = obj
         self._index = index
         self.galaxy = obj.galaxies[self.parent_galaxy_index]

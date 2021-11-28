@@ -1,7 +1,6 @@
 import numpy as np
 import h5py
 import os
-from yt import YTArray
 import ozy
 from ozy.plot_settings import plotting_dictionary
 from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units,basic_conv
@@ -64,7 +63,6 @@ class Projection(object):
         if os.path.exists(name):
             print('WARNING: Overwritting previous projection.')
             os.remove(name)
-        from yt import YTArray, YTQuantity
         self.hdulist = fits.HDUList()
         first = True
         counter = 0
@@ -90,11 +88,7 @@ class Projection(object):
                         code_units = get_code_units(sfrstr)
                     else:
                         code_units = get_code_units(field.split('/')[1])
-                    try:
-                        temp_map = YTArray(imap[i],code_units,
-                                            registry=self.group.obj.unit_registry)
-                    except:
-                        temp_map = self.group.obj.yt_dataset.arr(imap[i],code_units)
+                    temp_map = self.group.obj.array(imap[i],code_units)
                     first_unit = True
                     for u in code_units.split('*'):
                         if first_unit:
@@ -119,14 +113,8 @@ class Projection(object):
             counter += 1
         # Setup WCS in the coordinate systems of the camera
         w = WCS(header=self.hdulist[0].header,naxis=2)
-        try:
-            dx = YTQuantity(self.width[0],'code_length',
-                            registry=self.group.obj.unit_registry).in_units(unit_system['code_length']).d
-            dy = YTQuantity(self.width[1],'code_length',
-                            registry=self.group.obj.unit_registry).in_units(unit_system['code_length']).d
-        except:
-            dx = self.group.obj.yt_dataset.quan(self.width[0],'code_length').in_units(unit_system['code_length']).d
-            dy = self.group.obj.yt_dataset.quan(self.width[1],'code_length').in_units(unit_system['code_length']).d
+        dx = self.group.obj.array(self.width[0],'code_length').in_units(unit_system['code_length']).d
+        dy = self.group.obj.array(self.width[1],'code_length').in_units(unit_system['code_length']).d
         dx /= self.resolution[0]
         dy /= self.resolution[1]
         centre = [0.0,0.0]
@@ -147,7 +135,6 @@ class Projection(object):
         if os.path.exists(name):
             print('WARNING: Overwritting previous HEALPix projection.')
             os.remove(name)
-        from yt import YTArray, YTQuantity
         cols = []
         first = True
         counter = 0
@@ -171,8 +158,7 @@ class Projection(object):
                         code_units = get_code_units(sfrstr)
                     else:
                         code_units = get_code_units(field.split('/')[1])
-                    temp_map = YTArray(imap[i][0],code_units,
-                                        registry=self.group.obj.unit_registry)
+                    temp_map = self.group.obj.array(imap[i][0],code_units)
                     first_unit = True
                     for u in code_units.split('*'):
                         if first_unit:
@@ -277,7 +263,7 @@ class Projection(object):
         except:
             pass
 
-def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_size=1024,pov='faceon',lmax=0,lmin=1,window=0.0):
+def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_size=1024,pov='faceon',lmax=0,lmin=1,window=(0.0,'kpc')):
     """Function which computes a 2D projection centered on an objected from an OZY file."""
 
     if not isinstance(weight,list):
@@ -337,21 +323,26 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
                 raise KeyError('This DM variable is not supported. Please check!')
 
     # Setup camera details for the requested POV (Point of View)
-    if window != 0.0:
-        window = YTArray(window,'kpc',registry=group.obj.unit_registry).in_units('code_length')
-    else:
-        if group.obj_type == 'halo':
-             window = 1.2*group.virial_quantities['radius'].in_units('code_length').d
+    if window[0] == 0.0:
+        if group.type == 'halo':
+            window = 1.2*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
         else:
             window = 0.2*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+    else:
+        if window[1] == 'rvir':
+            window = window[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        else:
+            window = group.obj.quantity(window[0],window[1]).in_units('code_length').d
     centre = vectors.vector()
     centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
     bulk = vectors.vector()
-    if group.obj_type != 'halo':
-        velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
+    if group.type != 'halo':
+        velocity = group.velocity.in_units('code_velocity')
         bulk.x, bulk.y, bulk.z = velocity.d[0], velocity.d[1], velocity.d[2]
 
     if proj.pov == 'faceon':
+        centre = vectors.vector()
+        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         axis = vectors.vector()
         norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
         up = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
@@ -364,6 +355,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         distance = 0.3*rmax
         far_cut_depth = 0.3*rmax
     elif proj.pov == 'edgeon':
+        centre = vectors.vector()
+        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         axis = vectors.vector()
         norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
         los = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
@@ -376,6 +369,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         distance = 0.3*rmax
         far_cut_depth = 0.3*rmax
     elif proj.pov == 'x':
+        centre = vectors.vector()
+        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         axis = vectors.vector()
         axis.x,axis.y,axis.z = 1.0, 0.0, 0.0
         up_vector = vectors.vector()
@@ -385,6 +380,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         distance = rmax
         far_cut_depth = rmax
     elif proj.pov == 'y':
+        centre = vectors.vector()
+        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         axis = vectors.vector()
         axis.x,axis.y,axis.z = 0.0, 1.0, 0.0
         up_vector = vectors.vector()
@@ -394,6 +391,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         distance = rmax
         far_cut_depth = rmax
     elif proj.pov == 'z':
+        centre = vectors.vector()
+        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         axis = vectors.vector()
         axis.x,axis.y,axis.z = 0.0, 0.0, 1.0
         up_vector = vectors.vector()
@@ -402,6 +401,36 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
         distance = rmax
         far_cut_depth = rmax
+    elif proj.pov == 'top_midplane':
+        axis = vectors.vector()
+        norm_L = group.angular_mom['gas'].d/np.linalg.norm(group.angular_mom['gas'].d)
+        los = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
+        los /= np.linalg.norm(los)
+        axis.x,axis.y,axis.z = los[0], los[1], los[2]
+        up_vector = vectors.vector()
+        up_vector.x,up_vector.y,up_vector.z = norm_L[0], norm_L[1], norm_L[2]
+        rmax = window
+        region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
+        distance = 0.3*rmax
+        far_cut_depth = 0.3*rmax
+        centre = vectors.vector()
+        im_centre = group.position + 0.99*norm_L * rmax.d
+        centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
+    elif proj.pov == 'bottom_midplane':
+        axis = vectors.vector()
+        norm_L = -group.angular_mom['gas'].d/np.linalg.norm(group.angular_mom['gas'].d)
+        los = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
+        los /= np.linalg.norm(los)
+        axis.x,axis.y,axis.z = los[0], los[1], los[2]
+        up_vector = vectors.vector()
+        up_vector.x,up_vector.y,up_vector.z = norm_L[0], norm_L[1], norm_L[2]
+        rmax = window
+        region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
+        distance = 0.3*rmax
+        far_cut_depth = 0.3*rmax
+        centre = vectors.vector()
+        im_centre = group.position + 0.99 * norm_L * rmax.d
+        centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
     else:
         print("This point of view is not supported!")
         print("Falling back to 'faceon' (default).")
@@ -776,6 +805,8 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
 
 def plot_galaxy_with_halos(proj_FITS,ozy_file,field,gasstars=True,dm=True,scalebar=True,redshift=True):
 
+    # TODO: Implement this in a similar fashion as the single var projection
+
     return
 
 def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=True,redshift=True, type_scale='galaxy'):
@@ -890,7 +921,7 @@ def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=True,redshi
     fig.savefig(proj_FITS.split('.')[0]+'_rgb.png',format='png',dpi=300)
 
 
-def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,pov='edgeon',r=1.0,dr=1./150.):
+def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,pov='edgeon',r=(1.0,'rvir'),dr=(1./150.,'rvir')):
     """Function which computes a 2D spherical projection of particular object using the HEALPix
         pixelisation scheme."""
     
@@ -948,14 +979,22 @@ def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,
         centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         reg.centre = centre
         bulk = vectors.vector()
-        velocity = YTArray(group.velocity,'km/s',registry=group.obj.unit_registry).in_units('code_velocity')
+        velocity = group.velocity.in_units('code_velocity')
         bulk.x, bulk.y, bulk.z = velocity.d[0], velocity.d[1], velocity.d[2]
         reg.bulk_velocity = bulk
         norm_L = group.angular_mom['gas'].d/np.linalg.norm(group.angular_mom['gas'].d)
         axis = vectors.vector()
         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
         reg.axis = axis
-        rmax = r*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        if r[1] == 'rvir':
+            rmax = r[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        else:
+            rmax = group.obj.quantity(r[0],r[1]).in_units('code_length').d
+        
+        if dr[1] == 'rvir':
+            dr = dr[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        else:
+            dr = group.obj.quantity(dr[0],dr[1]).in_units('code_length').d
         reg.rmin = (1-0.5*dr)*rmax
         reg.rmax = (1.+0.5*dr)*rmax
 

@@ -1,7 +1,6 @@
 import numpy as np
-
 from ozy.sim_attributes import SimulationAttributes
-from yt.funcs import get_hash
+from unyt import UnitRegistry,unyt_array,unyt_quantity
 
 class OZY(object):
     """Master OZY class.
@@ -11,20 +10,22 @@ class OZY(object):
     It can be saved as a portable, standalone HDF5 file which allows
     general analysis without requiring the original snapshot.
     """
-    def __init__(self, ds = 0, *args, **kwargs):
+    def __init__(self, fullpath, *args, **kwargs):
         self._args   = args
         self._kwargs = kwargs
-        self._ds     = 0
 
         self.units = dict(
             mass        = 'Msun',
-            length      = 'kpccm',
+            length      = 'kpc',
             velocity    = 'km/s',
             time        = 'yr',
             temperature = 'K'
         )
+
+        self._info = self._get_my_info(fullpath)
+        self.unit_registry = self._get_unit_registry()
         self.simulation  = SimulationAttributes()
-        self.yt_dataset  = ds
+        self._assign_simulation_attributes(fullpath)
         
         self.nhalos      = 0
         self.ngalaxies   = 0
@@ -32,42 +33,11 @@ class OZY(object):
         self.galaxies    = []
         self.group_types = []
 
-    @property
-    def yt_dataset(self):
-        """The yt dataset to perform actions on."""
-        if isinstance(self._ds, int):
-            raise Exception('No yt_dataset assigned!\nPlease assign '\
-                            'one via `obj.yt_dataset=<YT DATASET>` ' \
-                            'if you want to perform further analysis' \
-                            'on the snapshot.')
-        return self._ds
+    def array(self, value, units):
+        return unyt_array(value, units, registry=self.unit_registry)
 
-    @yt_dataset.setter
-    def yt_dataset(self,value):
-        if value == 0: return
-
-        if not hasattr(value, 'dataset_type'):
-            raise IOError('not a yt dataset?')
-
-        infile = '%s/%s' % (value.fullpath, value.basename)
-        
-        self.skip_hash_check = False
-        if hasattr(self, 'hash'):
-            if isinstance(self.hash, np.bytes_):
-                self.hash = self.hash.decode('utf8')
-
-            hash = get_hash(infile)
-            if hash != self.hash:
-                raise IOError('hash mismatch!')
-            else:
-                self._ds = value
-        else:
-            self._ds  = value
-            self.hash = get_hash(infile)
-
-        self._ds = value
-        # self._ds_type = DatasetType(self._ds)
-        self._assign_simulation_attributes()
+    def quantity(self, value, units):
+        return unyt_quantity(value, units, registry=self.unit_registry)
 
     @property
     def _has_halos(self):
@@ -85,9 +55,65 @@ class OZY(object):
         else:
             return False
 
-    def _assign_simulation_attributes(self):
+    def _get_my_info(self,fullpath):
+        from ozy.utils import read_infofile
+        index = int(fullpath[-5:])
+        infofile_path = fullpath + '/info_%05d.txt' % index
+        return read_infofile(infofile_path)
+
+    def _get_unit_registry(self):
+        from unyt.dimensions import length,mass,time,temperature,dimensionless
+        from unyt import mp,kb
+        
+        registry = UnitRegistry(unit_system='cgs')
+
+        _X = 0.76  # H fraction, hardcoded
+        _Y = 0.24  # He fraction, hardcoded
+        mean_molecular_weight_factor = _X ** -1
+
+        # unyt stores internally in MKS units (m,kg,s), so a couple of
+        # transformations are required to the CGS units in RAMSES
+        length_unit = self._info["unit_l"]/1e+2 # cm to m
+        density_unit = self._info["unit_d"] * 1e+3 # g/cm**3 to kg/m**3
+        time_unit = self._info["unit_t"]
+        mass_unit = density_unit * length_unit ** 3
+        magnetic_unit = np.sqrt(4 * np.pi * mass_unit / (time_unit ** 2 * length_unit))
+        velocity_unit = length_unit / time_unit
+        pressure_unit = density_unit * (length_unit / time_unit) ** 2
+        temperature_unit = velocity_unit ** 2 * mp.to('kg').d * mean_molecular_weight_factor / kb.to('kg*m**2/(K*s**2)').d
+
+        # Code length
+        registry.add("code_length", base_value=length_unit, dimensions=length)
+        # Code time
+        registry.add("code_time", base_value=time_unit, dimensions=time)
+        # Code density
+        registry.add("code_density", base_value=density_unit, dimensions=mass/(length**3))
+        # Code mass
+        registry.add("code_mass", base_value=density_unit*(length_unit**3), dimensions=mass)
+        # Code velocity
+        registry.add("code_velocity", base_value=velocity_unit, dimensions=length/time)
+        # Code pressure
+        registry.add("code_pressure", base_value=pressure_unit, dimensions=(mass)/((length)*(time)**2))
+        # Code energy
+        registry.add("code_energy", base_value=mass_unit*velocity_unit**2, 
+                    dimensions=mass*(length**2)/(time**2))
+        # Code specific energy
+        registry.add("code_specific_energy", base_value=velocity_unit**2, 
+                    dimensions=(length**2)/(time**2))
+        # Code magnetic
+        registry.add("code_magnetic", base_value=magnetic_unit, 
+                    dimensions=( mass / (time ** 2 * length))**(0.5))
+        # Code temperature
+        registry.add("code_temperature", base_value=temperature_unit, dimensions=temperature)
+        # Code metallicity
+        registry.add("code_metallicity", base_value=1.0, dimensions=dimensionless)
+
+        return registry
+
+
+    def _assign_simulation_attributes(self,fullpath):
         """Assign simulation attributes to the OZY object, if it has not been done before."""
-        self.simulation.assign_attributes(self)
+        self.simulation.assign_attributes(self,fullpath)
     
     def _assign_groups(self):
         """Assign galaxies to halos to galaxies.

@@ -1,8 +1,9 @@
 import numpy as np
 import h5py
 import os
-from yt import YTArray
 import ozy
+from unyt import unyt_array,unyt_quantity
+from ozy.utils import init_region,init_filter
 from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units
 # TODO: Allow for parallel computation of phase diagrams.
 from joblib import Parallel, delayed
@@ -13,7 +14,7 @@ from amr2 import vectors
 from amr2 import geometrical_regions as geo
 from amr2 import filtering
 from amr2 import amr_profiles as amrprofmod
-from ozy.saver import _write_attrib
+
 blacklist = [
     'zvars','weightvars','xdata','ydata','zdata'
 ]
@@ -37,11 +38,10 @@ class PhaseDiagram(object):
 
     def _serialise(self, hdd):
         """This makes possible to save the group phase diagram attrs as dataset attributes of an HDF5 group."""
-        from yt import YTArray
         for k,v in self.__dict__.items():
             if k in blacklist:
                 continue
-            if isinstance(v, YTArray):
+            if isinstance(v, unyt_array):
                 hdd.attrs.create(k, v.d)
             elif isinstance(v, (int, float, bool, np.number)):
                 hdd.attrs.create(k, v)
@@ -49,7 +49,7 @@ class PhaseDiagram(object):
                 hdd.attrs.create(k, v.encode('utf8'))
             elif isinstance(v,dict):
                 for kd,vd in v.items():
-                    if isinstance(vd, YTArray):
+                    if isinstance(vd, unyt_array):
                         hdd.attrs.create(kd, vd.d)
                     elif isinstance(vd, (int, float, bool, np.number)):
                         hdd.attrs.create(kd, vd)
@@ -60,15 +60,13 @@ class PhaseDiagram(object):
     
     def _get_python_region(self,reg):
         """Save the Fortran derived type as a dictionary inside the PhaseDiagram class (only the necessary info)."""
-        from yt import YTArray
         self.region = {}
         self.region['type'] = reg.name.decode().split(' ')[0]
-        self.region['centre'] = YTArray([reg.centre.x, reg.centre.y, reg.centre.z], 'code_length', registry=self.obj.unit_registry)
-        self.region['axis'] = YTArray([reg.axis.x, reg.axis.y, reg.axis.z], 'dimensionless', registry=self.obj.unit_registry)
+        self.region['centre'] = self.obj.array([reg.centre.x, reg.centre.y, reg.centre.z], 'code_length')
+        self.region['axis'] = self.obj.array([reg.axis.x, reg.axis.y, reg.axis.z], 'dimensionless')
     
     def _get_python_filter(self,filt):
         """Save the Fortran derived type as a dictionary inside the PhaseDiagram class (only the necessary info)."""
-        from yt import YTQuantity
         self.filter = {}
         self.filter['name'] = filt.name.decode().split(' ')[0]
         self.filter['conditions'] = []
@@ -77,61 +75,13 @@ class PhaseDiagram(object):
                 cond_var = filt.cond_vars.T.view('S128')[i][0].decode().split(' ')[0]
                 cond_op = filt.cond_ops.T.view('S2')[i][0].decode().split(' ')[0]
                 cond_units = get_code_units(cond_var)
-                cond_value = YTQuantity(filt.cond_vals[i], str(cond_units), registry=self.obj.unit_registry)
+                cond_value = self.obj.quantity(filt.cond_vals[i], str(cond_units))
                 cond_str = cond_var+'/'+cond_op+'/'+str(cond_value.d)+'/'+cond_units
                 self.filter['conditions'].append(cond_str)
 
-def init_region(group, region_type):
-    """Initialise region Fortran derived type with details of group."""
-    reg = geo.region()
-
-    if region_type == 'sphere':
-        reg.name = 'sphere'
-        centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
-        reg.centre = centre
-        axis = vectors.vector()
-        norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
-        axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
-        reg.axis = axis
-        bulk = vectors.vector()
-        bulk.x, bulk.y, bulk.z = group.velocity[0], group.velocity[1], group.velocity[2]
-        reg.bulk_velocity = bulk
-        reg.rmin = 0.0
-        # Basic configuration: 0.2 of the virial radius of the host halo
-        reg.rmax = 0.2*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-    else:
-        raise KeyError('Region type not supported. Please check!')
-    return reg
-
-def init_filter(cond_strs, name, group):
-    """Initialise filter Fortran derived type with the condition strings provided."""
-    from yt import YTQuantity
-    if isinstance(cond_strs, str):
-        cond_strs = [cond_strs]
-    filt = filtering.filter()
-    if cond_strs[0] == 'none':
-        filt.ncond = 0
-        filt.name = 'none'
-        return filt
-    elif name != 'none':
-        filt.ncond = len(cond_strs)
-        filt.name = name
-        filtering.allocate_filter(filt)
-        for i in range(0, filt.ncond):
-            # Variable name
-            filt.cond_vars.T.view('S128')[i] = cond_strs[i].split('/')[0].ljust(128)
-            # Expresion operator
-            filt.cond_ops.T.view('S2')[i] = cond_strs[i].split('/')[1].ljust(2)
-            # Value transformed to code units
-            value = YTQuantity(float(cond_strs[i].split('/')[2]), cond_strs[i].split('/')[3], registry=group.obj.unit_registry)
-            filt.cond_vals[i] = value.in_units(get_code_units(cond_strs[i].split('/')[0])).d
-        return filt
-    else:
-        raise ValueError("Condition strings are given, but not a name for the filter. Please set!")
-
 def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins=[100,100],region_type='sphere',
-                            filter_conds='none',filter_name='none',logscale=True,recompute=False,save=False):
+                            filter_conds='none',filter_name='none',logscale=True,recompute=False,save=False,
+                            rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(0.0,'rvir'), zmax=(0.2,'rvir')):
     """Function which computes a phase diagram (2D profile) for a given group object."""
 
     if not isinstance(xvar,str) or not isinstance(yvar,str):
@@ -196,7 +146,7 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins
     if isinstance(region_type, geo.region):
         selected_reg = region_type
     else:
-        selected_reg = init_region(group,region_type)
+        selected_reg = init_region(group,region_type,rmin=rmin,rmax=rmax,zmin=zmin,zmax=zmax)
 
     # Save region details to PhaseDiagram object
     pd._get_python_region(selected_reg)
@@ -210,8 +160,8 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins
     f = h5py.File(ozy_file, 'r+')
     pd_present, pd_key = check_if_same_phasediag(f,pd)
     if pd_present and recompute:
-        del f[str(pd.group.obj_type)+'_data/phase_diagrams/'+str(group._index)+'/'+str(pd_key)]
-        print('Overwriting phase diagram data in %s_data'%group.obj_type)
+        del f[str(pd.group.type)+'_data/phase_diagrams/'+str(group._index)+'/'+str(pd_key)]
+        print('Overwriting phase diagram data in %s_data'%group.type)
     elif pd_present and not recompute:
         print('Phase diagram data with same details already present for galaxy %s. No overwritting!'%group._index)
         group._init_phase_diagrams()
@@ -221,7 +171,7 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins
                 break
         return group.phase_diagrams[selected_pd]
     else:
-        print('Writing phase diagram data in %s_data'%group.obj_type)
+        print('Writing phase diagram data in %s_data'%group.type)
     f.close()
 
     # Initialise hydro phase diagram data object
@@ -245,16 +195,16 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins
     
     copy_data = np.copy(hydro_data.xdata)
     code_units = get_code_units(pd.xvar)
-    pd.xdata.append(YTArray(copy_data, code_units, registry=group.obj.unit_registry))
+    pd.xdata.append(group.obj.array(copy_data, code_units))
 
     code_units = get_code_units(pd.yvar)
     copy_data = np.copy(hydro_data.ydata)
-    pd.ydata.append(YTArray(copy_data, code_units, registry=group.obj.unit_registry))
+    pd.ydata.append(group.obj.array(copy_data, code_units))
     pd.zdata['hydro'] = []
     for i in range(0, len(pd.zvars['hydro'])):
         code_units = get_code_units(pd.zvars['hydro'][i])
         copy_data = np.copy(hydro_data.zdata[:,:,i,:,0:2])
-        pd.zdata['hydro'].append(YTArray(copy_data, code_units, registry=group.obj.unit_registry))
+        pd.zdata['hydro'].append(group.obj.array(copy_data, code_units))
 
     # TODO: Add phase diagram for particles
     star_data = None
@@ -275,9 +225,9 @@ def get_phasediag_name(phasediag_group,pd):
 
 def check_if_same_phasediag(hd,pd):
     """This function checks if a phase diagram for a group already exists with the same attributes."""
-    if not str(pd.group.obj_type)+'_data/phase_diagrams/'+str(pd.group._index) in hd:
+    if not str(pd.group.type)+'_data/phase_diagrams/'+str(pd.group._index) in hd:
         return False, 'none'
-    for p in hd[str(pd.group.obj_type)+'_data/phase_diagrams/'+str(pd.group._index)].keys():
+    for p in hd[str(pd.group.type)+'_data/phase_diagrams/'+str(pd.group._index)].keys():
         check_xvar = (p.split('|')[0] == pd.xvar+'_'+pd.yvar)
         check_filtername = (p.split('|')[1] == pd.filter['name'])
         check_regiontype = (p.split('|')[2] == pd.region['type'])
@@ -292,9 +242,9 @@ def write_phasediag(obj,ozy_file,hydro,star,dm,pd):
 
     # Create group in HDF5 file
     try:
-        phase_diagrams = f.create_group(str(pd.group.obj_type)+'_data/phase_diagrams/'+str(pd.group._index))
+        phase_diagrams = f.create_group(str(pd.group.type)+'_data/phase_diagrams/'+str(pd.group._index))
     except:
-        phase_diagrams = f[str(pd.group.obj_type)+'_data/phase_diagrams/'+str(pd.group._index)]
+        phase_diagrams = f[str(pd.group.type)+'_data/phase_diagrams/'+str(pd.group._index)]
     
     # Clean data and save to dataset
     pd_name = get_phasediag_name(phase_diagrams,pd)
@@ -390,17 +340,14 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
     ax.set_xscale('log')
     ax.set_yscale('log')
     code_units_x = get_code_units(pd.xvar)
-    x = YTArray(10**(pd.xdata[0].d),code_units_x,
-                registry=pd.obj.unit_registry)
+    x = pd.obj.array(10**(pd.xdata[0].d),code_units_x)
     x = x.in_units(plotting_x['units'])
     code_units_y = get_code_units(pd.yvar)
-    y = YTArray(10**(pd.ydata[0].d),code_units_y,
-                registry=pd.obj.unit_registry)
+    y = pd.obj.array(10**(pd.ydata[0].d),code_units_y)
     y = y.in_units(plotting_y['units'])
     code_units_z = get_code_units(field)
     z = np.array(pd.zdata['hydro'][field_index][:,:,weight_index,0].d,order='F')
-    z = YTArray(z,code_units_z,
-            registry=pd.obj.unit_registry)
+    z = pd.obj.array(z,code_units_z)
     sim_z = pd.obj.simulation.redshift
     if logscale:
         plot = ax.pcolormesh(x,y,
@@ -434,7 +381,7 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
     fig.subplots_adjust(top=0.97,bottom=0.1,left=0.1,right=0.99)
     fig.savefig(name+'.png',format='png',dpi=300)
 
-def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=True,redshift=True,powell=False,gent=False,stats='none',extra_labels='none'):
+def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=True,redshift=True,stats='none',extra_labels='none',gent=False,powell=False):
 
     # Make required imports
     import matplotlib
@@ -513,17 +460,14 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=Tr
         ax[i].set_yscale('log')
         code_units_x = get_code_units(pd.xvar)
 
-        x = YTArray(10**(pd.xdata[0].d),code_units_x,
-                registry=pd.obj.unit_registry)
+        x = pd.obj.array(10**(pd.xdata[0].d),code_units_x)
         x = x.in_units(plotting_x['units'])
         code_units_y = get_code_units(pd.yvar)
-        y = YTArray(10**(pd.ydata[0].d),code_units_y,
-                    registry=pd.obj.unit_registry)
+        y = pd.obj.array(10**(pd.ydata[0].d),code_units_y)
         y = y.in_units(plotting_y['units'])
         code_units_z = get_code_units(field)
         z = np.array(pd.zdata['hydro'][field_indexes[i]][:,:,weight_indexes[i],0].d,order='F')
-        z = YTArray(z,code_units_z,
-                    registry=pd.obj.unit_registry)
+        z = pd.obj.array(z,code_units_z)
         sim_z = pd.obj.simulation.redshift
 
         if logscale:

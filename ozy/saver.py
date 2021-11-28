@@ -1,7 +1,8 @@
 import os
+
 import h5py
 import numpy as np
-from yt import YTArray, YTQuantity
+from unyt import unyt_array, unyt_quantity
 
 blacklist = [
     'G', 'initial_mass',
@@ -62,16 +63,17 @@ def serialise_attributes(obj_list, hd, hd_dicts):
 
 def _write_attrib(obj_list, k, v, hd):
     unit = False
-    if isinstance(v, YTQuantity):
+    if isinstance(v, unyt_quantity):
         data = [getattr(i, k).d for i in obj_list]
         unit = True
-    elif isinstance(v, YTArray):
+    elif isinstance(v, unyt_array):
         # For the case of a vector
         if np.shape(v)[0] == 3:
             data = np.vstack([getattr(i, k).d for i in obj_list])
         else:
             # These are just single item arrays
             data = [getattr(i,k).d for i in obj_list]
+        unit = True
     elif isinstance(v, np.ndarray) and np.shape(v)[0] == 3 and 'list' not in k:
         try:
             data = np.vstack([getattr(i,k) for i in obj_list])
@@ -89,7 +91,7 @@ def _write_attrib(obj_list, k, v, hd):
 def _write_dict(obj_list, k, v, hd):
     for kk, vv in v.items():
         unit = False
-        if isinstance(vv, (YTQuantity, YTArray)):
+        if isinstance(vv, (unyt_quantity, unyt_array)):
             data = np.array([getattr(i,k)[kk].d for i in obj_list])
             unit = True
         else:
@@ -106,7 +108,7 @@ def seralise_global_attributes(obj, hd):
     for k, v in obj.__dict__.items():
         if k in blacklist:
             continue
-        if isinstance(v, (YTArray, YTQuantity)):
+        if isinstance(v, (unyt_quantity, unyt_array)):
             hd.attrs.create(k, v.d)
             units[k] = v.units
         elif isinstance(v, str):
@@ -135,8 +137,8 @@ def save(obj, filename='default'):
     outfile = h5py.File(filename, 'w')
     outfile.attrs.create('ozy', 315)
     
-    # Just to make possible to reconstruct the units used by yT.
-    unit_registry = obj.yt_dataset.unit_registry.to_json()
+    # Just to make possible to reconstruct the units used.
+    unit_registry = obj.unit_registry.to_json()
     outfile.attrs.create('unit_registry_json', unit_registry.encode('utf8'))
     
     seralise_global_attributes(obj, outfile)

@@ -263,7 +263,7 @@ subroutine f90wrap_profile_handler_finalise(this)
 end subroutine f90wrap_profile_handler_finalise
 
 subroutine f90wrap_allocate_profile_handler(prof)
-    use part_profiles, only: profile_handler, allocate_profile_handler
+    use part_profiles, only: allocate_profile_handler, profile_handler
     implicit none
     
     type profile_handler_ptr_type
@@ -276,8 +276,8 @@ subroutine f90wrap_allocate_profile_handler(prof)
 end subroutine f90wrap_allocate_profile_handler
 
 subroutine f90wrap_makebins(reg, varname, nbins, bins, n0)
-    use geometrical_regions, only: region
     use part_profiles, only: makebins
+    use geometrical_regions, only: region
     implicit none
     
     type region_ptr_type
@@ -295,20 +295,20 @@ subroutine f90wrap_makebins(reg, varname, nbins, bins, n0)
 end subroutine f90wrap_makebins
 
 subroutine f90wrap_findbinpos(sim, reg, distance, part, prof, ibin)
-    use part_profiles, only: profile_handler, findbinpos
     use io_ramses, only: particle, sim_info
     use geometrical_regions, only: region
+    use part_profiles, only: profile_handler, findbinpos
     implicit none
     
-    type particle_ptr_type
-        type(particle), pointer :: p => NULL()
-    end type particle_ptr_type
     type profile_handler_ptr_type
         type(profile_handler), pointer :: p => NULL()
     end type profile_handler_ptr_type
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
     type sim_info_ptr_type
         type(sim_info), pointer :: p => NULL()
     end type sim_info_ptr_type
@@ -330,20 +330,20 @@ subroutine f90wrap_findbinpos(sim, reg, distance, part, prof, ibin)
 end subroutine f90wrap_findbinpos
 
 subroutine f90wrap_bindata(sim, reg, part, prof, ibin)
-    use part_profiles, only: bindata, profile_handler
     use io_ramses, only: particle, sim_info
     use geometrical_regions, only: region
+    use part_profiles, only: profile_handler, bindata
     implicit none
     
-    type particle_ptr_type
-        type(particle), pointer :: p => NULL()
-    end type particle_ptr_type
     type profile_handler_ptr_type
         type(profile_handler), pointer :: p => NULL()
     end type profile_handler_ptr_type
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
+    type particle_ptr_type
+        type(particle), pointer :: p => NULL()
+    end type particle_ptr_type
     type sim_info_ptr_type
         type(sim_info), pointer :: p => NULL()
     end type sim_info_ptr_type
@@ -377,24 +377,24 @@ subroutine f90wrap_renormalise_bins(prof_data)
 end subroutine f90wrap_renormalise_bins
 
 subroutine f90wrap_get_parts_onedprofile(repository, amr, sim, reg, filt, prof_data)
-    use part_profiles, only: profile_handler, get_parts_onedprofile
     use io_ramses, only: amr_info, sim_info
-    use filtering, only: filter
     use geometrical_regions, only: region
+    use part_profiles, only: profile_handler, get_parts_onedprofile
+    use filtering, only: filter
     implicit none
     
-    type sim_info_ptr_type
-        type(sim_info), pointer :: p => NULL()
-    end type sim_info_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type amr_info_ptr_type
         type(amr_info), pointer :: p => NULL()
     end type amr_info_ptr_type
     type profile_handler_ptr_type
         type(profile_handler), pointer :: p => NULL()
     end type profile_handler_ptr_type
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
+    type sim_info_ptr_type
+        type(sim_info), pointer :: p => NULL()
+    end type sim_info_ptr_type
     type filter_ptr_type
         type(filter), pointer :: p => NULL()
     end type filter_ptr_type
@@ -420,16 +420,16 @@ end subroutine f90wrap_get_parts_onedprofile
 
 subroutine f90wrap_onedprofile(repository, reg, filt, prof_data, lmax)
     use part_profiles, only: profile_handler, onedprofile
-    use geometrical_regions, only: region
     use filtering, only: filter
+    use geometrical_regions, only: region
     implicit none
     
-    type filter_ptr_type
-        type(filter), pointer :: p => NULL()
-    end type filter_ptr_type
     type profile_handler_ptr_type
         type(profile_handler), pointer :: p => NULL()
     end type profile_handler_ptr_type
+    type filter_ptr_type
+        type(filter), pointer :: p => NULL()
+    end type filter_ptr_type
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type

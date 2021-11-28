@@ -23,25 +23,8 @@ info_blacklist = [
     'obj', 'halo', 'galaxies', 'satellites',
     'galaxy_index_list_end', 'galaxy_index_list_start']
 
-# class GroupList(object):
-#     """Class to hold particle index lists.
-#     """
-#     def __init__(self, name):
-#         self.name = name
-
-#     def __get__(self, instance, owner):
-#         if not hasattr(instance, '_%s' % self.name) or isinstance(getattr(instance, '_%s' % self.name), int):
-#             from ozy.loader import restore_single_list
-#             restore_single_list(instance.obj, instance, self.name)
-#         return getattr(instance, instance, self.name)
-    
-#     def __set__(self, instance, value):
-#         setattr(instance, '_%s' % self.name, value)
-
 class Group(object):
     """This is the parent class from which the rest of groups are derived."""
-
-    # slist = GroupList('slist')
     
     def __init__(self, obj):
         """Initialise basic properties of group object."""
@@ -102,7 +85,6 @@ class Galaxy(Group):
         self._calculate_stardm_quantities()
         self._calculate_velocity_dispersions()
         self._calculate_gas_quantities()
-        # self._calculate_outflow_inflow()
 
         self.mass['baryon'] = self.mass['stellar'] + self.mass['gas']
 
@@ -112,52 +94,52 @@ class Galaxy(Group):
     def _empty_galaxy(self):
         """Add atributes to galaxy to zero when no interest is in it."""
 
-        self.mass['dm'] = self.obj.yt_dataset.quan(0.0, 'code_mass')
-        self.mass['stellar'] = self.obj.yt_dataset.quan(0.0, 'code_mass')
-        self.mass['gas'] = self.obj.yt_dataset.quan(0.0, 'code_mass')
+        self.mass['dm'] = self.obj.quantity(0.0, 'code_mass')
+        self.mass['stellar'] = self.obj.quantity(0.0, 'code_mass')
+        self.mass['gas'] = self.obj.quantity(0.0, 'code_mass')
         self.mass['baryon'] = self.mass['stellar'] + self.mass['gas']
         self.gas_fraction = 0.0
 
         self.ndm = 0
 
         # Stellar details
-        self.mass['stellar'] = self.obj.yt_dataset.quan(0.0, 'code_mass')
+        self.mass['stellar'] = self.obj.quantity(0.0, 'code_mass')
         self.nstar = 0
-        self.sfr['10Myr'] = self.obj.yt_dataset.quan(0.0,'Msun/yr')
-        self.sfr['100Myr'] = self.obj.yt_dataset.quan(0.0,'Msun/yr')
+        self.sfr['10Myr'] = self.obj.quantity(0.0,'Msun/yr')
+        self.sfr['100Myr'] = self.obj.quantity(0.0,'Msun/yr')
         self.metallicity['stellar'] = 0 # Mass-weighted average!
 
         if self.obj.simulation.physics['hydro']:
-            self.mass['gas'] = self.obj.yt_dataset.quan(0.0, 'code_mass')
-            self.gas_density['mass_weighted'] = self.obj.yt_dataset.quan(0.0, 'code_density')
-            self.gas_density['volume_weighted'] = self.obj.yt_dataset.quan(0.0, 'code_density')
-            self.temperature['mass_weighted'] = self.obj.yt_dataset.quan(0.0, 'code_temperature')
-            self.temperature['volume_weighted'] = self.obj.yt_dataset.quan(0.0, 'code_temperature')
-            self.angular_mom['gas'] = self.obj.yt_dataset.arr(np.array([0,0,0]),
+            self.mass['gas'] = self.obj.quantity(0.0, 'code_mass')
+            self.gas_density['mass_weighted'] = self.obj.quantity(0.0, 'code_density')
+            self.gas_density['volume_weighted'] = self.obj.quantity(0.0, 'code_density')
+            self.temperature['mass_weighted'] = self.obj.quantity(0.0, 'code_temperature')
+            self.temperature['volume_weighted'] = self.obj.quantity(0.0, 'code_temperature')
+            self.angular_mom['gas'] = self.obj.array(np.array([0,0,0]),
                                                              'code_mass*code_length*code_velocity')
-            self.energies['thermal_energy'] = self.obj.yt_dataset.quan(0, 'code_mass * code_velocity**2')
-            self.energies['thermal_energy_specific'] = self.obj.yt_dataset.quan(0, 'code_specific_energy')
+            self.energies['thermal_energy'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
+            self.energies['thermal_energy_specific'] = self.obj.quantity(0, 'code_specific_energy')
 
             if self.obj.simulation.physics['metals']:
                 self.metallicity['gas'] = 0 # Mass-weighted average!
         else:
-            self.mass['gas'] = self.obj.yt_dataset.quan(0.0, 'code_mass')
+            self.mass['gas'] = self.obj.quantity(0.0, 'code_mass')
         
         if self.obj.simulation.physics['magnetic']:
             if self.obj.simulation.physics['metals']:
-                self.energies['magnetic_energy'] = self.obj.yt_dataset.quan(0, 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific'] = self.obj.yt_dataset.quan(0, 'code_specific_energy')
+                self.energies['magnetic_energy'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
+                self.energies['magnetic_energy_specific'] = self.obj.quantity(0, 'code_specific_energy')
             else:
-                self.energies['magnetic_energy'] = self.obj.yt_dataset.quan(0, 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific'] = self.obj.yt_dataset.quan(0, 'code_specific_energy')
+                self.energies['magnetic_energy'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
+                self.energies['magnetic_energy_specific'] = self.obj.quantity(0, 'code_specific_energy')
 
         if self.obj.simulation.physics['cr']:
             if self.obj.simulation.physics['metals']:
-                self.energies['cr_energy'] = self.obj.yt_dataset.quan(0, 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific'] = self.obj.yt_dataset.quan(0, 'code_specific_energy')
+                self.energies['cr_energy'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
+                self.energies['cr_energy_specific'] = self.obj.quantity(0, 'code_specific_energy')
             else:
-                self.energies['cr_energy'] = self.obj.yt_dataset.quan(0, 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific'] = self.obj.yt_dataset.quan(0, 'code_specific_energy')
+                self.energies['cr_energy'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
+                self.energies['cr_energy_specific'] = self.obj.quantity(0, 'code_specific_energy')
 
         if self.obj.simulation.physics['rt']:
             self.radiation['xHII'] = 0
@@ -214,18 +196,18 @@ class Galaxy(Group):
         part_integrator.integrate_region(output_path,selected_reg,filt,glob_attrs)
 
         # Stellar details
-        self.mass['stellar'] = self.obj.yt_dataset.quan(glob_attrs.data[0,0,0], 'code_mass')
+        self.mass['stellar'] = self.obj.quantity(glob_attrs.data[0,0,0], 'code_mass')
         self.nstar = glob_attrs.nstar
-        self.sfr['10Myr'] = self.obj.yt_dataset.quan(glob_attrs.data[1,0,0],'Msun/yr')
-        self.sfr['100Myr'] = self.obj.yt_dataset.quan(glob_attrs.data[2,0,0],'Msun/yr')
+        self.sfr['10Myr'] = self.obj.quantity(glob_attrs.data[1,0,0],'Msun/yr')
+        self.sfr['100Myr'] = self.obj.quantity(glob_attrs.data[2,0,0],'Msun/yr')
         self.metallicity['stellar'] = glob_attrs.data[3,1,0] # Mass-weighted average!
-        self.angular_mom['stellar'] = self.obj.yt_dataset.arr(np.array([glob_attrs.data[4,0,0],glob_attrs.data[5,0,0],glob_attrs.data[6,0,0]]),
+        self.angular_mom['stellar'] = self.obj.array(np.array([glob_attrs.data[4,0,0],glob_attrs.data[5,0,0],glob_attrs.data[6,0,0]]),
                                                              'code_mass*code_length*code_velocity')
 
         # DM details
-        self.mass['dm'] = self.obj.yt_dataset.quan(glob_attrs.data[7,0,0], 'code_mass')
+        self.mass['dm'] = self.obj.quantity(glob_attrs.data[7,0,0], 'code_mass')
         self.ndm = glob_attrs.ndm
-        self.angular_mom['dm'] = self.obj.yt_dataset.arr(np.array([glob_attrs.data[8,0,0],glob_attrs.data[9,0,0],glob_attrs.data[10,0,0]]),
+        self.angular_mom['dm'] = self.obj.array(np.array([glob_attrs.data[8,0,0],glob_attrs.data[9,0,0],glob_attrs.data[10,0,0]]),
                                                              'code_mass*code_length*code_velocity')
 
 
@@ -284,38 +266,38 @@ class Galaxy(Group):
 
         # Assign results to galaxy object
         if self.obj.simulation.physics['hydro']:
-            self.mass['gas'] = self.obj.yt_dataset.quan(glob_attrs.data[0,0,0], 'code_mass')
-            self.gas_density['mass_weighted'] = self.obj.yt_dataset.quan(glob_attrs.data[1,1,0], 'code_density')
-            self.gas_density['volume_weighted'] = self.obj.yt_dataset.quan(glob_attrs.data[1,2,0], 'code_density')
-            self.temperature['mass_weighted'] = self.obj.yt_dataset.quan(glob_attrs.data[2,1,0], 'code_temperature')
-            self.temperature['volume_weighted'] = self.obj.yt_dataset.quan(glob_attrs.data[2,2,0], 'code_temperature')
-            self.angular_mom['gas'] = self.obj.yt_dataset.arr(np.array([glob_attrs.data[3,0,0],glob_attrs.data[4,0,0],glob_attrs.data[5,0,0]]),
+            self.mass['gas'] = self.obj.quantity(glob_attrs.data[0,0,0], 'code_mass')
+            self.gas_density['mass_weighted'] = self.obj.quantity(glob_attrs.data[1,1,0], 'code_density')
+            self.gas_density['volume_weighted'] = self.obj.quantity(glob_attrs.data[1,2,0], 'code_density')
+            self.temperature['mass_weighted'] = self.obj.quantity(glob_attrs.data[2,1,0], 'code_temperature')
+            self.temperature['volume_weighted'] = self.obj.quantity(glob_attrs.data[2,2,0], 'code_temperature')
+            self.angular_mom['gas'] = self.obj.array(np.array([glob_attrs.data[3,0,0],glob_attrs.data[4,0,0],glob_attrs.data[5,0,0]]),
                                                              'code_mass*code_length*code_velocity')
-            self.energies['thermal_energy'] = self.obj.yt_dataset.quan(glob_attrs.data[6,0,0], 'code_mass * code_velocity**2')
-            self.energies['thermal_energy_specific'] = self.obj.yt_dataset.quan(glob_attrs.data[7,2,0], 'code_specific_energy')
+            self.energies['thermal_energy'] = self.obj.quantity(glob_attrs.data[6,0,0], 'code_mass * code_velocity**2')
+            self.energies['thermal_energy_specific'] = self.obj.quantity(glob_attrs.data[7,2,0], 'code_specific_energy')
 
             if self.obj.simulation.physics['metals']:
                 self.metallicity['gas'] = glob_attrs.data[8,1,0] # Mass-weighted average!
         else:
-            self.mass['gas'] = self.obj.yt_dataset.quan(0.0, 'code_mass')
+            self.mass['gas'] = self.obj.quantity(0.0, 'code_mass')
         
         if self.obj.simulation.physics['magnetic']:
             print('Computing magnetic energies')
             if self.obj.simulation.physics['metals']:
-                self.energies['magnetic_energy'] = self.obj.yt_dataset.quan(glob_attrs.data[9,0,0], 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific'] = self.obj.yt_dataset.quan(glob_attrs.data[10,1,0], 'code_specific_energy')
+                self.energies['magnetic_energy'] = self.obj.quantity(glob_attrs.data[9,0,0], 'code_mass * code_velocity**2')
+                self.energies['magnetic_energy_specific'] = self.obj.quantity(glob_attrs.data[10,1,0], 'code_specific_energy')
             else:
-                self.energies['magnetic_energy'] = self.obj.yt_dataset.quan(glob_attrs.data[8,0,0], 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific'] = self.obj.yt_dataset.quan(glob_attrs.data[9,1,0], 'code_specific_energy')
+                self.energies['magnetic_energy'] = self.obj.quantity(glob_attrs.data[8,0,0], 'code_mass * code_velocity**2')
+                self.energies['magnetic_energy_specific'] = self.obj.quantity(glob_attrs.data[9,1,0], 'code_specific_energy')
 
         if self.obj.simulation.physics['cr']:
             print('Computing CR energies')
             if self.obj.simulation.physics['metals']:
-                self.energies['cr_energy'] = self.obj.yt_dataset.quan(glob_attrs.data[11,0,0], 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific'] = self.obj.yt_dataset.quan(glob_attrs.data[12,1,0], 'code_specific_energy')
+                self.energies['cr_energy'] = self.obj.quantity(glob_attrs.data[11,0,0], 'code_mass * code_velocity**2')
+                self.energies['cr_energy_specific'] = self.obj.quantity(glob_attrs.data[12,1,0], 'code_specific_energy')
             else:
-                self.energies['cr_energy'] = self.obj.yt_dataset.quan(glob_attrs.data[10,0,0], 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific'] = self.obj.yt_dataset.quan(glob_attrs.data[11,1,0], 'code_specific_energy')
+                self.energies['cr_energy'] = self.obj.quantity(glob_attrs.data[10,0,0], 'code_mass * code_velocity**2')
+                self.energies['cr_energy_specific'] = self.obj.quantity(glob_attrs.data[11,1,0], 'code_specific_energy')
 
         if self.obj.simulation.physics['rt']:
             print('Computing ionisation fractions')
@@ -388,35 +370,35 @@ class Galaxy(Group):
         # Assign results to galaxy object
         if self.obj.simulation.physics['hydro']:
             print('Computing gas flow quantities')
-            self.outflows['density_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[0,1,0], 'code_density')
-            self.outflows['temperature_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[1,1,0], 'code_temperature')
-            self.outflows['massflow_rate_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[2,0,0]/shell_width, 'code_mass*code_velocity/code_length')
-            self.outflows['v_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[3,1,0], 'code_velocity')
-            self.outflows['thermal_energy_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[4,0,0], 'code_mass * code_velocity**2')
-            self.outflows['thermal_energy_specific_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[5,1,0], 'code_specific_energy')
+            self.outflows['density_20rvir'] = self.obj.quantity(glob_attrs.data[0,1,0], 'code_density')
+            self.outflows['temperature_20rvir'] = self.obj.quantity(glob_attrs.data[1,1,0], 'code_temperature')
+            self.outflows['massflow_rate_20rvir'] = self.obj.quantity(glob_attrs.data[2,0,0]/shell_width, 'code_mass*code_velocity/code_length')
+            self.outflows['v_20rvir'] = self.obj.quantity(glob_attrs.data[3,1,0], 'code_velocity')
+            self.outflows['thermal_energy_20rvir'] = self.obj.quantity(glob_attrs.data[4,0,0], 'code_mass * code_velocity**2')
+            self.outflows['thermal_energy_specific_20rvir'] = self.obj.quantity(glob_attrs.data[5,1,0], 'code_specific_energy')
             print(self.outflows)
             if self.obj.simulation.physics['metals']:
                 self.outflows['metallicity_20rvir'] = glob_attrs.data[6,1,0]
         else:
-            self.outflows['massflow_rate_20rvir'] = self.obj.yt_dataset.quan(0.0, 'code_mass*code_velocity/code_length')
+            self.outflows['massflow_rate_20rvir'] = self.obj.quantity(0.0, 'code_mass*code_velocity/code_length')
         
         if self.obj.simulation.physics['magnetic']:
             print('Computing magnetic energies')
             if self.obj.simulation.physics['metals']:
-                self.outflows['magnetic_energy_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[7,0,0], 'code_mass * code_velocity**2')
-                self.outflows['magnetic_energy_specific_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[8,1,0], 'code_specific_energy')
+                self.outflows['magnetic_energy_20rvir'] = self.obj.quantity(glob_attrs.data[7,0,0], 'code_mass * code_velocity**2')
+                self.outflows['magnetic_energy_specific_20rvir'] = self.obj.quantity(glob_attrs.data[8,1,0], 'code_specific_energy')
             else:
-                self.outflows['magnetic_energy_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[6,0,0], 'code_mass * code_velocity**2')
-                self.outflows['magnetic_energy_specific_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[7,1,0], 'code_specific_energy')
+                self.outflows['magnetic_energy_20rvir'] = self.obj.quantity(glob_attrs.data[6,0,0], 'code_mass * code_velocity**2')
+                self.outflows['magnetic_energy_specific_20rvir'] = self.obj.quantity(glob_attrs.data[7,1,0], 'code_specific_energy')
 
         if self.obj.simulation.physics['cr']:
             print('Computing CR energies')
             if self.obj.simulation.physics['metals']:
-                self.outflows['cr_energy_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[9,0,0], 'code_mass * code_velocity**2')
-                self.outflows['cr_energy_specific_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[10,1,0], 'code_specific_energy')
+                self.outflows['cr_energy_20rvir'] = self.obj.quantity(glob_attrs.data[9,0,0], 'code_mass * code_velocity**2')
+                self.outflows['cr_energy_specific_20rvir'] = self.obj.quantity(glob_attrs.data[10,1,0], 'code_specific_energy')
             else:
-                self.outflows['cr_energy_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[8,0,0], 'code_mass * code_velocity**2')
-                self.outflows['cr_energy_specific_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[9,1,0], 'code_specific_energy')
+                self.outflows['cr_energy_20rvir'] = self.obj.quantity(glob_attrs.data[8,0,0], 'code_mass * code_velocity**2')
+                self.outflows['cr_energy_specific_20rvir'] = self.obj.quantity(glob_attrs.data[9,1,0], 'code_specific_energy')
 
         if self.obj.simulation.physics['rt']:
             print('Computing ionisation fractions')
@@ -430,35 +412,35 @@ class Galaxy(Group):
         # Assign results to galaxy object
         if self.obj.simulation.physics['hydro']:
             print('Computing gas flow quantities')
-            self.inflows['density_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[0,1,0], 'code_density')
-            self.inflows['temperature_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[1,1,0], 'code_temperature')
-            self.inflows['massflow_rate_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[2,0,0]/shell_width, 'code_mass*code_velocity/code_length')
-            self.inflows['v_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[3,1,0], 'code_velocity')
-            self.inflows['thermal_energy_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[4,0,0], 'code_mass * code_velocity**2')
-            self.inflows['thermal_energy_specific_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[5,1,0], 'code_specific_energy')
+            self.inflows['density_20rvir'] = self.obj.quantity(glob_attrs.data[0,1,0], 'code_density')
+            self.inflows['temperature_20rvir'] = self.obj.quantity(glob_attrs.data[1,1,0], 'code_temperature')
+            self.inflows['massflow_rate_20rvir'] = self.obj.quantity(glob_attrs.data[2,0,0]/shell_width, 'code_mass*code_velocity/code_length')
+            self.inflows['v_20rvir'] = self.obj.quantity(glob_attrs.data[3,1,0], 'code_velocity')
+            self.inflows['thermal_energy_20rvir'] = self.obj.quantity(glob_attrs.data[4,0,0], 'code_mass * code_velocity**2')
+            self.inflows['thermal_energy_specific_20rvir'] = self.obj.quantity(glob_attrs.data[5,1,0], 'code_specific_energy')
 
             if self.obj.simulation.physics['metals']:
                 self.outflows['metallicity_20rvir'] = glob_attrs.data[6,1,0]
         else:
-            self.inflows['massflow_rate_20rvir'] = self.obj.yt_dataset.quan(0.0, 'code_mass*code_velocity/code_length')
+            self.inflows['massflow_rate_20rvir'] = self.obj.quantity(0.0, 'code_mass*code_velocity/code_length')
         
         if self.obj.simulation.physics['magnetic']:
             print('Computing magnetic energies')
             if self.obj.simulation.physics['metals']:
-                self.inflows['magnetic_energy_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[7,0,0], 'code_mass * code_velocity**2')
-                self.inflows['magnetic_energy_specific_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[8,1,0], 'code_specific_energy')
+                self.inflows['magnetic_energy_20rvir'] = self.obj.quantity(glob_attrs.data[7,0,0], 'code_mass * code_velocity**2')
+                self.inflows['magnetic_energy_specific_20rvir'] = self.obj.quantity(glob_attrs.data[8,1,0], 'code_specific_energy')
             else:
-                self.inflows['magnetic_energy_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[6,0,0], 'code_mass * code_velocity**2')
-                self.inflows['magnetic_energy_specific_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[7,1,0], 'code_specific_energy')
+                self.inflows['magnetic_energy_20rvir'] = self.obj.quantity(glob_attrs.data[6,0,0], 'code_mass * code_velocity**2')
+                self.inflows['magnetic_energy_specific_20rvir'] = self.obj.quantity(glob_attrs.data[7,1,0], 'code_specific_energy')
 
         if self.obj.simulation.physics['cr']:
             print('Computing CR energies')
             if self.obj.simulation.physics['metals']:
-                self.inflows['cr_energy_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[9,0,0], 'code_mass * code_velocity**2')
-                self.inflows['cr_energy_specific_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[10,1,0], 'code_specific_energy')
+                self.inflows['cr_energy_20rvir'] = self.obj.quantity(glob_attrs.data[9,0,0], 'code_mass * code_velocity**2')
+                self.inflows['cr_energy_specific_20rvir'] = self.obj.quantity(glob_attrs.data[10,1,0], 'code_specific_energy')
             else:
-                self.inflows['cr_energy_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[8,0,0], 'code_mass * code_velocity**2')
-                self.inflows['cr_energy_specific_20rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[9,1,0], 'code_specific_energy')
+                self.inflows['cr_energy_20rvir'] = self.obj.quantity(glob_attrs.data[8,0,0], 'code_mass * code_velocity**2')
+                self.inflows['cr_energy_specific_20rvir'] = self.obj.quantity(glob_attrs.data[9,1,0], 'code_specific_energy')
 
         if self.obj.simulation.physics['rt']:
             print('Computing ionisation fractions')
@@ -474,35 +456,35 @@ class Galaxy(Group):
         # Assign results to galaxy object
         if self.obj.simulation.physics['hydro']:
             print('Computing gas flow quantities')
-            self.outflows['density_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[0,1,0], 'code_density')
-            self.outflows['temperature_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[1,1,0], 'code_temperature')
-            self.outflows['massflow_rate_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[2,0,0]/shell_width, 'code_mass*code_velocity/code_length')
-            self.outflows['v_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[3,1,0], 'code_velocity')
-            self.outflows['thermal_energy_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[4,0,0], 'code_mass * code_velocity**2')
-            self.outflows['thermal_energy_specific_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[5,1,0], 'code_specific_energy')
+            self.outflows['density_50rvir'] = self.obj.quantity(glob_attrs.data[0,1,0], 'code_density')
+            self.outflows['temperature_50rvir'] = self.obj.quantity(glob_attrs.data[1,1,0], 'code_temperature')
+            self.outflows['massflow_rate_50rvir'] = self.obj.quantity(glob_attrs.data[2,0,0]/shell_width, 'code_mass*code_velocity/code_length')
+            self.outflows['v_50rvir'] = self.obj.quantity(glob_attrs.data[3,1,0], 'code_velocity')
+            self.outflows['thermal_energy_50rvir'] = self.obj.quantity(glob_attrs.data[4,0,0], 'code_mass * code_velocity**2')
+            self.outflows['thermal_energy_specific_50rvir'] = self.obj.quantity(glob_attrs.data[5,1,0], 'code_specific_energy')
 
             if self.obj.simulation.physics['metals']:
                 self.outflows['metallicity_50rvir'] = glob_attrs.data[6,1,0]
         else:
-            self.outflows['massflow_rate_50rvir'] = self.obj.yt_dataset.quan(0.0, 'code_mass*code_velocity/code_length')
+            self.outflows['massflow_rate_50rvir'] = self.obj.quantity(0.0, 'code_mass*code_velocity/code_length')
         
         if self.obj.simulation.physics['magnetic']:
             print('Computing magnetic energies')
             if self.obj.simulation.physics['metals']:
-                self.outflows['magnetic_energy_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[7,0,0], 'code_mass * code_velocity**2')
-                self.outflows['magnetic_energy_specific_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[8,1,0], 'code_specific_energy')
+                self.outflows['magnetic_energy_50rvir'] = self.obj.quantity(glob_attrs.data[7,0,0], 'code_mass * code_velocity**2')
+                self.outflows['magnetic_energy_specific_50rvir'] = self.obj.quantity(glob_attrs.data[8,1,0], 'code_specific_energy')
             else:
-                self.outflows['magnetic_energy_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[6,0,0], 'code_mass * code_velocity**2')
-                self.outflows['magnetic_energy_specific_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[7,1,0], 'code_specific_energy')
+                self.outflows['magnetic_energy_50rvir'] = self.obj.quantity(glob_attrs.data[6,0,0], 'code_mass * code_velocity**2')
+                self.outflows['magnetic_energy_specific_50rvir'] = self.obj.quantity(glob_attrs.data[7,1,0], 'code_specific_energy')
 
         if self.obj.simulation.physics['cr']:
             print('Computing CR energies')
             if self.obj.simulation.physics['metals']:
-                self.outflows['cr_energy_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[9,0,0], 'code_mass * code_velocity**2')
-                self.outflows['cr_energy_specific_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[10,1,0], 'code_specific_energy')
+                self.outflows['cr_energy_50rvir'] = self.obj.quantity(glob_attrs.data[9,0,0], 'code_mass * code_velocity**2')
+                self.outflows['cr_energy_specific_50rvir'] = self.obj.quantity(glob_attrs.data[10,1,0], 'code_specific_energy')
             else:
-                self.outflows['cr_energy_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[8,0,0], 'code_mass * code_velocity**2')
-                self.outflows['cr_energy_specific_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[9,1,0], 'code_specific_energy')
+                self.outflows['cr_energy_50rvir'] = self.obj.quantity(glob_attrs.data[8,0,0], 'code_mass * code_velocity**2')
+                self.outflows['cr_energy_specific_50rvir'] = self.obj.quantity(glob_attrs.data[9,1,0], 'code_specific_energy')
 
         if self.obj.simulation.physics['rt']:
             print('Computing ionisation fractions')
@@ -516,35 +498,35 @@ class Galaxy(Group):
         # Assign results to galaxy object
         if self.obj.simulation.physics['hydro']:
             print('Computing gas flow quantities')
-            self.inflows['density_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[0,1,0], 'code_density')
-            self.inflows['temperature_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[1,1,0], 'code_temperature')
-            self.inflows['massflow_rate_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[2,0,0]/shell_width, 'code_mass*code_velocity/code_length')
-            self.inflows['v_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[3,1,0], 'code_velocity')
-            self.inflows['thermal_energy_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[4,0,0], 'code_mass * code_velocity**2')
-            self.inflows['thermal_energy_specific_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[5,1,0], 'code_specific_energy')
+            self.inflows['density_50rvir'] = self.obj.quantity(glob_attrs.data[0,1,0], 'code_density')
+            self.inflows['temperature_50rvir'] = self.obj.quantity(glob_attrs.data[1,1,0], 'code_temperature')
+            self.inflows['massflow_rate_50rvir'] = self.obj.quantity(glob_attrs.data[2,0,0]/shell_width, 'code_mass*code_velocity/code_length')
+            self.inflows['v_50rvir'] = self.obj.quantity(glob_attrs.data[3,1,0], 'code_velocity')
+            self.inflows['thermal_energy_50rvir'] = self.obj.quantity(glob_attrs.data[4,0,0], 'code_mass * code_velocity**2')
+            self.inflows['thermal_energy_specific_50rvir'] = self.obj.quantity(glob_attrs.data[5,1,0], 'code_specific_energy')
 
             if self.obj.simulation.physics['metals']:
                 self.outflows['metallicity_50rvir'] = glob_attrs.data[6,1,0]
         else:
-            self.inflows['massflow_rate_50rvir'] = self.obj.yt_dataset.quan(0.0, 'code_mass*code_velocity/code_length')
+            self.inflows['massflow_rate_50rvir'] = self.obj.quantity(0.0, 'code_mass*code_velocity/code_length')
         
         if self.obj.simulation.physics['magnetic']:
             print('Computing magnetic energies')
             if self.obj.simulation.physics['metals']:
-                self.inflows['magnetic_energy_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[7,0,0], 'code_mass * code_velocity**2')
-                self.inflows['magnetic_energy_specific_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[8,1,0], 'code_specific_energy')
+                self.inflows['magnetic_energy_50rvir'] = self.obj.quantity(glob_attrs.data[7,0,0], 'code_mass * code_velocity**2')
+                self.inflows['magnetic_energy_specific_50rvir'] = self.obj.quantity(glob_attrs.data[8,1,0], 'code_specific_energy')
             else:
-                self.inflows['magnetic_energy_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[6,0,0], 'code_mass * code_velocity**2')
-                self.inflows['magnetic_energy_specific_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[7,1,0], 'code_specific_energy')
+                self.inflows['magnetic_energy_50rvir'] = self.obj.quantity(glob_attrs.data[6,0,0], 'code_mass * code_velocity**2')
+                self.inflows['magnetic_energy_specific_50rvir'] = self.obj.quantity(glob_attrs.data[7,1,0], 'code_specific_energy')
 
         if self.obj.simulation.physics['cr']:
             print('Computing CR energies')
             if self.obj.simulation.physics['metals']:
-                self.inflows['cr_energy_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[9,0,0], 'code_mass * code_velocity**2')
-                self.inflows['cr_energy_specific_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[10,1,0], 'code_specific_energy')
+                self.inflows['cr_energy_50rvir'] = self.obj.quantity(glob_attrs.data[9,0,0], 'code_mass * code_velocity**2')
+                self.inflows['cr_energy_specific_50rvir'] = self.obj.quantity(glob_attrs.data[10,1,0], 'code_specific_energy')
             else:
-                self.inflows['cr_energy_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[8,0,0], 'code_mass * code_velocity**2')
-                self.inflows['cr_energy_specific_50rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[9,1,0], 'code_specific_energy')
+                self.inflows['cr_energy_50rvir'] = self.obj.quantity(glob_attrs.data[8,0,0], 'code_mass * code_velocity**2')
+                self.inflows['cr_energy_specific_50rvir'] = self.obj.quantity(glob_attrs.data[9,1,0], 'code_specific_energy')
 
         if self.obj.simulation.physics['rt']:
             print('Computing ionisation fractions')
@@ -560,35 +542,35 @@ class Galaxy(Group):
         # Assign results to galaxy object
         if self.obj.simulation.physics['hydro']:
             print('Computing gas flow quantities')
-            self.outflows['density_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[0,1,0], 'code_density')
-            self.outflows['temperature_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[1,1,0], 'code_temperature')
-            self.outflows['massflow_rate_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[2,0,0]/shell_width, 'code_mass*code_velocity/code_length')
-            self.outflows['v_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[3,1,0], 'code_velocity')
-            self.outflows['thermal_energy_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[4,0,0], 'code_mass * code_velocity**2')
-            self.outflows['thermal_energy_specific_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[5,1,0], 'code_specific_energy')
+            self.outflows['density_100rvir'] = self.obj.quantity(glob_attrs.data[0,1,0], 'code_density')
+            self.outflows['temperature_100rvir'] = self.obj.quantity(glob_attrs.data[1,1,0], 'code_temperature')
+            self.outflows['massflow_rate_100rvir'] = self.obj.quantity(glob_attrs.data[2,0,0]/shell_width, 'code_mass*code_velocity/code_length')
+            self.outflows['v_100rvir'] = self.obj.quantity(glob_attrs.data[3,1,0], 'code_velocity')
+            self.outflows['thermal_energy_100rvir'] = self.obj.quantity(glob_attrs.data[4,0,0], 'code_mass * code_velocity**2')
+            self.outflows['thermal_energy_specific_100rvir'] = self.obj.quantity(glob_attrs.data[5,1,0], 'code_specific_energy')
 
             if self.obj.simulation.physics['metals']:
                 self.outflows['metallicity_100rvir'] = glob_attrs.data[6,1,0]
         else:
-            self.outflows['massflow_rate_100rvir'] = self.obj.yt_dataset.quan(0.0, 'code_mass*code_velocity/code_length')
+            self.outflows['massflow_rate_100rvir'] = self.obj.quantity(0.0, 'code_mass*code_velocity/code_length')
         
         if self.obj.simulation.physics['magnetic']:
             print('Computing magnetic energies')
             if self.obj.simulation.physics['metals']:
-                self.outflows['magnetic_energy_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[7,0,0], 'code_mass * code_velocity**2')
-                self.outflows['magnetic_energy_specific_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[8,1,0], 'code_specific_energy')
+                self.outflows['magnetic_energy_100rvir'] = self.obj.quantity(glob_attrs.data[7,0,0], 'code_mass * code_velocity**2')
+                self.outflows['magnetic_energy_specific_100rvir'] = self.obj.quantity(glob_attrs.data[8,1,0], 'code_specific_energy')
             else:
-                self.outflows['magnetic_energy_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[6,0,0], 'code_mass * code_velocity**2')
-                self.outflows['magnetic_energy_specific_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[7,1,0], 'code_specific_energy')
+                self.outflows['magnetic_energy_100rvir'] = self.obj.quantity(glob_attrs.data[6,0,0], 'code_mass * code_velocity**2')
+                self.outflows['magnetic_energy_specific_100rvir'] = self.obj.quantity(glob_attrs.data[7,1,0], 'code_specific_energy')
 
         if self.obj.simulation.physics['cr']:
             print('Computing CR energies')
             if self.obj.simulation.physics['metals']:
-                self.outflows['cr_energy_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[9,0,0], 'code_mass * code_velocity**2')
-                self.outflows['cr_energy_specific_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[10,1,0], 'code_specific_energy')
+                self.outflows['cr_energy_100rvir'] = self.obj.quantity(glob_attrs.data[9,0,0], 'code_mass * code_velocity**2')
+                self.outflows['cr_energy_specific_100rvir'] = self.obj.quantity(glob_attrs.data[10,1,0], 'code_specific_energy')
             else:
-                self.outflows['cr_energy_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[8,0,0], 'code_mass * code_velocity**2')
-                self.outflows['cr_energy_specific_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[9,1,0], 'code_specific_energy')
+                self.outflows['cr_energy_100rvir'] = self.obj.quantity(glob_attrs.data[8,0,0], 'code_mass * code_velocity**2')
+                self.outflows['cr_energy_specific_100rvir'] = self.obj.quantity(glob_attrs.data[9,1,0], 'code_specific_energy')
 
         if self.obj.simulation.physics['rt']:
             print('Computing ionisation fractions')
@@ -602,35 +584,35 @@ class Galaxy(Group):
         # Assign results to galaxy object
         if self.obj.simulation.physics['hydro']:
             print('Computing gas flow quantities')
-            self.inflows['density_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[0,1,0], 'code_density')
-            self.inflows['temperature_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[1,1,0], 'code_temperature')
-            self.inflows['massflow_rate_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[2,0,0]/shell_width, 'code_mass*code_velocity/code_length')
-            self.inflows['v_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[3,1,0], 'code_velocity')
-            self.inflows['thermal_energy_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[4,0,0], 'code_mass * code_velocity**2')
-            self.inflows['thermal_energy_specific_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[5,1,0], 'code_specific_energy')
+            self.inflows['density_100rvir'] = self.obj.quantity(glob_attrs.data[0,1,0], 'code_density')
+            self.inflows['temperature_100rvir'] = self.obj.quantity(glob_attrs.data[1,1,0], 'code_temperature')
+            self.inflows['massflow_rate_100rvir'] = self.obj.quantity(glob_attrs.data[2,0,0]/shell_width, 'code_mass*code_velocity/code_length')
+            self.inflows['v_100rvir'] = self.obj.quantity(glob_attrs.data[3,1,0], 'code_velocity')
+            self.inflows['thermal_energy_100rvir'] = self.obj.quantity(glob_attrs.data[4,0,0], 'code_mass * code_velocity**2')
+            self.inflows['thermal_energy_specific_100rvir'] = self.obj.quantity(glob_attrs.data[5,1,0], 'code_specific_energy')
 
             if self.obj.simulation.physics['metals']:
                 self.outflows['metallicity_100rvir'] = glob_attrs.data[6,1,0]
         else:
-            self.inflows['massflow_rate_100rvir'] = self.obj.yt_dataset.quan(0.0, 'code_mass*code_velocity/code_length')
+            self.inflows['massflow_rate_100rvir'] = self.obj.quantity(0.0, 'code_mass*code_velocity/code_length')
         
         if self.obj.simulation.physics['magnetic']:
             print('Computing magnetic energies')
             if self.obj.simulation.physics['metals']:
-                self.inflows['magnetic_energy_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[7,0,0], 'code_mass * code_velocity**2')
-                self.inflows['magnetic_energy_specific_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[8,1,0], 'code_specific_energy')
+                self.inflows['magnetic_energy_100rvir'] = self.obj.quantity(glob_attrs.data[7,0,0], 'code_mass * code_velocity**2')
+                self.inflows['magnetic_energy_specific_100rvir'] = self.obj.quantity(glob_attrs.data[8,1,0], 'code_specific_energy')
             else:
-                self.inflows['magnetic_energy_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[6,0,0], 'code_mass * code_velocity**2')
-                self.inflows['magnetic_energy_specific_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[7,1,0], 'code_specific_energy')
+                self.inflows['magnetic_energy_100rvir'] = self.obj.quantity(glob_attrs.data[6,0,0], 'code_mass * code_velocity**2')
+                self.inflows['magnetic_energy_specific_100rvir'] = self.obj.quantity(glob_attrs.data[7,1,0], 'code_specific_energy')
 
         if self.obj.simulation.physics['cr']:
             print('Computing CR energies')
             if self.obj.simulation.physics['metals']:
-                self.inflows['cr_energy_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[9,0,0], 'code_mass * code_velocity**2')
-                self.inflows['cr_energy_specific_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[10,1,0], 'code_specific_energy')
+                self.inflows['cr_energy_100rvir'] = self.obj.quantity(glob_attrs.data[9,0,0], 'code_mass * code_velocity**2')
+                self.inflows['cr_energy_specific_100rvir'] = self.obj.quantity(glob_attrs.data[10,1,0], 'code_specific_energy')
             else:
-                self.inflows['cr_energy_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[8,0,0], 'code_mass * code_velocity**2')
-                self.inflows['cr_energy_specific_100rvir'] = self.obj.yt_dataset.quan(glob_attrs.data[9,1,0], 'code_specific_energy')
+                self.inflows['cr_energy_100rvir'] = self.obj.quantity(glob_attrs.data[8,0,0], 'code_mass * code_velocity**2')
+                self.inflows['cr_energy_specific_100rvir'] = self.obj.quantity(glob_attrs.data[9,1,0], 'code_specific_energy')
 
         if self.obj.simulation.physics['rt']:
             print('Computing ionisation fractions')

@@ -1,7 +1,8 @@
 import os
-import yt
+
 import ozy
 from ozy.progen import progen_build
+
 
 class Snapshot(object):
     """Class for tracking paths and data for simulation snapshots.
@@ -10,11 +11,12 @@ class Snapshot(object):
         self.snapdir   = snapdir
         self.snapname  = snapname
         self.snapindex = snapindex
-        self.snap      = '%s/%s%05d/info_%05d.txt' % (snapdir, snapname, snapindex, snapindex) # Assuming RAMSES convention of integer of length 5 for the snapindex
+        self.snap      = '%s/%s%05d' % (snapdir, snapname, snapindex)
+        self.snapinfo  = '%s/%s%05d/info_%05d.txt' % (snapdir, snapname, snapindex, snapindex) # Assuming RAMSES convention of integer of length 5 for the snapindex
     
-    def set_output_information(self, ds, prefix='ozy_', extension='hdf5'):
+    def set_output_information(self, prefix='ozy_', extension='hdf5'):
         
-        self.outdir = '%s/Groups' % ('/' + os.path.join(*ds.fullpath.split('/')[0:-1]))
+        self.outdir = '%s/Groups' % ('/' + os.path.join(*self.snap.split('/')[0:-1]))
         
         self.outfile = '%s/%s%s%05d.%s' % (self.outdir, prefix, self.snapname.replace(self.snapname,''), self.snapindex, extension)
     
@@ -28,23 +30,22 @@ class Snapshot(object):
         
         if not os.path.isfile(self.snap):
             return
-        ds = yt.load(self.snap)
-        self.set_output_information(ds)
+        self.set_output_information(**kwargs)
         
         if os.path.isfile(self.outfile) and skipran:
             return
         self._make_output_dir()
         
-        obj = ozy.OZY(ds)
+        obj = ozy.OZY(self.snap)
         obj.build_HaloMaker(**kwargs)
         obj.save(self.outfile)
         
         obj = None
-        ds = None
         
 def print_art():
-    from ozy.__version__ import VERSION
     from art import text2art
+
+    from ozy.__version__ import VERSION
     copywrite = '   (C) 2021 F. Rodriguez Montero'
     version   = '   Version %s' % VERSION
 
@@ -52,7 +53,7 @@ def print_art():
     print('\n%s\n%s\n%s\n' % (art, copywrite, version))
 
 def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
-          build_HaloMaker=True, extension='hdf5', ozy_prefix='ozy_', **kwargs):
+          build_HaloMaker=True, extension='hdf5', prefix='ozy_', **kwargs):
     """Driver function for running `ÒZYMANDIAS``on multiple snapshots.
     
     """
@@ -87,7 +88,7 @@ def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
             snap.build_HaloMaker(skipran, **kwargs)
     
     if progen:
-        ozy.progen.run_progen(snapdirs, snapname, snapindexes, prefix=ozy_prefix, extension=extension, **kwargs)
+        ozy.progen.run_progen(snapdirs, snapname, snapindexes, prefix=prefix, extension=extension, **kwargs)
 
 if __name__ == '__main__':
     print_art()
