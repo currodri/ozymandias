@@ -91,6 +91,28 @@ plotting_dictionary = dict(
                                 'vmax_galaxy':5e-11
 
     },
+    magnetic_magnitude = {'cmap':'inferno',
+                                'text_over':'white',
+                                'label':r'$B$ [$G$]',
+                                'label_log':r'$\log(\frac{B}{{\rm G}})$',
+                                'units':'G',
+                                'vmin':4e-17,
+                                'vmax':5e-11,
+                                'vmin_galaxy':4e-10,
+                                'vmax_galaxy':5e-5
+
+    },
+    alfven_speed = {'cmap':'swift.red',
+                                'text_over':'white',
+                                'label':r'$v_A$ [km s$^{-1}$]',
+                                'label_log':r'$\log(\frac{v_A}{{\rm km s}^{-1}})$',
+                                'units':'km/s',
+                                'vmin':3e-2,
+                                'vmax':5e0,
+                                'vmin_galaxy':3e-2,
+                                'vmax_galaxy':5e0
+
+    },
     total_crs_energy = {'cmap':sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),
                         'text_over':'white',
                         'label':r'$E_{\rm CR}$ [erg]',
@@ -103,7 +125,7 @@ plotting_dictionary = dict(
                         'vmax_galaxy':8e-11
 
     },
-    cr_energy_density = {'cmap':sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),
+    cr_energy_density = {'cmap':sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=False, as_cmap=True),
                         'text_over':'white',
                         'label':r'$\varepsilon_{\rm CR}$ [erg/cm$^{3}$]',
                         'label_log':r'$\log(\frac{\varepsilon_{\rm CR}}{{\rm erg/cm}^{3}})$',
@@ -114,15 +136,15 @@ plotting_dictionary = dict(
                         'vmax_galaxy':8e-11
 
     },
-    cr_energy_specific = {'cmap':sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),
+    cr_energy_specific = {'cmap':sns.cubehelix_palette(start=.5, rot=-.75, as_cmap=True), #sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),
                                 'text_over':'white',
                                 'label':r'$\epsilon_{\rm CR}$ [erg/g]',
                                 'label_log':r'$\log(\frac{\epsilon_{\rm CR}}{\rm erg/g})$',
                                 'units':'erg*g**-1',
                                 'vmin':5e+12,
                                 'vmax':7e+14,
-                                'vmin_galaxy':5e+12,
-                                'vmax_galaxy':7e+14
+                                'vmin_galaxy':5e+10,
+                                'vmax_galaxy':7e+15
 
     },
     xHII = {'cmap':'bone',
@@ -131,7 +153,9 @@ plotting_dictionary = dict(
             'label_log':r'$\log(X_{\rm HII})$',
             'units':'dimensionless',
             'vmin':5e-4,
-            'vmax':0.8
+            'vmax':0.8,
+            'vmin_galaxy':5e-4,
+            'vmax_galaxy':0.8
 
     },
     xHeII = {'cmap':'swift.red',
@@ -140,7 +164,9 @@ plotting_dictionary = dict(
             'label_log':r'$\log(X_{\rm HeII})$',
             'units':'dimensionless',
             'vmin':5e-4,
-            'vmax':0.8
+            'vmax':0.8,
+            'vmin_galaxy':5e-4,
+            'vmax_galaxy':0.8
 
     },
     xHeIII = {'cmap':'swift.red',

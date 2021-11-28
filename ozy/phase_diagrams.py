@@ -475,8 +475,8 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=Tr
                                 z.in_units(plotting_z['units']).T,
                                 shading='auto',
                                 cmap=plotting_z['cmap'],
-                                norm=LogNorm(vmin=plotting_z['vmin'],
-                                vmax=plotting_z['vmax']))
+                                norm=LogNorm(vmin=plotting_z['vmin_galaxy'],
+                                vmax=plotting_z['vmax_galaxy']))
         else:
             plot = ax[i].pcolormesh(x,y,
                                 z.in_units(plotting_z['units']).T,
@@ -490,7 +490,7 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=Tr
                         color='black')
         if isinstance(extra_labels,list):
             ax[i].text(0.5, 0.9, extra_labels[i],
-                        transform=ax[i].transAxes, fontsize=20,verticalalignment='top',
+                        transform=ax[i].transAxes, fontsize=14,verticalalignment='top',
                         color='black')
 
         if powell:

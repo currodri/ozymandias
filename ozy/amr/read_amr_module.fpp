@@ -611,6 +611,16 @@ module io_ramses
             v_corrected = v_corrected - reg%bulk_velocity
             call cylindrical_basis_from_cartesian(x,temp_basis)
             value = v_corrected.DOT.temp_basis%u(2)
+        case ('v_magnitude')
+            ! Velocity magnitude from galaxy coordinates
+            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
+            v_corrected = v_corrected - reg%bulk_velocity
+            value = magnitude(v_corrected)
+        case ('v_squared')
+            ! Velocity magnitude squared from galaxy coordinates
+            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
+            v_corrected = v_corrected - reg%bulk_velocity
+            value = v_corrected.DOT.v_corrected
         case ('density')
             ! Density
             value = var(varIDs%density)
@@ -641,6 +651,9 @@ module io_ramses
         case ('entropy_specific')
             ! Specific entropy, following Gent 2012 equation
             ! TODO: Write this
+        case ('sound_speed')
+            ! Thermal sound speed, ideal gas
+            value = sqrt(5D0/3d0 * (var(varIDs%thermal_pressure) / var(varIDs%density)))
         case ('kinetic_energy')
             ! Kinetic energy, computed as 1/2*density*volume*magnitude(velocity)
             ! DISCLAIMER: Velocity not corrected for bulk velocity
@@ -662,6 +675,10 @@ module io_ramses
         case ('magnetic_pressure')
             B = 0.5 *(/(var(varIDs%Blx)+var(varIDs%Brx)),(var(varIDs%Bly)+var(varIDs%Bry)),(var(varIDs%Blz)+var(varIDs%Brz))/)
             value = 0.5 * (B.DOT.B)
+        case ('alfven_speed')
+            ! Alfven speed defined as B / sqrt(4pi*rho)
+            B = (/(var(varIDs%Blx)+var(varIDs%Brx)),(var(varIDs%Bly)+var(varIDs%Bry)),(var(varIDs%Blz)+var(varIDs%Brz))/)
+            value = magnitude(B) / sqrt(4D0 * 3.14159265359 * var(varIDs%density))
         case ('B_left_x')
             value = var(varIDs%Blx)
         case ('B_left_y')
