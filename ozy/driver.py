@@ -14,7 +14,7 @@ class Snapshot(object):
         self.snap      = '%s/%s%05d' % (snapdir, snapname, snapindex)
         self.snapinfo  = '%s/%s%05d/info_%05d.txt' % (snapdir, snapname, snapindex, snapindex) # Assuming RAMSES convention of integer of length 5 for the snapindex
     
-    def set_output_information(self, prefix='ozy_', extension='hdf5'):
+    def set_output_information(self, prefix='ozy_', extension='hdf5',**kwargs):
         
         self.outdir = '%s/Groups' % ('/' + os.path.join(*self.snap.split('/')[0:-1]))
         
@@ -27,8 +27,7 @@ class Snapshot(object):
             except:
                 pass
     def build_HaloMaker(self, skipran, **kwargs):
-        
-        if not os.path.isfile(self.snap):
+        if not os.path.exists(self.snap):
             return
         self.set_output_information(**kwargs)
         
