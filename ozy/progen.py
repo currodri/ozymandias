@@ -29,7 +29,7 @@ def run_progen(snapdirs, snapname, snapindexes, prefix='ozy_', extension='hdf5',
     missing = ''
     for isnap, snap in enumerate(snaps):
         fullname = snap.snap
-        if not os.path.isfile(fullname):
+        if not os.path.exists(fullname):
             missing_snaps.append(snap)
             missing = missing+' %05d'%(snapindexes[isnap])
             continue

@@ -2,7 +2,7 @@
 Module filtering
 
 
-Defined at read_amr_module.fpp lines 1330-1424
+Defined at read_amr_module.fpp lines 1330-1422
 
 """
 from __future__ import print_function, absolute_import, division
@@ -209,16 +209,15 @@ def cond_string_to_filter(str, filt):
     """
     _projections_pkg.f90wrap_cond_string_to_filter(str=str, filt=filt._handle)
 
-def filter_cell(self, reg, filt, cell_x, cell_dx, cell_var):
+def filter_cell(self, filt, cell_x, cell_dx, cell_var):
     """
-    filter_cell = filter_cell(self, reg, filt, cell_x, cell_dx, cell_var)
+    filter_cell = filter_cell(self, filt, cell_x, cell_dx, cell_var)
     
     
-    Defined at read_amr_module.fpp lines 1354-1387
+    Defined at read_amr_module.fpp lines 1354-1386
     
     Parameters
     ----------
-    varids : Hydroid
     reg : Region
     filt : Filter
     cell_x : Vector
@@ -230,21 +229,20 @@ def filter_cell(self, reg, filt, cell_x, cell_dx, cell_var):
     filter_cell : bool
     
     """
-    filter_cell = _projections_pkg.f90wrap_filter_cell(varids=self._handle, \
-        reg=reg._handle, filt=filt._handle, cell_x=cell_x._handle, cell_dx=cell_dx, \
+    filter_cell = _projections_pkg.f90wrap_filter_cell(reg=self._handle, \
+        filt=filt._handle, cell_x=cell_x._handle, cell_dx=cell_dx, \
         cell_var=cell_var)
     return filter_cell
 
-def filter_particle(self, reg, filt, part, dx=None):
+def filter_particle(self, filt, part, dx=None):
     """
-    filter_particle = filter_particle(self, reg, filt, part[, dx])
+    filter_particle = filter_particle(self, filt, part[, dx])
     
     
-    Defined at read_amr_module.fpp lines 1389-1424
+    Defined at read_amr_module.fpp lines 1388-1422
     
     Parameters
     ----------
-    sim : Sim_Info
     reg : Region
     filt : Filter
     part : Particle
@@ -255,9 +253,8 @@ def filter_particle(self, reg, filt, part, dx=None):
     filter_particle : bool
     
     """
-    filter_particle = _projections_pkg.f90wrap_filter_particle(sim=self._handle, \
-        reg=reg._handle, filt=filt._handle, part=part._handle, dx=None if dx is None \
-        else dx._handle)
+    filter_particle = _projections_pkg.f90wrap_filter_particle(reg=self._handle, \
+        filt=filt._handle, part=part._handle, dx=None if dx is None else dx._handle)
     return filter_particle
 
 

@@ -23,6 +23,7 @@
 !--------------------------------------------------------------------------
 module io_ramses
     use local
+    use constants
     use vectors
 
     type hydroID
@@ -79,6 +80,11 @@ module io_ramses
         type(vector) :: x,v
         real(dbl) :: m,met,imass,age,tform
     end type particle
+
+    ! Define global variables
+    type(sim_info) :: sim
+    type(amr_info) :: amr
+    type(hydroID)  ::  varIDs
 
     contains
 
@@ -211,11 +217,10 @@ module io_ramses
     ! This simple subroutines checks for the actual maximum
     ! level of refinement active in the simulation.
     !---------------------------------------------------------------
-    subroutine check_lmax(ngridfile,amr)
+    subroutine check_lmax(ngridfile)
 
         implicit none
 
-        type(amr_info),intent(inout) :: amr
         integer,dimension(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax),intent(in) :: ngridfile
         integer :: ngridilevel,i
 
@@ -238,11 +243,10 @@ module io_ramses
     ! family/tag format
     !---------------------------------------------------------------
     
-    subroutine check_families(repository,sim)
+    subroutine check_families(repository)
         implicit none
 
         character(len=128),intent(in) ::  repository
-        type(sim_info),intent(inout) :: sim
 
         character(len=128) :: nomfich,line,fline
         character(len=10) :: var1,var2,var3,var4,var5,var6
@@ -278,11 +282,10 @@ module io_ramses
     ! simulation snapshot such that their order is known when
     ! hydro_*.out* files are read.
     !---------------------------------------------------------------    
-    subroutine read_hydrofile_descriptor(repository,varIDs)
+    subroutine read_hydrofile_descriptor(repository)
         implicit none
 
         character(128),intent(in) ::  repository
-        type(hydroID),intent(inout)      ::  varIDs
         character(128) :: nomfich
         logical            ::  ok
         character(8)   ::  igr8
@@ -299,10 +302,10 @@ module io_ramses
             close(10)
             if (igrstart .eq. "n") then
                 write(*,*) "This is an old RAMSES simulation"
-                call read_hydrofile_descriptor_old(repository,varIDs)
+                call read_hydrofile_descriptor_old(repository)
             elseif (igrstart .eq. "#") then
                 write(*,*) "This is a new RAMSES simulation"
-                call read_hydrofile_descriptor_new(repository,varIDs)
+                call read_hydrofile_descriptor_new(repository)
             else
                 write(*,*)" I do not recognise this sim format. Check!"
                 stop
@@ -326,11 +329,10 @@ module io_ramses
     ! hydro_*.out* files are read. This is for the old RAMSES
     ! format
     !---------------------------------------------------------------    
-    subroutine read_hydrofile_descriptor_old(repository,varIDs)
+    subroutine read_hydrofile_descriptor_old(repository)
         implicit none
 
         character(128),intent(in) ::  repository
-        type(hydroID),intent(inout)      ::  varIDs
         character(128) :: nomfich
         logical            ::  ok
         integer            ::  nvhydro,nvloop,i !nvar,i
@@ -359,14 +361,14 @@ module io_ramses
             do i=1,nvloop
                 read(10,*) igr9,igr1,igr1,newVar
                 read(igr1,*,iostat=statn) newID
-                call select_from_descriptor_IDs(varIDs,newVar,newID)
+                call select_from_descriptor_IDs(newVar,newID)
             end do
             if (nvhydro > 10) then
                 do i=nvloop+1,nvhydro
                     read(10,*) igr8,igr3,newVar
                     igr3 = igr3(2:3);
                     read(igr3,*,iostat=statn) newID
-                    call select_from_descriptor_IDs(varIDs,newVar,newID)
+                    call select_from_descriptor_IDs(newVar,newID)
                 end do
             end if
             
@@ -374,7 +376,7 @@ module io_ramses
             ! do i=1,nvar
             !     read(10,*) igr9,igr1,igr1,newVar
             !     read(igr1,*,iostat=statn) newID
-            !     call select_from_descriptor_IDs(varIDs,newVar,newID)
+            !     call select_from_descriptor_IDs(newVar,newID)
             ! end do
             close(10)
         else
@@ -389,11 +391,10 @@ module io_ramses
     end subroutine read_hydrofile_descriptor_old
 
 
-    subroutine select_from_descriptor_IDs(varIDs,newVar,newID)
+    subroutine select_from_descriptor_IDs(newVar,newID)
         implicit none
         integer,intent(in)           :: newID
         character(25),intent(in) :: newvar
-        type(hydroID),intent(inout)                :: varIDs
         select case (TRIM(newVar))
         case ('density')
             varIDs%density = newID
@@ -477,11 +478,10 @@ module io_ramses
     ! hydro_*.out* files are read. This is for the new RAMSES
     ! format
     !---------------------------------------------------------------    
-    subroutine read_hydrofile_descriptor_new(repository,varIDs)
+    subroutine read_hydrofile_descriptor_new(repository)
         implicit none
 
         character(128),intent(in) ::  repository
-        type(hydroID),intent(inout)      ::  varIDs
         character(128) :: nomfich
         logical            ::  ok
         character(25)  ::  newVar,newType
@@ -498,7 +498,7 @@ module io_ramses
                 read(10,*,iostat=status)newID,newVar,newType
                 if (status /= 0) exit
                 nvar = nvar + 1
-                call select_from_descriptor_IDs(varIDs,newVar,newID)
+                call select_from_descriptor_IDs(newVar,newID)
             end do
             close(10)
             write(*,*)'nvar=',nvar
@@ -521,13 +521,12 @@ module io_ramses
     ! This is a very important subroutine, which will be modified
     ! extensively.
     !---------------------------------------------------------------
-    subroutine getvarvalue(varIDs,reg,dx,x,var,varname,value)
+    subroutine getvarvalue(reg,dx,x,var,varname,value)
         use vectors
         use basis_representations
         use geometrical_regions
         use coordinate_systems
         implicit none
-        type(hydroID),intent(in)                      :: varIDs
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
@@ -536,6 +535,7 @@ module io_ramses
         real(dbl),intent(inout)                       :: value
         type(vector) :: v_corrected,L,B
         type(basis) :: temp_basis
+        real(dbl) :: T,rho,cV
 
         select case (TRIM(varname))
         case ('d_euclid')
@@ -641,7 +641,10 @@ module io_ramses
             value = var(varIDs%thermal_pressure) / (5D0/3d0 - 1d0)
         case ('entropy_specific')
             ! Specific entropy, following Gent 2012 equation
-            ! TODO: Write this
+            cV = 0.76 * cVHydrogen * mHydrogen / kBoltzmann
+            T = (var(varIDs%thermal_pressure)*((sim%unit_l/sim%unit_t)**2) / var(varIDs%density) / kBoltzmann * mHydrogen)
+            rho = (var(varIDs%density) * sim%unit_d / mHydrogen )
+            value = cV * (log10(T) - (2D0/3D0) * log10(rho))
         case ('kinetic_energy')
             ! Kinetic energy, computed as 1/2*density*volume*magnitude(velocity)
             ! DISCLAIMER: Velocity not corrected for bulk velocity
@@ -776,11 +779,9 @@ module io_ramses
     ! the initial read of the amr data is performed and saved to 
     ! amr_info and sim_info derived types.
     !---------------------------------------------------------------
-    subroutine init_amr_read(repository,amr,sim)
+    subroutine init_amr_read(repository)
         implicit none
         character(128), intent(in) :: repository
-        type(amr_info), intent(inout) :: amr
-        type(sim_info), intent(inout) :: sim
         character(5) :: nchar
         integer :: ipos,impi,i,nx,ny,nz
         character(128) :: nomfich
@@ -860,8 +861,10 @@ module io_ramses
         sim%unit_m = ((sim%unit_d*sim%unit_l)*sim%unit_l)*sim%unit_l
         read(10,'("ordering type=",A80)')amr%ordering
         read(10,*)
+        if(allocated(amr%cpu_list))deallocate(amr%cpu_list)
         allocate(amr%cpu_list(1:amr%ncpu))
         if(TRIM(amr%ordering).eq.'hilbert')then
+            if(allocated(amr%bound_key))deallocate(amr%bound_key,amr%cpu_read)
             allocate(amr%bound_key(0:amr%ncpu))
             allocate(amr%cpu_read(1:amr%ncpu))
             amr%cpu_read=.false.
@@ -878,11 +881,10 @@ module io_ramses
     ! This has been adapted from the RAMSES utils, in which the cpu
     ! map is obtained for a desired region.
     !---------------------------------------------------------------
-    subroutine get_cpu_map(reg,amr)
+    subroutine get_cpu_map(reg)
         use geometrical_regions
         implicit none
         type(region),intent(in) :: reg
-        type(amr_info),intent(inout) :: amr
         real(dbl), dimension(1:3,1:2) :: box_limits
         real(dbl) :: xxmin,xxmax,yymin,yymax,zzmin,zzmax
         real(dbl) :: dxmax,dx,dkey
@@ -988,13 +990,12 @@ module io_ramses
         endif
     end subroutine getparttype
 
-    subroutine getpartvalue(sim,reg,part,var,value,dx)
+    subroutine getpartvalue(reg,part,var,value,dx)
         use vectors
         use basis_representations
         use geometrical_regions
         use coordinate_systems
         implicit none
-        type(sim_info),intent(in) :: sim
         type(region),intent(in) :: reg
         type(particle),intent(in) ::part
         character(128),intent(in) :: var
@@ -1424,10 +1425,9 @@ module filtering
         ! TODO: Finish this subroutine
     end subroutine cond_string_to_filter
 
-    logical function filter_cell(varIDs,reg,filt,cell_x,cell_dx,cell_var)
+    logical function filter_cell(reg,filt,cell_x,cell_dx,cell_var)
         use vectors
         use geometrical_regions
-        type(hydroID), intent(in) :: varIDs
         type(region), intent(in) :: reg
         type(filter), intent(in) :: filt
         real(dbl), intent(in) :: cell_dx
@@ -1441,7 +1441,7 @@ module filtering
         if (filt%ncond == 0) return
 
         do i=1,filt%ncond
-            call getvarvalue(varIDs,reg,cell_dx,cell_x,cell_var,filt%cond_vars(i),value)
+            call getvarvalue(reg,cell_dx,cell_x,cell_var,filt%cond_vars(i),value)
             select case (TRIM(filt%cond_ops(i)))
             case('/=')
                 filter_cell = filter_cell .and. (value /= filt%cond_vals(i))
@@ -1463,9 +1463,8 @@ module filtering
         end do
     end function filter_cell
 
-    logical function filter_particle(sim,reg,filt,part,dx)
+    logical function filter_particle(reg,filt,part,dx)
         use geometrical_regions
-        type(sim_info),intent(in) :: sim
         type(region),intent(in) :: reg
         type(filter),intent(in) :: filt
         type(particle),intent(in) :: part
@@ -1478,9 +1477,9 @@ module filtering
 
         do i=1,filt%ncond
             if (present(dx)) then
-                call getpartvalue(sim,reg,part,filt%cond_vars(i),value,dx)
+                call getpartvalue(reg,part,filt%cond_vars(i),value,dx)
             else
-                call getpartvalue(sim,reg,part,filt%cond_vars(i),value)
+                call getpartvalue(reg,part,filt%cond_vars(i),value)
             endif
             select case (TRIM(filt%cond_ops(i)))
             case('/=')

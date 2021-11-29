@@ -309,7 +309,7 @@ subroutine f90wrap_get_required_resolution(ret_get_required_resolution, cam)
 end subroutine f90wrap_get_required_resolution
 
 subroutine f90wrap_get_map_size(cam, n_map, n0)
-    use obs_instruments, only: camera, get_map_size
+    use obs_instruments, only: get_map_size, camera
     implicit none
     
     type camera_ptr_type
@@ -325,16 +325,16 @@ subroutine f90wrap_get_map_size(cam, n_map, n0)
 end subroutine f90wrap_get_map_size
 
 subroutine f90wrap_get_map_box(cam, box)
-    use obs_instruments, only: get_map_box, camera
     use geometrical_regions, only: region
+    use obs_instruments, only: camera, get_map_box
     implicit none
     
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type camera_ptr_type
         type(camera), pointer :: p => NULL()
     end type camera_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type(camera_ptr_type) :: cam_ptr
     integer, intent(in), dimension(2) :: cam
     type(region_ptr_type) :: box_ptr
@@ -345,16 +345,16 @@ subroutine f90wrap_get_map_box(cam, box)
 end subroutine f90wrap_get_map_box
 
 subroutine f90wrap_get_camera_basis(cam, cam_basis)
-    use obs_instruments, only: get_camera_basis, camera
     use basis_representations, only: basis
+    use obs_instruments, only: get_camera_basis, camera
     implicit none
     
-    type basis_ptr_type
-        type(basis), pointer :: p => NULL()
-    end type basis_ptr_type
     type camera_ptr_type
         type(camera), pointer :: p => NULL()
     end type camera_ptr_type
+    type basis_ptr_type
+        type(basis), pointer :: p => NULL()
+    end type basis_ptr_type
     type(camera_ptr_type) :: cam_ptr
     integer, intent(in), dimension(2) :: cam
     type(basis_ptr_type) :: cam_basis_ptr
@@ -383,16 +383,16 @@ subroutine f90wrap_los_transformation(cam, trans_matrix, n0, n1)
 end subroutine f90wrap_los_transformation
 
 subroutine f90wrap_get_bounding_box(cam, bbox)
-    use obs_instruments, only: get_bounding_box, camera
     use geometrical_regions, only: region
+    use obs_instruments, only: get_bounding_box, camera
     implicit none
     
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type camera_ptr_type
         type(camera), pointer :: p => NULL()
     end type camera_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type(camera_ptr_type) :: cam_ptr
     integer, intent(in), dimension(2) :: cam
     type(region_ptr_type) :: bbox_ptr
@@ -603,7 +603,7 @@ subroutine f90wrap_projection_handler_finalise(this)
 end subroutine f90wrap_projection_handler_finalise
 
 subroutine f90wrap_allocate_projection_handler(proj)
-    use maps, only: allocate_projection_handler, projection_handler
+    use maps, only: projection_handler, allocate_projection_handler
     implicit none
     
     type projection_handler_ptr_type
@@ -616,17 +616,17 @@ subroutine f90wrap_allocate_projection_handler(proj)
 end subroutine f90wrap_allocate_projection_handler
 
 subroutine f90wrap_projection_hydro(repository, cam, bulk_velocity, proj)
-    use maps, only: projection_hydro, projection_handler
-    use vectors, only: vector
+    use maps, only: projection_handler, projection_hydro
     use obs_instruments, only: camera
+    use vectors, only: vector
     implicit none
     
-    type vector_ptr_type
-        type(vector), pointer :: p => NULL()
-    end type vector_ptr_type
     type projection_handler_ptr_type
         type(projection_handler), pointer :: p => NULL()
     end type projection_handler_ptr_type
+    type vector_ptr_type
+        type(vector), pointer :: p => NULL()
+    end type vector_ptr_type
     type camera_ptr_type
         type(camera), pointer :: p => NULL()
     end type camera_ptr_type
@@ -643,22 +643,15 @@ subroutine f90wrap_projection_hydro(repository, cam, bulk_velocity, proj)
     call projection_hydro(repository=repository, cam=cam_ptr%p, bulk_velocity=bulk_velocity_ptr%p, proj=proj_ptr%p)
 end subroutine f90wrap_projection_hydro
 
-subroutine f90wrap_project_cells(repository, amr, bbox, varids, cam, proj)
-    use geometrical_regions, only: region
+subroutine f90wrap_project_cells(repository, bbox, cam, proj)
     use maps, only: project_cells, projection_handler
-    use io_ramses, only: hydroid, amr_info
+    use geometrical_regions, only: region
     use obs_instruments, only: camera
     implicit none
     
     type projection_handler_ptr_type
         type(projection_handler), pointer :: p => NULL()
     end type projection_handler_ptr_type
-    type amr_info_ptr_type
-        type(amr_info), pointer :: p => NULL()
-    end type amr_info_ptr_type
-    type hydroid_ptr_type
-        type(hydroid), pointer :: p => NULL()
-    end type hydroid_ptr_type
     type camera_ptr_type
         type(camera), pointer :: p => NULL()
     end type camera_ptr_type
@@ -666,37 +659,30 @@ subroutine f90wrap_project_cells(repository, amr, bbox, varids, cam, proj)
         type(region), pointer :: p => NULL()
     end type region_ptr_type
     character(128), intent(in) :: repository
-    type(amr_info_ptr_type) :: amr_ptr
-    integer, intent(in), dimension(2) :: amr
     type(region_ptr_type) :: bbox_ptr
     integer, intent(in), dimension(2) :: bbox
-    type(hydroid_ptr_type) :: varids_ptr
-    integer, intent(in), dimension(2) :: varids
     type(camera_ptr_type) :: cam_ptr
     integer, intent(in), dimension(2) :: cam
     type(projection_handler_ptr_type) :: proj_ptr
     integer, intent(in), dimension(2) :: proj
-    amr_ptr = transfer(amr, amr_ptr)
     bbox_ptr = transfer(bbox, bbox_ptr)
-    varids_ptr = transfer(varids, varids_ptr)
     cam_ptr = transfer(cam, cam_ptr)
     proj_ptr = transfer(proj, proj_ptr)
-    call project_cells(repository=repository, amr=amr_ptr%p, bbox=bbox_ptr%p, varIDs=varids_ptr%p, cam=cam_ptr%p, &
-        proj=proj_ptr%p)
+    call project_cells(repository=repository, bbox=bbox_ptr%p, cam=cam_ptr%p, proj=proj_ptr%p)
 end subroutine f90wrap_project_cells
 
 subroutine f90wrap_projection_parts(repository, cam, bulk_velocity, proj)
     use maps, only: projection_parts, projection_handler
-    use vectors, only: vector
     use obs_instruments, only: camera
+    use vectors, only: vector
     implicit none
     
-    type vector_ptr_type
-        type(vector), pointer :: p => NULL()
-    end type vector_ptr_type
     type projection_handler_ptr_type
         type(projection_handler), pointer :: p => NULL()
     end type projection_handler_ptr_type
+    type vector_ptr_type
+        type(vector), pointer :: p => NULL()
+    end type vector_ptr_type
     type camera_ptr_type
         type(camera), pointer :: p => NULL()
     end type camera_ptr_type
@@ -713,22 +699,15 @@ subroutine f90wrap_projection_parts(repository, cam, bulk_velocity, proj)
     call projection_parts(repository=repository, cam=cam_ptr%p, bulk_velocity=bulk_velocity_ptr%p, proj=proj_ptr%p)
 end subroutine f90wrap_projection_parts
 
-subroutine f90wrap_project_particles(repository, amr, sim, bbox, cam, proj)
-    use geometrical_regions, only: region
+subroutine f90wrap_project_particles(repository, bbox, cam, proj)
     use maps, only: project_particles, projection_handler
-    use io_ramses, only: sim_info, amr_info
+    use geometrical_regions, only: region
     use obs_instruments, only: camera
     implicit none
     
-    type sim_info_ptr_type
-        type(sim_info), pointer :: p => NULL()
-    end type sim_info_ptr_type
     type projection_handler_ptr_type
         type(projection_handler), pointer :: p => NULL()
     end type projection_handler_ptr_type
-    type amr_info_ptr_type
-        type(amr_info), pointer :: p => NULL()
-    end type amr_info_ptr_type
     type camera_ptr_type
         type(camera), pointer :: p => NULL()
     end type camera_ptr_type
@@ -736,23 +715,16 @@ subroutine f90wrap_project_particles(repository, amr, sim, bbox, cam, proj)
         type(region), pointer :: p => NULL()
     end type region_ptr_type
     character(128), intent(in) :: repository
-    type(amr_info_ptr_type) :: amr_ptr
-    integer, intent(in), dimension(2) :: amr
-    type(sim_info_ptr_type) :: sim_ptr
-    integer, intent(in), dimension(2) :: sim
     type(region_ptr_type) :: bbox_ptr
     integer, intent(in), dimension(2) :: bbox
     type(camera_ptr_type) :: cam_ptr
     integer, intent(in), dimension(2) :: cam
     type(projection_handler_ptr_type) :: proj_ptr
     integer, intent(in), dimension(2) :: proj
-    amr_ptr = transfer(amr, amr_ptr)
-    sim_ptr = transfer(sim, sim_ptr)
     bbox_ptr = transfer(bbox, bbox_ptr)
     cam_ptr = transfer(cam, cam_ptr)
     proj_ptr = transfer(proj, proj_ptr)
-    call project_particles(repository=repository, amr=amr_ptr%p, sim=sim_ptr%p, bbox=bbox_ptr%p, cam=cam_ptr%p, &
-        proj=proj_ptr%p)
+    call project_particles(repository=repository, bbox=bbox_ptr%p, cam=cam_ptr%p, proj=proj_ptr%p)
 end subroutine f90wrap_project_particles
 
 subroutine f90wrap_healpix_hydro(repository, reg, nside, proj)
@@ -760,12 +732,12 @@ subroutine f90wrap_healpix_hydro(repository, reg, nside, proj)
     use geometrical_regions, only: region
     implicit none
     
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type projection_handler_ptr_type
         type(projection_handler), pointer :: p => NULL()
     end type projection_handler_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     character(128), intent(in) :: repository
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg
@@ -777,40 +749,26 @@ subroutine f90wrap_healpix_hydro(repository, reg, nside, proj)
     call healpix_hydro(repository=repository, reg=reg_ptr%p, nside=nside, proj=proj_ptr%p)
 end subroutine f90wrap_healpix_hydro
 
-subroutine f90wrap_project_cells_hpix(repository, amr, reg, varids, nside, proj)
+subroutine f90wrap_project_cells_hpix(repository, reg, nside, proj)
+    use maps, only: projection_handler, project_cells_hpix
     use geometrical_regions, only: region
-    use io_ramses, only: hydroid, amr_info
-    use maps, only: project_cells_hpix, projection_handler
     implicit none
     
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
-    type hydroid_ptr_type
-        type(hydroid), pointer :: p => NULL()
-    end type hydroid_ptr_type
     type projection_handler_ptr_type
         type(projection_handler), pointer :: p => NULL()
     end type projection_handler_ptr_type
-    type amr_info_ptr_type
-        type(amr_info), pointer :: p => NULL()
-    end type amr_info_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     character(128), intent(in) :: repository
-    type(amr_info_ptr_type) :: amr_ptr
-    integer, intent(in), dimension(2) :: amr
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg
-    type(hydroid_ptr_type) :: varids_ptr
-    integer, intent(in), dimension(2) :: varids
     integer, intent(in) :: nside
     type(projection_handler_ptr_type) :: proj_ptr
     integer, intent(in), dimension(2) :: proj
-    amr_ptr = transfer(amr, amr_ptr)
     reg_ptr = transfer(reg, reg_ptr)
-    varids_ptr = transfer(varids, varids_ptr)
     proj_ptr = transfer(proj, proj_ptr)
-    call project_cells_hpix(repository=repository, amr=amr_ptr%p, reg=reg_ptr%p, varIDs=varids_ptr%p, nside=nside, &
-        proj=proj_ptr%p)
+    call project_cells_hpix(repository=repository, reg=reg_ptr%p, nside=nside, proj=proj_ptr%p)
 end subroutine f90wrap_project_cells_hpix
 
 ! End of module maps defined in file ramses2map.fpp

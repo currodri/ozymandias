@@ -254,9 +254,6 @@ module maps
         type(vector),intent(in) :: bulk_velocity
         type(projection_handler),intent(inout) :: proj
 
-        type(hydroID) :: varIDs
-        type(amr_info) :: amr
-        type(sim_info) :: sim
         type(region) :: bbox
         real(dbl),dimension(:,:),allocatable :: toto
         integer,dimension(1:2) :: n_sample
@@ -264,9 +261,9 @@ module maps
         integer :: i,j
         real(dbl) :: xx,yy
 
-        call read_hydrofile_descriptor(repository,varIDs)
+        call read_hydrofile_descriptor(repository)
 
-        call init_amr_read(repository,amr,sim)
+        call init_amr_read(repository)
         amr%lmax = min(get_required_resolution(cam),amr%nlevelmax)
         write(*,*)'Maximum resolution level: ',amr%nlevelmax
         write(*,*)'Using: ',amr%lmax
@@ -274,21 +271,19 @@ module maps
         bbox%name = 'cube'
         bbox%bulk_velocity = bulk_velocity
         bbox%criteria_name = 'd_euclid'
-        call get_cpu_map(bbox,amr)
+        call get_cpu_map(bbox)
         write(*,*)'ncpu: ',amr%ncpu_read
         call get_map_box(cam,bbox)
 
         ! Perform projections
-        call project_cells(repository,amr,bbox,varIDs,cam,proj)
+        call project_cells(repository,bbox,cam,proj)
         
     end subroutine projection_hydro
 
-    subroutine project_cells(repository,amr,bbox,varIDs,cam,proj)
+    subroutine project_cells(repository,bbox,cam,proj)
         implicit none
         character(128),intent(in) :: repository
-        type(amr_info),intent(inout) :: amr
         type(region),intent(in) :: bbox
-        type(hydroID),intent(in) :: varIDs
         type(camera),intent(in) :: cam
         type(projection_handler),intent(inout) :: proj
 
@@ -524,11 +519,11 @@ module maps
                                     call rotate_vector(vtemp,trans_matrix)
                                     var(i,ind,varIDs%vx:varIDs%vz) = vtemp
                                     
-                                    call getvarvalue(varIDs,bbox,dx,xtemp,var(i,ind,:),proj%weightvar,rho)
+                                    call getvarvalue(bbox,dx,xtemp,var(i,ind,:),proj%weightvar,rho)
                                     grid(ilevel)%rho(ix,iy)=grid(ilevel)%rho(ix,iy)+rho*dx*weight/(bbox%zmax-bbox%zmin)
 
                                     projvarloop: do ivar=1,proj%nvars
-                                        call getvarvalue(varIDs,bbox,dx,xtemp,var(i,ind,:),proj%varnames(ivar),map)
+                                        call getvarvalue(bbox,dx,xtemp,var(i,ind,:),proj%varnames(ivar),map)
                                         ! if (TRIM(proj%varnames(ivar)).eq.proj%weightvar) map = map**2
                                         grid(ilevel)%map(ivar,ix,iy)=grid(ilevel)%map(ivar,ix,iy)+map*rho*dx*weight/(bbox%zmax-bbox%zmin)
                                     end do projvarloop
@@ -621,32 +616,28 @@ module maps
         type(vector),intent(in) :: bulk_velocity
         type(projection_handler),intent(inout) :: proj
 
-        type(amr_info) :: amr
-        type(sim_info) :: sim
         type(region) :: bbox
 
-        call init_amr_read(repository,amr,sim)
+        call init_amr_read(repository)
         amr%lmax = amr%nlevelmax !min(get_required_resolution(cam),amr%nlevelmax)
         write(*,*)'Maximum resolution level: ',amr%nlevelmax
         write(*,*)'Using: ',amr%lmax
-        if (sim%dm .and. sim%hydro) call check_families(repository,sim)
+        if (sim%dm .and. sim%hydro) call check_families(repository)
         call get_bounding_box(cam,bbox)
         bbox%name = 'cube'
         bbox%bulk_velocity = bulk_velocity
         bbox%criteria_name = 'd_euclid'
-        call get_cpu_map(bbox,amr)
+        call get_cpu_map(bbox)
         call get_map_box(cam,bbox)
 
-        call project_particles(repository,amr,sim,bbox,cam,proj)
+        call project_particles(repository,bbox,cam,proj)
         write(*,*)minval(proj%toto),maxval(proj%toto)
     end subroutine projection_parts
 
-    subroutine project_particles(repository,amr,sim,bbox,cam,proj)
+    subroutine project_particles(repository,bbox,cam,proj)
         use cosmology
         implicit none
         character(128),intent(in) :: repository
-        type(amr_info),intent(in) :: amr
-        type(sim_info),intent(inout) :: sim
         type(region),intent(in) :: bbox
         type(camera),intent(in) :: cam
         type(projection_handler),intent(inout) :: proj
@@ -686,7 +677,7 @@ module maps
         ! Cosmological model
         if (sim%aexp.eq.1.and.sim%h0.eq.1)sim%cosmo=.false.
         if (sim%cosmo) then
-            call cosmology_model(sim)
+            call cosmology_model
         else
             sim%time_simu = sim%t
             write(*,*)'Age simu=',sim%time_simu*sim%unit_t/(365.*24.*3600.*1d9)
@@ -800,18 +791,18 @@ module maps
                         else
                             call getparttype(part,ptype)
                             if (ptype.eq.'star') then
-                                call getpartvalue(sim,bbox,part,proj%weightvar,weight,dcell)
+                                call getpartvalue(bbox,part,proj%weightvar,weight,dcell)
                             else
                                 weight = 1D0
                             endif
                         endif
                     else
                         weight = 1D0
-                        ! call getpartvalue(sim,bbox,xtemp,vtemp,0,m(i),0D0,0D0,0D0,proj%weightvar,weight)
+                        ! call getpartvalue(bbox,xtemp,vtemp,0,m(i),0D0,0D0,0D0,proj%weightvar,weight)
                     endif
 
                     projvarloop: do ivar=1,proj%nvars
-                        call getpartvalue(sim,bbox,part,proj%varnames(ivar),mapvalue,dcell)
+                        call getpartvalue(bbox,part,proj%varnames(ivar),mapvalue,dcell)
                         if (weight.ne.0D0) then
                             ! TODO: Properly understand WOH is going on here
                             ddx = (x(i,1)-bbox%xmin)/dx
@@ -850,26 +841,20 @@ module maps
         integer,intent(in) :: nside
         type(projection_handler),intent(inout) :: proj
 
-        type(hydroID) :: varIDs
-        type(amr_info) :: amr
-        type(sim_info) :: sim
-
-        call read_hydrofile_descriptor(repository,varIDs)
-        call init_amr_read(repository,amr,sim)
+        call read_hydrofile_descriptor(repository)
+        call init_amr_read(repository)
         amr%lmax=amr%nlevelmax
-        call get_cpu_map(reg,amr)
+        call get_cpu_map(reg)
         write(*,*)'ncpu_read=',amr%ncpu_read
         ! Perform projections
-        call project_cells_hpix(repository,amr,reg,varIDs,nside,proj)
+        call project_cells_hpix(repository,reg,nside,proj)
     end subroutine healpix_hydro
 
-    subroutine project_cells_hpix(repository,amr,reg,varIDs,nside,proj)
+    subroutine project_cells_hpix(repository,reg,nside,proj)
         use healpix_modules
         implicit none
         character(128),intent(in) :: repository
-        type(amr_info),intent(in) :: amr
         type(region),intent(in) :: reg
-        type(hydroID),intent(in) :: varIDs
         integer,intent(in) :: nside
         type(projection_handler),intent(inout) :: proj
 
@@ -1118,7 +1103,7 @@ module maps
                                     var(i,ind,varIDs%vx:varIDs%vz) = vtemp
                                     
                                     ! Get weight
-                                    call getvarvalue(varIDs,reg,dx,xtemp,var(i,ind,:),proj%weightvar,rho)
+                                    call getvarvalue(reg,dx,xtemp,var(i,ind,:),proj%weightvar,rho)
                                     do j=1,size(listpix_clean)
                                         ix = listpix_clean(j)
                                         proj_rho(ix) = proj_rho(ix)+rho*dx*weight/(reg%rmax-reg%rmin)
@@ -1126,7 +1111,7 @@ module maps
 
                                     ! Get variable values
                                     projvarloop: do ivar=1,proj%nvars
-                                        call getvarvalue(varIDs,reg,dx,xtemp,var(i,ind,:),proj%varnames(ivar),map)
+                                        call getvarvalue(reg,dx,xtemp,var(i,ind,:),proj%varnames(ivar),map)
                                         do j=1,size(listpix_clean)
                                             ix = listpix_clean(j)
                                             proj%toto(ivar,1,ix) = proj%toto(ivar,1,ix)+map*rho*dx*weight/(reg%rmax-reg%rmin)

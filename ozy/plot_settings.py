@@ -51,6 +51,16 @@ plotting_dictionary = dict(
                                 'vmin_galaxy':5e+3,
                                 'vmax_galaxy':8e+6
     },
+    entropy_specific = {'cmap':'plasma',
+                        'text_over':'white',
+                        'label':r'$s$ [erg/(g K)]',
+                        'label_log':r'$\log(\frac{s}{{\rm erg/(g K)}})$',
+                        'units':'erg*K**-1*g**-1',
+                        'vmin':8e+3,
+                        'vmax':2e+5,
+                        'vmin_galaxy':8e+3,
+                        'vmax_galaxy':2e+5
+    },
     metallicity = {'cmap':'swift.nineteen_eighty_nine',
                     'text_over':'black',
                     'label':r'$Z$ [$Z_{\odot}$]',

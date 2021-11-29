@@ -81,6 +81,7 @@ class OZY(object):
         velocity_unit = length_unit / time_unit
         pressure_unit = density_unit * (length_unit / time_unit) ** 2
         temperature_unit = velocity_unit ** 2 * mp.to('kg').d * mean_molecular_weight_factor / kb.to('kg*m**2/(K*s**2)').d
+        s_entropy_unit = _X * kb.to('kg*m**2/(K*s**2)').d / mp.to('kg').d
 
         # Code length
         registry.add("code_length", base_value=length_unit, dimensions=length)
@@ -107,6 +108,9 @@ class OZY(object):
         registry.add("code_temperature", base_value=temperature_unit, dimensions=temperature)
         # Code metallicity
         registry.add("code_metallicity", base_value=1.0, dimensions=dimensionless)
+        # Code specific entropy
+        registry.add("code_specific_entropy", base_value=s_entropy_unit, 
+                    dimensions=(length**2)/(temperature*time**2))
 
         return registry
 

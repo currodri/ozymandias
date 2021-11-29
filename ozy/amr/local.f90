@@ -39,5 +39,15 @@ public :: sgl,dbl,ish,irg
 !> long integer kind parameter  
   integer,parameter                     :: irg = SELECTED_INT_KIND(9)
 
-
 end module local
+
+module constants
+  use local
+  implicit none
+  public :: mHydrogen,kBoltzmann,gas_R,atoweightH,cVHydrogen
+  ! Physical constants
+  real(dbl) :: mHydrogen=1.673532784796145D-27 ! Mass of hydrogen atom in g
+  real(dbl) :: kBoltzmann=1.380649D-16 ! Boltzmann constant in erg/K
+  real(dbl) :: gas_R=8.31446261815324D7 ! Ideal gas constant R in erg/(k*mol)
+  real(dbl) :: atoweightH=1.00784 ! Atomic weight of Hydrogen in atomic mass units
+end module constants

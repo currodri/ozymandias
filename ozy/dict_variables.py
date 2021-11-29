@@ -36,6 +36,7 @@ common_variables = dict(
 )
 grid_variables = dict(
     temperature = 'code_temperature',
+    entropy_specific = 'code_specific_entropy',
     volume = 'code_volume',
     sound_speed = 'code_velocity',
     alfven_speed = 'code_velocity',
@@ -81,6 +82,7 @@ basic_conv = dict(
     code_energy = 'erg',
     code_specific_energy = 'erg*g**-1',
     code_energy_density = 'erg*cm**-3',
+    code_specific_entropy = 'erg*K**-1*g**-1',
     code_density_code_velocity_code_velocity = 'erg*cm**-3',
     code_density_code_velocity = 'Msun*yr**-1*kpc**-2',
     code_density_code_length = 'Msun*kpc**-2',

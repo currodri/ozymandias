@@ -2,7 +2,7 @@
 Module maps
 
 
-Defined at ramses2map.fpp lines 194-1019
+Defined at ramses2map.fpp lines 194-1005
 
 """
 from __future__ import print_function, absolute_import, division
@@ -191,7 +191,7 @@ def projection_hydro(repository, cam, bulk_velocity, proj):
     projection_hydro(repository, cam, bulk_velocity, proj)
     
     
-    Defined at ramses2map.fpp lines 214-242
+    Defined at ramses2map.fpp lines 214-239
     
     Parameters
     ----------
@@ -204,33 +204,30 @@ def projection_hydro(repository, cam, bulk_velocity, proj):
     _projections_pkg.f90wrap_projection_hydro(repository=repository, \
         cam=cam._handle, bulk_velocity=bulk_velocity._handle, proj=proj._handle)
 
-def project_cells(repository, amr, bbox, varids, cam, proj):
+def project_cells(repository, bbox, cam, proj):
     """
-    project_cells(repository, amr, bbox, varids, cam, proj)
+    project_cells(repository, bbox, cam, proj)
     
     
-    Defined at ramses2map.fpp lines 244-539
+    Defined at ramses2map.fpp lines 241-534
     
     Parameters
     ----------
     repository : str
-    amr : Amr_Info
     bbox : Region
-    varids : Hydroid
     cam : Camera
     proj : Projection_Handler
     
     """
-    _projections_pkg.f90wrap_project_cells(repository=repository, amr=amr._handle, \
-        bbox=bbox._handle, varids=varids._handle, cam=cam._handle, \
-        proj=proj._handle)
+    _projections_pkg.f90wrap_project_cells(repository=repository, bbox=bbox._handle, \
+        cam=cam._handle, proj=proj._handle)
 
 def projection_parts(repository, cam, bulk_velocity, proj):
     """
     projection_parts(repository, cam, bulk_velocity, proj)
     
     
-    Defined at ramses2map.fpp lines 541-562
+    Defined at ramses2map.fpp lines 536-555
     
     Parameters
     ----------
@@ -243,33 +240,30 @@ def projection_parts(repository, cam, bulk_velocity, proj):
     _projections_pkg.f90wrap_projection_parts(repository=repository, \
         cam=cam._handle, bulk_velocity=bulk_velocity._handle, proj=proj._handle)
 
-def project_particles(repository, amr, sim, bbox, cam, proj):
+def project_particles(repository, bbox, cam, proj):
     """
-    project_particles(repository, amr, sim, bbox, cam, proj)
+    project_particles(repository, bbox, cam, proj)
     
     
-    Defined at ramses2map.fpp lines 564-748
+    Defined at ramses2map.fpp lines 557-739
     
     Parameters
     ----------
     repository : str
-    amr : Amr_Info
-    sim : Sim_Info
     bbox : Region
     cam : Camera
     proj : Projection_Handler
     
     """
     _projections_pkg.f90wrap_project_particles(repository=repository, \
-        amr=amr._handle, sim=sim._handle, bbox=bbox._handle, cam=cam._handle, \
-        proj=proj._handle)
+        bbox=bbox._handle, cam=cam._handle, proj=proj._handle)
 
 def healpix_hydro(repository, reg, nside, proj):
     """
     healpix_hydro(repository, reg, nside, proj)
     
     
-    Defined at ramses2map.fpp lines 750-765
+    Defined at ramses2map.fpp lines 741-753
     
     Parameters
     ----------
@@ -282,26 +276,23 @@ def healpix_hydro(repository, reg, nside, proj):
     _projections_pkg.f90wrap_healpix_hydro(repository=repository, reg=reg._handle, \
         nside=nside, proj=proj._handle)
 
-def project_cells_hpix(repository, amr, reg, varids, nside, proj):
+def project_cells_hpix(repository, reg, nside, proj):
     """
-    project_cells_hpix(repository, amr, reg, varids, nside, proj)
+    project_cells_hpix(repository, reg, nside, proj)
     
     
-    Defined at ramses2map.fpp lines 767-1019
+    Defined at ramses2map.fpp lines 755-1005
     
     Parameters
     ----------
     repository : str
-    amr : Amr_Info
     reg : Region
-    varids : Hydroid
     nside : int
     proj : Projection_Handler
     
     """
     _projections_pkg.f90wrap_project_cells_hpix(repository=repository, \
-        amr=amr._handle, reg=reg._handle, varids=varids._handle, nside=nside, \
-        proj=proj._handle)
+        reg=reg._handle, nside=nside, proj=proj._handle)
 
 
 _array_initialisers = []

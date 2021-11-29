@@ -19,6 +19,7 @@
 !--------------------------------------------------------------------------
 module io_ramses
     use local
+    use constants
     use vectors
 
     type hydroID
@@ -531,6 +532,7 @@ module io_ramses
         real(dbl),intent(inout)                       :: value
         type(vector) :: v_corrected,L,B
         type(basis) :: temp_basis
+        real(dbl) :: c_v,T,rho
 
         select case (TRIM(varname))
         case ('d_euclid')
@@ -646,7 +648,11 @@ module io_ramses
             value = var(varIDs%thermal_pressure) / (5D0/3d0 - 1d0)
         case ('entropy_specific')
             ! Specific entropy, following Gent 2012 equation
-            ! TODO: Write this
+            ! T = (var(varIDs%thermal_pressure) * ((sim%unit_l/sim%unit_t)**2D0) / var(varIDs%density)
+
+
+
+
         case ('sound_speed')
             ! Thermal sound speed, ideal gas
             value = sqrt(5D0/3d0 * (var(varIDs%thermal_pressure) / var(varIDs%density)))
