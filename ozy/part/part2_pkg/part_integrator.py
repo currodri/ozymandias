@@ -2,7 +2,7 @@
 Module part_integrator
 
 
-Defined at integrator_module.fpp lines 24-283
+Defined at integrator_module.fpp lines 24-299
 
 """
 from __future__ import print_function, absolute_import, division
@@ -19,7 +19,7 @@ class part_region_attrs(f90wrap.runtime.FortranDerivedType):
     Type(name=part_region_attrs)
     
     
-    Defined at integrator_module.fpp lines 29-35
+    Defined at integrator_module.fpp lines 29-36
     
     """
     def __init__(self, handle=None):
@@ -27,7 +27,7 @@ class part_region_attrs(f90wrap.runtime.FortranDerivedType):
         self = Part_Region_Attrs()
         
         
-        Defined at integrator_module.fpp lines 29-35
+        Defined at integrator_module.fpp lines 29-36
         
         
         Returns
@@ -47,7 +47,7 @@ class part_region_attrs(f90wrap.runtime.FortranDerivedType):
         Destructor for class Part_Region_Attrs
         
         
-        Defined at integrator_module.fpp lines 29-35
+        Defined at integrator_module.fpp lines 29-36
         
         Parameters
         ----------
@@ -139,42 +139,12 @@ class part_region_attrs(f90wrap.runtime.FortranDerivedType):
         self.wvarnames[...] = wvarnames
     
     @property
-    def ndm(self):
-        """
-        Element ndm ftype=integer  pytype=int
-        
-        
-        Defined at integrator_module.fpp line 34
-        
-        """
-        return _part2_pkg.f90wrap_part_region_attrs__get__ndm(self._handle)
-    
-    @ndm.setter
-    def ndm(self, ndm):
-        _part2_pkg.f90wrap_part_region_attrs__set__ndm(self._handle, ndm)
-    
-    @property
-    def nstar(self):
-        """
-        Element nstar ftype=integer  pytype=int
-        
-        
-        Defined at integrator_module.fpp line 34
-        
-        """
-        return _part2_pkg.f90wrap_part_region_attrs__get__nstar(self._handle)
-    
-    @nstar.setter
-    def nstar(self, nstar):
-        _part2_pkg.f90wrap_part_region_attrs__set__nstar(self._handle, nstar)
-    
-    @property
     def data(self):
         """
         Element data ftype=real(dbl) pytype=float
         
         
-        Defined at integrator_module.fpp line 35
+        Defined at integrator_module.fpp line 34
         
         """
         array_ndim, array_type, array_shape, array_handle = \
@@ -192,6 +162,75 @@ class part_region_attrs(f90wrap.runtime.FortranDerivedType):
     def data(self, data):
         self.data[...] = data
     
+    @property
+    def ndm(self):
+        """
+        Element ndm ftype=integer(irg) pytype=int
+        
+        
+        Defined at integrator_module.fpp line 35
+        
+        """
+        return _part2_pkg.f90wrap_part_region_attrs__get__ndm(self._handle)
+    
+    @ndm.setter
+    def ndm(self, ndm):
+        _part2_pkg.f90wrap_part_region_attrs__set__ndm(self._handle, ndm)
+    
+    @property
+    def nstar(self):
+        """
+        Element nstar ftype=integer(irg) pytype=int
+        
+        
+        Defined at integrator_module.fpp line 35
+        
+        """
+        return _part2_pkg.f90wrap_part_region_attrs__get__nstar(self._handle)
+    
+    @nstar.setter
+    def nstar(self, nstar):
+        _part2_pkg.f90wrap_part_region_attrs__set__nstar(self._handle, nstar)
+    
+    @property
+    def nids(self):
+        """
+        Element nids ftype=integer(irg) pytype=int
+        
+        
+        Defined at integrator_module.fpp line 35
+        
+        """
+        return _part2_pkg.f90wrap_part_region_attrs__get__nids(self._handle)
+    
+    @nids.setter
+    def nids(self, nids):
+        _part2_pkg.f90wrap_part_region_attrs__set__nids(self._handle, nids)
+    
+    @property
+    def ids(self):
+        """
+        Element ids ftype=integer(ilg) pytype=int
+        
+        
+        Defined at integrator_module.fpp line 36
+        
+        """
+        array_ndim, array_type, array_shape, array_handle = \
+            _part2_pkg.f90wrap_part_region_attrs__array__ids(self._handle)
+        if array_handle in self._arrays:
+            ids = self._arrays[array_handle]
+        else:
+            ids = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                    self._handle,
+                                    _part2_pkg.f90wrap_part_region_attrs__array__ids)
+            self._arrays[array_handle] = ids
+        return ids
+    
+    @ids.setter
+    def ids(self, ids):
+        self.ids[...] = ids
+    
     def __str__(self):
         ret = ['<part_region_attrs>{\n']
         ret.append('    nvars : ')
@@ -202,12 +241,16 @@ class part_region_attrs(f90wrap.runtime.FortranDerivedType):
         ret.append(repr(self.nwvars))
         ret.append(',\n    wvarnames : ')
         ret.append(repr(self.wvarnames))
+        ret.append(',\n    data : ')
+        ret.append(repr(self.data))
         ret.append(',\n    ndm : ')
         ret.append(repr(self.ndm))
         ret.append(',\n    nstar : ')
         ret.append(repr(self.nstar))
-        ret.append(',\n    data : ')
-        ret.append(repr(self.data))
+        ret.append(',\n    nids : ')
+        ret.append(repr(self.nids))
+        ret.append(',\n    ids : ')
+        ret.append(repr(self.ids))
         ret.append('}')
         return ''.join(ret)
     
@@ -219,7 +262,7 @@ def allocate_part_regions_attrs(self):
     allocate_part_regions_attrs(self)
     
     
-    Defined at integrator_module.fpp lines 38-43
+    Defined at integrator_module.fpp lines 39-44
     
     Parameters
     ----------
@@ -228,45 +271,43 @@ def allocate_part_regions_attrs(self):
     """
     _part2_pkg.f90wrap_allocate_part_regions_attrs(attrs=self._handle)
 
-def extract_data(self, reg, part, attrs):
+def extract_data(self, part, attrs):
     """
-    extract_data(self, reg, part, attrs)
+    extract_data(self, part, attrs)
     
     
-    Defined at integrator_module.fpp lines 45-88
+    Defined at integrator_module.fpp lines 46-88
     
     Parameters
     ----------
-    sim : Sim_Info
     reg : Region
     part : Particle
     attrs : Part_Region_Attrs
     
     """
-    _part2_pkg.f90wrap_extract_data(sim=self._handle, reg=reg._handle, \
-        part=part._handle, attrs=attrs._handle)
+    _part2_pkg.f90wrap_extract_data(reg=self._handle, part=part._handle, \
+        attrs=attrs._handle)
 
-def renormalise(self, attrs):
+def renormalise(self):
     """
-    renormalise(self, attrs)
+    renormalise(self)
     
     
-    Defined at integrator_module.fpp lines 90-114
+    Defined at integrator_module.fpp lines 90-113
     
     Parameters
     ----------
-    sim : Sim_Info
     attrs : Part_Region_Attrs
     
     """
-    _part2_pkg.f90wrap_renormalise(sim=self._handle, attrs=attrs._handle)
+    _part2_pkg.f90wrap_renormalise(attrs=self._handle)
 
-def integrate_region(repository, reg, filt, attrs):
+def integrate_region(repository, reg, filt, attrs, get_ids=None):
     """
-    integrate_region(repository, reg, filt, attrs)
+    integrate_region(repository, reg, filt, attrs[, get_ids])
     
     
-    Defined at integrator_module.fpp lines 116-283
+    Defined at integrator_module.fpp lines 115-299
     
     Parameters
     ----------
@@ -274,10 +315,11 @@ def integrate_region(repository, reg, filt, attrs):
     reg : Region
     filt : Filter
     attrs : Part_Region_Attrs
+    get_ids : bool
     
     """
     _part2_pkg.f90wrap_integrate_region(repository=repository, reg=reg._handle, \
-        filt=filt._handle, attrs=attrs._handle)
+        filt=filt._handle, attrs=attrs._handle, get_ids=get_ids)
 
 
 _array_initialisers = []

@@ -62,7 +62,7 @@ class OZY(object):
         return read_infofile(infofile_path)
 
     def _get_unit_registry(self):
-        from unyt.dimensions import length,mass,time,temperature,dimensionless
+        from unyt.dimensions import length,mass,time,temperature,dimensionless,magnetic_field_cgs
         from unyt import mp,kb
         
         registry = UnitRegistry(unit_system='cgs')
@@ -77,11 +77,11 @@ class OZY(object):
         density_unit = self._info["unit_d"] * 1e+3 # g/cm**3 to kg/m**3
         time_unit = self._info["unit_t"]
         mass_unit = density_unit * length_unit ** 3
-        magnetic_unit = np.sqrt(4 * np.pi * mass_unit / (time_unit ** 2 * length_unit))
+        magnetic_unit = length_unit * (density_unit**0.5) / time_unit
         velocity_unit = length_unit / time_unit
         pressure_unit = density_unit * (length_unit / time_unit) ** 2
         temperature_unit = velocity_unit ** 2 * mp.to('kg').d * mean_molecular_weight_factor / kb.to('kg*m**2/(K*s**2)').d
-        s_entropy_unit = _X * kb.to('kg*m**2/(K*s**2)').d / mp.to('kg').d
+        s_entropy_unit = mean_molecular_weight_factor * kb.to('kg*m**2/(K*s**2)').d / mp.to('kg').d
 
         # Code length
         registry.add("code_length", base_value=length_unit, dimensions=length)
@@ -101,9 +101,15 @@ class OZY(object):
         # Code specific energy
         registry.add("code_specific_energy", base_value=velocity_unit**2, 
                     dimensions=(length**2)/(time**2))
-        # Code magnetic
+        # Code magnetic in Lorentz-Heavyside rational units
         registry.add("code_magnetic", base_value=magnetic_unit, 
-                    dimensions=( mass / (time ** 2 * length))**(0.5))
+                    dimensions=magnetic_field_cgs)
+        # Code magnetic in standard cgs units
+        registry.add("code_magnetic_standard", base_value=np.sqrt(4*np.pi)*magnetic_unit, 
+                    dimensions=magnetic_field_cgs)
+        # Code energy density
+        registry.add("code_energy_density", base_value=magnetic_unit**2, 
+                    dimensions=mass/(length*time**2))
         # Code temperature
         registry.add("code_temperature", base_value=temperature_unit, dimensions=temperature)
         # Code metallicity

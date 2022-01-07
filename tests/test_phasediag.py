@@ -10,6 +10,6 @@ progind = np.argmax(virial_mass)
 gal = obj.galaxies[progind]
 
 pd = compute_phase_diagram(gal,'test_00010.hdf5', 'density','temperature', ['gas/mass'],
-                            ['gas/cumulative','gas/mass'],save=True,recompute=True,rmax=(20,'kpc'))
+                            ['gas/cumulative','gas/mass'],save=True,recompute=False,rmax=(20,'kpc'))
 
-plot_single_phase_diagram(pd,'mass','NUT_00010_pd_mass',stats='mean')
+plot_single_phase_diagram(pd,'mass','NUT_00010_pd_mass',stats='mean',gent=True)

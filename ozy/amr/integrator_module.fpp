@@ -28,11 +28,12 @@ module amr_integrator
     use filtering
 
     type amr_region_attrs
-        integer :: nvars
+        integer :: nvars,nfilter=1
         character(128),dimension(:),allocatable :: varnames
         integer :: nwvars
+        type(filter),dimension(:),allocatable :: filters
         character(128),dimension(:),allocatable :: wvarnames
-        real(dbl),dimension(:,:,:),allocatable :: data
+        real(dbl),dimension(:,:,:,:),allocatable :: data
     end type amr_region_attrs
 
     contains
@@ -43,21 +44,22 @@ module amr_integrator
 
         if (.not.allocated(attrs%varnames)) allocate(attrs%varnames(attrs%nvars))
         if (.not.allocated(attrs%wvarnames)) allocate(attrs%wvarnames(attrs%nwvars))
-        if (.not.allocated(attrs%data)) allocate(attrs%data(attrs%nvars,attrs%nwvars,4))
+        if (.not.allocated(attrs%data)) allocate(attrs%data(attrs%nfilter,attrs%nvars,attrs%nwvars,4))
+        if (.not.allocated(attrs%filters)) allocate(attrs%filters(attrs%nfilter))
     end subroutine allocate_amr_regions_attrs
 
-    subroutine extract_data(reg,varIDs,pos,cellvars,cellsize,attrs)
+    subroutine extract_data(reg,pos,cellvars,cellsize,attrs,ifilt)
         use vectors
         use geometrical_regions
         implicit none
 
         ! Input/output variables
         type(region),intent(in) :: reg
-        type(hydroID),intent(in) :: varIDs
         real(dbl),dimension(1:3),intent(in) :: pos
         real(dbl),dimension(1:varIDs%nvar),intent(in) :: cellvars
         real(dbl),intent(in) :: cellsize
         type(amr_region_attrs),intent(inout) :: attrs
+        integer, intent(in) :: ifilt
 
         ! Local variables
         integer :: i,j
@@ -67,24 +69,24 @@ module amr_integrator
         x = pos
         varloop: do i=1,attrs%nvars
             ! Get variable
-            call getvarvalue(varIDs,reg,cellsize,x,cellvars,attrs%varnames(i),ytemp)
+            call getvarvalue(reg,cellsize,x,cellvars,attrs%varnames(i),ytemp)
             wvarloop: do j=1,attrs%nwvars
                 ! Get weights
                 if (attrs%wvarnames(j)=='counts'.or.attrs%wvarnames(j)=='cumulative') then
                     wtemp =  1D0
                 else
-                    call getvarvalue(varIDs,reg,cellsize,x,cellvars,attrs%wvarnames(j),wtemp)
+                    call getvarvalue(reg,cellsize,x,cellvars,attrs%wvarnames(j),wtemp)
                 endif
                 
                 ! Save to attrs
-                attrs%data(i,j,1) = attrs%data(i,j,1) + ytemp*wtemp ! Value (weighted or not)
-                if (attrs%data(i,j,2).eq.0D0) then
-                    attrs%data(i,j,2) = ytemp ! Just to make sure that the initial min is not zero
+                attrs%data(ifilt,i,j,1) = attrs%data(ifilt,i,j,1) + ytemp*wtemp ! Value (weighted or not)
+                if (attrs%data(ifilt,i,j,2).eq.0D0) then
+                    attrs%data(ifilt,i,j,2) = ytemp ! Just to make sure that the initial min is not zero
                 else
-                    attrs%data(i,j,2) = min(ytemp,attrs%data(i,j,2))    ! Min value
+                    attrs%data(ifilt,i,j,2) = min(ytemp,attrs%data(ifilt,i,j,2))    ! Min value
                 endif
-                attrs%data(i,j,3) = max(ytemp,attrs%data(i,j,3))    ! Max value
-                attrs%data(i,j,4) = attrs%data(i,j,4) + wtemp       ! Weight
+                attrs%data(ifilt,i,j,3) = max(ytemp,attrs%data(ifilt,i,j,3))    ! Max value
+                attrs%data(ifilt,i,j,4) = attrs%data(ifilt,i,j,4) + wtemp       ! Weight
 
             end do wvarloop
         end do varloop
@@ -97,18 +99,19 @@ module amr_integrator
         type(amr_region_attrs),intent(inout) :: attrs
 
         ! Local variables
-        integer :: i,j
-
-        varloop: do i=1,attrs%nvars
-            wvarloop: do j=1,attrs%nwvars
-                if (attrs%wvarnames(j) /= 'cumulative') then
-                    attrs%data(i,j,1) = attrs%data(i,j,1) / attrs%data(i,j,4)
-                endif
-            end do wvarloop
-        end do varloop
+        integer :: i,j,ifilt
+        filterloop: do ifilt=1,attrs%nfilter
+            varloop: do i=1,attrs%nvars
+                wvarloop: do j=1,attrs%nwvars
+                    if (attrs%wvarnames(j) /= 'cumulative') then
+                        attrs%data(ifilt,i,j,1) = attrs%data(ifilt,i,j,1) / attrs%data(ifilt,i,j,4)
+                    endif
+                end do wvarloop
+            end do varloop
+        end do filterloop
     end subroutine renormalise
 
-    subroutine integrate_region(repository,reg,filt,attrs)
+    subroutine integrate_region(repository,reg,attrs)
         use vectors
         use coordinate_systems
         use geometrical_regions
@@ -117,17 +120,11 @@ module amr_integrator
         ! Input/output variables
         character(128),intent(in) :: repository
         type(region),intent(inout) :: reg
-        type(filter),intent(in) :: filt
         type(amr_region_attrs),intent(inout) :: attrs
-
-        ! Ozymandias derived types for RAMSES
-        type(hydroID) :: varIDs
-        type(amr_info) :: amr
-        type(sim_info) :: sim
 
         ! Specific variables for this subroutine
         integer :: i,j,k
-        integer :: ipos,icpu,ilevel,ind,idim,ivar
+        integer :: ipos,icpu,ilevel,ind,idim,ivar,ifilt
         integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
         integer :: nvarh
         integer :: roterr
@@ -135,7 +132,7 @@ module amr_integrator
         character(128) :: nomfich
         real(dbl) :: distance,dx
         type(vector) :: xtemp,vtemp
-        logical :: ok_cell,ok_filter
+        logical :: ok_cell,ok_filter,ok_cell_each
         integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
         real(dbl),dimension(1:8,1:3) :: xc
         real(dbl),dimension(3,3) :: trans_matrix
@@ -145,14 +142,14 @@ module amr_integrator
         logical,dimension(:),allocatable :: ref
 
         ! Obtain details of the hydro variables stored
-        call read_hydrofile_descriptor(repository,varIDs)
+        call read_hydrofile_descriptor(repository)
 
         ! Initialise parameters of the AMR structure and simulation attributes
-        call init_amr_read(repository,amr,sim)
+        call init_amr_read(repository)
         amr%lmax = amr%nlevelmax
 
         ! Compute the Hilbert curve
-        call get_cpu_map(reg,amr)
+        call get_cpu_map(reg)
         write(*,*)'ncpu_read:',amr%ncpu_read
 
         ! Just make sure that initial values are zero
@@ -211,7 +208,7 @@ module amr_integrator
             read(10)
 
             ! Make sure that we are not trying to access to far in the refinement map…
-            call check_lmax(ngridfile,amr)
+            call check_lmax(ngridfile)
             ! Open HYDRO file and skip header
             nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
             open(unit=11,file=nomfich,status='old',form='unformatted')
@@ -335,11 +332,13 @@ module amr_integrator
                             vtemp = var(i,ind,varIDs%vx:varIDs%vz)
                             call rotate_vector(vtemp,trans_matrix)
                             var(i,ind,varIDs%vx:varIDs%vz) = vtemp
-                            ok_filter = filter_cell(varIDs,reg,filt,xtemp,dx,var(i,ind,:))
-                            ok_cell= ok_cell.and..not.ref(i).and.ok_filter
-                            if (ok_cell) then
-                                call extract_data(reg,varIDs,x(i,:),var(i,ind,:),dx,attrs)
-                            endif
+                            filterloop: do ifilt=1,attrs%nfilter
+                                ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx,var(i,ind,:))
+                                ok_cell_each= ok_cell.and..not.ref(i).and.ok_filter
+                                if (ok_cell_each) then
+                                    call extract_data(reg,x(i,:),var(i,ind,:),dx,attrs,ifilt)
+                                endif
+                            end do filterloop
                         end do ngridaloop
                     end do cellloop
 

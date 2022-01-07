@@ -45,7 +45,7 @@ class SimulationAttributes(object):
             (3. * self.H_z**2) / (8. * np.pi * self.G.d),
             'Msun / kpc**3'
         )
-        virial_density = (177.65287921960845 * (1. + 0.4093 * (1./self.Om_z - 1.)**0.9052) - 1.) * self.Om_z
+        self.virial_density = (177.65287921960845 * (1. + 0.4093 * (1./self.Om_z - 1.)**0.9052) - 1.) * self.Om_z
         
         self.Densities = np.array([200 * self.critical_density.to('Msun / kpc**3').d,
                                    500 * self.critical_density.to('Msun / kpc**3').d,
@@ -60,9 +60,9 @@ class SimulationAttributes(object):
                         'bh':False,
                         'AGN':False,
                         'dust':False}
+        
         varIDs = part2.io_ramses.hydroID()
-        part2.io_ramses.read_hydrofile_descriptor(self.fullpath,varIDs)
-
+        part2.io_ramses.retrieve_vars(self.fullpath,varIDs)
         if varIDs.density != 0 and varIDs.vx != 0:
             self.physics['hydro'] = True
         if varIDs.metallicity != 0:
@@ -112,14 +112,53 @@ class SimulationAttributes(object):
         for k,v in uhdd.attrs.items():
             setattr(self, k, obj.quantity(getattr(self, k), v))
         
-        phyhdd = hdd['physics']
-        self.physics = {'hydro':False,
-                        'metals':False,
-                        'magnetic':False,
-                        'cr':False,
-                        'rt':False,
-                        'bh':False,
-                        'AGN':False,
-                        'dust':False}
-        for k,v in phyhdd.attrs.items():
-            self.physics[k] = v
+        try:
+            phyhdd = hdd['physics']
+            self.physics = {'hydro':False,
+                            'metals':False,
+                            'magnetic':False,
+                            'cr':False,
+                            'rt':False,
+                            'bh':False,
+                            'AGN':False,
+                            'dust':False}
+            for k,v in phyhdd.attrs.items():
+                self.physics[k] = v
+        except:
+            print('No physics details in this OZY file!')
+
+    def _update(self,obj,hd,variable='physics'):
+        if 'simulation_attributes' not in hd.keys():
+            print('WARNING: Simulation attributes not found in file.')
+            return
+        
+        if variable == 'physics':
+            # Determine the type of physics included in this simulation
+            self.physics = {'hydro':False,
+                            'metals':False,
+                            'magnetic':False,
+                            'cr':False,
+                            'rt':False,
+                            'bh':False,
+                            'AGN':False,
+                            'dust':False}
+            
+            varIDs = part2.io_ramses.hydroID()
+            part2.io_ramses.retrieve_vars(self.fullpath,varIDs)
+            if varIDs.density != 0 and varIDs.vx != 0:
+                self.physics['hydro'] = True
+            if varIDs.metallicity != 0:
+                self.physics['metals'] = True
+            if varIDs.blx != 0:
+                self.physics['magnetic'] = True
+            if varIDs.cr_pressure != 0:
+                self.physics['cr'] = True
+            if varIDs.xhii != 0:
+                self.physics['rt'] = True
+            
+            phyhdd = hd['simulation_attributes/physics']
+            for k,v in self.physics.items():
+                if k != 'namelist':
+                    phyhdd.attrs.create(k, v)
+        else:
+            print('This simulation attribute cannot be updated!')

@@ -28,6 +28,34 @@ subroutine f90wrap_amr_region_attrs__set__nvars(this, f90wrap_nvars)
     this_ptr%p%nvars = f90wrap_nvars
 end subroutine f90wrap_amr_region_attrs__set__nvars
 
+subroutine f90wrap_amr_region_attrs__get__nfilter(this, f90wrap_nfilter)
+    use amr_integrator, only: amr_region_attrs
+    implicit none
+    type amr_region_attrs_ptr_type
+        type(amr_region_attrs), pointer :: p => NULL()
+    end type amr_region_attrs_ptr_type
+    integer, intent(in)   :: this(2)
+    type(amr_region_attrs_ptr_type) :: this_ptr
+    integer, intent(out) :: f90wrap_nfilter
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_nfilter = this_ptr%p%nfilter
+end subroutine f90wrap_amr_region_attrs__get__nfilter
+
+subroutine f90wrap_amr_region_attrs__set__nfilter(this, f90wrap_nfilter)
+    use amr_integrator, only: amr_region_attrs
+    implicit none
+    type amr_region_attrs_ptr_type
+        type(amr_region_attrs), pointer :: p => NULL()
+    end type amr_region_attrs_ptr_type
+    integer, intent(in)   :: this(2)
+    type(amr_region_attrs_ptr_type) :: this_ptr
+    integer, intent(in) :: f90wrap_nfilter
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%nfilter = f90wrap_nfilter
+end subroutine f90wrap_amr_region_attrs__set__nfilter
+
 subroutine f90wrap_amr_region_attrs__array__varnames(this, nd, dtype, dshape, dloc)
     use amr_integrator, only: amr_region_attrs
     implicit none
@@ -80,6 +108,92 @@ subroutine f90wrap_amr_region_attrs__set__nwvars(this, f90wrap_nwvars)
     this_ptr%p%nwvars = f90wrap_nwvars
 end subroutine f90wrap_amr_region_attrs__set__nwvars
 
+subroutine f90wrap_amr_region_attrs__array_getitem__filters(f90wrap_this, f90wrap_i, filtersitem)
+    
+    use amr_integrator, only: amr_region_attrs
+    use filtering, only: filter
+    implicit none
+    
+    type amr_region_attrs_ptr_type
+        type(amr_region_attrs), pointer :: p => NULL()
+    end type amr_region_attrs_ptr_type
+    type filter_ptr_type
+        type(filter), pointer :: p => NULL()
+    end type filter_ptr_type
+    integer, intent(in) :: f90wrap_this(2)
+    type(amr_region_attrs_ptr_type) :: this_ptr
+    integer, intent(in) :: f90wrap_i
+    integer, intent(out) :: filtersitem(2)
+    type(filter_ptr_type) :: filters_ptr
+    
+    this_ptr = transfer(f90wrap_this, this_ptr)
+    if (allocated(this_ptr%p%filters)) then
+        if (f90wrap_i < 1 .or. f90wrap_i > size(this_ptr%p%filters)) then
+            call f90wrap_abort("array index out of range")
+        else
+            filters_ptr%p => this_ptr%p%filters(f90wrap_i)
+            filtersitem = transfer(filters_ptr,filtersitem)
+        endif
+    else
+        call f90wrap_abort("derived type array not allocated")
+    end if
+end subroutine f90wrap_amr_region_attrs__array_getitem__filters
+
+subroutine f90wrap_amr_region_attrs__array_setitem__filters(f90wrap_this, f90wrap_i, filtersitem)
+    
+    use amr_integrator, only: amr_region_attrs
+    use filtering, only: filter
+    implicit none
+    
+    type amr_region_attrs_ptr_type
+        type(amr_region_attrs), pointer :: p => NULL()
+    end type amr_region_attrs_ptr_type
+    type filter_ptr_type
+        type(filter), pointer :: p => NULL()
+    end type filter_ptr_type
+    integer, intent(in) :: f90wrap_this(2)
+    type(amr_region_attrs_ptr_type) :: this_ptr
+    integer, intent(in) :: f90wrap_i
+    integer, intent(in) :: filtersitem(2)
+    type(filter_ptr_type) :: filters_ptr
+    
+    this_ptr = transfer(f90wrap_this, this_ptr)
+    if (allocated(this_ptr%p%filters)) then
+        if (f90wrap_i < 1 .or. f90wrap_i > size(this_ptr%p%filters)) then
+            call f90wrap_abort("array index out of range")
+        else
+            filters_ptr = transfer(filtersitem,filters_ptr)
+            this_ptr%p%filters(f90wrap_i) = filters_ptr%p
+        endif
+    else
+        call f90wrap_abort("derived type array not allocated")
+    end if
+end subroutine f90wrap_amr_region_attrs__array_setitem__filters
+
+subroutine f90wrap_amr_region_attrs__array_len__filters(f90wrap_this, f90wrap_n)
+    
+    use amr_integrator, only: amr_region_attrs
+    use filtering, only: filter
+    implicit none
+    
+    type amr_region_attrs_ptr_type
+        type(amr_region_attrs), pointer :: p => NULL()
+    end type amr_region_attrs_ptr_type
+    type filter_ptr_type
+        type(filter), pointer :: p => NULL()
+    end type filter_ptr_type
+    integer, intent(out) :: f90wrap_n
+    integer, intent(in) :: f90wrap_this(2)
+    type(amr_region_attrs_ptr_type) :: this_ptr
+    
+    this_ptr = transfer(f90wrap_this, this_ptr)
+    if (allocated(this_ptr%p%filters)) then
+        f90wrap_n = size(this_ptr%p%filters)
+    else
+        f90wrap_n = 0
+    end if
+end subroutine f90wrap_amr_region_attrs__array_len__filters
+
 subroutine f90wrap_amr_region_attrs__array__wvarnames(this, nd, dtype, dshape, dloc)
     use amr_integrator, only: amr_region_attrs
     implicit none
@@ -117,11 +231,11 @@ subroutine f90wrap_amr_region_attrs__array__data(this, nd, dtype, dshape, dloc)
     integer, dimension(10), intent(out) :: dshape
     integer*8, intent(out) :: dloc
     
-    nd = 3
+    nd = 4
     dtype = 12
     this_ptr = transfer(this, this_ptr)
     if (allocated(this_ptr%p%data)) then
-        dshape(1:3) = shape(this_ptr%p%data)
+        dshape(1:4) = shape(this_ptr%p%data)
         dloc = loc(this_ptr%p%data)
     else
         dloc = 0
@@ -155,7 +269,7 @@ subroutine f90wrap_amr_region_attrs_finalise(this)
 end subroutine f90wrap_amr_region_attrs_finalise
 
 subroutine f90wrap_allocate_amr_regions_attrs(attrs)
-    use amr_integrator, only: amr_region_attrs, allocate_amr_regions_attrs
+    use amr_integrator, only: allocate_amr_regions_attrs, amr_region_attrs
     implicit none
     
     type amr_region_attrs_ptr_type
@@ -167,42 +281,36 @@ subroutine f90wrap_allocate_amr_regions_attrs(attrs)
     call allocate_amr_regions_attrs(attrs=attrs_ptr%p)
 end subroutine f90wrap_allocate_amr_regions_attrs
 
-subroutine f90wrap_extract_data(reg, varids, pos, cellvars, cellsize, attrs, n0, n1)
-    use amr_integrator, only: extract_data, amr_region_attrs
+subroutine f90wrap_extract_data(reg, pos, cellvars, cellsize, attrs, ifilt, n0, n1)
     use geometrical_regions, only: region
-    use io_ramses, only: hydroid
+    use amr_integrator, only: extract_data, amr_region_attrs
     implicit none
     
-    type amr_region_attrs_ptr_type
-        type(amr_region_attrs), pointer :: p => NULL()
-    end type amr_region_attrs_ptr_type
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
-    type hydroid_ptr_type
-        type(hydroid), pointer :: p => NULL()
-    end type hydroid_ptr_type
+    type amr_region_attrs_ptr_type
+        type(amr_region_attrs), pointer :: p => NULL()
+    end type amr_region_attrs_ptr_type
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg
-    type(hydroid_ptr_type) :: varids_ptr
-    integer, intent(in), dimension(2) :: varids
     real(8), intent(in), dimension(n0) :: pos
     real(8), intent(in), dimension(n1) :: cellvars
     real(8), intent(in) :: cellsize
     type(amr_region_attrs_ptr_type) :: attrs_ptr
     integer, intent(in), dimension(2) :: attrs
+    integer, intent(in) :: ifilt
     integer :: n0
     !f2py intent(hide), depend(pos) :: n0 = shape(pos,0)
     integer :: n1
     !f2py intent(hide), depend(cellvars) :: n1 = shape(cellvars,0)
     reg_ptr = transfer(reg, reg_ptr)
-    varids_ptr = transfer(varids, varids_ptr)
     attrs_ptr = transfer(attrs, attrs_ptr)
-    call extract_data(reg=reg_ptr%p, varIDs=varids_ptr%p, pos=pos, cellvars=cellvars, cellsize=cellsize, attrs=attrs_ptr%p)
+    call extract_data(reg=reg_ptr%p, pos=pos, cellvars=cellvars, cellsize=cellsize, attrs=attrs_ptr%p, ifilt=ifilt)
 end subroutine f90wrap_extract_data
 
 subroutine f90wrap_renormalise(attrs)
-    use amr_integrator, only: amr_region_attrs, renormalise
+    use amr_integrator, only: renormalise, amr_region_attrs
     implicit none
     
     type amr_region_attrs_ptr_type
@@ -214,32 +322,25 @@ subroutine f90wrap_renormalise(attrs)
     call renormalise(attrs=attrs_ptr%p)
 end subroutine f90wrap_renormalise
 
-subroutine f90wrap_integrate_region(repository, reg, filt, attrs)
-    use filtering, only: filter
-    use amr_integrator, only: amr_region_attrs, integrate_region
+subroutine f90wrap_integrate_region(repository, reg, attrs)
     use geometrical_regions, only: region
+    use amr_integrator, only: integrate_region, amr_region_attrs
     implicit none
     
-    type amr_region_attrs_ptr_type
-        type(amr_region_attrs), pointer :: p => NULL()
-    end type amr_region_attrs_ptr_type
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
-    type filter_ptr_type
-        type(filter), pointer :: p => NULL()
-    end type filter_ptr_type
+    type amr_region_attrs_ptr_type
+        type(amr_region_attrs), pointer :: p => NULL()
+    end type amr_region_attrs_ptr_type
     character(128), intent(in) :: repository
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg
-    type(filter_ptr_type) :: filt_ptr
-    integer, intent(in), dimension(2) :: filt
     type(amr_region_attrs_ptr_type) :: attrs_ptr
     integer, intent(in), dimension(2) :: attrs
     reg_ptr = transfer(reg, reg_ptr)
-    filt_ptr = transfer(filt, filt_ptr)
     attrs_ptr = transfer(attrs, attrs_ptr)
-    call integrate_region(repository=repository, reg=reg_ptr%p, filt=filt_ptr%p, attrs=attrs_ptr%p)
+    call integrate_region(repository=repository, reg=reg_ptr%p, attrs=attrs_ptr%p)
 end subroutine f90wrap_integrate_region
 
 ! End of module amr_integrator defined in file integrator_module.fpp

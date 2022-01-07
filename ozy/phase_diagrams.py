@@ -283,7 +283,7 @@ def write_phasediag(obj,ozy_file,hydro,star,dm,pd):
     f.close()
     return
 
-def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True,redshift=True,stats='none'):
+def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True,redshift=True,stats='none',extra_labels='none',gent=False,powell=False):
     """This function uses the information from PhaseDiagram following the OZY format and
         plots following the OZY standards."""
     
@@ -336,7 +336,8 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
     ax.yaxis.set_ticks_position('both')
     ax.minorticks_on()
     ax.tick_params(which='both',axis="both",direction="in")
-
+    ax.set_xlim([1e-30,1e-20])
+    ax.set_ylim([2,1e+8])
     ax.set_xscale('log')
     ax.set_yscale('log')
     code_units_x = get_code_units(pd.xvar)
@@ -378,6 +379,22 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
             b = np.nansum(z[:,i])
             y_mean[i] = a/b
         ax.plot(x,y_mean,color='r',linewidth=2)
+
+    if gent:
+        s1 = 4.4e+8
+        s2 = 23.2e+8
+        cv = 1.4e+8
+        gamma = 5/3
+        rho1_low = 1.673532784796145e-24 * (2/(np.exp(s1/cv))) ** (1/(gamma-1))
+        rho1_high = 1.673532784796145e-24 * (1e+8/(np.exp(s1/cv))) ** (1/(gamma-1))
+        ax.plot([rho1_low,rho1_high], [2,1e+8],color='k')
+        rho2_low = 1.673532784796145e-24 * (2/(np.exp(s2/cv))) ** (1/(gamma-1))
+        rho2_high = 1.673532784796145e-24 * (1e+8/(np.exp(s2/cv))) ** (1/(gamma-1))
+        ax.plot([rho2_low,rho2_high], [2,1e+8],color='k')
+        
+
+
+
     fig.subplots_adjust(top=0.97,bottom=0.1,left=0.1,right=0.99)
     fig.savefig(name+'.png',format='png',dpi=300)
 

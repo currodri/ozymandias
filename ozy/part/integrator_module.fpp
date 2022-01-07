@@ -33,8 +33,13 @@ module part_integrator
         character(128),dimension(:),allocatable :: varnames
         integer :: nwvars
         character(128),dimension(:),allocatable :: wvarnames
-        integer :: ndm,nstar
         real(dbl),dimension(:,:,:),allocatable :: data
+        integer(irg) :: ndm,nstar,nids
+
+
+
+        integer(ilg), dimension(:),allocatable :: ids
+
     end type part_region_attrs
 
     contains
@@ -48,13 +53,12 @@ module part_integrator
         if (.not.allocated(attrs%data)) allocate(attrs%data(attrs%nvars,attrs%nwvars,4))
     end subroutine allocate_part_regions_attrs
 
-    subroutine extract_data(sim,reg,part,attrs)
+    subroutine extract_data(reg,part,attrs)
         use vectors
         use geometrical_regions
         implicit none
 
         ! Input/output variables
-        type(sim_info),intent(in) :: sim
         type(region),intent(in) :: reg
         type(particle),intent(in) :: part
         type(part_region_attrs),intent(inout) :: attrs
@@ -66,7 +70,7 @@ module part_integrator
 
         varloop: do i=1,attrs%nvars
             ! Get variable
-            call getpartvalue(sim,reg,part,attrs%varnames(i),ytemp)
+            call getpartvalue(reg,part,attrs%varnames(i),ytemp)
             wvarloop: do j=1,attrs%nwvars
                 ! Get weights
                 if (attrs%wvarnames(j)=='counts'.or.attrs%wvarnames(j)=='cumulative') then
@@ -81,7 +85,7 @@ module part_integrator
                     else
                         index = scan(attrs%varnames(i),'/')
                         true_wname = trim(attrs%varnames(i)(1:index-1))//'/'//attrs%wvarnames(j)
-                        call getpartvalue(sim,reg,part,true_wname,wtemp)
+                        call getpartvalue(reg,part,true_wname,wtemp)
                     endif
                 endif
                 ! Save to attrs
@@ -99,11 +103,10 @@ module part_integrator
 
     end subroutine extract_data
 
-    subroutine renormalise(sim,attrs)
+    subroutine renormalise(attrs)
         implicit none
 
         ! Input part_region_attrs type
-        type(sim_info),intent(in) :: sim
         type(part_region_attrs),intent(inout) :: attrs
 
         ! Local variable
@@ -129,7 +132,7 @@ module part_integrator
         end do varloop
     end subroutine renormalise
 
-    subroutine integrate_region(repository,reg,filt,attrs)
+    subroutine integrate_region(repository,reg,filt,attrs,get_ids)
         use vectors
         use coordinate_systems
         use geometrical_regions
@@ -140,18 +143,15 @@ module part_integrator
         type(region),intent(inout) :: reg
         type(filter),intent(in) :: filt
         type(part_region_attrs),intent(inout) :: attrs
-
-        ! Ozymandias derived types for RAMSES
-        type(hydroID) :: varIDs
-        type(amr_info) :: amr
-        type(sim_info) :: sim
+        logical,intent(in),optional :: get_ids
 
         ! Specific variables for this subroutine
         logical :: ok_part,ok_filter
         integer :: roterr
         integer :: i,j,k
         integer :: ipos,icpu,binpos
-        integer :: npart,npart2,nstar,ncpu2,ndim2
+        integer :: npart,npart2,nstar,inpart=0
+        integer :: ncpu2,ndim2
         real(dbl) :: distance
         real(dbl),dimension(1:3,1:3) :: trans_matrix
         character(5) :: nchar,ncharcpu
@@ -159,25 +159,33 @@ module part_integrator
         character(128) :: nomfich
         type(vector) :: xtemp,vtemp
         type(particle) :: part
-        integer,dimension(:),allocatable :: id
+
+
+
+        integer(ilg),dimension(:),allocatable :: id
+
         real(dbl),dimension(:),allocatable :: m,age,met,imass
         real(dbl),dimension(:,:),allocatable :: x,v
 
         integer :: count
         count = 0
 
+
+        write(*,*) 'Using LONGINT for particle IDs'
+
+
         ! Obtain details of the hydro variables stored
-        call read_hydrofile_descriptor(repository,varIDs)
+        call read_hydrofile_descriptor(repository)
 
         ! Initialise parameters of the AMR structure and simulation attributes
-        call init_amr_read(repository,amr,sim)
+        call init_amr_read(repository)
         amr%lmax = amr%nlevelmax
 
         ! Check if particle data uses family
-        call check_families(repository,sim)
+        if (sim%dm .and. sim%hydro) call check_families(repository)
 
         ! Compute the Hilbert curve
-        call get_cpu_map(reg,amr)
+        call get_cpu_map(reg)
         write(*,*)'ncpu_read:',amr%ncpu_read
 
         ! Just make sure that initial values are zero
@@ -196,7 +204,7 @@ module part_integrator
         ! Cosmological model
         if (sim%aexp.eq.1.and.sim%h0.eq.1)sim%cosmo=.false.
         if (sim%cosmo) then
-            call cosmology_model(sim)
+            call cosmology_model
         else
             sim%time_simu = sim%t
             write(*,*)'Age simu=',sim%time_simu*sim%unit_t/(365.*24.*3600.*1d9)
@@ -225,6 +233,14 @@ module part_integrator
             write(*,*)'Found ',nstar,' star particles.'
         endif
 
+        ! If we're asked to get particle IDs, allocate array with maximum number of particles
+        ! and initiliase to zero
+        if (present(get_ids) .and. get_ids) then
+            allocate(attrs%ids(1:npart))
+            attrs%ids = 0
+            attrs%nids = npart
+        endif
+
         ! Compute binned variables
         cpuloop: do k=1,amr%ncpu_read
             icpu = amr%cpu_list(k)
@@ -246,6 +262,7 @@ module part_integrator
                 allocate(met(1:npart2))
                 allocate(imass(1:npart2))
             endif
+            if (present(get_ids) .and. get_ids .and. (.not. allocated(id))) allocate(id(1:npart2))
             allocate(x(1:npart2,1:ndim2))
             allocate(v(1:npart2,1:ndim2))
 
@@ -273,6 +290,8 @@ module part_integrator
                 read(1)age
                 read(1)met
                 read(1)imass
+            elseif (present(get_ids) .and. get_ids .and. nstar .eq. 0) then
+                read(1)id
             endif
             close(1)
 
@@ -288,6 +307,11 @@ module part_integrator
                     part%age = age(i)
                     part%met = met(i)
                     part%imass = imass(i)
+                elseif (present(get_ids) .and. get_ids) then
+                    part%id = id(i)
+                    part%age = 0D0
+                    part%met = 0D0
+                    part%imass = 0D0
                 else
                     part%id = 0
                     part%age = 0D0
@@ -299,22 +323,25 @@ module part_integrator
                 call rotate_vector(part%x,trans_matrix)
                 x(i,:) = part%x
                 call checkifinside(x(i,:),reg,ok_part,distance)
-                ok_filter = filter_particle(sim,reg,filt,part)
+                ok_filter = filter_particle(reg,filt,part)
                 ok_part = ok_part.and.ok_filter
                 if (ok_part) then
+                    if (present(get_ids) .and. get_ids) attrs%ids(inpart+i) = part%id
                     call getparttype(part,ptype)
                     if (ptype.eq.'dm') attrs%ndm = attrs%ndm + 1
                     if (ptype.eq.'star') attrs%nstar = attrs%nstar + 1
                     call rotate_vector(part%v,trans_matrix)
-                    call extract_data(sim,reg,part,attrs)
+                    call extract_data(reg,part,attrs)
                 endif
             end do partloop
             deallocate(m,x,v)
-            if (nstar>0)deallocate(id,age,met,imass)
+            if (allocated(id))deallocate(id)
+            if (nstar>0)deallocate(age,met,imass)
+            inpart = inpart + npart2
         end do cpuloop
 
-        ! Finally, just renormalise fo weighted quantities
-        call renormalise(sim,attrs)
+        ! Finally, just renormalise for weighted quantities
+        call renormalise(attrs)
 
     end subroutine integrate_region
 

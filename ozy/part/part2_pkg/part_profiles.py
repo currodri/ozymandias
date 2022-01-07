@@ -2,7 +2,7 @@
 Module part_profiles
 
 
-Defined at profiles_module.fpp lines 5-298
+Defined at profiles_module.fpp lines 5-292
 
 """
 from __future__ import print_function, absolute_import, division
@@ -289,16 +289,15 @@ def makebins(self, varname, nbins, bins):
     _part2_pkg.f90wrap_makebins(reg=self._handle, varname=varname, nbins=nbins, \
         bins=bins)
 
-def findbinpos(self, reg, distance, part, prof, ibin):
+def findbinpos(self, distance, part, prof, ibin):
     """
-    findbinpos(self, reg, distance, part, prof, ibin)
+    findbinpos(self, distance, part, prof, ibin)
     
     
-    Defined at profiles_module.fpp lines 56-74
+    Defined at profiles_module.fpp lines 56-73
     
     Parameters
     ----------
-    sim : Sim_Info
     reg : Region
     distance : float
     part : Particle
@@ -306,26 +305,25 @@ def findbinpos(self, reg, distance, part, prof, ibin):
     ibin : int
     
     """
-    _part2_pkg.f90wrap_findbinpos(sim=self._handle, reg=reg._handle, \
-        distance=distance, part=part._handle, prof=prof._handle, ibin=ibin)
+    _part2_pkg.f90wrap_findbinpos(reg=self._handle, distance=distance, \
+        part=part._handle, prof=prof._handle, ibin=ibin)
 
-def bindata(self, reg, part, prof, ibin):
+def bindata(self, part, prof, ibin):
     """
-    bindata(self, reg, part, prof, ibin)
+    bindata(self, part, prof, ibin)
     
     
-    Defined at profiles_module.fpp lines 76-105
+    Defined at profiles_module.fpp lines 75-103
     
     Parameters
     ----------
-    sim : Sim_Info
     reg : Region
     part : Particle
     prof : Profile_Handler
     ibin : int
     
     """
-    _part2_pkg.f90wrap_bindata(sim=self._handle, reg=reg._handle, part=part._handle, \
+    _part2_pkg.f90wrap_bindata(reg=self._handle, part=part._handle, \
         prof=prof._handle, ibin=ibin)
 
 def renormalise_bins(self):
@@ -333,7 +331,7 @@ def renormalise_bins(self):
     renormalise_bins(self)
     
     
-    Defined at profiles_module.fpp lines 107-129
+    Defined at profiles_module.fpp lines 105-127
     
     Parameters
     ----------
@@ -342,33 +340,30 @@ def renormalise_bins(self):
     """
     _part2_pkg.f90wrap_renormalise_bins(prof_data=self._handle)
 
-def get_parts_onedprofile(repository, amr, sim, reg, filt, prof_data):
+def get_parts_onedprofile(repository, reg, filt, prof_data):
     """
-    get_parts_onedprofile(repository, amr, sim, reg, filt, prof_data)
+    get_parts_onedprofile(repository, reg, filt, prof_data)
     
     
-    Defined at profiles_module.fpp lines 131-274
+    Defined at profiles_module.fpp lines 129-271
     
     Parameters
     ----------
     repository : str
-    amr : Amr_Info
-    sim : Sim_Info
     reg : Region
     filt : Filter
     prof_data : Profile_Handler
     
     """
-    _part2_pkg.f90wrap_get_parts_onedprofile(repository=repository, amr=amr._handle, \
-        sim=sim._handle, reg=reg._handle, filt=filt._handle, \
-        prof_data=prof_data._handle)
+    _part2_pkg.f90wrap_get_parts_onedprofile(repository=repository, reg=reg._handle, \
+        filt=filt._handle, prof_data=prof_data._handle)
 
 def onedprofile(repository, reg, filt, prof_data, lmax):
     """
     onedprofile(repository, reg, filt, prof_data, lmax)
     
     
-    Defined at profiles_module.fpp lines 276-298
+    Defined at profiles_module.fpp lines 273-292
     
     Parameters
     ----------

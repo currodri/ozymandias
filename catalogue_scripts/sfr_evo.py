@@ -11,7 +11,6 @@ import numpy as np
 import os
 import argparse
 from astropy.cosmology import FlatLambdaCDM, z_at_value
-from yt import YTArray, YTQuantity
 import seaborn as sns
 import matplotlib
 import matplotlib.pyplot as plt
@@ -57,9 +56,12 @@ if __name__ == '__main__':
 
         if args.model[i][0] != '/':
             simfolder = os.path.join(os.getcwd(), args.model[i])
+            args.model[i] = args.model[i].replace('_','\_')
         else:
             simfolder = args.model[i]
             args.model[i] = args.model[i].split('/')[-1]
+            args.model[i] = args.model[i].replace('_','\_')
+        print(args.model[i])
         ax.text(0.2, 0.2, args.model[i],transform=ax.transAxes,fontsize=16)
         if not os.path.exists(simfolder):
             raise Exception('The given simulation name is not found in this directory!')
@@ -96,15 +98,14 @@ if __name__ == '__main__':
             # Initialise simulation parameters
             redshift = sim.simulation.redshift
             h = sim.simulation.hubble_constant
-            cosmo = FlatLambdaCDM(H0=100*sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
-            Ob0=sim.simulation.parameters['omega_b'],Tcmb0=2.73)
+            cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
+            Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
 
             # Age of Universe at this redshift
             thubble = cosmo.age(redshift).value
 
             for sfr_var in args.sfr:
-                sfr = sim.galaxies[progind].sfr[sfr_var]
-                sfr = YTQuantity(sfr, 'Msun/yr', registry=sim.unit_registry)
+                sfr = sim.galaxies[progind].sfr[sfr_var].in_units('Msun/yr')
                 galaxy_sfr[sfr_var].append(sfr.d)
             galaxy_time.append(thubble)
             try:

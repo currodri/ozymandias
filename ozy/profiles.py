@@ -155,8 +155,8 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
     f = h5py.File(ozy_file, 'r+')
     prof_present,prof_key = check_if_same_profile(f, prof)
     if prof_present and recompute:
-        del f[str(prof.group.obj_type)+'_data/profiles/'+str(group._index)+'/'+str(prof_key)]
-        print('Overwriting profile data in %s_data'%group.obj_type)
+        del f[str(prof.group.type)+'_data/profiles/'+str(group._index)+'/'+str(prof_key)]
+        print('Overwriting profile data in %s_data'%group.type)
     elif prof_present and not recompute:
         print('Profile data with same details already present for galaxy %s. No overwritting!'%group._index)
         group._init_profiles()
@@ -166,7 +166,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
                 break
         return group.profiles[selected_prof]
     else:
-        print('Writing profile data in %s_data'%group.obj_type)
+        print('Writing profile data in %s_data'%group.type)
     f.close()
     
     # Initialise hydro profile data object
@@ -256,9 +256,9 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
 
 def check_if_same_profile(hd, profile):
     """This function checks if a profile for an object already exists with the same attributes."""
-    if not str(profile.group.obj_type)+'_data/profiles/'+str(profile.group._index) in hd:
+    if not str(profile.group.type)+'_data/profiles/'+str(profile.group._index) in hd:
         return False, 'none'
-    for p in hd[str(profile.group.obj_type)+'_data/profiles/'+str(profile.group._index)].keys():
+    for p in hd[str(profile.group.type)+'_data/profiles/'+str(profile.group._index)].keys():
         check_xvar = (p.split('|')[0] == profile.xvar)
         check_filtername = (p.split('|')[1] == profile.filter['name'])
         check_regiontype = (p.split('|')[2] == profile.region['type'])
@@ -282,9 +282,9 @@ def write_profiles(obj, ozy_file, hydro, star, dm, prof):
 
     # Create group in HDF5 file
     try:
-        profiles = f.create_group(str(prof.group.obj_type)+'_data/profiles/'+str(prof.group._index))
+        profiles = f.create_group(str(prof.group.type)+'_data/profiles/'+str(prof.group._index))
     except:
-        profiles = f[str(prof.group.obj_type)+'_data/profiles/'+str(prof.group._index)]
+        profiles = f[str(prof.group.type)+'_data/profiles/'+str(prof.group._index)]
     
     # Clean data and save to dataset
     prof_name = get_profile_name(profiles, prof)

@@ -297,13 +297,13 @@ class GalacticFlow:
                     self.data[j] = unyt_quantity(data[j][()], unit, registry=self.obj.unit_registry)
 
 class OZY:
-    def __init__(self, filename):
+    def __init__(self, filename, read_mode='r'):
         self._ds = None
         self.data_file = os.path.abspath(filename)
         
         self._galaxy_slist = LazyDataset(self, 'galaxy_data/lists/slist')
 
-        with h5py.File(filename, 'r') as hd:
+        with h5py.File(filename, read_mode) as hd:
             
             # This should be the ozy_version with which the dataset was created.
             self.ozy = hd.attrs['ozy']
@@ -313,6 +313,8 @@ class OZY:
             # Load the simulation attributes.
             self.simulation = SimulationAttributes()
             self.simulation._unpack(self, hd)
+            # self.simulation._update(self, hd)
+            
             
             # Halo data is loaded ALWAYS.
             # TODO: Change this so that it's just a flag.

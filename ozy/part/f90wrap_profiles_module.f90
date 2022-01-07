@@ -263,7 +263,7 @@ subroutine f90wrap_profile_handler_finalise(this)
 end subroutine f90wrap_profile_handler_finalise
 
 subroutine f90wrap_allocate_profile_handler(prof)
-    use part_profiles, only: allocate_profile_handler, profile_handler
+    use part_profiles, only: profile_handler, allocate_profile_handler
     implicit none
     
     type profile_handler_ptr_type
@@ -294,26 +294,21 @@ subroutine f90wrap_makebins(reg, varname, nbins, bins, n0)
     call makebins(reg=reg_ptr%p, varname=varname, nbins=nbins, bins=bins)
 end subroutine f90wrap_makebins
 
-subroutine f90wrap_findbinpos(sim, reg, distance, part, prof, ibin)
-    use io_ramses, only: particle, sim_info
+subroutine f90wrap_findbinpos(reg, distance, part, prof, ibin)
+    use part_profiles, only: findbinpos, profile_handler
     use geometrical_regions, only: region
-    use part_profiles, only: profile_handler, findbinpos
+    use io_ramses, only: particle
     implicit none
     
-    type profile_handler_ptr_type
-        type(profile_handler), pointer :: p => NULL()
-    end type profile_handler_ptr_type
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
+    type profile_handler_ptr_type
+        type(profile_handler), pointer :: p => NULL()
+    end type profile_handler_ptr_type
     type particle_ptr_type
         type(particle), pointer :: p => NULL()
     end type particle_ptr_type
-    type sim_info_ptr_type
-        type(sim_info), pointer :: p => NULL()
-    end type sim_info_ptr_type
-    type(sim_info_ptr_type) :: sim_ptr
-    integer, intent(in), dimension(2) :: sim
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg
     real(8), intent(in) :: distance
@@ -322,33 +317,27 @@ subroutine f90wrap_findbinpos(sim, reg, distance, part, prof, ibin)
     type(profile_handler_ptr_type) :: prof_ptr
     integer, intent(in), dimension(2) :: prof
     integer, intent(inout) :: ibin
-    sim_ptr = transfer(sim, sim_ptr)
     reg_ptr = transfer(reg, reg_ptr)
     part_ptr = transfer(part, part_ptr)
     prof_ptr = transfer(prof, prof_ptr)
-    call findbinpos(sim=sim_ptr%p, reg=reg_ptr%p, distance=distance, part=part_ptr%p, prof=prof_ptr%p, ibin=ibin)
+    call findbinpos(reg=reg_ptr%p, distance=distance, part=part_ptr%p, prof=prof_ptr%p, ibin=ibin)
 end subroutine f90wrap_findbinpos
 
-subroutine f90wrap_bindata(sim, reg, part, prof, ibin)
-    use io_ramses, only: particle, sim_info
-    use geometrical_regions, only: region
+subroutine f90wrap_bindata(reg, part, prof, ibin)
     use part_profiles, only: profile_handler, bindata
+    use geometrical_regions, only: region
+    use io_ramses, only: particle
     implicit none
     
-    type profile_handler_ptr_type
-        type(profile_handler), pointer :: p => NULL()
-    end type profile_handler_ptr_type
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
+    type profile_handler_ptr_type
+        type(profile_handler), pointer :: p => NULL()
+    end type profile_handler_ptr_type
     type particle_ptr_type
         type(particle), pointer :: p => NULL()
     end type particle_ptr_type
-    type sim_info_ptr_type
-        type(sim_info), pointer :: p => NULL()
-    end type sim_info_ptr_type
-    type(sim_info_ptr_type) :: sim_ptr
-    integer, intent(in), dimension(2) :: sim
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg
     type(particle_ptr_type) :: part_ptr
@@ -356,11 +345,10 @@ subroutine f90wrap_bindata(sim, reg, part, prof, ibin)
     type(profile_handler_ptr_type) :: prof_ptr
     integer, intent(in), dimension(2) :: prof
     integer, intent(in) :: ibin
-    sim_ptr = transfer(sim, sim_ptr)
     reg_ptr = transfer(reg, reg_ptr)
     part_ptr = transfer(part, part_ptr)
     prof_ptr = transfer(prof, prof_ptr)
-    call bindata(sim=sim_ptr%p, reg=reg_ptr%p, part=part_ptr%p, prof=prof_ptr%p, ibin=ibin)
+    call bindata(reg=reg_ptr%p, part=part_ptr%p, prof=prof_ptr%p, ibin=ibin)
 end subroutine f90wrap_bindata
 
 subroutine f90wrap_renormalise_bins(prof_data)
@@ -376,46 +364,32 @@ subroutine f90wrap_renormalise_bins(prof_data)
     call renormalise_bins(prof_data=prof_data_ptr%p)
 end subroutine f90wrap_renormalise_bins
 
-subroutine f90wrap_get_parts_onedprofile(repository, amr, sim, reg, filt, prof_data)
-    use io_ramses, only: amr_info, sim_info
-    use geometrical_regions, only: region
+subroutine f90wrap_get_parts_onedprofile(repository, reg, filt, prof_data)
     use part_profiles, only: profile_handler, get_parts_onedprofile
     use filtering, only: filter
+    use geometrical_regions, only: region
     implicit none
     
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
-    type amr_info_ptr_type
-        type(amr_info), pointer :: p => NULL()
-    end type amr_info_ptr_type
-    type profile_handler_ptr_type
-        type(profile_handler), pointer :: p => NULL()
-    end type profile_handler_ptr_type
-    type sim_info_ptr_type
-        type(sim_info), pointer :: p => NULL()
-    end type sim_info_ptr_type
     type filter_ptr_type
         type(filter), pointer :: p => NULL()
     end type filter_ptr_type
+    type profile_handler_ptr_type
+        type(profile_handler), pointer :: p => NULL()
+    end type profile_handler_ptr_type
     character(128), intent(in) :: repository
-    type(amr_info_ptr_type) :: amr_ptr
-    integer, intent(in), dimension(2) :: amr
-    type(sim_info_ptr_type) :: sim_ptr
-    integer, intent(in), dimension(2) :: sim
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg
     type(filter_ptr_type) :: filt_ptr
     integer, intent(in), dimension(2) :: filt
     type(profile_handler_ptr_type) :: prof_data_ptr
     integer, intent(in), dimension(2) :: prof_data
-    amr_ptr = transfer(amr, amr_ptr)
-    sim_ptr = transfer(sim, sim_ptr)
     reg_ptr = transfer(reg, reg_ptr)
     filt_ptr = transfer(filt, filt_ptr)
     prof_data_ptr = transfer(prof_data, prof_data_ptr)
-    call get_parts_onedprofile(repository=repository, amr=amr_ptr%p, sim=sim_ptr%p, reg=reg_ptr%p, filt=filt_ptr%p, &
-        prof_data=prof_data_ptr%p)
+    call get_parts_onedprofile(repository=repository, reg=reg_ptr%p, filt=filt_ptr%p, prof_data=prof_data_ptr%p)
 end subroutine f90wrap_get_parts_onedprofile
 
 subroutine f90wrap_onedprofile(repository, reg, filt, prof_data, lmax)
@@ -424,15 +398,15 @@ subroutine f90wrap_onedprofile(repository, reg, filt, prof_data, lmax)
     use geometrical_regions, only: region
     implicit none
     
-    type profile_handler_ptr_type
-        type(profile_handler), pointer :: p => NULL()
-    end type profile_handler_ptr_type
-    type filter_ptr_type
-        type(filter), pointer :: p => NULL()
-    end type filter_ptr_type
     type region_ptr_type
         type(region), pointer :: p => NULL()
     end type region_ptr_type
+    type filter_ptr_type
+        type(filter), pointer :: p => NULL()
+    end type filter_ptr_type
+    type profile_handler_ptr_type
+        type(profile_handler), pointer :: p => NULL()
+    end type profile_handler_ptr_type
     character(128), intent(in) :: repository
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg

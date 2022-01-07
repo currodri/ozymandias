@@ -239,8 +239,14 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(
         bulk = vectors.vector()
         bulk.x, bulk.y, bulk.z = 0,0,0
         reg.bulk_velocity = bulk
-        reg.rmin = rmin[0]
-        reg.rmax = rmax[0]
+        if rmin[1] == 'rvir':
+            reg.rmin = rmin[0]*group.virial_quantities['radius'].d
+        else:
+            reg.rmin = group.obj.quantity(rmin[0],str(rmin[1])).in_units('code_length')
+        if rmax[1] == 'rvir':
+            reg.rmax = rmax[0]*group.virial_quantities['radius'].d
+        else:
+            reg.rmax = group.obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')
 
     elif region_type == 'cylinder':
         reg.name = 'cylinder'
@@ -367,3 +373,4 @@ def init_filter(cond_strs, name, group):
         return filt
     else:
         raise ValueError("Condition strings are given, but a name for the filter. Please set!")
+

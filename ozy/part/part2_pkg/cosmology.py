@@ -13,19 +13,16 @@ import logging
 _arrays = {}
 _objs = {}
 
-def cosmology_model(self):
+def cosmology_model():
     """
-    cosmology_model(self)
+    cosmology_model()
     
     
     Defined at cosmology_module.fpp lines 16-42
     
-    Parameters
-    ----------
-    sim : Sim_Info
     
     """
-    _part2_pkg.f90wrap_cosmology_model(sim=self._handle)
+    _part2_pkg.f90wrap_cosmology_model()
 
 def friedmann(o_mat_0, o_vac_0, o_k_0, alpha, axp_min, axp_out, hexp_out, \
     tau_out, t_out, ntable, age_tot):

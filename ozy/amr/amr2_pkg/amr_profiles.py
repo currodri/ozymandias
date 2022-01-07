@@ -2,7 +2,7 @@
 Module amr_profiles
 
 
-Defined at profiles_module.fpp lines 25-771
+Defined at profiles_module.fpp lines 25-756
 
 """
 from __future__ import print_function, absolute_import, division
@@ -581,37 +581,35 @@ def allocate_profile_handler_twod(self):
     """
     _amr2_pkg.f90wrap_allocate_profile_handler_twod(prof=self._handle)
 
-def makebins(self, sim, varname, nbins, bins, logscale):
+def makebins(self, varname, nbins, bins, logscale):
     """
-    makebins(self, sim, varname, nbins, bins, logscale)
+    makebins(self, varname, nbins, bins, logscale)
     
     
-    Defined at profiles_module.fpp lines 70-109
+    Defined at profiles_module.fpp lines 70-108
     
     Parameters
     ----------
     reg : Region
-    sim : Sim_Info
     varname : str
     nbins : int
     bins : float array
     logscale : bool
     
     """
-    _amr2_pkg.f90wrap_makebins(reg=self._handle, sim=sim._handle, varname=varname, \
-        nbins=nbins, bins=bins, logscale=logscale)
+    _amr2_pkg.f90wrap_makebins(reg=self._handle, varname=varname, nbins=nbins, \
+        bins=bins, logscale=logscale)
 
-def findbinpos(self, varids, distance, pos, cellvars, cellsize, prof, ibin):
+def findbinpos(self, distance, pos, cellvars, cellsize, prof, ibin):
     """
-    findbinpos(self, varids, distance, pos, cellvars, cellsize, prof, ibin)
+    findbinpos(self, distance, pos, cellvars, cellsize, prof, ibin)
     
     
-    Defined at profiles_module.fpp lines 111-133
+    Defined at profiles_module.fpp lines 110-131
     
     Parameters
     ----------
     reg : Region
-    varids : Hydroid
     distance : float
     pos : float array
     cellvars : float array
@@ -620,23 +618,21 @@ def findbinpos(self, varids, distance, pos, cellvars, cellsize, prof, ibin):
     ibin : int
     
     """
-    _amr2_pkg.f90wrap_findbinpos(reg=self._handle, varids=varids._handle, \
-        distance=distance, pos=pos, cellvars=cellvars, cellsize=cellsize, \
-        prof=prof._handle, ibin=ibin)
+    _amr2_pkg.f90wrap_findbinpos(reg=self._handle, distance=distance, pos=pos, \
+        cellvars=cellvars, cellsize=cellsize, prof=prof._handle, ibin=ibin)
 
-def findbinpos_twod(self, varids, distance, pos, cellvars, cellsize, prof, \
-    logscale, ibinx, ibiny):
+def findbinpos_twod(self, distance, pos, cellvars, cellsize, prof, logscale, \
+    ibinx, ibiny):
     """
-    findbinpos_twod(self, varids, distance, pos, cellvars, cellsize, prof, logscale, \
-        ibinx, ibiny)
+    findbinpos_twod(self, distance, pos, cellvars, cellsize, prof, logscale, ibinx, \
+        ibiny)
     
     
-    Defined at profiles_module.fpp lines 135-174
+    Defined at profiles_module.fpp lines 133-171
     
     Parameters
     ----------
     reg : Region
-    varids : Hydroid
     distance : float
     pos : float array
     cellvars : float array
@@ -647,21 +643,20 @@ def findbinpos_twod(self, varids, distance, pos, cellvars, cellsize, prof, \
     ibiny : int
     
     """
-    _amr2_pkg.f90wrap_findbinpos_twod(reg=self._handle, varids=varids._handle, \
-        distance=distance, pos=pos, cellvars=cellvars, cellsize=cellsize, \
-        prof=prof._handle, logscale=logscale, ibinx=ibinx, ibiny=ibiny)
+    _amr2_pkg.f90wrap_findbinpos_twod(reg=self._handle, distance=distance, pos=pos, \
+        cellvars=cellvars, cellsize=cellsize, prof=prof._handle, logscale=logscale, \
+        ibinx=ibinx, ibiny=ibiny)
 
-def bindata(self, varids, pos, cellvars, cellsize, prof, ibin):
+def bindata(self, pos, cellvars, cellsize, prof, ibin):
     """
-    bindata(self, varids, pos, cellvars, cellsize, prof, ibin)
+    bindata(self, pos, cellvars, cellsize, prof, ibin)
     
     
-    Defined at profiles_module.fpp lines 176-223
+    Defined at profiles_module.fpp lines 173-219
     
     Parameters
     ----------
     reg : Region
-    varids : Hydroid
     pos : float array
     cellvars : float array
     cellsize : float
@@ -669,20 +664,19 @@ def bindata(self, varids, pos, cellvars, cellsize, prof, ibin):
     ibin : int
     
     """
-    _amr2_pkg.f90wrap_bindata(reg=self._handle, varids=varids._handle, pos=pos, \
-        cellvars=cellvars, cellsize=cellsize, prof=prof._handle, ibin=ibin)
+    _amr2_pkg.f90wrap_bindata(reg=self._handle, pos=pos, cellvars=cellvars, \
+        cellsize=cellsize, prof=prof._handle, ibin=ibin)
 
-def bindata_twod(self, varids, pos, cellvars, cellsize, prof, ibinx, ibiny):
+def bindata_twod(self, pos, cellvars, cellsize, prof, ibinx, ibiny):
     """
-    bindata_twod(self, varids, pos, cellvars, cellsize, prof, ibinx, ibiny)
+    bindata_twod(self, pos, cellvars, cellsize, prof, ibinx, ibiny)
     
     
-    Defined at profiles_module.fpp lines 225-258
+    Defined at profiles_module.fpp lines 221-253
     
     Parameters
     ----------
     reg : Region
-    varids : Hydroid
     pos : float array
     cellvars : float array
     cellsize : float
@@ -691,16 +685,15 @@ def bindata_twod(self, varids, pos, cellvars, cellsize, prof, ibinx, ibiny):
     ibiny : int
     
     """
-    _amr2_pkg.f90wrap_bindata_twod(reg=self._handle, varids=varids._handle, pos=pos, \
-        cellvars=cellvars, cellsize=cellsize, prof=prof._handle, ibinx=ibinx, \
-        ibiny=ibiny)
+    _amr2_pkg.f90wrap_bindata_twod(reg=self._handle, pos=pos, cellvars=cellvars, \
+        cellsize=cellsize, prof=prof._handle, ibinx=ibinx, ibiny=ibiny)
 
 def renormalise_bins(self):
     """
     renormalise_bins(self)
     
     
-    Defined at profiles_module.fpp lines 260-285
+    Defined at profiles_module.fpp lines 255-280
     
     Parameters
     ----------
@@ -714,7 +707,7 @@ def renormalise_bins_twod(self):
     renormalise_bins_twod(self)
     
     
-    Defined at profiles_module.fpp lines 287-311
+    Defined at profiles_module.fpp lines 282-306
     
     Parameters
     ----------
@@ -723,33 +716,30 @@ def renormalise_bins_twod(self):
     """
     _amr2_pkg.f90wrap_renormalise_bins_twod(prof_data=self._handle)
 
-def get_cells_onedprofile(repository, amr, reg, filt, varids, prof_data):
+def get_cells_onedprofile(repository, reg, filt, prof_data):
     """
-    get_cells_onedprofile(repository, amr, reg, filt, varids, prof_data)
+    get_cells_onedprofile(repository, reg, filt, prof_data)
     
     
-    Defined at profiles_module.fpp lines 313-515
+    Defined at profiles_module.fpp lines 308-508
     
     Parameters
     ----------
     repository : str
-    amr : Amr_Info
     reg : Region
     filt : Filter
-    varids : Hydroid
     prof_data : Profile_Handler
     
     """
-    _amr2_pkg.f90wrap_get_cells_onedprofile(repository=repository, amr=amr._handle, \
-        reg=reg._handle, filt=filt._handle, varids=varids._handle, \
-        prof_data=prof_data._handle)
+    _amr2_pkg.f90wrap_get_cells_onedprofile(repository=repository, reg=reg._handle, \
+        filt=filt._handle, prof_data=prof_data._handle)
 
 def onedprofile(repository, reg, filt, prof_data, lmax, logscale):
     """
     onedprofile(repository, reg, filt, prof_data, lmax, logscale)
     
     
-    Defined at profiles_module.fpp lines 517-539
+    Defined at profiles_module.fpp lines 510-529
     
     Parameters
     ----------
@@ -770,7 +760,7 @@ def twodprofile(repository, reg, filt, prof_data, lmax, logscale):
     twodprofile(repository, reg, filt, prof_data, lmax, logscale)
     
     
-    Defined at profiles_module.fpp lines 541-567
+    Defined at profiles_module.fpp lines 531-554
     
     Parameters
     ----------
@@ -786,28 +776,24 @@ def twodprofile(repository, reg, filt, prof_data, lmax, logscale):
         filt=filt._handle, prof_data=prof_data._handle, lmax=lmax, \
         logscale=logscale)
 
-def get_cells_twodprofile(repository, amr, reg, filt, varids, prof_data, \
-    logscale):
+def get_cells_twodprofile(repository, reg, filt, prof_data, logscale):
     """
-    get_cells_twodprofile(repository, amr, reg, filt, varids, prof_data, logscale)
+    get_cells_twodprofile(repository, reg, filt, prof_data, logscale)
     
     
-    Defined at profiles_module.fpp lines 569-771
+    Defined at profiles_module.fpp lines 556-756
     
     Parameters
     ----------
     repository : str
-    amr : Amr_Info
     reg : Region
     filt : Filter
-    varids : Hydroid
     prof_data : Profile_Handler_Twod
     logscale : bool
     
     """
-    _amr2_pkg.f90wrap_get_cells_twodprofile(repository=repository, amr=amr._handle, \
-        reg=reg._handle, filt=filt._handle, varids=varids._handle, \
-        prof_data=prof_data._handle, logscale=logscale)
+    _amr2_pkg.f90wrap_get_cells_twodprofile(repository=repository, reg=reg._handle, \
+        filt=filt._handle, prof_data=prof_data._handle, logscale=logscale)
 
 
 _array_initialisers = []

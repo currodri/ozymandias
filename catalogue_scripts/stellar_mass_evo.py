@@ -11,7 +11,6 @@ import numpy as np
 import os
 import argparse
 from astropy.cosmology import FlatLambdaCDM, z_at_value
-from yt import YTArray, YTQuantity
 import seaborn as sns
 import matplotlib
 import matplotlib.pyplot as plt
@@ -96,14 +95,13 @@ if __name__ == '__main__':
             # Initialise simulation parameters
             redshift = sim.simulation.redshift
             h = sim.simulation.hubble_constant
-            cosmo = FlatLambdaCDM(H0=100*sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
-            Ob0=sim.simulation.parameters['omega_b'],Tcmb0=2.73)
+            cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
+                                    Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
 
             # Age of Universe at this redshift
             thubble = cosmo.age(redshift).value
 
             m = sim.galaxies[progind].mass['stellar']
-            m = YTQuantity(m, 'code_mass', registry=sim.unit_registry)
             galaxy_masses.append(m.in_units('Msun').d)
             galaxy_time.append(thubble)
             bad_mass = False

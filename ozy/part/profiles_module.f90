@@ -56,11 +56,10 @@ module part_profiles
         end select
     end subroutine makebins
 
-    subroutine findbinpos(sim,reg,distance,part,prof,ibin)
+    subroutine findbinpos(reg,distance,part,prof,ibin)
         use vectors
         use geometrical_regions
         implicit none
-        type(sim_info),intent(in) :: sim
         type(region),intent(in) :: reg
         real(dbl),intent(in) :: distance
         type(particle),intent(in) :: part
@@ -71,7 +70,7 @@ module part_profiles
         if (prof%xvarname.eq.reg%criteria_name) then
             value = distance
         else
-            call getpartvalue(sim,reg,part,prof%xvarname,value)
+            call getpartvalue(reg,part,prof%xvarname,value)
         endif
         ibin = int(dble(prof%nbins)*(value-prof%xdata(1))/(prof%xdata(prof%nbins)-prof%xdata(1)))
         ibin = max(ibin,1)
@@ -79,11 +78,10 @@ module part_profiles
     end subroutine findbinpos
 
 
-    subroutine bindata(sim,reg,part,prof,ibin)
+    subroutine bindata(reg,part,prof,ibin)
         use vectors
         use geometrical_regions
         implicit none
-        type(sim_info),intent(in) :: sim
         type(region),intent(in) :: reg
         type(particle),intent(in) :: part
         type(profile_handler),intent(inout) :: prof
@@ -91,12 +89,12 @@ module part_profiles
         integer :: i,j
         real(dbl) :: ytemp,wtemp,bigwtemp,bigatemp
         yvarloop: do i=1,prof%nyvar
-            call getpartvalue(sim,reg,part,prof%yvarnames(i),ytemp)
+            call getpartvalue(reg,part,prof%yvarnames(i),ytemp)
             wvarloop: do j=1,prof%nwvar
                 if (prof%wvarnames(j)=='counts'.or.prof%wvarnames(j)=='cumulative') then
                     wtemp = 1D0
                 else
-                    call getpartvalue(sim,reg,part,prof%wvarnames(j),wtemp)
+                    call getpartvalue(reg,part,prof%wvarnames(j),wtemp)
                 endif
                 ! Unbiased STD method. See: https://en.wikipedia.org/wiki/Reduced_chi-squared_statistic
                 ! Q_k
@@ -139,14 +137,12 @@ module part_profiles
         end do binloop
     end subroutine renormalise_bins
 
-    subroutine get_parts_onedprofile(repository,amr,sim,reg,filt,prof_data)
+    subroutine get_parts_onedprofile(repository,reg,filt,prof_data)
         use vectors
         use coordinate_systems
         use geometrical_regions
         implicit none
         character(128),intent(in) :: repository
-        type(amr_info),intent(inout) :: amr
-        type(sim_info),intent(inout) :: sim
         type(region), intent(in)  :: reg
         type(filter),intent(in) :: filt
         type(profile_handler),intent(inout) :: prof_data
@@ -155,14 +151,19 @@ module part_profiles
         integer :: roterr
         integer :: i,j,k
         integer :: ipos,icpu,binpos
-        integer :: npart,npart2,nstar,ncpu2,ndim2
+        integer :: npart,npart2,nstar
+        integer :: ncpu2,ndim2
         real(dbl) :: distance
         real(dbl),dimension(1:3,1:3) :: trans_matrix
         character(5) :: nchar,ncharcpu
         character(128) :: nomfich
         type(vector) :: xtemp,vtemp
         type(particle) :: part
-        integer,dimension(:),allocatable :: id
+#ifndef LONGINT
+        integer(irg),dimension(:),allocatable :: id
+#else
+        integer(ilg),dimension(:),allocatable :: id
+#endif
         real(dbl),dimension(:),allocatable :: m,age,met,imass
         real(dbl),dimension(:,:),allocatable :: x,v
 
@@ -177,7 +178,7 @@ module part_profiles
         ! Cosmological model
         if (sim%aexp.eq.1.and.sim%h0.eq.1)sim%cosmo=.false.
         if (sim%cosmo) then
-            call cosmology_model(sim)
+            call cosmology_model
         else
             sim%time_simu = sim%t
             write(*,*)'Age simu=',sim%time_simu*sim%unit_t/(365.*24.*3600.*1d9)
@@ -280,13 +281,13 @@ module part_profiles
                 call rotate_vector(part%x,trans_matrix)
                 x(i,:) = part%x
                 call checkifinside(x(i,:),reg,ok_part,distance)
-                ok_filter = filter_particle(sim,reg,filt,part)
+                ok_filter = filter_particle(reg,filt,part)
                 ok_part = ok_part.and.ok_filter
                 if (ok_part) then
                     call rotate_vector(part%v,trans_matrix)
                     binpos = 0
-                    call findbinpos(sim,reg,distance,part,prof_data,binpos)
-                    if (binpos.ne.0)  call bindata(sim,reg,part,prof_data,binpos)
+                    call findbinpos(reg,distance,part,prof_data,binpos)
+                    if (binpos.ne.0)  call bindata(reg,part,prof_data,binpos)
                 endif
             end do partloop
             deallocate(m,x,v)
@@ -303,23 +304,19 @@ module part_profiles
         type(profile_handler),intent(inout) :: prof_data
         integer,intent(in) :: lmax
 
-        type(hydroID) :: varIDs
-        type(amr_info) :: amr
-        type(sim_info) :: sim
+        call read_hydrofile_descriptor(repository)
 
-        call read_hydrofile_descriptor(repository,varIDs)
-
-        call init_amr_read(repository,amr,sim)
+        call init_amr_read(repository)
         amr%lmax = lmax
         if (lmax.eq.0) amr%lmax = amr%nlevelmax
-        call check_families(repository,sim)
+        call check_families(repository)
         prof_data%xdata = 0D0
         prof_data%ydata = 0D0
         call makebins(reg,prof_data%xvarname,prof_data%nbins,prof_data%xdata)
 
-        call get_cpu_map(reg,amr)
+        call get_cpu_map(reg)
         write(*,*)'ncpu_read:',amr%ncpu_read
-        call get_parts_onedprofile(repository,amr,sim,reg,filt,prof_data)
+        call get_parts_onedprofile(repository,reg,filt,prof_data)
 
         call renormalise_bins(prof_data)
     end subroutine onedprofile

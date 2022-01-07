@@ -2,7 +2,7 @@
 Module maps
 
 
-Defined at ramses2map.fpp lines 194-1005
+Defined at ramses2map.fpp lines 194-1044
 
 """
 from __future__ import print_function, absolute_import, division
@@ -222,12 +222,12 @@ def project_cells(repository, bbox, cam, proj):
     _projections_pkg.f90wrap_project_cells(repository=repository, bbox=bbox._handle, \
         cam=cam._handle, proj=proj._handle)
 
-def projection_parts(repository, cam, bulk_velocity, proj):
+def projection_parts(repository, cam, bulk_velocity, proj, tag_file=None):
     """
-    projection_parts(repository, cam, bulk_velocity, proj)
+    projection_parts(repository, cam, bulk_velocity, proj[, tag_file])
     
     
-    Defined at ramses2map.fpp lines 536-555
+    Defined at ramses2map.fpp lines 536-560
     
     Parameters
     ----------
@@ -235,17 +235,19 @@ def projection_parts(repository, cam, bulk_velocity, proj):
     cam : Camera
     bulk_velocity : Vector
     proj : Projection_Handler
+    tag_file : str
     
     """
     _projections_pkg.f90wrap_projection_parts(repository=repository, \
-        cam=cam._handle, bulk_velocity=bulk_velocity._handle, proj=proj._handle)
+        cam=cam._handle, bulk_velocity=bulk_velocity._handle, proj=proj._handle, \
+        tag_file=tag_file)
 
-def project_particles(repository, bbox, cam, proj):
+def project_particles(repository, bbox, cam, proj, tag_file=None):
     """
-    project_particles(repository, bbox, cam, proj)
+    project_particles(repository, bbox, cam, proj[, tag_file])
     
     
-    Defined at ramses2map.fpp lines 557-739
+    Defined at ramses2map.fpp lines 562-778
     
     Parameters
     ----------
@@ -253,17 +255,18 @@ def project_particles(repository, bbox, cam, proj):
     bbox : Region
     cam : Camera
     proj : Projection_Handler
+    tag_file : str
     
     """
     _projections_pkg.f90wrap_project_particles(repository=repository, \
-        bbox=bbox._handle, cam=cam._handle, proj=proj._handle)
+        bbox=bbox._handle, cam=cam._handle, proj=proj._handle, tag_file=tag_file)
 
 def healpix_hydro(repository, reg, nside, proj):
     """
     healpix_hydro(repository, reg, nside, proj)
     
     
-    Defined at ramses2map.fpp lines 741-753
+    Defined at ramses2map.fpp lines 780-792
     
     Parameters
     ----------
@@ -281,7 +284,7 @@ def project_cells_hpix(repository, reg, nside, proj):
     project_cells_hpix(repository, reg, nside, proj)
     
     
-    Defined at ramses2map.fpp lines 755-1005
+    Defined at ramses2map.fpp lines 794-1044
     
     Parameters
     ----------

@@ -451,7 +451,7 @@ subroutine f90wrap_basis_finalise(this)
 end subroutine f90wrap_basis_finalise
 
 subroutine f90wrap_initialise_basis(this)
-    use basis_representations, only: initialise_basis, basis
+    use basis_representations, only: basis, initialise_basis
     implicit none
     
     type basis_ptr_type
@@ -464,7 +464,7 @@ subroutine f90wrap_initialise_basis(this)
 end subroutine f90wrap_initialise_basis
 
 subroutine f90wrap_mgramschmidt(vecs, e)
-    use basis_representations, only: mgramschmidt, basis
+    use basis_representations, only: basis, mgramschmidt
     implicit none
     
     type basis_ptr_type

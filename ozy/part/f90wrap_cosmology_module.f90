@@ -1,17 +1,10 @@
 ! Module cosmology defined in file cosmology_module.fpp
 
-subroutine f90wrap_cosmology_model(sim)
+subroutine f90wrap_cosmology_model
     use cosmology, only: cosmology_model
-    use io_ramses, only: sim_info
     implicit none
     
-    type sim_info_ptr_type
-        type(sim_info), pointer :: p => NULL()
-    end type sim_info_ptr_type
-    type(sim_info_ptr_type) :: sim_ptr
-    integer, intent(in), dimension(2) :: sim
-    sim_ptr = transfer(sim, sim_ptr)
-    call cosmology_model(sim=sim_ptr%p)
+    call cosmology_model()
 end subroutine f90wrap_cosmology_model
 
 subroutine f90wrap_friedmann(o_mat_0, o_vac_0, o_k_0, alpha, axp_min, axp_out, hexp_out, tau_out, t_out, ntable, &

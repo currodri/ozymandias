@@ -14,11 +14,9 @@ module cosmology
     ! It creates from there the look-up tables and the age of the
     ! simulation in that snapshot.
     !---------------------------------------------------------------
-    subroutine cosmology_model(sim)
+    subroutine cosmology_model
         use io_ramses
         implicit none
-        type(sim_info),intent(inout) :: sim
-
         ! These values are hardcoded, such that consistency with other
         ! RAMSES utils can be used
         integer :: i
@@ -29,6 +27,7 @@ module cosmology
         axp_min = 1.d-3
 
         ! Allocate look-up tables
+        if(allocated(sim%aexp_frw))deallocate(sim%aexp_frw,sim%hexp_frw,sim%tau_frw,sim%t_frw)
         allocate(sim%aexp_frw(0:sim%n_frw),sim%hexp_frw(0:sim%n_frw))
         allocate(sim%tau_frw(0:sim%n_frw),sim%t_frw(0:sim%n_frw))
 

@@ -50,8 +50,8 @@ if __name__ == '__main__':
                             [['inflow','metallicity',1.0], ['outflow','metallicity',0.5], ['outflow/inflow','density',1.0]]
                             ])
 
-        line_dict = {'cosmoNUThd':'b','cosmoNUTmhd':'m','cosmoNUTcrmhd':'g'}
-        line_styles = {'cosmoNUThd':':','cosmoNUTmhd':'--','cosmoNUTcrmhd':'-'}
+        line_dict = {'cosmoNUThd':'b','cosmoNUTmhd':'m','cosmoNUTcrmhd':'g','cosmoNUTcrmhd\_nost':'olive','cosmoNUTcrmhd\_noheat':'darkkhaki'}
+        line_styles = {'cosmoNUThd':':','cosmoNUTmhd':'--','cosmoNUTcrmhd':'-','cosmoNUTcrmhd\_nost':'--','cosmoNUTcrmhd\_noheat':':'}
         flow_style = {'outflow':'-','inflow':'--'}
 
         data = np.array([[dict(),dict(),dict()],
@@ -70,11 +70,10 @@ if __name__ == '__main__':
             time[args.model[k]] = []
 
         for i in range(0, len(args.model)):
-            if args.model[i][0] != '/':
+            if args.model[i] != '/':
                 simfolder = os.path.join(os.getcwd(), args.model[i])
             else:
                 simfolder = args.model[i]
-                args.model[i] = args.model[i].split('/')[-1]
             if not os.path.exists(simfolder):
                 raise Exception('The given simulation name is not found in this directory!')
             
@@ -111,8 +110,8 @@ if __name__ == '__main__':
                         progind = -1
                     continue
                 h = sim.simulation.hubble_constant
-                cosmo = FlatLambdaCDM(H0=100*sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
-                Ob0=sim.simulation.parameters['omega_b'],Tcmb0=2.73)
+                cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
+                Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
 
                 # Age of Universe at this redshift
                 thubble = cosmo.age(redshift).value
@@ -146,14 +145,14 @@ if __name__ == '__main__':
                     progind = -1
                 
                 gf = {}
-                gf['inflow_50'] = compute_flows(gal,os.path.join(groupspath, ozyfile),'inflow',rmin=0.5-0.01,
-                                                rmax=0.5+0.01,save=False,recompute=False)
-                gf['inflow_100'] = compute_flows(gal,os.path.join(groupspath, ozyfile),'inflow',rmin=1.0-0.01,
-                                                rmax=1.0+0.01,save=False,recompute=False)
-                gf['outflow_50'] = compute_flows(gal,os.path.join(groupspath, ozyfile),'outflow',rmin=0.5-0.01,
-                                                rmax=0.5+0.01,save=False,recompute=False)
-                gf['outflow_100'] = compute_flows(gal,os.path.join(groupspath, ozyfile),'outflow',rmin=1.0-0.01,
-                                                rmax=1.0+0.01,save=False,recompute=False)
+                gf['inflow_50'] = compute_flows(gal,os.path.join(groupspath, ozyfile),'inflow',rmin=(0.5-0.01,'rvir'),
+                                                rmax=(0.5+0.01,'rvir'),save=False,recompute=False)
+                gf['inflow_100'] = compute_flows(gal,os.path.join(groupspath, ozyfile),'inflow',rmin=(1.0-0.01,'rvir'),
+                                                rmax=(1.0+0.01,'rvir'),save=False,recompute=False)
+                gf['outflow_50'] = compute_flows(gal,os.path.join(groupspath, ozyfile),'outflow',rmin=(0.5-0.01,'rvir'),
+                                                rmax=(0.5+0.01,'rvir'),save=False,recompute=False)
+                gf['outflow_100'] = compute_flows(gal,os.path.join(groupspath, ozyfile),'outflow',rmin=(1.0-0.01,'rvir'),
+                                                rmax=(1.0+0.01,'rvir'),save=False,recompute=False)
                 
                 
                 factor = 1
@@ -211,21 +210,26 @@ if __name__ == '__main__':
                 ax.minorticks_on()
                 ax.tick_params(which='both',axis="both",direction="in")
                 for k in range(0, len(args.model)):
+                    if args.model[k] != '/':
+                        temp_name = args.model[k].replace('_','\_')
+                    else:
+                        temp_name = args.model[k].split('/')[-1]
+                        temp_name = temp_name.replace('_','\_')
                     if i==2 and j==2:
                         radius = [0.5,1.0]
                         for t in range(0,2):
-                            label = args.model[k].split('cosmo')[1] + '('+v[0].split('/')[t]+','+str(radius[t])+r'$r_{\rm vir,DM}$)'
+                            label = temp_name.split('cosmoNUT')[1] + '('+v[0].split('/')[t]+','+str(radius[t])+r'$r_{\rm vir,DM}$)'
                             median = medfilt(data[i,j][args.model[k]][t],7)
-                            ax.plot(time[args.model[k]], np.log10(median),label=label,linestyle=flow_style[v[0].split('/')[t]],color=line_dict[args.model[k]])
+                            ax.plot(time[args.model[k]], np.log10(median),label=label,linestyle=flow_style[v[0].split('/')[t]],color=line_dict[temp_name])
                             ax.set_ylim([-28,-22])
                     else:
                         if v[1] != 'v_sphere_r' and v[1] != 'massflow_rate':
                             #median = RunningMedian(data[i,j][args.model[k]],3)
                             median = medfilt(data[i,j][args.model[k]],5)
-                            ax.plot(time[args.model[k]], np.log10(median),linestyle=line_styles[args.model[k]],color=line_dict[args.model[k]])
+                            ax.plot(time[args.model[k]], np.log10(median),linestyle=line_styles[temp_name],color=line_dict[temp_name])
                         else:
                             median = medfilt(data[i,j][args.model[k]],5)
-                            ax.plot(time[args.model[k]], median,label=args.model[k],linestyle=line_styles[args.model[k]],color=line_dict[args.model[k]])
+                            ax.plot(time[args.model[k]], median,label=temp_name,linestyle=line_styles[temp_name],color=line_dict[temp_name])
                         
 
                 # Add top ticks for redshift
@@ -262,7 +266,7 @@ if __name__ == '__main__':
         time = np.linspace(np.min(time[args.model[0]]),np.max(time[args.model[0]]),100)
         redshift = [z_at_value(cosmo.age,t*u.Gyr) for t in time]
         rho_crit = cosmo.critical_density(redshift)
-        rho_halo = 178*rho_crit.value*sim.simulation.parameters['omega_b']/sim.simulation.omega_matter
+        rho_halo = 178*rho_crit.value*sim.simulation.omega_baryon/sim.simulation.omega_matter
         ax.plot(time,np.log10(rho_halo),linewidth=4,color='k',alpha=0.5,label=r'$\rho_{\rm b}$')
         ax.legend(loc='best', fontsize=14,frameon=False)
 
@@ -325,8 +329,8 @@ if __name__ == '__main__':
                         progind = -1
                     continue
                 h = sim.simulation.hubble_constant
-                cosmo = FlatLambdaCDM(H0=100*sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
-                Ob0=sim.simulation.parameters['omega_b'],Tcmb0=2.73)
+                cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
+                Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
 
                 # Age of Universe at this redshift
                 thubble = cosmo.age(redshift).value
@@ -354,8 +358,8 @@ if __name__ == '__main__':
                 except:
                     progind = -1
                 
-                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=args.r-0.01,
-                                    rmax=args.r+0.01,save=True,recompute=False)
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
+                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=False)
                 
                 d_key = str(int(100*args.r))
                 try:
@@ -397,7 +401,7 @@ if __name__ == '__main__':
     elif args.type == 'separate_phases':
         fig, axes = plt.subplots(3,len(args.model), figsize=(13,13),dpi=100,facecolor='w',edgecolor='k', sharex='col', sharey='row')
 
-        line_dict = {'cosmoNUThd':'b','cosmoNUTmhd':'m','cosmoNUTcrmhd':'g','cosmoNUTcrmhd_nost':'g'}
+        line_dict = {'cosmoNUThd':'b','cosmoNUTmhd':'m','cosmoNUTcrmhd':'g','cosmoNUTcrmhd\_nost':'olive','cosmoNUTcrmhd\_noheat':'darkkhaki'}
         if args.flowtype == 'outflow':
             line_styles = {'hot':'-','warm_ionised':'--','warm_neutral':'-.','cold':':'}
             labels = {'hot':r'$T > 10^5$K','warm_ionised':r'$9\cdot 10^3 \text{K} < T < 10^5$K','warm_neutral':r'$1\cdot 10^3 \text{K} < T < 9\cdot 10^3$K','cold':r'$1\cdot 10^3 \text{K} < T$'}
@@ -452,8 +456,8 @@ if __name__ == '__main__':
                         progind = -1
                     continue
                 h = sim.simulation.hubble_constant
-                cosmo = FlatLambdaCDM(H0=100*sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
-                Ob0=sim.simulation.parameters['omega_b'],Tcmb0=2.73)
+                cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
+                Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
 
                 # Age of Universe at this redshift
                 thubble = cosmo.age(redshift).value
@@ -484,8 +488,8 @@ if __name__ == '__main__':
                 except:
                     progind = -1
                 
-                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=args.r-0.01,
-                                    rmax=args.r+0.01,save=True,recompute=False,separate_phases=True)
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
+                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=False,separate_phases=True)
                 
                 d_key = str(int(100*args.r))
                 factor = 1
@@ -599,8 +603,8 @@ if __name__ == '__main__':
                         progind = -1
                     continue
                 h = sim.simulation.hubble_constant
-                cosmo = FlatLambdaCDM(H0=100*sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
-                Ob0=sim.simulation.parameters['omega_b'],Tcmb0=2.73)
+                cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
+                Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
 
                 # Age of Universe at this redshift
                 thubble = cosmo.age(redshift).value
@@ -628,8 +632,8 @@ if __name__ == '__main__':
                 except:
                     progind = -1
                 
-                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.type,rmin=args.r-0.01,
-                                    rmax=args.r+0.01,save=True,recompute=False)
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.type,rmin=(args.r-0.01,'rvir'),
+                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=False)
                 
                 d_key = str(int(100*args.r))
                 try:

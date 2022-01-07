@@ -76,12 +76,11 @@ module amr_profiles
         if (.not.allocated(prof%zdata)) allocate(prof%zdata(prof%nbins(1),prof%nbins(2),prof%nzvar,prof%nwvar,4))
     end subroutine allocate_profile_handler_twod
 
-    subroutine makebins(reg,sim,varname,nbins,bins,logscale)
+    subroutine makebins(reg,varname,nbins,bins,logscale)
         use geometrical_regions
 
         implicit none
         type(region),intent(in) :: reg
-        type(sim_info),intent(in) :: sim
         character(128),intent(in) :: varname
         integer,intent(in) :: nbins
         real(dbl),dimension(1:nbins),intent(inout) :: bins
@@ -120,14 +119,13 @@ module amr_profiles
         end select
     end subroutine makebins
 
-    subroutine findbinpos(reg,varIDs,distance,pos,cellvars,cellsize,prof,ibin)
+    subroutine findbinpos(reg,distance,pos,cellvars,cellsize,prof,ibin)
         use vectors
         use geometrical_regions
         implicit none
         type(region),intent(in) :: reg
         real(dbl),dimension(1:3),intent(in) :: pos
         real(dbl),intent(in) :: distance
-        type(hydroID),intent(in) :: varIDs
         real(dbl),dimension(1:varIDs%nvar),intent(in) :: cellvars
         real(dbl),intent(in) :: cellsize
         type(profile_handler),intent(in) :: prof
@@ -139,21 +137,20 @@ module amr_profiles
         if (prof%xvarname.eq.reg%criteria_name) then
             value = distance
         else
-            call getvarvalue(varIDs,reg,cellsize,x,cellvars,prof%xvarname,value)
+            call getvarvalue(reg,cellsize,x,cellvars,prof%xvarname,value)
         endif
         ibin = int(dble(prof%nbins)*(value-prof%xdata(1))/(prof%xdata(prof%nbins)-prof%xdata(1)))
         ibin = max(ibin,1)
         ibin = min(ibin,prof%nbins)
     end subroutine findbinpos
 
-    subroutine findbinpos_twod(reg,varIDs,distance,pos,cellvars,cellsize,prof,logscale,ibinx,ibiny)
+    subroutine findbinpos_twod(reg,distance,pos,cellvars,cellsize,prof,logscale,ibinx,ibiny)
         use vectors
         use geometrical_regions
         implicit none
         type(region),intent(in) :: reg
         real(dbl),dimension(1:3),intent(in) :: pos
         real(dbl),intent(in) :: distance
-        type(hydroID),intent(in) :: varIDs
         real(dbl),dimension(1:varIDs%nvar),intent(in) :: cellvars
         real(dbl),intent(in) :: cellsize
         type(profile_handler_twod),intent(in) :: prof
@@ -166,7 +163,7 @@ module amr_profiles
         if (prof%xvarname.eq.reg%criteria_name) then
             value = distance
         else
-            call getvarvalue(varIDs,reg,cellsize,x,cellvars,prof%xvarname,value)
+            call getvarvalue(reg,cellsize,x,cellvars,prof%xvarname,value)
         endif
         if (logscale) then
             ibinx = int(dble(prof%nbins(1))*(log10(value)-prof%xdata(1))/(prof%xdata(prof%nbins(1))-prof%xdata(1)))
@@ -178,7 +175,7 @@ module amr_profiles
         if (prof%yvarname.eq.reg%criteria_name) then
             value = distance
         else
-            call getvarvalue(varIDs,reg,cellsize,x,cellvars,prof%yvarname,value)
+            call getvarvalue(reg,cellsize,x,cellvars,prof%yvarname,value)
         endif
         if (logscale) then
             ibiny = int(dble(prof%nbins(2))*(log10(value)-prof%ydata(1))/(prof%ydata(prof%nbins(2))-prof%ydata(1)))
@@ -189,13 +186,12 @@ module amr_profiles
         ibiny = min(ibiny,prof%nbins(2))
     end subroutine findbinpos_twod
 
-    subroutine bindata(reg,varIDs,pos,cellvars,cellsize,prof,ibin)
+    subroutine bindata(reg,pos,cellvars,cellsize,prof,ibin)
         use vectors
         use geometrical_regions
         implicit none
         type(region),intent(in) :: reg
         real(dbl),dimension(1:3),intent(in) :: pos
-        type(hydroID),intent(in) :: varIDs
         real(dbl),dimension(1:varIDs%nvar),intent(in) :: cellvars
         real(dbl),intent(in) :: cellsize
         type(profile_handler),intent(inout) :: prof
@@ -205,12 +201,12 @@ module amr_profiles
         type(vector) :: x
         x = pos
         yvarloop: do i=1,prof%nyvar
-            call getvarvalue(varIDs,reg,cellsize,x,cellvars,prof%yvarnames(i),ytemp)
+            call getvarvalue(reg,cellsize,x,cellvars,prof%yvarnames(i),ytemp)
             wvarloop: do j=1,prof%nwvar
                 if (prof%wvarnames(j)=='counts'.or.prof%wvarnames(j)=='cumulative') then
                     wtemp = 1D0
                 else
-                    call getvarvalue(varIDs,reg,cellsize,x,cellvars,prof%wvarnames(j),wtemp)
+                    call getvarvalue(reg,cellsize,x,cellvars,prof%wvarnames(j),wtemp)
                 endif
                 ! Unbiased STD method. See: https://en.wikipedia.org/wiki/Reduced_chi-squared_statistic
                 ! Q_k
@@ -243,13 +239,12 @@ module amr_profiles
         end do yvarloop
     end subroutine bindata
 
-    subroutine bindata_twod(reg,varIDs,pos,cellvars,cellsize,prof,ibinx,ibiny)
+    subroutine bindata_twod(reg,pos,cellvars,cellsize,prof,ibinx,ibiny)
         use vectors
         use geometrical_regions
         implicit none
         type(region),intent(in) :: reg
         real(dbl),dimension(1:3),intent(in) :: pos
-        type(hydroID),intent(in) :: varIDs
         real(dbl),dimension(1:varIDs%nvar),intent(in) :: cellvars
         real(dbl),intent(in) :: cellsize
         type(profile_handler_twod),intent(inout) :: prof
@@ -259,12 +254,12 @@ module amr_profiles
         type(vector) :: x
         x = pos
         zvarloop: do i=1,prof%nzvar
-            call getvarvalue(varIDs,reg,cellsize,x,cellvars,prof%zvarnames(i),ytemp)
+            call getvarvalue(reg,cellsize,x,cellvars,prof%zvarnames(i),ytemp)
             wvarloop: do j=1,prof%nwvar
                 if (prof%wvarnames(j)=='counts'.or.prof%wvarnames(j)=='cumulative') then
                     wtemp = 1D0
                 else
-                    call getvarvalue(varIDs,reg,cellsize,x,cellvars,prof%wvarnames(j),wtemp)
+                    call getvarvalue(reg,cellsize,x,cellvars,prof%wvarnames(j),wtemp)
                 endif
                 ! Unbiased STD method. See: https://en.wikipedia.org/wiki/Reduced_chi-squared_statistic
                 ! Q_k
@@ -338,16 +333,14 @@ module amr_profiles
             end do xbinloop
     end subroutine renormalise_bins_twod
 
-    subroutine get_cells_onedprofile(repository,amr,reg,filt,varIDs,prof_data)
+    subroutine get_cells_onedprofile(repository,reg,filt,prof_data)
         use vectors
         use coordinate_systems
         use geometrical_regions
         implicit none
         character(128),intent(in) :: repository
-        type(amr_info),intent(inout) :: amr
         type(region), intent(in)  :: reg
         type(filter),intent(in) :: filt
-        type(hydroID),intent(in) :: varIDs
         type(profile_handler),intent(inout) :: prof_data
         integer :: binpos
         logical :: ok_cell,ok_filter
@@ -418,7 +411,7 @@ module amr_profiles
             read(10)
 
             ! Make sure that we are not trying to access to far in the refinement map…
-            call check_lmax(ngridfile,amr)
+            call check_lmax(ngridfile)
             ! Open HYDRO file and skip header
             nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
             open(unit=11,file=nomfich,status='old',form='unformatted')
@@ -542,13 +535,13 @@ module amr_profiles
                             vtemp = var(i,ind,varIDs%vx:varIDs%vz)
                             call rotate_vector(vtemp,trans_matrix)
                             var(i,ind,varIDs%vx:varIDs%vz) = vtemp
-                            ok_filter = filter_cell(varIDs,reg,filt,xtemp,dx,var(i,ind,:))
+                            ok_filter = filter_cell(reg,filt,xtemp,dx,var(i,ind,:))
                             ok_cell= ok_cell.and..not.ref(i).and.ok_filter
                             ! write(*,*)'ok_cell: ',ok_cell
                             if (ok_cell) then
                                 binpos = 0
-                                call findbinpos(reg,varIDs,distance,x(i,:),var(i,ind,:),dx,prof_data,binpos)
-                                if (binpos.ne.0) call bindata(reg,varIDs,x(i,:),var(i,ind,:),dx,prof_data,binpos)
+                                call findbinpos(reg,distance,x(i,:),var(i,ind,:),dx,prof_data,binpos)
+                                if (binpos.ne.0) call bindata(reg,x(i,:),var(i,ind,:),dx,prof_data,binpos)
                             endif
                         end do ngridaloop
                     end do cellloop
@@ -571,22 +564,18 @@ module amr_profiles
         integer,intent(in) :: lmax
         logical,intent(in) :: logscale
 
-        type(hydroID) :: varIDs
-        type(amr_info) :: amr
-        type(sim_info) :: sim
+        call read_hydrofile_descriptor(repository)
 
-        call read_hydrofile_descriptor(repository,varIDs)
-
-        call init_amr_read(repository,amr,sim)
+        call init_amr_read(repository)
         amr%lmax = lmax
         if (lmax.eq.0) amr%lmax = amr%nlevelmax
         prof_data%xdata = 0D0
         prof_data%ydata = 0D0
-        call makebins(reg,sim,prof_data%xvarname,prof_data%nbins,prof_data%xdata,logscale)
+        call makebins(reg,prof_data%xvarname,prof_data%nbins,prof_data%xdata,logscale)
         
-        call get_cpu_map(reg,amr)
+        call get_cpu_map(reg)
         write(*,*)'ncpu_read:',amr%ncpu_read
-        call get_cells_onedprofile(repository,amr,reg,filt,varIDs,prof_data)
+        call get_cells_onedprofile(repository,reg,filt,prof_data)
 
         call renormalise_bins(prof_data)
 
@@ -602,12 +591,8 @@ module amr_profiles
         integer,intent(in) :: lmax
         logical,intent(in) :: logscale
 
-        type(hydroID) :: varIDs
-        type(amr_info) :: amr
-        type(sim_info) :: sim
-
-        call read_hydrofile_descriptor(repository,varIDs)
-        call init_amr_read(repository,amr,sim)
+        call read_hydrofile_descriptor(repository)
+        call init_amr_read(repository)
         amr%lmax = lmax
         if (lmax.eq.0) amr%lmax = amr%nlevelmax
         
@@ -615,27 +600,25 @@ module amr_profiles
         prof_data%ydata = 0D0
         prof_data%zdata = 0D0
 
-        call makebins(reg,sim,prof_data%xvarname,prof_data%nbins(1),prof_data%xdata,logscale)
-        call makebins(reg,sim,prof_data%yvarname,prof_data%nbins(2),prof_data%ydata,logscale)
+        call makebins(reg,prof_data%xvarname,prof_data%nbins(1),prof_data%xdata,logscale)
+        call makebins(reg,prof_data%yvarname,prof_data%nbins(2),prof_data%ydata,logscale)
         write(*,*)'lmax: ',amr%lmax
-        call get_cpu_map(reg,amr)
+        call get_cpu_map(reg)
         write(*,*)'ncpu_read:',amr%ncpu_read
-        call get_cells_twodprofile(repository,amr,reg,filt,varIDs,prof_data,logscale)
+        call get_cells_twodprofile(repository,reg,filt,prof_data,logscale)
         ! write(*,*)prof_data%zdata
         call renormalise_bins_twod(prof_data)
 
     end subroutine twodprofile
 
-    subroutine get_cells_twodprofile(repository,amr,reg,filt,varIDs,prof_data,logscale)
+    subroutine get_cells_twodprofile(repository,reg,filt,prof_data,logscale)
         use vectors
         use coordinate_systems
         use geometrical_regions
         implicit none
         character(128),intent(in) :: repository
-        type(amr_info),intent(inout) :: amr
         type(region), intent(in)  :: reg
         type(filter),intent(in) :: filt
-        type(hydroID),intent(in) :: varIDs
         type(profile_handler_twod),intent(inout) :: prof_data
         logical,intent(in) :: logscale
         integer :: xbinpos,ybinpos
@@ -707,7 +690,7 @@ module amr_profiles
             read(10)
 
             ! Make sure that we are not trying to access to far in the refinement map…
-            call check_lmax(ngridfile,amr)
+            call check_lmax(ngridfile)
             ! Open HYDRO file and skip header
             nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
             open(unit=11,file=nomfich,status='old',form='unformatted')
@@ -822,15 +805,15 @@ module amr_profiles
                             call rotate_vector(xtemp,trans_matrix)
                             x(i,:) = xtemp
                             call checkifinside(x(i,:),reg,ok_cell,distance)
-                            ok_filter = filter_cell(varIDs,reg,filt,xtemp,dx,var(i,ind,:))
+                            ok_filter = filter_cell(reg,filt,xtemp,dx,var(i,ind,:))
                             ok_cell= ok_cell.and..not.ref(i).and.ok_filter
                             if (ok_cell) then
                                 vtemp = var(i,ind,varIDs%vx:varIDs%vz)
                                 call rotate_vector(vtemp,trans_matrix)
                                 var(i,ind,varIDs%vx:varIDs%vz) = vtemp
                                 xbinpos = 0; ybinpos=0
-                                call findbinpos_twod(reg,varIDs,distance,x(i,:),var(i,ind,:),dx,prof_data,logscale,xbinpos,ybinpos)
-                                if (xbinpos.ne.0.and.ybinpos.ne.0) call bindata_twod(reg,varIDs,x(i,:),var(i,ind,:),dx,prof_data,xbinpos,ybinpos)
+                                call findbinpos_twod(reg,distance,x(i,:),var(i,ind,:),dx,prof_data,logscale,xbinpos,ybinpos)
+                                if (xbinpos.ne.0.and.ybinpos.ne.0) call bindata_twod(reg,x(i,:),var(i,ind,:),dx,prof_data,xbinpos,ybinpos)
                             endif
                         end do ngridaloop
                     end do cellloop

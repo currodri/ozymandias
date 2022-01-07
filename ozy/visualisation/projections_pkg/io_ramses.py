@@ -2,7 +2,7 @@
 Module io_ramses
 
 
-Defined at read_amr_module.fpp lines 24-1328
+Defined at read_amr_module.fpp lines 24-1382
 
 """
 from __future__ import print_function, absolute_import, division
@@ -1870,7 +1870,7 @@ class particle(f90wrap.runtime.FortranDerivedType):
     @property
     def id(self):
         """
-        Element id ftype=integer  pytype=int
+        Element id ftype=integer(irg) pytype=int
         
         
         Defined at read_amr_module.fpp line 73
@@ -2030,7 +2030,7 @@ def title(n, nchar):
     title(n, nchar)
     
     
-    Defined at read_amr_module.fpp lines 87-111
+    Defined at read_amr_module.fpp lines 89-113
     
     Parameters
     ----------
@@ -2045,7 +2045,7 @@ def hilbert3d(x, y, z, order, bit_length, npoint):
     hilbert3d(x, y, z, order, bit_length, npoint)
     
     
-    Defined at read_amr_module.fpp lines 118-190
+    Defined at read_amr_module.fpp lines 120-192
     
     Parameters
     ----------
@@ -2065,7 +2065,7 @@ def check_lmax(ngridfile):
     check_lmax(ngridfile)
     
     
-    Defined at read_amr_module.fpp lines 198-210
+    Defined at read_amr_module.fpp lines 200-212
     
     Parameters
     ----------
@@ -2079,7 +2079,7 @@ def check_families(repository):
     check_families(repository)
     
     
-    Defined at read_amr_module.fpp lines 219-244
+    Defined at read_amr_module.fpp lines 221-246
     
     Parameters
     ----------
@@ -2093,7 +2093,7 @@ def read_hydrofile_descriptor(repository):
     read_hydrofile_descriptor(repository)
     
     
-    Defined at read_amr_module.fpp lines 253-287
+    Defined at read_amr_module.fpp lines 255-289
     
     Parameters
     ----------
@@ -2107,7 +2107,7 @@ def read_hydrofile_descriptor_old(repository):
     read_hydrofile_descriptor_old(repository)
     
     
-    Defined at read_amr_module.fpp lines 297-353
+    Defined at read_amr_module.fpp lines 299-355
     
     Parameters
     ----------
@@ -2121,7 +2121,7 @@ def select_from_descriptor_ids(newvar, newid):
     select_from_descriptor_ids(newvar, newid)
     
     
-    Defined at read_amr_module.fpp lines 355-431
+    Defined at read_amr_module.fpp lines 357-433
     
     Parameters
     ----------
@@ -2136,7 +2136,7 @@ def read_hydrofile_descriptor_new(repository):
     read_hydrofile_descriptor_new(repository)
     
     
-    Defined at read_amr_module.fpp lines 441-472
+    Defined at read_amr_module.fpp lines 443-474
     
     Parameters
     ----------
@@ -2150,7 +2150,7 @@ def getvarvalue(self, dx, x, var, varname, value):
     getvarvalue(self, dx, x, var, varname, value)
     
     
-    Defined at read_amr_module.fpp lines 481-727
+    Defined at read_amr_module.fpp lines 483-763
     
     Parameters
     ----------
@@ -2170,7 +2170,7 @@ def init_amr_read(repository):
     init_amr_read(repository)
     
     
-    Defined at read_amr_module.fpp lines 736-824
+    Defined at read_amr_module.fpp lines 772-860
     
     Parameters
     ----------
@@ -2184,7 +2184,7 @@ def get_cpu_map(self):
     get_cpu_map(self)
     
     
-    Defined at read_amr_module.fpp lines 832-920
+    Defined at read_amr_module.fpp lines 868-956
     
     Parameters
     ----------
@@ -2198,7 +2198,7 @@ def getparttype(self, ptype):
     getparttype(self, ptype)
     
     
-    Defined at read_amr_module.fpp lines 922-930
+    Defined at read_amr_module.fpp lines 958-966
     
     Parameters
     ----------
@@ -2213,7 +2213,7 @@ def getpartvalue(self, part, var, value, dx=None):
     getpartvalue(self, part, var, value[, dx])
     
     
-    Defined at read_amr_module.fpp lines 932-1327
+    Defined at read_amr_module.fpp lines 968-1381
     
     Parameters
     ----------
@@ -2226,6 +2226,19 @@ def getpartvalue(self, part, var, value, dx=None):
     """
     _projections_pkg.f90wrap_getpartvalue(reg=self._handle, part=part._handle, \
         var=var, value=value, dx=None if dx is None else dx._handle)
+
+def get_longint():
+    """
+    Element longint ftype=logical pytype=bool
+    
+    
+    Defined at read_amr_module.fpp line 82
+    
+    """
+    return _projections_pkg.f90wrap_io_ramses__get__longint()
+
+def set_longint(longint):
+    _projections_pkg.f90wrap_io_ramses__set__longint(longint)
 
 
 _array_initialisers = []

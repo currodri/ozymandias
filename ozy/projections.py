@@ -325,7 +325,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     # Setup camera details for the requested POV (Point of View)
     if window[0] == 0.0:
         if group.type == 'halo':
-            window = 1.2*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            window = 1.2*group.virial_quantities['radius'].d
         else:
             window = 0.2*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
     else:
@@ -780,22 +780,22 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
         ax.add_artist(scalebar)
 
     if len(centers) != 0 and len(radii) != 0:
-        # for c in range(0, len(centers)):
-        #     centrecircle = (-centers[c][2]*1000,-centers[c][1]*1000)
-        #     r = radii[c] * 1000
-        #     circle = plt.Circle(centrecircle,r,fill=False,edgecolor='w',linestyle='--')
-        #     ax.add_patch(circle)
-        #     ax.text(centrecircle[0]+1.1*r, centrecircle[1]+1.1*r, names[c], # Name of object
-        #                     verticalalignment='bottom', horizontalalignment='left',
-        #                     color=plotting_def['text_over'], fontsize=10,fontweight='bold')
-        centrecircle = (-centers[0][2]*1000,-centers[0][1]*1000)
-        r = radii[0] * 1000
-        circle = plt.Circle(centrecircle,r,fill=False,edgecolor='w',linestyle='--')
-        ax.add_patch(circle)
-        ax.text(centrecircle[0]+1.1*r, centrecircle[1]+1.1*r, names[0], # Name of object
-                        verticalalignment='bottom', horizontalalignment='left',
-                        color=plotting_def['text_over'], fontsize=10,fontweight='bold')
-        ax.scatter(-centers[1:][2]*1000,-centers[1:][1]*1000)#,s=0.1,alpha=0.4,facecolor='r')
+        for c in range(0, len(centers)):
+            centrecircle = (-centers[c][2]*1000,-centers[c][1]*1000)
+            r = radii[c] * 1000
+            circle = plt.Circle(centrecircle,r,fill=False,edgecolor='w',linestyle='--')
+            ax.add_patch(circle)
+            ax.text(centrecircle[0]+1.1*r, centrecircle[1]+1.1*r, names[c], # Name of object
+                            verticalalignment='bottom', horizontalalignment='left',
+                            color=plotting_def['text_over'], fontsize=10,fontweight='bold')
+        # centrecircle = (-centers[0][2]*1000,-centers[0][1]*1000)
+        # r = radii[0] * 1000
+        # circle = plt.Circle(centrecircle,r,fill=False,edgecolor='w',linestyle='--')
+        # ax.add_patch(circle)
+        # ax.text(centrecircle[0]+1.1*r, centrecircle[1]+1.1*r, names[0], # Name of object
+        #                 verticalalignment='bottom', horizontalalignment='left',
+        #                 color=plotting_def['text_over'], fontsize=10,fontweight='bold')
+        # ax.scatter(-centers[1:][2]*1000,-centers[1:][1]*1000)#,s=0.1,alpha=0.4,facecolor='r')
 
     fig.subplots_adjust(hspace=0,wspace=0,left=0,right=1, bottom=0, top=1)
     if stellar:
@@ -976,7 +976,8 @@ def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,
         reg = geometrical_regions.region()
         reg.name = 'sphere'
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        pos = group.position.in_units('code_length').d
+        centre.x, centre.y, centre.z = pos[0], pos[1], pos[2]
         reg.centre = centre
         bulk = vectors.vector()
         velocity = group.velocity.in_units('code_velocity')
@@ -995,8 +996,9 @@ def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,
             dr = dr[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
         else:
             dr = group.obj.quantity(dr[0],dr[1]).in_units('code_length').d
-        reg.rmin = (1-0.5*dr)*rmax
-        reg.rmax = (1.+0.5*dr)*rmax
+        reg.rmin = rmax - 0.5*dr
+        reg.rmax = rmax + 0.5*dr
+        print(reg.rmin,reg.rmax,reg.centre,reg.axis)
 
         # Update projection details with the ones used for the region
         proj.up_vector = norm_L

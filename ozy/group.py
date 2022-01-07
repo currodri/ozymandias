@@ -291,9 +291,10 @@ class Galaxy(Group):
         selected_reg = init_region(self,'sphere')
 
         # We do not want any particular filter, just simple integration will do
-        filt = filtering.filter()
-        cold_filt = init_filter(cond_strs=['entropy_specific/</3.7e+8/erg*K**-1*g**-1'],name='cold',group=self)
-        warm_filt = init_filter(cond_strs=['entropy_specific/>=/3.7e+8/erg*K**-1*g**-1','entropy_specific/<=/23.2e+8/erg*K**-1*g**-1'],name='warm',group=self)
+        all_filt = filtering.filter()
+        phase_names = ['cold','warm','hot']
+        cold_filt = init_filter(cond_strs=['entropy_specific/</4.4e+8/erg*K**-1*g**-1'],name='cold',group=self)
+        warm_filt = init_filter(cond_strs=['entropy_specific/>=/4.4e+8/erg*K**-1*g**-1','entropy_specific/<=/23.2e+8/erg*K**-1*g**-1'],name='warm',group=self)
         hot_filt  = init_filter(cond_strs=['entropy_specific/>/23.2e+8/erg*K**-1*g**-1'],name='hot',group=self)
 
         # Since the number of global quanties that can be computed
@@ -330,160 +331,92 @@ class Galaxy(Group):
         glob_attrs = amr_integrator.amr_region_attrs()
         glob_attrs.nvars = len(quantity_names)
         glob_attrs.nwvars = len(weight_names)
+        glob_attrs.nfilter = len(phase_names) + 1
         amr_integrator.allocate_amr_regions_attrs(glob_attrs)
         for i in range(0, len(quantity_names)):
             glob_attrs.varnames.T.view('S128')[i] = quantity_names[i].ljust(128)
         for i in range(0, len(weight_names)):
             glob_attrs.wvarnames.T.view('S128')[i] = weight_names[i].ljust(128)
         
+        glob_attrs.filters[0] = all_filt
+        glob_attrs.filters[1] = cold_filt
+        glob_attrs.filters[2] = warm_filt
+        glob_attrs.filters[3] = hot_filt
+
         # Begin integration
-        amr_integrator.integrate_region(output_path,selected_reg,filt,glob_attrs)
-
-        # COLD PHASE
-
-        glob_attrs_cold = amr_integrator.amr_region_attrs()
-        glob_attrs_cold.nvars = len(quantity_names)
-        glob_attrs_cold.nwvars = len(weight_names)
-        amr_integrator.allocate_amr_regions_attrs(glob_attrs_cold)
-        for i in range(0, len(quantity_names)):
-            glob_attrs_cold.varnames.T.view('S128')[i] = quantity_names[i].ljust(128)
-        for i in range(0, len(weight_names)):
-            glob_attrs_cold.wvarnames.T.view('S128')[i] = weight_names[i].ljust(128)
-        
-        # Begin integration
-        amr_integrator.integrate_region(output_path,selected_reg,cold_filt,glob_attrs_cold)
-
-        # WARM PHASE
-
-        glob_attrs_warm = amr_integrator.amr_region_attrs()
-        glob_attrs_warm.nvars = len(quantity_names)
-        glob_attrs_warm.nwvars = len(weight_names)
-        amr_integrator.allocate_amr_regions_attrs(glob_attrs_warm)
-        for i in range(0, len(quantity_names)):
-            glob_attrs_warm.varnames.T.view('S128')[i] = quantity_names[i].ljust(128)
-        for i in range(0, len(weight_names)):
-            glob_attrs_warm.wvarnames.T.view('S128')[i] = weight_names[i].ljust(128)
-        
-        # Begin integration
-        amr_integrator.integrate_region(output_path,selected_reg,warm_filt,glob_attrs_warm)
-
-        # HOT PHASE
-
-        glob_attrs_hot = amr_integrator.amr_region_attrs()
-        glob_attrs_hot.nvars = len(quantity_names)
-        glob_attrs_hot.nwvars = len(weight_names)
-        amr_integrator.allocate_amr_regions_attrs(glob_attrs_hot)
-        for i in range(0, len(quantity_names)):
-            glob_attrs_hot.varnames.T.view('S128')[i] = quantity_names[i].ljust(128)
-        for i in range(0, len(weight_names)):
-            glob_attrs_hot.wvarnames.T.view('S128')[i] = weight_names[i].ljust(128)
-        
-        # Begin integration
-        amr_integrator.integrate_region(output_path,selected_reg,hot_filt,glob_attrs_hot)
+        amr_integrator.integrate_region(output_path,selected_reg,glob_attrs)
 
         # Assign results to galaxy object
         if self.obj.simulation.physics['hydro']:
-            self.mass['gas'] = self.obj.quantity(glob_attrs.data[0,0,0], 'code_mass')
-            self.mass['gas_cold'] = self.obj.quantity(glob_attrs_cold.data[0,0,0], 'code_mass')
-            self.mass['gas_warm'] = self.obj.quantity(glob_attrs_warm.data[0,0,0], 'code_mass')
-            self.mass['gas_hot'] = self.obj.quantity(glob_attrs_hot.data[0,0,0], 'code_mass')
-            self.gas_density['mass_weighted'] = self.obj.quantity(glob_attrs.data[1,1,0], 'code_density')
-            self.gas_density['volume_weighted'] = self.obj.quantity(glob_attrs.data[1,2,0], 'code_density')
-            self.temperature['mass_weighted'] = self.obj.quantity(glob_attrs.data[2,1,0], 'code_temperature')
-            self.temperature['volume_weighted'] = self.obj.quantity(glob_attrs.data[2,2,0], 'code_temperature')
-            self.gas_density_cold['mass_weighted'] = self.obj.quantity(glob_attrs_cold.data[1,1,0], 'code_density')
-            self.gas_density_cold['volume_weighted'] = self.obj.quantity(glob_attrs_cold.data[1,2,0], 'code_density')
-            self.temperature_cold['mass_weighted'] = self.obj.quantity(glob_attrs_cold.data[2,1,0], 'code_temperature')
-            self.temperature_cold['volume_weighted'] = self.obj.quantity(glob_attrs_cold.data[2,2,0], 'code_temperature')
-            self.gas_density_warm['mass_weighted'] = self.obj.quantity(glob_attrs_warm.data[1,1,0], 'code_density')
-            self.gas_density_warm['volume_weighted'] = self.obj.quantity(glob_attrs_warm.data[1,2,0], 'code_density')
-            self.temperature_warm['mass_weighted'] = self.obj.quantity(glob_attrs_warm.data[2,1,0], 'code_temperature')
-            self.temperature_warm['volume_weighted'] = self.obj.quantity(glob_attrs_warm.data[2,2,0], 'code_temperature')
-            self.gas_density_hot['mass_weighted'] = self.obj.quantity(glob_attrs_hot.data[1,1,0], 'code_density')
-            self.gas_density_hot['volume_weighted'] = self.obj.quantity(glob_attrs_hot.data[1,2,0], 'code_density')
-            self.temperature_hot['mass_weighted'] = self.obj.quantity(glob_attrs_hot.data[2,1,0], 'code_temperature')
-            self.temperature_hot['volume_weighted'] = self.obj.quantity(glob_attrs_hot.data[2,2,0], 'code_temperature')
-            self.angular_mom['gas'] = self.obj.array(np.array([glob_attrs.data[3,0,0],glob_attrs.data[4,0,0],glob_attrs.data[5,0,0]]),
+            self.mass['gas'] = self.obj.quantity(glob_attrs.data[0,0,0,0], 'code_mass')
+            self.gas_density['mass_weighted'] = self.obj.quantity(glob_attrs.data[0,1,1,0], 'code_density')
+            self.gas_density['volume_weighted'] = self.obj.quantity(glob_attrs.data[0,1,2,0], 'code_density')
+            self.temperature['mass_weighted'] = self.obj.quantity(glob_attrs.data[0,2,1,0], 'code_temperature')
+            self.temperature['volume_weighted'] = self.obj.quantity(glob_attrs.data[0,2,2,0], 'code_temperature')
+            self.angular_mom['gas'] = self.obj.array(np.array([glob_attrs.data[0,3,0,0],glob_attrs.data[0,4,0,0],glob_attrs.data[0,5,0,0]]),
                                                              'code_mass*code_length*code_velocity')
-            self.angular_mom['gas_cold'] = self.obj.array(np.array([glob_attrs_cold.data[3,0,0],glob_attrs_cold.data[4,0,0],glob_attrs_cold.data[5,0,0]]),
-                                                             'code_mass*code_length*code_velocity')
-            self.angular_mom['gas_warm'] = self.obj.array(np.array([glob_attrs_warm.data[3,0,0],glob_attrs_warm.data[4,0,0],glob_attrs_warm.data[5,0,0]]),
-                                                             'code_mass*code_length*code_velocity')
-            self.angular_mom['gas_hot'] = self.obj.array(np.array([glob_attrs_hot.data[3,0,0],glob_attrs_hot.data[4,0,0],glob_attrs_hot.data[5,0,0]]),
-                                                             'code_mass*code_length*code_velocity')
-            self.energies['thermal_energy'] = self.obj.quantity(glob_attrs.data[6,0,0], 'code_mass * code_velocity**2')
-            self.energies['thermal_energy_specific'] = self.obj.quantity(glob_attrs.data[7,2,0], 'code_specific_energy')
-            self.energies['thermal_energy_cold'] = self.obj.quantity(glob_attrs_cold.data[6,0,0], 'code_mass * code_velocity**2')
-            self.energies['thermal_energy_specific_cold'] = self.obj.quantity(glob_attrs_cold.data[7,2,0], 'code_specific_energy')
-            self.energies['thermal_energy_warm'] = self.obj.quantity(glob_attrs_warm.data[6,0,0], 'code_mass * code_velocity**2')
-            self.energies['thermal_energy_specific_warm'] = self.obj.quantity(glob_attrs_warm.data[7,2,0], 'code_specific_energy')
-            self.energies['thermal_energy_hot'] = self.obj.quantity(glob_attrs_hot.data[6,0,0], 'code_mass * code_velocity**2')
-            self.energies['thermal_energy_specific_hot'] = self.obj.quantity(glob_attrs_hot.data[7,2,0], 'code_specific_energy')
-
+            self.energies['thermal_energy'] = self.obj.quantity(glob_attrs.data[0,6,0,0], 'code_mass * code_velocity**2')
+            self.energies['thermal_energy_specific'] = self.obj.quantity(glob_attrs.data[0,7,2,0], 'code_specific_energy')
             if self.obj.simulation.physics['metals']:
-                self.metallicity['gas'] = glob_attrs.data[8,1,0] # Mass-weighted average!
-                self.metallicity['gas_cold'] = glob_attrs_cold.data[8,1,0] # Mass-weighted average!
-                self.metallicity['gas_warm'] = glob_attrs_warm.data[8,1,0] # Mass-weighted average!
-                self.metallicity['gas_hot'] = glob_attrs_hot.data[8,1,0] # Mass-weighted average!
+                self.metallicity['gas'] = glob_attrs.data[0,8,1,0] # Mass-weighted average!
+            for i in range(0, len(phase_names)):
+                self.mass['gas_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,0,0,0], 'code_mass')
+                print('Mass in %s gas is %.5f'%(phase_names[i],self.mass['gas_'+phase_names[i]].to('Msun')))
+                self.gas_density['mass_weighted_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,1,1,0], 'code_density')
+                self.gas_density['volume_weighted_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,1,2,0], 'code_density')
+                self.temperature['mass_weighted_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,2,1,0], 'code_temperature')
+                self.temperature['volume_weighted_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,2,2,0], 'code_temperature')
+                self.angular_mom['gas_'+phase_names[i]] = self.obj.array(np.array([glob_attrs.data[i+1,3,0,0],glob_attrs.data[i+1,4,0,0],glob_attrs.data[i+1,5,0,0]]),
+                                                                        'code_mass*code_length*code_velocity')
+                self.energies['thermal_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,6,0,0], 'code_mass * code_velocity**2')
+                self.energies['thermal_energy_specific_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,7,2,0], 'code_specific_energy')
+                if self.obj.simulation.physics['metals']:
+                    self.metallicity['gas_'+phase_names[i]] = glob_attrs.data[i+1,8,1,0] # Mass-weighted average!
         else:
             self.mass['gas'] = self.obj.quantity(0.0, 'code_mass')
         
         if self.obj.simulation.physics['magnetic']:
             print('Computing magnetic energies')
             if self.obj.simulation.physics['metals']:
-                self.energies['magnetic_energy'] = self.obj.quantity(glob_attrs.data[9,0,0], 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific'] = self.obj.quantity(glob_attrs.data[10,1,0], 'code_specific_energy')
-                self.energies['magnetic_energy_cold'] = self.obj.quantity(glob_attrs_cold.data[9,0,0], 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific_cold'] = self.obj.quantity(glob_attrs_cold.data[10,1,0], 'code_specific_energy')
-                self.energies['magnetic_energy_warm'] = self.obj.quantity(glob_attrs_warm.data[9,0,0], 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific_warm'] = self.obj.quantity(glob_attrs_warm.data[10,1,0], 'code_specific_energy')
-                self.energies['magnetic_energy_hot'] = self.obj.quantity(glob_attrs_hot.data[9,0,0], 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific_hot'] = self.obj.quantity(glob_attrs_hot.data[10,1,0], 'code_specific_energy')
+                self.energies['magnetic_energy'] = self.obj.quantity(glob_attrs.data[0,9,0,0], 'code_mass * code_velocity**2')
+                self.energies['magnetic_energy_specific'] = self.obj.quantity(glob_attrs.data[0,10,1,0], 'code_specific_energy')
+                for i in range(1,len(phase_names)):
+                    self.energies['magnetic_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,9,0,0], 'code_mass * code_velocity**2')
+                    self.energies['magnetic_energy_specific_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,10,1,0], 'code_specific_energy')
             else:
-                self.energies['magnetic_energy'] = self.obj.quantity(glob_attrs.data[8,0,0], 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific'] = self.obj.quantity(glob_attrs.data[9,1,0], 'code_specific_energy')
-                self.energies['magnetic_energy_cold'] = self.obj.quantity(glob_attrs_cold.data[8,0,0], 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific_cold'] = self.obj.quantity(glob_attrs_cold.data[9,1,0], 'code_specific_energy')
-                self.energies['magnetic_energy_warm'] = self.obj.quantity(glob_attrs_warm.data[8,0,0], 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific_warm'] = self.obj.quantity(glob_attrs_warm.data[9,1,0], 'code_specific_energy')
-                self.energies['magnetic_energy_hot'] = self.obj.quantity(glob_attrs_hot.data[8,0,0], 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific_hot'] = self.obj.quantity(glob_attrs_hot.data[9,1,0], 'code_specific_energy')
+                self.energies['magnetic_energy'] = self.obj.quantity(glob_attrs.data[0,8,0,0], 'code_mass * code_velocity**2')
+                self.energies['magnetic_energy_specific'] = self.obj.quantity(glob_attrs.data[0,9,1,0], 'code_specific_energy')
+                for i in range(1,len(phase_names)):
+                    self.energies['magnetic_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,8,0,0], 'code_mass * code_velocity**2')
+                    self.energies['magnetic_energy_specific_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,9,1,0], 'code_specific_energy')
+
 
         if self.obj.simulation.physics['cr']:
             print('Computing CR energies')
             if self.obj.simulation.physics['metals']:
-                self.energies['cr_energy'] = self.obj.quantity(glob_attrs.data[11,0,0], 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific'] = self.obj.quantity(glob_attrs.data[12,1,0], 'code_specific_energy')
-                self.energies['cr_energy_cold'] = self.obj.quantity(glob_attrs_cold.data[11,0,0], 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific_cold'] = self.obj.quantity(glob_attrs_cold.data[12,1,0], 'code_specific_energy')
-                self.energies['cr_energy_warm'] = self.obj.quantity(glob_attrs_warm.data[11,0,0], 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific_warm'] = self.obj.quantity(glob_attrs_warm.data[12,1,0], 'code_specific_energy')
-                self.energies['cr_energy_hot'] = self.obj.quantity(glob_attrs_hot.data[11,0,0], 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific_hot'] = self.obj.quantity(glob_attrs_hot.data[12,1,0], 'code_specific_energy')
+                self.energies['cr_energy'] = self.obj.quantity(glob_attrs.data[0,11,0,0], 'code_mass * code_velocity**2')
+                self.energies['cr_energy_specific'] = self.obj.quantity(glob_attrs.data[0,12,1,0], 'code_specific_energy')
+                for i in range(1, len(phase_names)):
+                    self.energies['cr_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,11,0,0], 'code_mass * code_velocity**2')
+                    self.energies['cr_energy_specific_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,12,1,0], 'code_specific_energy')
+
             else:
-                self.energies['cr_energy'] = self.obj.quantity(glob_attrs.data[10,0,0], 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific'] = self.obj.quantity(glob_attrs.data[11,1,0], 'code_specific_energy')
-                self.energies['cr_energy_cold'] = self.obj.quantity(glob_attrs_cold.data[10,0,0], 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific_cold'] = self.obj.quantity(glob_attrs_cold.data[11,1,0], 'code_specific_energy')
-                self.energies['cr_energy_warm'] = self.obj.quantity(glob_attrs_warm.data[10,0,0], 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific_warm'] = self.obj.quantity(glob_attrs_warm.data[11,1,0], 'code_specific_energy')
-                self.energies['cr_energy_hot'] = self.obj.quantity(glob_attrs_hot.data[10,0,0], 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific_hot'] = self.obj.quantity(glob_attrs_hot.data[11,1,0], 'code_specific_energy')
+                self.energies['cr_energy'] = self.obj.quantity(glob_attrs.data[0,10,0,0], 'code_mass * code_velocity**2')
+                self.energies['cr_energy_specific'] = self.obj.quantity(glob_attrs.data[0,11,1,0], 'code_specific_energy')
+                for i in range(1, len(phase_names)):
+                    self.energies['cr_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,10,0,0], 'code_mass * code_velocity**2')
+                    self.energies['cr_energy_specific_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,11,1,0], 'code_specific_energy')
 
         if self.obj.simulation.physics['rt']:
             print('Computing ionisation fractions')
-            self.radiation['xHII'] = glob_attrs.data[nvar,2,0]
-            self.radiation['xHeII'] = glob_attrs.data[nvar+1,2,0]
-            self.radiation['xHeIII'] = glob_attrs.data[nvar+2,2,0]
-            self.radiation['xHII_cold'] = glob_attrs_cold.data[nvar,2,0]
-            self.radiation['xHeII_cold'] = glob_attrs_cold.data[nvar+1,2,0]
-            self.radiation['xHeIII_cold'] = glob_attrs_cold.data[nvar+2,2,0]
-            self.radiation['xHII_warm'] = glob_attrs_warm.data[nvar,2,0]
-            self.radiation['xHeII_warm'] = glob_attrs_warm.data[nvar+1,2,0]
-            self.radiation['xHeIII_warm'] = glob_attrs_warm.data[nvar+2,2,0]
-            self.radiation['xHII_hot'] = glob_attrs_hot.data[nvar,2,0]
-            self.radiation['xHeII_hot'] = glob_attrs_hot.data[nvar+1,2,0]
-            self.radiation['xHeIII_hot'] = glob_attrs_hot.data[nvar+2,2,0]
+            self.radiation['xHII'] = glob_attrs.data[0,nvar,2,0]
+            self.radiation['xHeII'] = glob_attrs.data[0,nvar+1,2,0]
+            self.radiation['xHeIII'] = glob_attrs.data[0,nvar+2,2,0]
+            for i in range(1, len(phase_names)):
+                self.radiation['xHII_'+phase_names[i]] = glob_attrs.data[i+1,nvar,2,0]
+                self.radiation['xHeII_'+phase_names[i]] = glob_attrs.data[i+1,nvar+1,2,0]
+                self.radiation['xHeIII_'+phase_names[i]] = glob_attrs.data[i+1,nvar+2,2,0]
+
 
     def _calculate_outflow_inflow(self):
         """Compute details of outflows and inflows, by measuring quantities on a thin shell."""
@@ -813,6 +746,7 @@ class Halo(Group):
     def __init__(self, obj):
         super(Halo, self).__init__(obj)
         self.spin = 0
+        self.type               = 'halo'
         self.level              = -1
         self.host               = -1
         self.hostsub            = -1

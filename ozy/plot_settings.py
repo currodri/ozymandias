@@ -58,8 +58,8 @@ plotting_dictionary = dict(
                         'units':'erg*K**-1*g**-1',
                         'vmin':8e+3,
                         'vmax':2e+5,
-                        'vmin_galaxy':8e+3,
-                        'vmax_galaxy':2e+5
+                        'vmin_galaxy':8e+7,
+                        'vmax_galaxy':2e+9
     },
     metallicity = {'cmap':'swift.nineteen_eighty_nine',
                     'text_over':'black',
@@ -136,7 +136,7 @@ plotting_dictionary = dict(
 
     },
     cr_energy_density = {'cmap':sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=False, as_cmap=True),
-                        'text_over':'white',
+                        'text_over':'black',
                         'label':r'$\varepsilon_{\rm CR}$ [erg/cm$^{3}$]',
                         'label_log':r'$\log(\frac{\varepsilon_{\rm CR}}{{\rm erg/cm}^{3}})$',
                         'units':'erg*cm**-3',
@@ -235,10 +235,10 @@ plotting_dictionary = dict(
                         'label':r'$\Sigma_{\rm DM}$ [M$_{\odot}$ kpc$^{-2}$]',
                         'label_log':r'$\log\left(\frac{\Sigma_{\rm DM}}{{\rmM}_{\odot}{\rm kpc}^{-2}}\right)$',
                         'units':'Msun/(kpc**2)',
-                        # 'vmin':4e+5,
-                        # 'vmax':8e+8
                         'vmin':4e+7,
-                        'vmax':3e+9
+                        'vmax':3e+9,
+                        'vmin_galaxy':4e+7,
+                        'vmax_galaxy':3e+9
 
     },
     dm_mass = {'cmap':'cividis',
