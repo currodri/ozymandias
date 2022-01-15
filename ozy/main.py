@@ -1,4 +1,5 @@
 import numpy as np
+from Codes.ozymandias.ozy import read_VELOCIraptor
 from ozy.sim_attributes import SimulationAttributes
 from unyt import UnitRegistry,unyt_array,unyt_quantity
 
@@ -200,6 +201,25 @@ class OZY(object):
             link.create_sublists(self)
         else:
             print("WARNING: Not a single virialised halo above the minimum particle threshold.")
+
+    def build_STF(self, dmdata, stardata, ndm, nstar, *args, **kwargs):
+        """This is the central function of the OZY class for the VELOCIraptor+TreeFrog catalogues.
+
+        This method is reponsible for:
+        1) Getting the forest data for the snapshot of interest
+        2) Initialising objects and their properties from halo catalogue
+        3) Building the hierarchy of objects
+        4) Computing additional quantities
+        5) Assigning DM halos and their galaxies
+        6) Making the final link between structures
+
+        """
+        self._args = args
+        self._kwargs = kwargs
+
+        # Read forest data from VELOCIrapto+TreeFrog
+        read_VELOCIraptor.read_forest_portion(self, dmdata, ndm, 'halo')
+        read_VELOCIraptor.read_forest_portion(self, stardata, nstar, 'galaxy')
 
     def galaxies_summary(self, top=10):
         """Method to briefly print information for the most massive galaxies in the catalogue."""

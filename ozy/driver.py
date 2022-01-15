@@ -1,8 +1,19 @@
 import os
+import h5py
 
 import ozy
 from ozy.progen import progen_build
 
+from ozy.read_VELOCIraptor import make_forest, make_walkable_tree, requestedfields, additionalrequestedfields
+
+# Load VELOCIraptor python routines (written by the developers of VELOCIraptor)
+# Load the cythonized code if compiled
+try:
+    import velociraptor_python_tools_cython as vpt
+    print('Using cython VR+TF toolkit')
+except:
+    import velociraptor_python_tools as vpt
+    print('Using python VR+TF toolkit')
 
 class Snapshot(object):
     """Class for tracking paths and data for simulation snapshots.
@@ -52,7 +63,7 @@ def print_art():
     print('\n%s\n%s\n%s\n' % (art, copywrite, version))
 
 def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
-          build_HaloMaker=True, extension='hdf5', prefix='ozy_', **kwargs):
+          halofinder='VELOCIraptor', extension='hdf5', prefix='ozy_', **kwargs):
     """Driver function for running `ÒZYMANDIAS``on multiple snapshots.
     
     """
@@ -76,18 +87,72 @@ def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
     
     if rank == 0:
         print_art()
-    snaps = []
-    for snapdir in snapdirs:
-        for snapindex in snapindexes:
-            snaps.append(Snapshot(snapdir, snapname, snapindex))
     
-    if build_HaloMaker:
+    if halofinder == 'HaloMaker':
+        snaps = []
+        for snapdir in snapdirs:
+            for snapindex in snapindexes:
+                snaps.append(Snapshot(snapdir, snapname, snapindex))
         rank_snaps = snaps[rank::nprocs]
         for snap in rank_snaps:
             snap.build_HaloMaker(skipran, **kwargs)
-    
-    if progen:
-        ozy.progen.run_progen(snapdirs, snapname, snapindexes, prefix=prefix, extension=extension, **kwargs)
+        
+        if progen:
+            ozy.progen.run_progen(snapdirs, snapname, snapindexes, prefix=prefix, extension=extension, **kwargs)
+    elif halofinder == 'VELOCIraptor':
+        # Using a single process, check for a forest file that includes all snapshots of interest
+        for snapdir in snapdirs:
+            snaps = []
+            for snapindex in snapindexes:
+                snaps.append(Snapshot(snapdir, snapname, snapindex))
+            rank_snaps = snaps[rank::nprocs]
+            if rank == 0:
+                stf_folder = snapdir + '/stfcat/'
+                # If it's missing, create walkable tree and forest files
+                if not os.path.exists(stf_folder + 'dm_forest.hdf5.0'):
+                    print('DM forest file not existent. Now computing...')
+                    make_walkable_tree(stf_folder,'dm')
+                    make_forest(stf_folder,True,'dm')
+                if not os.path.exists(stf_folder + 'stars_forest.hdf5.0'):
+                    print('Stars forest file not existent. Now computing...')
+                    make_walkable_tree(stf_folder,'stars')
+                    make_forest(stf_folder,True,'stars')
+                dm_forestdata = h5py.File(stf_folder + 'dm_forest.hdf5.0')
+                stars_forestdata = h5py.File(stf_folder + 'stars_forest.hdf5.0')
+                nsnaps_dm = dm_forestdata['Header'].attrs['NSnaps']
+                nsnaps_stars = stars_forestdata['Header'].attrs['NSnaps']
+                dm_forestdata.close()
+                stars_forestdata.close()
+                if nsnaps_dm != len(snapindexes):
+                    print('DM forest file missing snapshots. Recomputing...')
+                    make_walkable_tree(stf_folder,'dm')
+                    make_forest(stf_folder,True,'dm')
+                if nsnaps_stars != len(snapindexes):
+                    print('Stars forest file missing snapshots. Recomputing...')
+                    make_walkable_tree(stf_folder,'stars')
+                    make_forest(stf_folder,True,'stars')
+                
+                # Assign halo and tree data to each ozy file
+                fields = requestedfields + additionalrequestedfields
+                # halodata, numhalos, atime, simdata, unitdata, snapnames
+                dm_forestdata = vpt.ReadForest(stf_folder + 'dm_forest.hdf5.0',fields)
+                stars_forestdata = vpt.ReadForest(stf_folder + 'stars_forest.hdf5.0',fields)
+            else:
+                dm_forestdata = None
+                stars_forestdata = None
+            # Compute catalogue quantities for each ozy file (using MPI if possible)
+            # TODO : Just send the snapshots required, not the full forest
+            dm_forestdata = comm.bcast(dm_forestdata,root=0)
+            stars_forestdata = comm.bcast(stars_forestdata,root=0)
+            for snap in rank_snaps:
+                # Get the index in the forest for the data (it's done for DM
+                # but it should be the same for the stars!)
+                ind = dm_forestdata[5].index(snap.snapname)
+                snap.build_STF(skipran, dm_forestdata[0][ind], stars_forestdata[0][ind],
+                                dm_forestdata[1][ind], stars_forestdata[1][ind] **kwargs)
+    else:
+        print('WARNING: The halo finder %s is not supported, pleae check!'%halofinder)
+        exit
 
 if __name__ == '__main__':
     print_art()
