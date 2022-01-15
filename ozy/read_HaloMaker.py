@@ -115,13 +115,13 @@ def read_HM(obj, grouptype):
         ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
         tempR = np.fromfile(file=HMfile, dtype=np.float64, count=3)
         ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
-        new_group.position = obj.array(np.array([tempR[0]+0.5,tempR[1]+0.5,tempR[2]+0.5]), 'code_length')
+        new_group.position['ssph'] = obj.array(np.array([tempR[0]+0.5,tempR[1]+0.5,tempR[2]+0.5]), 'code_length')
         
         # Halo velocities
         ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
         tempR = np.fromfile(file=HMfile, dtype=np.float64, count=3)
         ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
-        new_group.velocity = obj.array(np.array([tempR[0],tempR[1],tempR[2]]), 'km/s')
+        new_group.velocity['ssph'] = obj.array(np.array([tempR[0],tempR[1],tempR[2]]), 'km/s')
         
         # Halo angular momenta
         ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)

@@ -148,8 +148,7 @@ def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
                 # Get the index in the forest for the data (it's done for DM
                 # but it should be the same for the stars!)
                 ind = dm_forestdata[5].index(snap.snapname)
-                snap.build_STF(skipran, dm_forestdata[0][ind], stars_forestdata[0][ind],
-                                dm_forestdata[1][ind], stars_forestdata[1][ind] **kwargs)
+                snap.build_STF(skipran, dm_forestdata, stars_forestdata, **kwargs)
     else:
         print('WARNING: The halo finder %s is not supported, pleae check!'%halofinder)
         exit

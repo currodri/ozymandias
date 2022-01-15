@@ -32,11 +32,11 @@ class Group(object):
         self.ID       = -1
         self.npart    = 0
         self.units    = 'code'
-        self.position = np.array([-1, -1, -1])
+        self.position = {}
         self.radius   = {}
         self.shape = {}
         self.mass     = {}
-        self.velocity = np.array([0, 0, 0])
+        self.velocity = {}
         self.angular_mom = {}
         self.virial_quantities = {}
         self.energies = {}

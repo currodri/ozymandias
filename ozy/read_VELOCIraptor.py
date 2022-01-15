@@ -2,6 +2,7 @@ import sys
 import os
 import glob
 import time
+from tokenize import group
 import numpy as np
 import h5py
 import copy
@@ -333,9 +334,148 @@ def make_forest(stf_folder, grouptype, zoom):
     vpt.ForestFileAddHaloData(outputfname, halolist, snaps, additionalrequestedfields)
     print('Forest file done.')
 
-def read_forest_portion(obj, forestdata, nhalos, grouptype):
+def read_forest_portion(obj, forestdata, ind, grouptype):
     """
     This function reads the details of the halo structures (and tree) found by VELOCIraptor
     and TreeFrog, and constructs the Group objects with the global quantities of interest.
     """
 
+    halodata, nhalos, atime, simdata, unitdata, snapnames = forestdata
+    mydata = halodata[ind]
+
+    nobjs = 0
+    nonzoom_halos = 0
+    # Looping over halos...
+    for i in range(0, nhalos):
+        new_group = create_new_group(obj, grouptype)
+        new_group.npart = int(mydata['npart'][i])
+        new_group.nsub = int(mydata['numSubStruct'][i])
+        # TODO: Get particle IDs from files
+        if grouptype == 'halo':
+            new_group.ndm = new_group.npart
+            new_group.dmlist = []
+        elif grouptype == 'galaxy':
+            new_group.nstar = new_group.npart
+            new_group.slist = []
+        # Halo integers - structure hierarchy and tree structure
+        new_group.ID = int(mydata['ID'][i])
+        new_group.Descendant = int(mydata['Descendant'][i])
+        new_group.DescendantSnap = int(mydata['DescendantSnap'][i])
+        new_group.FinalDescendant = int(mydata['FinalDescendant'][i])
+        new_group.FinalDescendantSnap = int(mydata['FinalDescendantSnap'][i])
+        new_group.FirstProgenitor = int(mydata['FirstProgenitor'][i])
+        new_group.FirstProgenitorSnap = int(mydata['FirstProgenitorSnap'][i])
+        new_group.ForestID = int(mydata['ForestID'][i])
+        new_group.ForestLevel = int(mydata['ForestLevel'][i])
+        new_group.Head = int(mydata['Head'][i])
+        new_group.HeadIndex = int(mydata['HeadIndex'][i])
+        new_group.HeadSnap = int(mydata['HeadSnap'][i])
+        new_group.NextProgenitor = int(mydata['NextProgenitor'][i])
+        new_group.NextSubhalo = int(mydata['NextSubhalo'][i])
+        new_group.NumProgen = int(mydata['Num_progen'][i])
+        new_group.PreviousProgenitor = int(mydata['PreviousProgenitor'][i])
+        new_group.PreviousSubhalo = int(mydata['PreviousSubhalo'][i])
+        new_group.Progenitor = int(mydata['Progenitor'][i])
+        new_group.ProgenitorSnap = int(mydata['ProgenitorSnap'][i])
+        new_group.RightTail = int(mydata['RightTail'][i])
+        new_group.RootHead = int(mydata['RootHead'][i])
+        new_group.RootHeadIndex = int(mydata['RootHeadIndex'][i])
+        new_group.RootHeadSnap = int(mydata['RootHeadSnap'][i])
+        new_group.RootTail = int(mydata['RootTail'][i])
+        new_group.RootTailIndex = int(mydata['RootTailIndex'][i])
+        new_group.RootTailSnap = int(mydata['RootTailSnap'][i])
+        new_group.Structuretype = int(mydata['Structuretype'][i])
+        new_group.Tail = int(mydata['Tail'][i])
+        new_group.TailIndex = int(mydata['TailIndex'][i])
+        new_group.TailSnap = int(mydata['TailSnap'][i])
+        new_group.HostHaloID = int(mydata['hostHaloID'][i])
+
+        # Halo masses
+        m = (mydata['Mass_tot'][i] * float(unitdata['Mass_unit_to_solarmass']))/obj.quantity(1.0, 'code_mass').in_units('Msun').d
+        new_group.mass['total_stf'] = obj.quantity(m, 'code_mass')
+        m = (mydata['Mass_200crit'][i] * float(unitdata['Mass_unit_to_solarmass']))/obj.quantity(1.0, 'code_mass').in_units('Msun').d
+        new_group.mass['200crit'] = obj.quantity(m, 'code_mass')
+        m = (mydata['Mass_200mean'][i] * float(unitdata['Mass_unit_to_solarmass']))/obj.quantity(1.0, 'code_mass').in_units('Msun').d
+        new_group.mass['200mean'] = obj.quantity(m, 'code_mass')
+        m = (mydata['Mass_FOF'][i] * float(unitdata['Mass_unit_to_solarmass']))/obj.quantity(1.0, 'code_mass').in_units('Msun').d
+        new_group.mass['FOF'] = obj.quantity(m, 'code_mass')
+
+        # Halo position
+        Xc = (mydata['Xc'][i] * float(unitdata['Length_unit_to_kpc']))/obj.quantity(1.0, 'code_length').in_units('kpc').d
+        Yc = (mydata['Yc'][i] * float(unitdata['Length_unit_to_kpc']))/obj.quantity(1.0, 'code_length').in_units('kpc').d
+        Zc = (mydata['Zc'][i] * float(unitdata['Length_unit_to_kpc']))/obj.quantity(1.0, 'code_length').in_units('kpc').d
+        new_group.position['COM'] = obj.array(np.array([Xc,Yc,Zc]), 'code_length')
+
+        Xc = (mydata['Xcminpot'][i] * float(unitdata['Length_unit_to_kpc']))/obj.quantity(1.0, 'code_length').in_units('kpc').d
+        Yc = (mydata['Ycminpot'][i] * float(unitdata['Length_unit_to_kpc']))/obj.quantity(1.0, 'code_length').in_units('kpc').d
+        Zc = (mydata['Zcminpot'][i] * float(unitdata['Length_unit_to_kpc']))/obj.quantity(1.0, 'code_length').in_units('kpc').d
+        new_group.position['minpot'] = obj.array(np.array([Xc,Yc,Zc]), 'code_length')
+
+        # Halo velocity
+        VXc = (mydata['VXc'][i] * float(unitdata['Velocity_unit_to_kms']))
+        VYc = (mydata['VYc'][i] * float(unitdata['Velocity_unit_to_kms']))
+        VZc = (mydata['VZc'][i] * float(unitdata['Velocity_unit_to_kms']))
+        new_group.velocity['COM'] = obj.array(np.array([VXc,VYc,VZc]), 'km/s')
+        Vmax = (mydata['Vmax'][i] * float(unitdata['Velocity_unit_to_kms']))
+        new_group.velocity['Vmax'] = obj.quantity(Vmax, 'km/s')
+        sigV = (mydata['sigV'][i] * float(unitdata['Velocity_unit_to_kms']))
+        new_group.velocity['sigV'] = obj.quantity(sigV, 'km/s')
+        Rmax_sigV = (mydata['Rmax_sigV'][i] * float(unitdata['Velocity_unit_to_kms']))
+        new_group.velocity['Rmax_sigV'] = obj.quantity(Rmax_sigV, 'km/s')
+
+        # Halo angular momenta
+        Lx = mydata['Lx'][i] * float(unitdata['Velocity_unit_to_kms']) * float(unitdata['Mass_unit_to_solarmass']) * float(unitdata['Length_unit_to_kpc'])
+        Ly = mydata['Ly'][i] * float(unitdata['Velocity_unit_to_kms']) * float(unitdata['Mass_unit_to_solarmass']) * float(unitdata['Length_unit_to_kpc'])
+        Lz = mydata['Lz'][i] * float(unitdata['Velocity_unit_to_kms']) * float(unitdata['Mass_unit_to_solarmass']) * float(unitdata['Length_unit_to_kpc'])
+        new_group.angular_mom['COM'] = obj.array(np.array([Lx,Ly,Lz]), 'Msun*kpc*km/s')
+
+        Lx = mydata['RVmax_Lx'][i] * float(unitdata['Velocity_unit_to_kms']) * float(unitdata['Mass_unit_to_solarmass']) * float(unitdata['Length_unit_to_kpc'])
+        Ly = mydata['RVmax_Ly'][i] * float(unitdata['Velocity_unit_to_kms']) * float(unitdata['Mass_unit_to_solarmass']) * float(unitdata['Length_unit_to_kpc'])
+        Lz = mydata['RVmax_Lz'][i] * float(unitdata['Velocity_unit_to_kms']) * float(unitdata['Mass_unit_to_solarmass']) * float(unitdata['Length_unit_to_kpc'])
+        new_group.angular_mom['RVmax'] = obj.array(np.array([Lx,Ly,Lz]), 'Msun*kpc*km/s')
+
+        # Halo radii
+        r = (mydata['R_200crit'][i] * float(unitdata['Length_unit_to_kpc']))/obj.quantity(1.0, 'code_length').in_units('kpc').d
+        new_group.radius['200crit'] = obj.quantity(r, 'code_length')
+        r = (mydata['R_200mean'][i] * float(unitdata['Length_unit_to_kpc']))/obj.quantity(1.0, 'code_length').in_units('kpc').d
+        new_group.radius['200mean'] = obj.quantity(r, 'code_length')
+        r = (mydata['R_HalfMass'][i] * float(unitdata['Length_unit_to_kpc']))/obj.quantity(1.0, 'code_length').in_units('kpc').d
+        new_group.radius['HalfMass'] = obj.quantity(r, 'code_length')
+        r = (mydata['R_size'][i] * float(unitdata['Length_unit_to_kpc']))/obj.quantity(1.0, 'code_length').in_units('kpc').d
+        new_group.radius['size'] = obj.quantity(r, 'code_length')
+        r = (mydata['Rmax'][i] * float(unitdata['Length_unit_to_kpc']))/obj.quantity(1.0, 'code_length').in_units('kpc').d
+        new_group.radius['max'] = obj.quantity(r, 'code_length')
+        r = (mydata['Rmax'][i] * float(unitdata['Length_unit_to_kpc']))/obj.quantity(1.0, 'code_length').in_units('kpc').d
+        new_group.radius['max'] = obj.quantity(r, 'code_length')
+
+        # Halo energies
+        E = mydata['Ekin'][i] * float(unitdata['Mass_unit_to_solarmass']) * (float(unitdata['Velocity_unit_to_kms'])**2.0)
+        new_group.energies['kinetic'] = obj.quantity(E, 'Msun * km**2 * s**-2')
+        E = mydata['Epot'][i] * float(unitdata['Mass_unit_to_solarmass']) * (float(unitdata['Velocity_unit_to_kms'])**2.0)
+        new_group.energies['potential'] = obj.quantity(E, 'Msun * km**2 * s**-2')
+        new_group.BoundFrac = float(mydata['Efrac'][i])
+
+        # Other properties
+        new_group.cNFW = mydata['cNFW'][i]
+        new_group.lambda_B = mydata['lambda_B'][i]
+
+        # If the simulation is a zoom, check if we want to throw away
+        # objects outside of the zoom regoion.
+        add_group = True
+        if obj.simulation.zoom:
+            add_group = remove_out_zoom(obj, new_group)
+        if add_group:
+            if new_group._valid:
+                obj.__dict__[grouptypes[grouptype]].append(new_group)
+                nobjs += 1
+        else:
+            nonzoom_halos += 1
+
+        if obj.simulation.zoom:
+            print("Halos out of zoom region: "+str(nonzoom_halos))
+        if grouptype == 'halo':
+            obj.nhalos = nobjs
+            print("Number of selected DM halos: "+str(obj.nhalos))
+        elif grouptype == 'galaxy':
+            obj.ngalaxies = nobjs
+            print("Number of selected galaxies: "+str(obj.ngalaxies))
