@@ -334,7 +334,10 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         else:
             window = group.obj.quantity(window[0],window[1]).in_units('code_length').d
     centre = vectors.vector()
-    centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+    try:
+        centre.x, centre.y, centre.z = group.position['COM'][0], group.position['COM'][1], group.position['COM'][2]
+    else:
+        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
     bulk = vectors.vector()
     if group.type != 'halo':
         velocity = group.velocity.in_units('code_velocity')
@@ -342,7 +345,10 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
 
     if proj.pov == 'faceon':
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        try:
+            centre.x, centre.y, centre.z = group.position['COM'][0], group.position['COM'][1], group.position['COM'][2]
+        else:
+            centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         axis = vectors.vector()
         norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
         up = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
@@ -356,7 +362,10 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         far_cut_depth = 0.3*rmax
     elif proj.pov == 'edgeon':
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        try:
+            centre.x, centre.y, centre.z = group.position['COM'][0], group.position['COM'][1], group.position['COM'][2]
+        else:
+            centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         axis = vectors.vector()
         norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
         los = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
@@ -370,7 +379,10 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         far_cut_depth = 0.3*rmax
     elif proj.pov == 'x':
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        try:
+            centre.x, centre.y, centre.z = group.position['COM'][0], group.position['COM'][1], group.position['COM'][2]
+        else:
+            centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         axis = vectors.vector()
         axis.x,axis.y,axis.z = 1.0, 0.0, 0.0
         up_vector = vectors.vector()
@@ -381,7 +393,10 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         far_cut_depth = rmax
     elif proj.pov == 'y':
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        try:
+            centre.x, centre.y, centre.z = group.position['COM'][0], group.position['COM'][1], group.position['COM'][2]
+        else:
+            centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         axis = vectors.vector()
         axis.x,axis.y,axis.z = 0.0, 1.0, 0.0
         up_vector = vectors.vector()
@@ -392,7 +407,10 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         far_cut_depth = rmax
     elif proj.pov == 'z':
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        try:
+            centre.x, centre.y, centre.z = group.position['COM'][0], group.position['COM'][1], group.position['COM'][2]
+        else:
+            centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         axis = vectors.vector()
         axis.x,axis.y,axis.z = 0.0, 0.0, 1.0
         up_vector = vectors.vector()
@@ -414,7 +432,10 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         distance = 0.3*rmax
         far_cut_depth = 0.3*rmax
         centre = vectors.vector()
-        im_centre = group.position + 0.99*norm_L * rmax.d
+        try:
+            im_centre = group.position['COM'] + 0.99*norm_L * rmax.d
+        except:
+            im_centre = group.position + 0.99*norm_L * rmax.d
         centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
     elif proj.pov == 'bottom_midplane':
         axis = vectors.vector()
@@ -429,7 +450,10 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         distance = 0.3*rmax
         far_cut_depth = 0.3*rmax
         centre = vectors.vector()
-        im_centre = group.position + 0.99 * norm_L * rmax.d
+        try:
+            im_centre = group.position['COM'] + 0.99*norm_L * rmax.d
+        except:
+            im_centre = group.position + 0.99*norm_L * rmax.d
         centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
     else:
         print("This point of view is not supported!")
@@ -450,7 +474,10 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
 
     # Update projection details with the camera ones
     proj.width = region_size
-    proj.centre = np.array([group.position[0], group.position[1], group.position[2]])
+    try:
+        proj.centre = np.array([group.position[0], group.position[1], group.position[2]])
+    except:
+        proj.centre = np.array([group.position['COM'][0], group.position['COM'][1], group.position['COM'][2]])
     proj.distance = distance
     proj.far_cut_depth = far_cut_depth
     proj.los_axis = np.array([cam.los_axis.x,cam.los_axis.y,cam.los_axis.z])
@@ -976,7 +1003,10 @@ def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,
         reg = geometrical_regions.region()
         reg.name = 'sphere'
         centre = vectors.vector()
-        pos = group.position.in_units('code_length').d
+        try:
+            pos = group.position['COM'].in_units('code_length').d
+        except:
+            pos = group.position.in_units('code_length').d
         centre.x, centre.y, centre.z = pos[0], pos[1], pos[2]
         reg.centre = centre
         bulk = vectors.vector()
@@ -1002,7 +1032,10 @@ def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,
 
         # Update projection details with the ones used for the region
         proj.up_vector = norm_L
-        proj.centre = group.position[:]
+        try:
+            proj.centre = group.position['COM'][:]
+        except:
+            proj.centre = group.position[:]
         proj.nside = nside
     else:
         print('This POV for a HEALPix projection is not supported...')

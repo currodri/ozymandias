@@ -51,6 +51,18 @@ class Snapshot(object):
         obj.save(self.outfile)
         
         obj = None
+    def build_STF(self, skipran, dm_forestdata, stars_forestdata, ind, **kwargs):
+        if not os.path.exists(self.snap):
+            return
+        self.set_output_information(**kwargs)
+        
+        if os.path.isfile(self.outfile) and skipran:
+            return
+        self._make_output_dir()
+
+        obj = ozy.OZY(self.snap)
+        obj.build_STF(dm_forestdata, stars_forestdata, ind, **kwargs)
+        obj.save(self.outfile)
         
 def print_art():
     from art import text2art
@@ -148,7 +160,7 @@ def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
                 # Get the index in the forest for the data (it's done for DM
                 # but it should be the same for the stars!)
                 ind = dm_forestdata[5].index(snap.snapname)
-                snap.build_STF(skipran, dm_forestdata, stars_forestdata, **kwargs)
+                snap.build_STF(skipran, dm_forestdata, stars_forestdata, ind, **kwargs)
     else:
         print('WARNING: The halo finder %s is not supported, pleae check!'%halofinder)
         exit

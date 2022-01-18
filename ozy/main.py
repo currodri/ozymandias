@@ -214,12 +214,42 @@ class OZY(object):
         6) Making the final link between structures
 
         """
+        import ozy.phase_space_assignment as assign
+        import ozy.group_linking as link
+        from ozy.read_VELOCIraptor import read_forest_portion
+
         self._args = args
         self._kwargs = kwargs
 
         # Read forest data from VELOCIrapto+TreeFrog
-        read_VELOCIraptor.read_forest_portion(self, dmdata, ind, 'halo')
-        read_VELOCIraptor.read_forest_portion(self, stardata, ind, 'galaxy')
+        read_forest_portion(self, dmdata, ind, 'halo')
+        read_forest_portion(self, stardata, ind, 'galaxy')
+
+        if self._has_halos:
+            # Make assignment
+            assign.galaxies_to_halos(self)
+
+            # Now process galaxies using their assigned halo
+            main_gal_ID = -1
+            if 'main_gal' in self._kwargs:
+                if self._kwargs['main_gal']:
+                    print('Computing details just for main galaxy in simulation.')
+                    masses = [i.mass['200crit'] for i in self.galaxies]
+                    main_gal_ID = self.galaxies[np.argmax(masses)].ID
+                    
+            if main_gal_ID != -1:
+                for gal in self.galaxies:
+                    gal._empty_galaxy()
+                self.galaxies[np.argmax(masses)]._process_galaxy()
+            else:
+                for gal in self.galaxies:
+                    gal._process_galaxy()
+
+            # Link objects between each other
+            link.galaxies_to_halos(self)
+
+            assign.central_galaxies(self)
+            link.create_sublists(self)
 
     def galaxies_summary(self, top=10):
         """Method to briefly print information for the most massive galaxies in the catalogue."""

@@ -51,7 +51,10 @@ def remove_out_zoom(obj, group):
     add_group = True
     
     # Compute distance of group limits from zoom centre position.
-    gdist_wrt_zoom = np.linalg.norm((group.position - centre_zoom))
+    try:
+        gdist_wrt_zoom = np.linalg.norm((group.position['COM'] - centre_zoom))
+    except:
+        gdist_wrt_zoom = np.linalg.norm((group.position - centre_zoom))
     
     if gdist_wrt_zoom > radius_zoom:
         add_group = False
@@ -208,7 +211,10 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(
     if region_type == 'sphere':
         reg.name = 'sphere'
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        try:
+            centre.x, centre.y, centre.z = group.position['COM'][0], group.position['COM'][1], group.position['COM'][2]
+        except:
+            centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         reg.centre = centre
         axis = vectors.vector()
         norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
@@ -230,7 +236,10 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(
     elif region_type == 'basic_sphere':
         reg.name = 'sphere'
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        try:
+            centre.x, centre.y, centre.z = group.position['COM'][0], group.position['COM'][1], group.position['COM'][2]
+        except:
+            centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         reg.centre = centre
         axis = vectors.vector()
         norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
@@ -251,7 +260,10 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(
     elif region_type == 'cylinder':
         reg.name = 'cylinder'
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        try:
+            centre.x, centre.y, centre.z = group.position['COM'][0], group.position['COM'][1], group.position['COM'][2]
+        except:
+            centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         reg.centre = centre
         axis = vectors.vector()
         norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
@@ -303,7 +315,10 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(
         else:
             reg.zmax = group.obj.quantity(zmax[0],str(zmax[1])).in_units('code_length')
         centre = vectors.vector()
-        im_centre = group.position + 0.99 * norm_L.d * reg.zmax
+        try:
+            im_centre = group.position['COM'] + 0.99 * norm_L.d * reg.zmax
+        except:
+            im_centre = group.position + 0.99 * norm_L.d * reg.zmax
         centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
         reg.centre = centre
         bulk = vectors.vector()
@@ -335,7 +350,10 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(
         else:
             reg.zmax = group.obj.quantity(zmax[0],str(zmax[1])).in_units('code_length')
         centre = vectors.vector()
-        im_centre = group.position + 0.99 * norm_L.d * reg.zmax
+        try:
+            im_centre = group.position['COM'] + 0.99 * norm_L.d * reg.zmax
+        except:
+            im_centre = group.position + 0.99 * norm_L.d * reg.zmax
         centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
         reg.centre = centre
         bulk = vectors.vector()

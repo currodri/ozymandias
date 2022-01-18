@@ -24,13 +24,18 @@ if [ "$H" == "-h" ] || [ "$H" == "-help" ] || [ "$H" == "--help" ] || [ -z $INP 
     echo "Usage:"
     echo "stfrun.sh ptype isnap fsnap"    
     echo "Inputs:"
-    echo "ptype=$3  # ptype corresponds to the execution type"
-    echo "isnap=$1 # isnap corresponds to the minimum ID to be calculated"
-    echo "fsnap=$2 # fsnap corresponds to the maximum ID to be calculated"
+    echo "ptype=$1  # ptype corresponds to the execution type"
+    echo "mode=$2  # mode corresponds to the execution mode"
+    echo "isnap=$3 # isnap corresponds to the minimum ID to be calculated"
+    echo "fsnap=$4 # fsnap corresponds to the maximum ID to be calculated"
     echo
     echo "Available execution types:"
     echo "dm: Using only dark matter particles"
     echo "stars: Using only star particles"
+    echo "Available execution modes:"
+    echo "all: Run both VELOCIraptor and TreeFrog"
+    echo "vel: Only run VELOCIraptor"
+    echo "tree: Only run TreeFrog"
     echo 
     exit
 fi
@@ -40,15 +45,18 @@ fi
 echo "###########################################################################"
 echo
 echo "              STF FOR RAMSES COSMOLOGICAL HYDRO SIMULATION"
-echo "                                                                      v0.2 "
+echo "                                                                      v0.3 "
 echo "###########################################################################"
 
 # Simulation model or name to be used
 ptype=$1
 
+# Running mode
+mode=$2
+
 # Initial and final snapshot indexes
-isnap=$2
-fsnap=$3
+isnap=$3
+fsnap=$4
 nsnaps=`echo $isnap" "$fsnap|awk '{print $2-$1+1}'`
 
 ########################################################################################
@@ -72,6 +80,10 @@ done
 while [ "$ptype" != "dm" ] && [ "$ptype" != "stars" ]; do
         echo "ptype not recognised, reintroduce ptype (dm or stars):"
         read ptype
+done
+while [ "$mode" != "all" ] && [ "$mode" != "vel" ] && [ "$mode" != "tree" ]; do
+        echo "mode not recognised, reintroduce mode (all, vel or tree):"
+        read mode
 done
 ############################################################
 
@@ -99,43 +111,46 @@ stfexe=${outdir}/stf
 # TreeFrog executable
 treefrogexe=${outdir}/treefrog
 
-echo "Running VELOCIraptor in the snapshot range $isnap to $fsnap (nsnaps=$nsnaps)"
+if [ "$mode" == "all" ] || [ "$mode" == "vel" ]; then
+    echo "Running VELOCIraptor in the snapshot range $isnap to $fsnap (nsnaps=$nsnaps)"
 
-for ((j=$isnap; j<=$fsnap; j++))
-do
-    jj=`printf "%05d" $j`
-    cp $paramfile $ptype.output_$jj.param;
-    sed -i 's%Output=OUTNAME%Output='"$outdir"'/'"$ptype"'.c'"$i"'.output_'"$jj"'%g' $outdir/$ptype.output_$jj.param;
-    sed -i 's%Snapshot_value=SNVALUE%Snapshot_value='"$j"'%g' $outdir/$ptype.output_$jj.param;
-    ifile=`printf "%s/output_%05d" $indir $j`
-    $stfexe -i $ifile -s $nfiles -C $outdir/$ptype.output_$jj.param -I 4 -t $jj -o $outdir/$ptype.output_$jj > $outdir/$ptype.output_$jj.log;
-done
-
-# TreeFrog commands
-
-echo "Running TreeFrog in the snapshot range $isnap to $fsnap (nsnaps=$nsnaps)"
-
-# Number of input VELOCIraptor files (set by number of mpi threads) per snapshot
-numfiles=1
-
-# Base configuration file for VELOCIraptor to be used
-if [ "$ptype" == "dm" ]; then
-    paramfile=${outdir}/NH_halo_tree.cfg
-    logname=$outdir/halo_tree.log
-else
-    paramfile=${outdir}/NH_galaxy_tree.cfg
-    logname=$outdir/galaxy_tree.log
+    for ((j=$isnap; j<=$fsnap; j++))
+    do
+        jj=`printf "%05d" $j`
+        cp $paramfile $ptype.output_$jj.param;
+        sed -i 's%Output=OUTNAME%Output='"$outdir"'/'"$ptype"'.c'"$i"'.output_'"$jj"'%g' $outdir/$ptype.output_$jj.param;
+        sed -i 's%Snapshot_value=SNVALUE%Snapshot_value='"$j"'%g' $outdir/$ptype.output_$jj.param;
+        ifile=`printf "%s/output_%05d" $indir $j`
+        $stfexe -i $ifile -s $nfiles -C $outdir/$ptype.output_$jj.param -I 4 -t $jj -o $outdir/$ptype.output_$jj > $outdir/$ptype.output_$jj.log;
+    done
 fi
 
-rm $outdir/halolist.txt
-for entry in $ptype.output_*.properties
-do
-    tmp=${entry#*$ptype.output_}
-    jj=${tmp%.*}
-    echo $outdir/$ptype.output_$jj >> $outdir/halolist.txt
-done
+# TreeFrog commands
+if [ "$mode" == "all" ] || [ "$mode" == "tree" ]; then
+    echo "Running TreeFrog in the snapshot range $isnap to $fsnap (nsnaps=$nsnaps)"
 
-$treefrogexe -i $outdir/halolist.txt -s $nsnaps -N $numfiles -o $outdir/$ptype -C $paramfile > $logname
+    # Number of input VELOCIraptor files (set by number of mpi threads) per snapshot
+    numfiles=1
+
+    # Base configuration file for VELOCIraptor to be used
+    if [ "$ptype" == "dm" ]; then
+        paramfile=${outdir}/NH_halo_tree.cfg
+        logname=$outdir/halo_tree.log
+    else
+        paramfile=${outdir}/NH_galaxy_tree.cfg
+        logname=$outdir/galaxy_tree.log
+    fi
+
+    rm $outdir/halolist.txt
+    for entry in $ptype.output_*.properties
+    do
+        tmp=${entry#*$ptype.output_}
+        jj=${tmp%.*}
+        echo $outdir/$ptype.output_$jj >> $outdir/halolist.txt
+    done
+
+    $treefrogexe -i $outdir/halolist.txt -s $nsnaps -N $numfiles -o $outdir/$ptype -C $paramfile > $logname
+fi
 
 ########################################################################################
 echo
