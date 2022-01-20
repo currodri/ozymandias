@@ -53,7 +53,7 @@ module io_ramses
     type level
         integer::ilevel
         integer::ngrid
-        real(sgl),dimension(:,:,:),pointer::cube
+        real(dbl),dimension(:,:,:,:),pointer::cube
         real(dbl),dimension(:,:,:),pointer::map
         real(dbl),dimension(:,:),pointer::rho
         integer::imin

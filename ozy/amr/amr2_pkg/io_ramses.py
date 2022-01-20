@@ -1351,7 +1351,7 @@ class level(f90wrap.runtime.FortranDerivedType):
     @property
     def cube(self):
         """
-        Element cube ftype=real(sgl) pytype=float
+        Element cube ftype=real(dbl) pytype=float
         
         
         Defined at read_amr_module.fpp line 56

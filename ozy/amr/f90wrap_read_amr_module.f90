@@ -1791,10 +1791,10 @@ subroutine f90wrap_level__array__cube(this, nd, dtype, dshape, dloc)
     integer, dimension(10), intent(out) :: dshape
     integer*8, intent(out) :: dloc
     
-    nd = 3
-    dtype = 11
+    nd = 4
+    dtype = 12
     this_ptr = transfer(this, this_ptr)
-    dshape(1:3) = shape(this_ptr%p%cube)
+    dshape(1:4) = shape(this_ptr%p%cube)
     dloc = loc(this_ptr%p%cube)
 end subroutine f90wrap_level__array__cube
 
@@ -2660,8 +2660,8 @@ subroutine f90wrap_read_hydrofile_descriptor_new(repository)
 end subroutine f90wrap_read_hydrofile_descriptor_new
 
 subroutine f90wrap_getvarvalue(reg, dx, x, var, varname, value, n0)
-    use geometrical_regions, only: region
     use io_ramses, only: getvarvalue
+    use geometrical_regions, only: region
     use vectors, only: vector
     implicit none
     
@@ -2695,8 +2695,8 @@ subroutine f90wrap_init_amr_read(repository)
 end subroutine f90wrap_init_amr_read
 
 subroutine f90wrap_get_cpu_map(reg)
-    use geometrical_regions, only: region
     use io_ramses, only: get_cpu_map
+    use geometrical_regions, only: region
     implicit none
     
     type region_ptr_type
@@ -2709,7 +2709,7 @@ subroutine f90wrap_get_cpu_map(reg)
 end subroutine f90wrap_get_cpu_map
 
 subroutine f90wrap_getparttype(part, ptype)
-    use io_ramses, only: getparttype, particle
+    use io_ramses, only: particle, getparttype
     implicit none
     
     type particle_ptr_type
@@ -2723,20 +2723,20 @@ subroutine f90wrap_getparttype(part, ptype)
 end subroutine f90wrap_getparttype
 
 subroutine f90wrap_getpartvalue(reg, part, var, value, dx)
+    use geometrical_regions, only: region
     use io_ramses, only: particle, getpartvalue
     use vectors, only: vector
-    use geometrical_regions, only: region
     implicit none
     
     type particle_ptr_type
         type(particle), pointer :: p => NULL()
     end type particle_ptr_type
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg
     type(particle_ptr_type) :: part_ptr
@@ -2957,7 +2957,7 @@ subroutine f90wrap_cond_string_to_filter(str, filt)
 end subroutine f90wrap_cond_string_to_filter
 
 subroutine f90wrap_filter_cell(reg, filt, cell_x, cell_dx, ret_filter_cell, cell_var, n0)
-    use filtering, only: filter, filter_cell
+    use filtering, only: filter_cell, filter
     use geometrical_regions, only: region
     use vectors, only: vector
     implicit none
@@ -2989,24 +2989,24 @@ subroutine f90wrap_filter_cell(reg, filt, cell_x, cell_dx, ret_filter_cell, cell
 end subroutine f90wrap_filter_cell
 
 subroutine f90wrap_filter_particle(reg, filt, part, ret_filter_particle, dx)
-    use vectors, only: vector
-    use geometrical_regions, only: region
     use filtering, only: filter, filter_particle
+    use geometrical_regions, only: region
+    use vectors, only: vector
     use io_ramses, only: particle
     implicit none
     
-    type filter_ptr_type
-        type(filter), pointer :: p => NULL()
-    end type filter_ptr_type
     type particle_ptr_type
         type(particle), pointer :: p => NULL()
     end type particle_ptr_type
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
+    type filter_ptr_type
+        type(filter), pointer :: p => NULL()
+    end type filter_ptr_type
     type vector_ptr_type
         type(vector), pointer :: p => NULL()
     end type vector_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg
     type(filter_ptr_type) :: filt_ptr

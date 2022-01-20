@@ -192,7 +192,8 @@ def tidal_radius(central, satellite, method='BT87_simple'):
     
     return r
 
-def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(0.0,'rvir'), zmax=(0.2,'rvir')):
+def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(0.0,'rvir'), xmax=(0.2,'rvir'),
+                ymin=(0.0,'rvir'), ymax=(0.2,'rvir'),zmin=(0.0,'rvir'), zmax=(0.2,'rvir')):
     """Initialise region Fortran derived type with details of group."""
     sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/amr')
     from amr2 import vectors
@@ -247,6 +248,24 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(
             reg.rmax = rmax[0]*group.virial_quantities['radius'].d
         else:
             reg.rmax = group.obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')
+    elif region_type == 'basic_cube':
+        reg.name = 'cube'
+        centre = vectors.vector()
+        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        reg.centre = centre
+        axis = vectors.vector()
+        norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
+        axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
+        reg.axis = axis
+        bulk = vectors.vector()
+        bulk.x, bulk.y, bulk.z = 0,0,0
+        reg.bulk_velocity = bulk
+        reg.xmin = group.obj.quantity(xmin[0],str(xmin[1])).in_units('code_length')
+        reg.xmax = group.obj.quantity(xmax[0],str(xmax[1])).in_units('code_length')
+        reg.ymin = group.obj.quantity(ymin[0],str(ymin[1])).in_units('code_length')
+        reg.ymax = group.obj.quantity(ymax[0],str(ymax[1])).in_units('code_length')
+        reg.zmin = group.obj.quantity(zmin[0],str(zmin[1])).in_units('code_length')
+        reg.zmax = group.obj.quantity(zmax[0],str(zmax[1])).in_units('code_length')
 
     elif region_type == 'cylinder':
         reg.name = 'cylinder'

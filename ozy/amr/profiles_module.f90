@@ -406,7 +406,7 @@ module amr_profiles
             read(10)
             read(10)
 
-            ! Make sure that we are not trying to access to far in the refinement map…
+            ! Make sure that we are not trying to access too far in the refinement map…
             call check_lmax(ngridfile)
             ! Open HYDRO file and skip header
             nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)

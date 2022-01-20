@@ -615,8 +615,8 @@ subroutine f90wrap_makebins(reg, varname, nbins, bins, logscale, n0)
 end subroutine f90wrap_makebins
 
 subroutine f90wrap_findbinpos(reg, distance, pos, cellvars, cellsize, prof, ibin, n0, n1)
+    use amr_profiles, only: findbinpos, profile_handler
     use geometrical_regions, only: region
-    use amr_profiles, only: profile_handler, findbinpos
     implicit none
     
     type profile_handler_ptr_type
@@ -645,16 +645,16 @@ subroutine f90wrap_findbinpos(reg, distance, pos, cellvars, cellsize, prof, ibin
 end subroutine f90wrap_findbinpos
 
 subroutine f90wrap_findbinpos_twod(reg, distance, pos, cellvars, cellsize, prof, logscale, ibinx, ibiny, n0, n1)
-    use geometrical_regions, only: region
     use amr_profiles, only: findbinpos_twod, profile_handler_twod
+    use geometrical_regions, only: region
     implicit none
     
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type profile_handler_twod_ptr_type
         type(profile_handler_twod), pointer :: p => NULL()
     end type profile_handler_twod_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg
     real(8), intent(in) :: distance
@@ -677,8 +677,8 @@ subroutine f90wrap_findbinpos_twod(reg, distance, pos, cellvars, cellsize, prof,
 end subroutine f90wrap_findbinpos_twod
 
 subroutine f90wrap_bindata(reg, pos, cellvars, cellsize, prof, ibin, n0, n1)
-    use geometrical_regions, only: region
     use amr_profiles, only: profile_handler, bindata
+    use geometrical_regions, only: region
     implicit none
     
     type profile_handler_ptr_type
@@ -709,12 +709,12 @@ subroutine f90wrap_bindata_twod(reg, pos, cellvars, cellsize, prof, ibinx, ibiny
     use geometrical_regions, only: region
     implicit none
     
-    type region_ptr_type
-        type(region), pointer :: p => NULL()
-    end type region_ptr_type
     type profile_handler_twod_ptr_type
         type(profile_handler_twod), pointer :: p => NULL()
     end type profile_handler_twod_ptr_type
+    type region_ptr_type
+        type(region), pointer :: p => NULL()
+    end type region_ptr_type
     type(region_ptr_type) :: reg_ptr
     integer, intent(in), dimension(2) :: reg
     real(8), intent(in), dimension(n0) :: pos
@@ -748,7 +748,7 @@ subroutine f90wrap_renormalise_bins(prof_data)
 end subroutine f90wrap_renormalise_bins
 
 subroutine f90wrap_renormalise_bins_twod(prof_data)
-    use amr_profiles, only: renormalise_bins_twod, profile_handler_twod
+    use amr_profiles, only: profile_handler_twod, renormalise_bins_twod
     implicit none
     
     type profile_handler_twod_ptr_type
@@ -762,8 +762,8 @@ end subroutine f90wrap_renormalise_bins_twod
 
 subroutine f90wrap_get_cells_onedprofile(repository, reg, filt, prof_data)
     use filtering, only: filter
+    use amr_profiles, only: profile_handler, get_cells_onedprofile
     use geometrical_regions, only: region
-    use amr_profiles, only: get_cells_onedprofile, profile_handler
     implicit none
     
     type filter_ptr_type
@@ -790,8 +790,8 @@ end subroutine f90wrap_get_cells_onedprofile
 
 subroutine f90wrap_onedprofile(repository, reg, filt, prof_data, lmax, logscale)
     use filtering, only: filter
+    use amr_profiles, only: onedprofile, profile_handler
     use geometrical_regions, only: region
-    use amr_profiles, only: profile_handler, onedprofile
     implicit none
     
     type filter_ptr_type
@@ -821,8 +821,8 @@ end subroutine f90wrap_onedprofile
 
 subroutine f90wrap_twodprofile(repository, reg, filt, prof_data, lmax, logscale)
     use filtering, only: filter
+    use amr_profiles, only: twodprofile, profile_handler_twod
     use geometrical_regions, only: region
-    use amr_profiles, only: profile_handler_twod, twodprofile
     implicit none
     
     type filter_ptr_type
@@ -852,8 +852,8 @@ end subroutine f90wrap_twodprofile
 
 subroutine f90wrap_get_cells_twodprofile(repository, reg, filt, prof_data, logscale)
     use filtering, only: filter
-    use geometrical_regions, only: region
     use amr_profiles, only: profile_handler_twod, get_cells_twodprofile
+    use geometrical_regions, only: region
     implicit none
     
     type filter_ptr_type

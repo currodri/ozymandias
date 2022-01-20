@@ -9,7 +9,7 @@ from amr2 import filtering
 from amr2 import amr_integrator
 from part2 import part_integrator
 
-from ozy.profiles import init_region,init_filter
+from ozy.utils import init_region,init_filter
 
 MINIMUM_STARS_PER_GALAXY = 100
 MINIMUM_DM_PER_HALO      = 0
