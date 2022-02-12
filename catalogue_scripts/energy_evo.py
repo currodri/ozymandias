@@ -12,7 +12,6 @@ import numpy as np
 import os
 import argparse
 from astropy.cosmology import FlatLambdaCDM, z_at_value
-from yt import YTArray, YTQuantity
 import seaborn as sns
 import matplotlib
 import matplotlib.pyplot as plt
@@ -35,7 +34,7 @@ if __name__ == '__main__':
     parser.add_argument('--var', type=str, nargs='+', default=['total_thermal'], help='Energies to be plotted.')
     parser.add_argument('--start', type=int, default=1, help='Starting index to look for galaxy.')
     parser.add_argument('--end', type=int, default=1000, help='Ending index to look for galaxy.')
-    parser.add_argument('--maxz',type=float,default=2.0, help="Maximum redshift displayed in plot.")
+    parser.add_argument('--maxz',type=float,default=1.5, help="Maximum redshift displayed in plot.")
     parser.add_argument('--NUT', type=bool, default=True, help='If True, it looks for NUT as the most massive galaxy (stars) in the last snapshot.')
     args = parser.parse_args()
 
@@ -57,9 +56,11 @@ if __name__ == '__main__':
         ax.tick_params(which='both',axis="both",direction="in")
         if args.model[i][0] != '/':
             simfolder = os.path.join(os.getcwd(), args.model[i])
+            args.model[i] = args.model[i].replace('_','\_')
         else:
             simfolder = args.model[i]
             args.model[i] = args.model[i].split('/')[-1]
+            args.model[i] = args.model[i].replace('_','\_')
         
         ax.text(0.5, 0.2, args.model[i],transform=ax.transAxes,fontsize=16)
         if not os.path.exists(simfolder):
@@ -97,8 +98,8 @@ if __name__ == '__main__':
             # Initialise simulation parameters
             redshift = sim.simulation.redshift
             h = sim.simulation.hubble_constant
-            cosmo = FlatLambdaCDM(H0=100*sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
-            Ob0=sim.simulation.parameters['omega_b'],Tcmb0=2.73)
+            cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
+                                    Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
 
             # Age of Universe at this redshift
             thubble = cosmo.age(redshift).value
@@ -106,7 +107,6 @@ if __name__ == '__main__':
             for e_var in args.var:
                 try:
                     e = sim.galaxies[progind].energies[e_var]
-                    e = YTQuantity(e, 'code_specific_energy', registry=sim.unit_registry)
                     galaxy_energies[e_var].append(e.in_units('erg*g**-1').d)
                 except:
                     pass
@@ -144,7 +144,7 @@ if __name__ == '__main__':
             maxt = cosmo.age(args.maxz).value
             ax.set_xlim(0.0, maxt)
             axR.set_xlim(0.0, maxt)
-            topticks1 = np.array([2.0, 3.0, 4.0, 6.0])
+            topticks1 = np.array([1.5,2.0, 3.0, 4.0, 6.0])
             topticks1 = topticks1[topticks1 >= args.maxz]
             topticks2 = cosmo.age(topticks1).value
             axR.set_xticklabels(topticks1)

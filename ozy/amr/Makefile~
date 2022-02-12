@@ -4,9 +4,9 @@ COMMONS = /mnt/extraspace/currodri/Codes/ozymandias/ozy/fortran_commons
 #                   define the compiler names
 #=======================================================================
 
-CC       = ifort
+CC       = icx
 #F90      = gfortran
-F90      = ifort
+F90      = icx
 #F90      =  /opt/intel/composer_xe_2015.3.187/bin/intel64/ifort
 PYTHON   = python
 
@@ -22,7 +22,7 @@ ifeq ($(F90),gfortran)
     LIBS     =
 endif
 
-ifeq ($(F90),ifort)
+ifeq ($(F90),icx)
 
 	FPP      = gfortran -E # gfortran f90wrap temp files only. not compilation
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC -I $(COMMONS)

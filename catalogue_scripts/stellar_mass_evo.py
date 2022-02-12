@@ -130,7 +130,7 @@ if __name__ == '__main__':
         maxt = cosmo.age(args.maxz).value
         ax.set_xlim(0.0, maxt)
         axR.set_xlim(0.0, maxt)
-        topticks1 = np.array([2.0, 3.0, 4.0, 6.0])
+        topticks1 = np.array([1.5, 2.0, 3.0, 4.0, 6.0, 8.0])
         topticks1 = topticks1[topticks1 >= args.maxz]
         topticks2 = cosmo.age(topticks1).value
         axR.set_xticklabels(topticks1)

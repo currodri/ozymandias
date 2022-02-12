@@ -549,6 +549,145 @@ if __name__ == '__main__':
             args.ind = 'NUT'
         fig.subplots_adjust(hspace=0.0,wspace=0.0)#,left=0.065,right=0.98,top=0.95,bottom=0.05)
         fig.savefig(os.getcwd()+'/'+args.flowtype+'_phasecomp_'+args.var+'_'+str(args.ind)+'_'+d_key+'rvir.png', format='png', dpi=200)
+    
+    elif args.type == 'cumulative_phases':
+        # Since everything is fine, we begin plotting…
+        nrow = int(1 + len(args.model))
+        height_ratios = []
+        height_ratios.append(1)
+        for i in range(0, len(args.model)):
+            height_ratios.append(0.3)
+        figsize = plt.figaspect(float((7.0 * len(args.model)) / (5.0 * 2)))
+        fig = plt.figure(figsize=2*figsize, facecolor='k', edgecolor='k')
+        plot_grid = fig.add_gridspec(nrow, 1, wspace=0, hspace=0, height_ratios=height_ratios)
+        axes = []
+        for i in range(0,nrow):
+            axes.append(fig.add_subplot(plot_grid[i]))
+        axes = np.asarray(axes)
+
+        # Get data
+        plt_setting = plotting_dictionary[args.var]
+        for i in range(0, len(args.model)):
+            if args.model[i][0] != '/':
+                simfolder = os.path.join(os.getcwd(), args.model[i])
+            else:
+                simfolder = args.model[i]
+                args.model[i] = args.model[i].split('/')[-1]
+            if not os.path.exists(simfolder):
+                raise Exception('The given simulation name is not found in this directory!')
+            
+            groupspath = os.path.join(simfolder, 'Groups')
+            files = os.listdir(groupspath)
+            ozyfiles = []
+
+            for f in files:
+                if f.startswith('ozy_') and args.start < int(f[4:-5]) < args.end:
+                    ozyfiles.append(f)
+            
+            ozyfiles = sorted(ozyfiles, key=lambda x:x[4:-5], reverse=True)
+            galaxy_time = []
+            galaxy_masses = []
+            flow_values = {'total':[],'hot':[],'warm_ionised':[],'warm_neutral':[],'cold':[]}
+
+            progind = args.ind
+            if args.NUT:
+                sim = ozy.load(os.path.join(groupspath, ozyfiles[0]))
+                virial_mass = [i.virial_quantities['mass'] for i in sim.galaxies]
+                progind = np.argmax(virial_mass)
+            
+            for ozyfile in ozyfiles:
+                if progind == -1:
+                    continue
+                # Load OZY file
+                sim = ozy.load(os.path.join(groupspath, ozyfile))
+                # Initialise simulation parameters
+                redshift = sim.simulation.redshift
+                if redshift <= args.maxz:
+                    try:
+                        progind = sim.galaxies[progind].progen_galaxy_star
+                    except:
+                        progind = -1
+                    continue
+                h = sim.simulation.hubble_constant
+                cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
+                Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
+
+                # Age of Universe at this redshift
+                thubble = cosmo.age(redshift).value
+
+                galaxy_time.append(thubble)
+
+                gal = sim.galaxies[progind]
+                m = sim.galaxies[progind].mass['stellar']
+                galaxy_masses.append(m)
+                bad_mass = False
+                if len(galaxy_time) >= 2:
+                    if (galaxy_masses[-1]-galaxy_masses[-2])/galaxy_masses[-2] > 0.8:
+                        bad_mass = True
+                    else:
+                        bad_mass = False
+                
+                if bad_mass == True:
+                    print('Deleting')
+                    try:
+                        flow_values[-2] = flow_values[-1]
+                    except:
+                        pass
+                try:
+                    progind = sim.galaxies[progind].progen_galaxy_star
+                except:
+                    progind = -1
+                
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
+                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=False)
+                
+                d_key = str(int(100*args.r))
+                try:
+                    d = gf.data[args.var+'_'+d_key+'rvir_all'].in_units(plt_setting['units'])
+                    if args.flowtype == 'inflow':
+                        d = -d
+                    flow_values['all'].append(d)
+                except:
+                    raise KeyError('This variable is not present in this GalacticFlow object: '+str(gf.data[args.var+'_'+d_key+'rvir']))
+
+            # Integrate curve
+            print(flow_values)
+            flow_values = cumtrapz(np.asarray(flow_values), np.asarray(galaxy_time)*1e+9)
+            print(flow_values)
+            galaxy_time = np.asarray(galaxy_time)
+            galaxy_time = 0.5*(galaxy_time[:-1]+galaxy_time[1:])
+            ax.plot(galaxy_time,-1*flow_values[::-1],marker='o', markersize=2, label=args.model[i])
+
+        # Cumulative flow
+        ax = axes[0]
+        ax.set_xlabel(r'$t$ [Gyr]', fontsize=16)
+        ax.set_ylabel(r'$\log{M/M_{\odot}}$', fontsize=16)
+        ax.tick_params(labelsize=12)
+        ax.xaxis.set_ticks_position('both')
+        ax.yaxis.set_ticks_position('both')
+        ax.minorticks_on()
+        ax.tick_params(which='both',axis="both",direction="in")
+        ax.set_yscale('log')
+
+        # Add top ticks for redshift
+        axR = ax.twiny()
+        maxt = cosmo.age(args.maxz).value
+        ax.set_xlim(0.0, maxt)
+        axR.set_xlim(0.0, maxt)
+        topticks1 = np.array([2.0, 3.0, 4.0, 6.0])
+        topticks1 = topticks1[topticks1 >= args.maxz]
+        topticks2 = cosmo.age(topticks1).value
+        axR.set_xticklabels(topticks1)
+        axR.set_xticks(topticks2)
+        axR.xaxis.set_ticks_position('top') # set the position of the second x-axis to top
+        axR.xaxis.set_label_position('top') # set the position of the second x-axis to top
+        axR.set_xlabel(r'$z$', fontsize=16)
+        axR.tick_params(labelsize=12)
+        ax.legend(loc='best', fontsize=14,frameon=False)
+
+        if args.NUT:
+            args.ind = 'NUT'
+        fig.savefig(os.getcwd()+'/cumulative_'+args.flowtype+'_'+args.var+'_'+str(args.ind)+'_'+d_key+'rvir.png', format='png', dpi=200)
     else:
         # Now add all to a single plot
         fig, ax = plt.subplots(1,1, figsize=(7,5),dpi=100,facecolor='w',edgecolor='k')

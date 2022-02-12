@@ -1,4 +1,7 @@
 common_variables = dict(
+    x = 'code_length',
+    y = 'code_length',
+    z = 'code_length',
     d_euclid = 'code_length',
     r_sphere = 'code_length',
     theta_sphere = 'radian',

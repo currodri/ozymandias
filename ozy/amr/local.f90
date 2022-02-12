@@ -25,7 +25,7 @@ module local
 
 implicit none
 private
-public :: sgl,dbl,ish,irg
+public :: sgl,dbl,ish,irg,ilg
 
 ! Define the "kind" parameters for single and double precision reals, 
 !> single precision real kind parameter
@@ -38,6 +38,9 @@ public :: sgl,dbl,ish,irg
   integer,parameter                     :: ish = SELECTED_INT_KIND(3) 
 !> long integer kind parameter  
   integer,parameter                     :: irg = SELECTED_INT_KIND(9)
+!> long integer kind parameter  
+  integer,parameter                     :: ilg = SELECTED_INT_KIND(12)
+  
 
 end module local
 

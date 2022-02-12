@@ -19,7 +19,9 @@ plotting_dictionary = dict(
             'label_log':r'$\log$(\frac{Mass}{{\rmM}$_{\odot}$})',
             'units':'Msun',
             'vmin':1,
-            'vmax':1e+8
+            'vmax':1e+8,
+            'vmin_galaxy':1,
+            'vmax_galaxy':1e+8
     },
     temperature = {'cmap':sns.color_palette("rocket", as_cmap=True),
                     'text_over':'white',
@@ -28,8 +30,8 @@ plotting_dictionary = dict(
                     'units':'K',
                     'vmin':2e+4,
                     'vmax':8e+6,
-                    'vmin_galaxy':5e+2,
-                    'vmax_galaxy':8e+5
+                    'vmin_galaxy':8e+1,
+                    'vmax_galaxy':8e+6
     },
     thermal_energy = {'cmap':sns.color_palette("rocket", as_cmap=True),
                             'text_over':'white',
@@ -135,15 +137,15 @@ plotting_dictionary = dict(
                         'vmax_galaxy':8e-11
 
     },
-    cr_energy_density = {'cmap':sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=False, as_cmap=True),
+    cr_energy_density = {'cmap':'YlGnBu_r',#sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=False, as_cmap=True),
                         'text_over':'black',
                         'label':r'$\varepsilon_{\rm CR}$ [erg/cm$^{3}$]',
                         'label_log':r'$\log(\frac{\varepsilon_{\rm CR}}{{\rm erg/cm}^{3}})$',
                         'units':'erg*cm**-3',
                         'vmin':7e-18,
                         'vmax':8e-12,
-                        'vmin_galaxy':8e-14,
-                        'vmax_galaxy':8e-11
+                        'vmin_galaxy':6e-14,
+                        'vmax_galaxy':2e-10
 
     },
     cr_energy_specific = {'cmap':sns.cubehelix_palette(start=.5, rot=-.75, as_cmap=True), #sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),

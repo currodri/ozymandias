@@ -398,7 +398,7 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
     fig.subplots_adjust(top=0.97,bottom=0.1,left=0.1,right=0.99)
     fig.savefig(name+'.png',format='png',dpi=300)
 
-def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=True,redshift=True,stats='none',extra_labels='none',gent=False,powell=False):
+def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=True,redshift=True,stats='none',extra_labels='none',gent=False,powell=False,doflows=False):
 
     # Make required imports
     import matplotlib
@@ -429,124 +429,191 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=Tr
     field_indexes = []
     weight_indexes = []
     for pd in pds:
-        if field not in pd.zvars['hydro']:
-            raise KeyError('The field %s is not included in this PhaseDiagram object. Aborting!'%field)
-        else:
-            for f in range(0,len(pd.zvars['hydro'])):
-                if pd.zvars['hydro'][f] == field:
-                    field_indexes.append(f)
-                    break
-            if weightvar not in pd.weightvars['hydro']:
-                raise KeyError('The weight field %s is not included in this PhaseDiagram object. Aborting!'%weightvar)
-                exit
+        if doflows:
+            if field not in pd[0].zvars['hydro']:
+                raise KeyError('The field %s is not included in this PhaseDiagram object. Aborting!'%field)
             else:
-                for w in range(0, len(pd.weightvars['hydro'])):
-                    if pd.weightvars['hydro'][w] == weightvar:
-                        weight_indexes.append(w)
+                for f in range(0,len(pd[0].zvars['hydro'])):
+                    if pd[0].zvars['hydro'][f] == field:
+                        field_indexes.append(f)
                         break
+                if weightvar not in pd[0].weightvars['hydro']:
+                    raise KeyError('The weight field %s is not included in this PhaseDiagram object. Aborting!'%weightvar)
+                    exit
+                else:
+                    for w in range(0, len(pd[0].weightvars['hydro'])):
+                        if pd[0].weightvars['hydro'][w] == weightvar:
+                            weight_indexes.append(w)
+                            break
+        else:
+            if field not in pd.zvars['hydro']:
+                raise KeyError('The field %s is not included in this PhaseDiagram object. Aborting!'%field)
+            else:
+                for f in range(0,len(pd.zvars['hydro'])):
+                    if pd.zvars['hydro'][f] == field:
+                        field_indexes.append(f)
+                        break
+                if weightvar not in pd.weightvars['hydro']:
+                    raise KeyError('The weight field %s is not included in this PhaseDiagram object. Aborting!'%weightvar)
+                    exit
+                else:
+                    for w in range(0, len(pd.weightvars['hydro'])):
+                        if pd.weightvars['hydro'][w] == weightvar:
+                            weight_indexes.append(w)
+                            break
     if len(field_indexes) != npds or len(weight_indexes) != npds:
         print('You should check the fields and weights available, not all your phase diagrams have them!')
         exit
     
     # With everything fine, we begin plotting…
-    figsize = plt.figaspect(5.0 / float(5 * npds))
-    fig = plt.figure(figsize=figsize, facecolor='w',edgecolor='k')
-    plot_grid = fig.add_gridspec(1, npds, wspace=0)#,  hspace=0,left=0,right=1, bottom=0, top=1)
+    nrow = int(len(pds)/2)
+    figsize = plt.figaspect(float((5.0 * nrow) / (5.0 * 2)))
+    fig = plt.figure(figsize=2*figsize, facecolor='w',edgecolor='k')
+    plot_grid = fig.add_gridspec(nrow, 2, wspace=0, hspace=0)#,  hspace=0,left=0,right=1, bottom=0, top=1)
     ax = []
-    for j in range(0,npds):
-        ax.append(fig.add_subplot(plot_grid[j]))
+    for i in range(0,nrow):
+        ax.append([])
+        for j in range(0,2):
+            ax[i].append(fig.add_subplot(plot_grid[i,j]))
     ax = np.asarray(ax)
-    for i in range(0, npds):
-        pd = pds[i]
-        plotting_x = plotting_dictionary[pd.xvar]
-        plotting_y = plotting_dictionary[pd.yvar]
-        plotting_z = plotting_dictionary[field]
-        ax[i].set_xlabel(plotting_x['label'],fontsize=18)
-        if i == 0:
-            ax[i].set_ylabel(plotting_y['label'],fontsize=18)
-        else:
-            ax[i].axes.yaxis.set_visible(False)
+    for i in range(0, ax.shape[0]):
+        for j in range(0, ax.shape[1]):
+            ipd = i*ax.shape[1] + j
+            if ipd >= npds:
+                # Clear that extra panel
+                ax[i,j].get_xaxis().set_visible(False)
+                ax[i,j].get_yaxis().set_visible(False)
+                break
+            if doflows:
+                pd = pds[ipd][0]
+            else:
+                pd = pds[ipd]
+            plotting_x = plotting_dictionary[pd.xvar]
+            plotting_y = plotting_dictionary[pd.yvar]
+            plotting_z = plotting_dictionary[field]
+            ax[i,j].set_xlabel(plotting_x['label'],fontsize=18)
+            if ipd%2 == 0:
+                ax[i,j].set_ylabel(plotting_y['label'],fontsize=18)
+            else:
+                ax[i,j].axes.yaxis.set_visible(False)
 
-        ax[i].tick_params(labelsize=14,direction='in')
-        ax[i].xaxis.set_ticks_position('both')
-        ax[i].yaxis.set_ticks_position('both')
-        ax[i].minorticks_on()
-        ax[i].tick_params(which='major',axis="both",direction="in")
+            ax[i,j].tick_params(labelsize=14,direction='in')
+            ax[i,j].xaxis.set_ticks_position('both')
+            ax[i,j].yaxis.set_ticks_position('both')
+            ax[i,j].minorticks_on()
+            ax[i,j].tick_params(which='major',axis="both",direction="in")
 
-        ax[i].set_xscale('log')
-        ax[i].set_yscale('log')
-        code_units_x = get_code_units(pd.xvar)
+            ax[i,j].set_xscale('log')
+            ax[i,j].set_yscale('log')
+            code_units_x = get_code_units(pd.xvar)
 
-        x = pd.obj.array(10**(pd.xdata[0].d),code_units_x)
-        x = x.in_units(plotting_x['units'])
-        code_units_y = get_code_units(pd.yvar)
-        y = pd.obj.array(10**(pd.ydata[0].d),code_units_y)
-        y = y.in_units(plotting_y['units'])
-        code_units_z = get_code_units(field)
-        z = np.array(pd.zdata['hydro'][field_indexes[i]][:,:,weight_indexes[i],0].d,order='F')
-        z = pd.obj.array(z,code_units_z)
-        sim_z = pd.obj.simulation.redshift
+            x = pd.obj.array(10**(pd.xdata[0].d),code_units_x)
+            x = x.in_units(plotting_x['units'])
+            code_units_y = get_code_units(pd.yvar)
+            y = pd.obj.array(10**(pd.ydata[0].d),code_units_y)
+            y = y.in_units(plotting_y['units'])
+            code_units_z = get_code_units(field)
+            z = np.array(pd.zdata['hydro'][field_indexes[i]][:,:,weight_indexes[i],0].d,order='F')
+            z = pd.obj.array(z,code_units_z)
+            sim_z = pd.obj.simulation.redshift
 
-        if logscale:
-            plot = ax[i].pcolormesh(x,y,
-                                z.in_units(plotting_z['units']).T,
-                                shading='auto',
-                                cmap=plotting_z['cmap'],
-                                norm=LogNorm(vmin=plotting_z['vmin_galaxy'],
-                                vmax=plotting_z['vmax_galaxy']))
-        else:
-            plot = ax[i].pcolormesh(x,y,
-                                z.in_units(plotting_z['units']).T,
-                                shading='auto',
-                                cmap=plotting_z['cmap'],
-                                vmin=plotting_z['vmin'],
-                                vmax=plotting_z['vmax'])
-        if redshift:
-            ax[i].text(0.05, 0.1, 'z = '+str(round(sim_z, 2)),
-                        transform=ax[i].transAxes, fontsize=20,verticalalignment='top',
-                        color='black')
-        if isinstance(extra_labels,list):
-            ax[i].text(0.5, 0.9, extra_labels[i],
-                        transform=ax[i].transAxes, fontsize=14,verticalalignment='top',
-                        color='black')
+            if logscale:
+                plot = ax[i,j].pcolormesh(x,y,
+                                    z.in_units(plotting_z['units']).T,
+                                    shading='auto',
+                                    cmap=plotting_z['cmap'],
+                                    norm=LogNorm(vmin=plotting_z['vmin_galaxy'],
+                                    vmax=plotting_z['vmax_galaxy']))
+            else:
+                plot = ax[i,j].pcolormesh(x,y,
+                                    z.in_units(plotting_z['units']).T,
+                                    shading='auto',
+                                    cmap=plotting_z['cmap'],
+                                    vmin=plotting_z['vmin'],
+                                    vmax=plotting_z['vmax'])
+            if redshift:
+                ax[i,j].text(0.05, 0.1, 'z = '+str(round(sim_z, 2)),
+                            transform=ax[i,j].transAxes, fontsize=20,verticalalignment='top',
+                            color='black')
+            if isinstance(extra_labels,list):
+                ax[i,j].text(0.5, 0.9, extra_labels[ipd],
+                            transform=ax[i,j].transAxes, fontsize=14,verticalalignment='top',
+                            color='black')
 
-        if powell:
-            ax[i].text(1e-29, 1e6, 'HD', fontsize=16,verticalalignment='top',
-                        color='black')
-            ax[i].text(1e-29, 5e4, 'WD', fontsize=16,verticalalignment='top',
-                        color='black')
-            ax[i].text(1e-28, 1e3, 'CD', fontsize=16,verticalalignment='top',
-                        color='black')
-            ax[i].text(1e-24, 3e2, 'F', fontsize=16,verticalalignment='top',
-                        color='white')
-            ax[i].text(4e-22, 1e6, 'CL', fontsize=16,verticalalignment='top',
-                        color='black')
-            ax[i].plot([1e-30,1e-23],[2e5,2e5],color='k',linewidth=1)
-            ax[i].plot([1e-30,1e-23],[2e4,2e4],color='k',linewidth=1)
-            ax[i].plot([1e-25,1e-25],[0,2e4],color='k',linewidth=1)
-            ax[i].plot([1e-23,1e-23],[0,1e8],color='k',linewidth=1)
-        
-        if gent:
-            ax[i].plot([1e-30,1e-23],[2e5,2e5],color='k',linewidth=1)
-            ax[i].plot([1e-30,1e-23],[2e4,2e4],color='k',linewidth=1)
+            if powell:
+                ax[i,j].text(1e-29, 1e6, 'HD', fontsize=16,verticalalignment='top',
+                            color='black')
+                ax[i,j].text(1e-29, 5e4, 'WD', fontsize=16,verticalalignment='top',
+                            color='black')
+                ax[i,j].text(1e-28, 1e3, 'CD', fontsize=16,verticalalignment='top',
+                            color='black')
+                ax[i,j].text(1e-24, 3e2, 'F', fontsize=16,verticalalignment='top',
+                            color='white')
+                ax[i,j].text(4e-22, 1e6, 'CL', fontsize=16,verticalalignment='top',
+                            color='black')
+                ax[i,j].plot([1e-30,1e-23],[2e5,2e5],color='k',linewidth=1)
+                ax[i,j].plot([1e-30,1e-23],[2e4,2e4],color='k',linewidth=1)
+                ax[i,j].plot([1e-25,1e-25],[0,2e4],color='k',linewidth=1)
+                ax[i,j].plot([1e-23,1e-23],[0,1e8],color='k',linewidth=1)
+            
+            if gent:
+                ax[i,j].plot([1e-30,1e-23],[2e5,2e5],color='k',linewidth=1)
+                ax[i,j].plot([1e-30,1e-23],[2e4,2e4],color='k',linewidth=1)
 
-        if stats == 'mean':
-            y_mean = np.zeros(len(x))
-            z = z.T
-            for k in range(0, len(x)):
-                a = np.nansum(y * z[:,k])
-                b = np.nansum(z[:,k])
-                y_mean[k] = a/b
-            ax[i].plot(x,y_mean,color='r',linewidth=2)
-        
-        if i==npds-1:
-            cbaxes = inset_axes(ax[i], width="5%", height="100%", loc='lower left',
-                                bbox_to_anchor=(1.05, 0., 1, 1),
-                                bbox_transform=ax[i].transAxes,borderpad=0)
-            cbar = fig.colorbar(plot, cax=cbaxes, orientation='vertical')
-            cbar.set_label(plotting_z['label'],fontsize=20)
-            cbar.ax.tick_params(labelsize=14)
+            if stats == 'mean':
+                y_mean = np.zeros(len(x))
+                z = z.T
+                for k in range(0, len(x)):
+                    a = np.nansum(y * z[:,k])
+                    b = np.nansum(z[:,k])
+                    y_mean[k] = a/b
+                ax[i,j].plot(x,y_mean,color='k',linewidth=2, linestyle='--')
+            
+            if ipd==0:
+                cbaxes = inset_axes(ax[i,j], width="200%", height="5%", loc='upper left',
+                                    bbox_to_anchor=(0.0, 0., 1.0, 1.05),
+                                    bbox_transform=ax[i,j].transAxes,borderpad=0)
+                cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
+                cbar.set_label(plotting_z['label'],fontsize=20)
+                cbar.ax.tick_params(labelsize=10)
+                cbaxes.xaxis.set_label_position('top')
+                cbaxes.xaxis.set_ticks_position('top')
+
+            # If we want to include countor for outflows and inflows
+            if doflows:
+                # Outflow
+                outpd = pds[ipd][1]
+                zoutflow = np.array(outpd.zdata['hydro'][field_indexes[i]][:,:,weight_indexes[i],0].d,order='F')
+                zoutflow = outpd.obj.array(zoutflow,code_units_z)
+                ztot = np.sum(zoutflow)
+                n = 1000
+                t = np.linspace(0, zoutflow.max(), n)
+                integral = ((zoutflow >= t[:, None, None]) * zoutflow).sum(axis=(1,2))
+                from scipy import interpolate
+                f = interpolate.interp1d(integral, t)
+                t_contours = f(np.array([0.8*ztot]))
+                ax[i,j].contour(x, y, zoutflow.T, t_contours, colors='darkorange', linewidths=2)
+                # Inflow
+                inpd = pds[ipd][2]
+                zinflow = np.array(inpd.zdata['hydro'][field_indexes[i]][:,:,weight_indexes[i],0].d,order='F')
+                zinflow = inpd.obj.array(zinflow,code_units_z)
+                ztot = np.sum(zinflow)
+                t = np.linspace(0, ztot, n)
+                integral = ((zinflow >= t[:, None, None]) * zinflow).sum(axis=(1,2))
+                f = interpolate.interp1d(integral, t)
+                t_contours = f(np.array([0.8*ztot]))
+                ax[i,j].contour(x, y, zinflow.T, t_contours, colors='darkblue', linewidths=2)
+                # Escaping
+                espd = pds[ipd][3]
+                zescape = np.array(espd.zdata['hydro'][field_indexes[i]][:,:,weight_indexes[i],0].d,order='F')
+                zescape = espd.obj.array(zescape,code_units_z)
+                ztot = np.sum(zescape)
+                t = np.linspace(0, ztot, n)
+                integral = ((zescape >= t[:, None, None]) * zescape).sum(axis=(1,2))
+                f = interpolate.interp1d(integral, t)
+                t_contours = f(np.array([0.8*ztot]))
+                ax[i,j].contour(x, y, zescape.T, t_contours, colors='darkred', linewidths=2)
             
         
-        fig.subplots_adjust(top=0.97,bottom=0.12,left=0.07,right=0.88)
+        fig.subplots_adjust(top=0.92,bottom=0.05,left=0.1,right=0.95)
         fig.savefig(name+'.png',format='png',dpi=300)

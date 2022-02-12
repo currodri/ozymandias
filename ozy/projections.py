@@ -414,7 +414,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         distance = 0.3*rmax
         far_cut_depth = 0.3*rmax
         centre = vectors.vector()
-        im_centre = group.position + 0.99*norm_L * rmax.d
+        im_centre = group.position.d + 0.99*norm_L * rmax
         centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
     elif proj.pov == 'bottom_midplane':
         axis = vectors.vector()
@@ -429,7 +429,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         distance = 0.3*rmax
         far_cut_depth = 0.3*rmax
         centre = vectors.vector()
-        im_centre = group.position + 0.99 * norm_L * rmax.d
+        im_centre = group.position.d + 0.99 * norm_L * rmax
         centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
     else:
         print("This point of view is not supported!")
@@ -678,6 +678,184 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
         return fig
     else:
         fig.savefig(proj_FITS.split('.')[0]+'.png',format='png',dpi=300)
+
+def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=True,redshift=True,returnfig=False,pov='x',labels=[],centers=[],radii=[],circle_keys=[]):
+    """This function uses the projection information in a set of FITS files and combines in a single
+        figure following the OZY standards."""
+    
+    # Make required imports
+    from ozy.utils import tidal_radius
+    from ozy.plot_settings import circle_dictionary
+    import matplotlib
+    import matplotlib.pyplot as plt
+    import matplotlib.font_manager as fm
+    from mpl_toolkits.axes_grid1 import AxesGrid, make_axes_locatable
+    from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+    from matplotlib.colors import LogNorm,SymLogNorm
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    from scipy import signal
+    import seaborn as sns
+    sns.set(style="dark")
+    plt.rcParams["axes.axisbelow"] = False
+    # plt.rc('text', usetex=True)
+    # plt.rc('font', family='serif')
+    # hfont = {'fontname':'Helvetica'}
+    # matplotlib.rc('text', usetex = True)
+    # matplotlib.rc('font', **{'family' : "serif"})
+    # params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
+    # matplotlib.rcParams.update(params)
+
+    # Check if we have the same number of faceon and edgeon files
+    if len(faceon_fits) != len(edgeon_fits):
+        raise ImportError('The number of faceon to edgeon FITS is not the same: %i to %i'%(len(faceon_fits),len(edgeon_fits)))
+
+    # First,check that the FITS files actually exist
+    for f in faceon_fits:
+        if not os.path.exists(f):
+            raise ImportError('File not found. Please check!: '+str(f))
+    for f in edgeon_fits:
+        if not os.path.exists(f):
+            raise ImportError('File not found. Please check!: '+str(f))
+
+    # Since everything is fine, we begin plotting…
+    ncol = int(len(fields))
+    nrow = int(len(faceon_fits)*2)
+    height_ratios = []
+    for i in range(0, len(faceon_fits)):
+        height_ratios.append(2)
+        height_ratios.append(1)
+    figsize = plt.figaspect((3 * float(len(faceon_fits))) / (2 * float(ncol)))
+    fig = plt.figure(figsize=2*figsize, facecolor='k', edgecolor='k')
+    plot_grid = fig.add_gridspec(nrow, ncol, wspace=0, hspace=0,left=0,right=1,
+                                    bottom=0, top=1, height_ratios=height_ratios)
+    ax = []
+    for i in range(0,nrow):
+        ax.append([])
+        for j in range(0,ncol):
+            ax[i].append(fig.add_subplot(plot_grid[i,j]))
+    ax = np.asarray(ax)
+
+    for i in range(0, ax.shape[0]):
+        if i%2 == 0:
+            myfits = faceon_fits[int(i/2)]
+        else:
+            myfits = edgeon_fits[int(i/2)]
+        hdul = fits.open(myfits)
+        hdul_fields = [h.header['btype'] for h in hdul]
+        width_x =  hdul[0].header['CDELT1']*hdul[0].header['NAXIS1']
+        width_y =  hdul[0].header['CDELT2']*hdul[0].header['NAXIS2']
+        
+        for j in range(0, ax.shape[1]):
+            ivar = j
+            if fields[ivar] not in hdul_fields and fields[ivar].split('/')[1] != 'densityandv_sphere_r':
+                # Clear that extra panel
+                ax[i,j].get_xaxis().set_visible(False)
+                ax[i,j].get_yaxis().set_visible(False)
+                break
+            print(fields[ivar])
+            if i%2 == 0:
+                ax[i,j].set_xlim([-0.5*width_x,0.5*width_x])
+                ax[i,j].set_ylim([-0.5*width_y,0.5*width_y])
+                ex = [-0.5*width_x,0.5*width_x,-0.5*width_y,0.5*width_y]
+            else:
+                ax[i,j].set_xlim([-0.5*width_x,0.5*width_x])
+                ax[i,j].set_ylim([-0.25*width_y,0.25*width_y])
+                ex = [-0.5*width_x,0.5*width_x,-0.5*width_y,0.5*width_y]
+            ax[i,j].axes.xaxis.set_visible(False)
+            ax[i,j].axes.yaxis.set_visible(False)
+            ax[i,j].axis('off')
+
+            if fields[ivar].split('/')[1] != 'densityandv_sphere_r':
+                h = [k for k in range(0,len(hdul)) if hdul[k].header['btype']==fields[ivar]][0]
+
+            if fields[ivar].split('/')[0] == 'star' or fields[ivar].split('/')[0] == 'dm':
+                plotting_def = plotting_dictionary[fields[ivar].split('/')[0]+'_'+fields[ivar].split('/')[1]]
+            elif fields[ivar].split('/')[1] != 'densityandv_sphere_r':
+                plotting_def = plotting_dictionary[fields[ivar].split('/')[1]]
+            if fields[ivar].split('/')[1] == 'densityandv_sphere_r':
+                plotting_def = plotting_dictionary['density']
+                if i%2 == 0:
+                    plot = ax[i,j].imshow(np.log10(hdul['gas/density'].data.T), cmap=plotting_def['cmap'],
+                                origin='upper',vmin=np.log10(plotting_def['vmin_galaxy']),
+                                vmax=np.log10(plotting_def['vmax_galaxy']),extent=ex,
+                                interpolation='nearest')
+                else:
+                    kernel = np.outer(signal.gaussian(100,1),signal.gaussian(100,1))
+                    density = np.log10(hdul['gas/density'].data.T)
+                    v_sphere = hdul['gas/v_sphere_r'].data.T
+                    outflow = np.copy(density)
+                    inflow = np.copy(density)
+                    outflow[v_sphere <= -1.0] = np.log10(plotting_def['vmin_galaxy'])
+                    inflow[v_sphere > 1.0] = np.log10(plotting_def['vmin_galaxy'])
+                    outflow = (outflow-np.log10(plotting_def['vmin_galaxy']))/(np.log10(plotting_def['vmax_galaxy']) - np.log10(plotting_def['vmin_galaxy']))
+                    inflow = (inflow-np.log10(plotting_def['vmin_galaxy']))/(np.log10(plotting_def['vmax_galaxy']) - np.log10(plotting_def['vmin_galaxy']))
+                    print('Density maps coloured with radial velocity')
+                    nx,ny = outflow.shape
+                    rgbArray = np.zeros((nx,ny,3), 'uint8')
+                    rgbArray[:,:,0] = outflow*255*0.8
+                    rgbArray[:,:,1] = 0.1*255*0.8
+                    rgbArray[:,:,2] = inflow*255*0.8
+                    plot = ax[i,j].imshow(np.zeros((nx,ny,3), 'uint8'), cmap='gray',
+                                    vmin=plotting_def['vmin_galaxy'],vmax=plotting_def['vmax_galaxy'])
+                    ax[i,j].imshow(rgbArray,origin='upper',extent=ex,interpolation='lanczos')
+                
+            elif logscale and fields[ivar].split('/')[1] != 'v_sphere_r':
+                plot = ax[i,j].imshow(np.log10(hdul[h].data.T), cmap=plotting_def['cmap'],
+                                origin='upper',vmin=np.log10(plotting_def['vmin_galaxy']),
+                                vmax=np.log10(plotting_def['vmax_galaxy']),extent=ex,
+                                interpolation='nearest')
+            elif logscale and fields[ivar].split('/')[1] == 'v_sphere_r':
+                plot = ax[i,j].imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
+                                origin='upper',norm=SymLogNorm(linthresh=10, linscale=1,vmin=plotting_def['vmin'], vmax=plotting_def['vmax']),
+                                extent=ex,
+                                interpolation='nearest')
+            
+            else:
+                plot = ax[i,j].imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
+                                origin='upper',extent=ex,interpolation='nearest',
+                                vmin=plotting_def['vmin'],vmax=plotting_def['vmax'])
+            if i%2 == 0:
+                cbaxes = inset_axes(ax[i,j], width="80%", height="5%", loc='lower center')
+                cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
+                if logscale and fields[ivar].split('/')[1] != 'v_sphere_r':
+                    cbar.set_label(plotting_def['label_log'],color=plotting_def['text_over'],fontsize=20,labelpad=-25, y=0.85,weight='bold')
+                else:
+                    cbar.set_label(plotting_def['label'],color=plotting_def['text_over'],fontsize=10,labelpad=-25, y=0.85)
+                cbar.ax.xaxis.label.set_font_properties(matplotlib.font_manager.FontProperties(weight='bold',size=8))
+                cbar.ax.tick_params(axis='x', pad=-7, labelsize=8,labelcolor=plotting_def['text_over'])
+                cbar.ax.tick_params(length=0,width=0)
+                cbar.outline.set_linewidth(1)
+
+            if redshift and i%2==0 and j==0:
+                ax[i,j].text(0.05, 0.90, r'$z = ${z:.2f}'.format(z=hdul[0].header['redshift']), # Redshift
+                                    verticalalignment='bottom', horizontalalignment='left',
+                                    transform=ax[i,j].transAxes,
+                                    color=plotting_def['text_over'], fontsize=10,fontweight='bold')
+
+            fontprops = fm.FontProperties(size=10,weight='bold')
+            if scalebar and i%2==0 and j==0:
+                scalebar = AnchoredSizeBar(ax[i,j].transData,
+                                            1, '1 kpc', 'upper right', 
+                                            pad=0.1,
+                                            color=plotting_def['text_over'],
+                                            frameon=False,
+                                            size_vertical=0.1,
+                                            fontproperties=fontprops)
+                ax[i,j].add_artist(scalebar)
+            if len(labels) !=0 and i%2==0 and j==ax.shape[1]-1:
+                l = labels[int(i/2)][0] + '\n' + labels[int(i/2)][1] + '\n' + labels[int(i/2)][2]
+                ax[i,j].text(0.15, 0.7, l,
+                                verticalalignment='bottom', horizontalalignment='left',
+                                transform=ax[i,j].transAxes,
+                                color=plotting_def['text_over'], fontsize=10,fontweight='bold',
+                                bbox=dict(facecolor='none', edgecolor='white'))
+
+    fig.subplots_adjust(hspace=0,wspace=0,left=0,right=1, bottom=0, top=1)
+    if returnfig:
+        return fig
+    else:
+        fig.savefig('plot_comp_facevsedge.png',format='png',dpi=300)
+
 
 def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redshift=True,centers=[],radii=[],names=[]):
     """This function uses the projection information in a FITS file following the 

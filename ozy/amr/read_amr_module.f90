@@ -72,20 +72,34 @@ module io_ramses
     end type data_handler
 
     type particle
-        integer :: id
+#ifndef LONGINT
+    integer(irg) :: id
+#else
+    integer(ilg) :: id
+#endif
         type(vector) :: x,v
         real(dbl) :: m,met,imass,age,tform
     end type particle
 
     ! Define global variables
-    type(sim_info) :: sim
-    type(amr_info) :: amr
-    type(hydroID)  ::  varIDs
+    type(sim_info),save :: sim
+    type(amr_info),save :: amr
+    type(hydroID),save  :: varIDs
 
     ! Compilation flags from RAMSES
     logical :: longint=.false.
 
     contains
+
+    subroutine retrieve_vars(repository,myvars)
+        implicit none
+
+        character(128),intent(in) ::  repository
+        type(hydroID), intent(inout) :: myvars
+
+        call read_hydrofile_descriptor(repository)
+        myvars = varIDs
+    end subroutine retrieve_vars
 
     !---------------------------------------------------------------
     ! Subroutine: TITLE
@@ -540,6 +554,15 @@ module io_ramses
         case ('d_euclid')
             ! Euclidean distance
             value = magnitude(x)
+        case ('x')
+            ! x - coordinate
+            value = x%x
+        case ('y')
+            ! y - coordinate
+            value = x%y
+        case ('z')
+            ! z - coordinate
+            value = x%z
         case ('r_sphere')
             ! Radius from center of sphere
             value = r_sphere(x)
@@ -731,13 +754,23 @@ module io_ramses
         case ('momentum_sphere_r')
             ! Linear momentum in the spherical radial direction
             ! 1. Correct velocity for bulk velocity of region
-            ! 2. Dot product of velocity vector with spherical phi
+            ! 2. Dot product of velocity vector with spherical r
             !    unit vector
             ! 3. Multiply by mass of cell
             v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
             v_corrected = v_corrected - reg%bulk_velocity
             call spherical_basis_from_cartesian(x,temp_basis)
             value = (var(varIDs%density) * (dx*dx)) * dx * (v_corrected .DOT. temp_basis%u(1))
+        case ('momentum_cyl_z')
+            ! Linear momentum in the cylindrical z direction
+            ! 1. Correct velocity for bulk velocity of region
+            ! 2. Dot product of velocity vector with cylindrical z
+            !    unit vector
+            ! 3. Multiply by mass of cell
+            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
+            v_corrected = v_corrected - reg%bulk_velocity
+            call cylindrical_basis_from_cartesian(x,temp_basis)
+            value = (var(varIDs%density) * (dx*dx)) * dx * (v_corrected .DOT. temp_basis%u(3))
         case ('ang_momentum_x')
             ! Corrected angular momentum in the x direction
             v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
@@ -1053,6 +1086,15 @@ module io_ramses
                     write(*,*)'Can not compute a particle surface density without cell size!'
                     stop
                 endif
+            case ('x')
+                ! x - coordinate
+                value = part%x%x
+            case ('y')
+                ! y - coordinate
+                value = part%x%y
+            case ('z')
+                ! z - coordinate
+                value = part%x%z
             case ('d_euclid')
                 ! Euclidean distance
                 value = magnitude(part%x)
@@ -1188,6 +1230,15 @@ module io_ramses
                         write(*,*)'Can not compute a particle surface density without cell size!'
                         stop
                     endif
+                case ('x')
+                    ! x - coordinate
+                    value = part%x%x
+                case ('y')
+                    ! y - coordinate
+                    value = part%x%y
+                case ('z')
+                    ! z - coordinate
+                    value = part%x%z
                 case ('d_euclid')
                     ! Euclidean distance
                     value = magnitude(part%x)

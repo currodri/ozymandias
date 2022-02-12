@@ -1,6 +1,6 @@
 import ozy  
-obj = ozy.OZY('/mnt/extraspace/currodri/NUT/cosmoNUTcrmhd/output_00010')
+obj = ozy.OZY('/mnt/extraspace/currodri/NUT/cosmoNUTcrmhd/output_00035')
 obj.build_HaloMaker()
 
-obj.save('test_00010.hdf5')
+obj.save('test_00035.hdf5')
 

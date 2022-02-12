@@ -14,7 +14,7 @@ import numpy as np
 import os
 import argparse
 import subprocess
-from yt import YTQuantity
+from unyt import G
 import ozy
 from ozy.phase_diagrams import compute_phase_diagram, plot_compare_phase_diagram,plot_single_phase_diagram
 
@@ -28,6 +28,7 @@ if __name__ == '__main__':
     parser.add_argument('--model', type=str, nargs='+', help='Model names to compare.')
     parser.add_argument('--field', type=str, default='gas/mass', help='Field used in the colormap.')
     parser.add_argument('--weight', type=str, default='gas/cumulative', help='Weighting variable.')
+    parser.add_argument('--doflows',action='store_true', help='If present, it separates for the outflows and inflows.')
     parser.add_argument('--NUT', type=bool, default=True, help='If True, it looks for NUT as the most massive galaxy (stars) in the last snapshot.')
     args = parser.parse_args()
 
@@ -38,6 +39,9 @@ if __name__ == '__main__':
             exit
         
         pds = []
+
+        origfolder = os.getcwd()
+        print('You have asked for outflow/inflow contours!')
 
         for i in range(0, len(args.model)):
         
@@ -50,7 +54,7 @@ if __name__ == '__main__':
                 args.model[i] = args.model[i].replace('_','\_')
             
             if not os.path.exists(simfolder):
-                raise Exception('The given simulation name is not found in this directory!')
+                raise Exception('The given simulation name is not found in this directory!: %s'%simfolder)
             
             groupspath = os.path.join(simfolder, 'Groups')
             os.chdir(simfolder)
@@ -68,11 +72,27 @@ if __name__ == '__main__':
                 progind = np.argmax(virial_mass)
                 args.ind = 'NUT'
             gal = sim.galaxies[progind]
+            if args.doflows:
+                # Escape velocity at 0.2 Rvir of the halo
+                v_escape = 2*G*gal.mass['total']/(0.2*sim.halos[gal.parent_halo_index].virial_quantities['radius'])
+                v_escape = np.sqrt(v_escape).to('km/s').d
+                print('v_sphere_r/>=/%.3f/km*s**-1'%v_escape)
+                outflow = compute_phase_diagram(gal,os.path.join(groupspath, ozyfile), 'density','temperature', [args.field],
+                            [args.weight],save=True,recompute=False, filter_conds='v_sphere_r/>/10/km*s**-1', filter_name='outflow')
+                inflow = compute_phase_diagram(gal,os.path.join(groupspath, ozyfile), 'density','temperature', [args.field],
+                            [args.weight],save=True,recompute=False, filter_conds='v_sphere_r/</-10/km*s**-1', filter_name='inflow')
+                escape = compute_phase_diagram(gal,os.path.join(groupspath, ozyfile), 'density','temperature', [args.field],
+                            [args.weight],save=True,recompute=False, filter_conds='v_sphere_r/>=/%.3f/km*s**-1'%v_escape, filter_name='escaping')
             pd = compute_phase_diagram(gal,os.path.join(groupspath, ozyfile), 'density','temperature', [args.field],
                         [args.weight],save=True,recompute=False)
-            pds.append(pd)
-        
-        plot_compare_phase_diagram(pds,args.field.split('/')[1],'compare_pd_'+args.field.split('/')[1]+'_'+str(args.z[0])+'.png',weightvar=args.weight.split('/')[1],stats='mean',extra_labels=args.model)
+            if args.doflows:
+                pds.append([pd,outflow,inflow,escape])
+            else:
+                pds.append(pd)
+            os.chdir(origfolder)
+        plot_compare_phase_diagram(pds,args.field.split('/')[1],'compare_pd_'+args.field.split('/')[1]+'_'+str(args.z[0]),
+                                    weightvar=args.weight.split('/')[1],stats='mean',extra_labels=args.model,
+                                    doflows=args.doflows)
     else:
         print('That comparison mode is not suported. Please check!')
         exit

@@ -95,6 +95,15 @@ module amr_profiles
                     bins(n) = dble(n)*(reg%rmax-reg%rmin)/dble(nbins) + reg%rmin
                 endif
             end do
+        case('z')
+            do n=1,nbins
+                if (logscale) then
+                    bins(n) = dble(n)*(log10(reg%zmax)-log10(reg%zmin))/dble(nbins)
+                    if (reg%zmin > 0D0) bins(n) = bins(n) + log10(reg%zmin)
+                else
+                    bins(n) = dble(n)*(reg%zmax-reg%zmin)/dble(nbins) + reg%zmin
+                endif
+            end do
         case('density')
             do n=1,nbins
                 if (logscale) then
