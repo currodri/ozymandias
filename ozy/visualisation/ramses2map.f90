@@ -520,8 +520,8 @@ module maps
 
                                     projvarloop: do ivar=1,proj%nvars
                                         call getvarvalue(bbox,dx,xtemp,var(i,ind,:),proj%varnames(ivar),map)
-                                        ! if (TRIM(proj%varnames(ivar)).eq.proj%weightvar) map = map**2
-                                        grid(ilevel)%map(ivar,ix,iy)=grid(ilevel)%map(ivar,ix,iy)+map*rho*dx*weight/(bbox%zmax-bbox%zmin)
+                                        grid(ilevel)%map(ivar,ix,iy)=grid(ilevel)%map(ivar,ix,iy)+map*rho*dx*weight&
+                                                                        &/(bbox%zmax-bbox%zmin)
                                     end do projvarloop
                                     
                                     

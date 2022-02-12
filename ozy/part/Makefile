@@ -5,8 +5,9 @@ COMMONS = /mnt/extraspace/currodri/Codes/ozymandias/ozy/fortran_commons
 #=======================================================================
 
 CC       = gcc
-#F90      = gfortran
-F90      = ifort
+#CC       = ifort
+F90      = gfortran
+#F90      = ifort
 #F90      =  /opt/intel/composer_xe_2015.3.187/bin/intel64/ifort
 PYTHON   = python
 
@@ -17,7 +18,7 @@ PYTHON   = python
 ifeq ($(F90),gfortran)
 	FPP      = gfortran -E
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
-	F90FLAGS = -fPIC
+	F90FLAGS = -fPIC -cpp
     FCOMP    = gfortran
     LIBS     =
 endif

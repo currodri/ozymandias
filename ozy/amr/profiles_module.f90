@@ -817,8 +817,10 @@ module amr_profiles
                                 call rotate_vector(vtemp,trans_matrix)
                                 var(i,ind,varIDs%vx:varIDs%vz) = vtemp
                                 xbinpos = 0; ybinpos=0
-                                call findbinpos_twod(reg,distance,x(i,:),var(i,ind,:),dx,prof_data,logscale,xbinpos,ybinpos)
-                                if (xbinpos.ne.0.and.ybinpos.ne.0) call bindata_twod(reg,x(i,:),var(i,ind,:),dx,prof_data,xbinpos,ybinpos)
+                                call findbinpos_twod(reg,distance,x(i,:),var(i,ind,:),&
+                                                    &dx,prof_data,logscale,xbinpos,ybinpos)
+                                if (xbinpos.ne.0.and.ybinpos.ne.0) call bindata_twod(reg,x(i,:),&
+                                                                        &var(i,ind,:),dx,prof_data,xbinpos,ybinpos)
                             endif
                         end do ngridaloop
                     end do cellloop
