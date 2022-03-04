@@ -513,12 +513,16 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
             data_dm = data[len(proj.vars['star']):].reshape(len(proj.vars['dm']),data.shape[1],data.shape[2])
             proj.data_maps.append(data_dm)
     else:
-        del proj.vars['star']
-        del proj.vars['dm']
-    if len(proj.vars['star']) == 0:
-        del proj.vars['star']
-    if len(proj.vars['dm']) == 0:
-        del proj.vars['dm']
+        if 'star' in proj.vars.keys():
+            del proj.vars['star']
+        if 'dm' in proj.vars.keys():
+            del proj.vars['dm']
+    if 'star' in proj.vars.keys():
+        if len(proj.vars['star']) == 0:
+            del proj.vars['star']
+    if 'dm' in proj.vars.keys():
+        if len(proj.vars['dm']) == 0:
+            del proj.vars['dm']
 
     return proj
 

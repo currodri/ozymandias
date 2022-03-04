@@ -270,7 +270,7 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'), rmax=(1.0,'rvir'),
                 gf.data['v_sphere_r_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[i,3,2,0], 'code_velocity')
                 gf.data['thermal_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[i,4,0,0], 'code_mass * code_velocity**2')
                 gf.data['thermal_energy_specific_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[i,5,2,0], 'code_specific_energy')
-                print('Massflow rate '+str(gf.data['massflow_rate_'+d_key+'rvir'+phase_name].in_units('Msun/yr')))
+                print('Massflow rate for %s phase'%phase_name+str(gf.data['massflow_rate_'+d_key+'rvir'+phase_name].in_units('Msun/yr')))
                 if group.obj.simulation.physics['metals']:
                     gf.data['metallicity_'+d_key+'rvir'+phase_name] = glob_attrs.data[i,6,2,0]
             else:

@@ -379,9 +379,13 @@ def init_filter(cond_strs, name, group):
     if isinstance(cond_strs, str):
         cond_strs = [cond_strs]
     filt = filtering.filter()
-    if cond_strs[0] == 'none':
+    if cond_strs[0] == 'none' and name == 'none':
         filt.ncond = 0
         filt.name = 'none'
+        return filt
+    elif cond_strs[0] == 'none' and name != 'none':
+        filt.ncond = 0
+        filt.name = name
         return filt
     elif name != 'none':
         filt.ncond = len(cond_strs)

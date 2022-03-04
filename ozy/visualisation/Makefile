@@ -6,8 +6,8 @@ COMMONS = /mnt/extraspace/currodri/Codes/ozymandias/ozy/fortran_commons
 
 CC       = gcc
 #CC       = ifort
-F90      = gfortran
-#F90      = ifort
+#F90      = gfortran
+F90      = ifort
 #F90      =  /opt/intel/composer_xe_2015.3.187/bin/intel64/ifort
 PYTHON   = python
 
@@ -16,7 +16,7 @@ PYTHON   = python
 #=======================================================================
 
 HP_FLAGS_INTEL = -L/usr/local/shared/healpix/3.40-intel/lib/ -lchealpix -lhealpix -lcfitsio
-HP_FLAGS = -L/usr/local/shared/healpix/3.40/lib/ -lchealpix -lhealpix -lcfitsio
+HP_FLAGS = -L/usr/local/shared/healpix/3.40/lib/ -I/usr/local/shared/healpix/3.40/include -lchealpix -lhealpix -lcfitsio
 
 ifeq ($(F90),gfortran)
 	FPP      = gfortran -E
@@ -30,7 +30,7 @@ ifeq ($(F90),ifort)
 
 	FPP      = gfortran -E # gfortran f90wrap temp files only. not compilation
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
-	F90FLAGS = -cpp -O3 -fpscomp logicals -fPIC ${HP_FLAGS_INTEL} # use 1 and 0 for True and False
+	F90FLAGS = -cpp -fpscomp logicals -fPIC ${HP_FLAGS_INTEL} # use 1 and 0 for True and False
     FCOMP    = intelem # for f2py
     LIBS =
 endif
@@ -139,10 +139,10 @@ libsrc.a: ${LIBSRC_OBJECTS}
 _${PYTHON_MODN}.so: libsrc.a ${LIBSRC_FPP_FILES}
 	f90wrap -m ${PYTHON_MODN} ${LIBSRC_WRAP_FPP_FILES} -k ${KIND_MAP} -v
 	f2py-f90wrap --fcompiler=$(FCOMP) --build-dir . -c -m _${PYTHON_MODN} -L. \
-	-lsrc f90wrap*.f90
+	-lsrc f90wrap*.f90 ${HP_FLAGS_INTEL}
 
 _${PYTHON_MODN}_pkg.so: libsrc.a ${LIBSRC_FPP_FILES}
 	f90wrap -m ${PYTHON_MODN}_pkg ${LIBSRC_WRAP_FPP_FILES} -k ${KIND_MAP} -v -P
 	f2py-f90wrap --fcompiler=$(FCOMP) --build-dir . -c -m _${PYTHON_MODN}_pkg -L. \
-	-lsrc f90wrap*.f90
+	-lsrc f90wrap*.f90 ${HP_FLAGS_INTEL}
 

@@ -85,6 +85,7 @@ basic_conv = dict(
     code_energy = 'erg',
     code_specific_energy = 'erg*g**-1',
     code_energy_density = 'erg*cm**-3',
+    code_pressure = 'erg*cm**-3',
     code_specific_entropy = 'erg*K**-1*g**-1',
     code_density_code_velocity_code_velocity = 'erg*cm**-3',
     code_density_code_velocity = 'Msun*yr**-1*kpc**-2',

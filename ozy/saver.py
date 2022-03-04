@@ -158,7 +158,7 @@ def save(obj, filename='default'):
         hdd = hd.create_group('lists')
         hddd = hd.create_group('dicts')
         
-        # TODO: Addapt for particle lists.
+        # TODO: Adapt for particle lists.
         index_lists = ['slist']
         for vals in index_lists:
             serialise_list(obj.galaxies, vals, hdd)

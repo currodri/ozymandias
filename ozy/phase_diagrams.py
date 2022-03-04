@@ -532,7 +532,7 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=Tr
                                     vmin=plotting_z['vmin'],
                                     vmax=plotting_z['vmax'])
             if redshift:
-                ax[i,j].text(0.05, 0.1, 'z = '+str(round(sim_z, 2)),
+                ax[i,j].text(0.05, 0.1, r'$z = %s$'%str(round(sim_z, 2)),
                             transform=ax[i,j].transAxes, fontsize=20,verticalalignment='top',
                             color='black')
             if isinstance(extra_labels,list):

@@ -31,13 +31,25 @@ plotting_dictionary = dict(
                     'vmin':2e+4,
                     'vmax':8e+6,
                     'vmin_galaxy':8e+1,
-                    'vmax_galaxy':8e+6
+                    'vmax_galaxy':8e+6,
+                    'vmin_outflow':5e+3,
+                    'vmax_outflow':3e+5
     },
     thermal_energy = {'cmap':sns.color_palette("rocket", as_cmap=True),
                             'text_over':'white',
                             'label':r'$E_{\rm ther}$ [erg]',
                             'label_log':r'$\log(\frac{E_{\rm ther}}{{\rm erg}})$',
                             'units':'erg',
+                            'vmin':5e+1,
+                            'vmax':2e+6,
+                            'vmin_galaxy':5e+3,
+                            'vmax_galaxy':8e+6
+    },
+    thermal_pressure = {'cmap':sns.color_palette("rocket", as_cmap=True),
+                            'text_over':'white',
+                            'label':r'$P_{\rm ther}$ [erg/cm$^{-3}$]',
+                            'label_log':r'$\log(\frac{P_{\rm ther}}{{\rm erg/cm}^{-3}}})$',
+                            'units':'erg*cm**-3',
                             'vmin':5e+1,
                             'vmax':2e+6,
                             'vmin_galaxy':5e+3,
@@ -148,6 +160,32 @@ plotting_dictionary = dict(
                         'vmax_galaxy':2e-10
 
     },
+    cr_temperature_eff = {'cmap':'YlGnBu_r',#sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=False, as_cmap=True),
+                        'text_over':'black',
+                        'label':r'$T_{\rm CR,eff}$ [erg/cm$^{3}$]',
+                        'label_log':r'$\log(\frac{T_{\rm CR,eff}}{{\rm K}})$',
+                        'units':'K',
+                        'vmin':2e+4,
+                        'vmax':8e+6,
+                        'vmin_galaxy':8e+1,
+                        'vmax_galaxy':8e+6,
+                        'vmin_outflow':5e+3,
+                        'vmax_outflow':3e+5
+
+    },
+    cr_pressure = {'cmap':'YlGnBu_r',#sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=False, as_cmap=True),
+                        'text_over':'black',
+                        'label':r'$P_{\rm CR}$ [erg/cm$^{3}$]',
+                        'label_log':r'$\log(\frac{P_{\rm CR}}{{\rm erg/cm}^{3}})$',
+                        'units':'erg*cm**-3',
+                        'vmin':7e-18,
+                        'vmax':8e-12,
+                        'vmin_grad':7e-16,
+                        'vmax_grad':8e-13,
+                        'vmin_galaxy':6e-14,
+                        'vmax_galaxy':2e-10
+
+    },
     cr_energy_specific = {'cmap':sns.cubehelix_palette(start=.5, rot=-.75, as_cmap=True), #sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),
                                 'text_over':'white',
                                 'label':r'$\epsilon_{\rm CR}$ [erg/g]',
@@ -157,6 +195,17 @@ plotting_dictionary = dict(
                                 'vmax':7e+14,
                                 'vmin_galaxy':5e+10,
                                 'vmax_galaxy':7e+15
+
+    },
+    crthermal_ratio = {'cmap':sns.color_palette("vlag", as_cmap=True),
+                        'text_over':'black',
+                        'label':r'$\frac{\nabla P_{\rm CR}}{\nabla P_{\rm ther}}$',
+                        'label_log':r'$\log(\frac{\nabla P_{\rm CR}}{\nabla P_{\rm ther}})$',
+                        'units':'dimensionless',
+                        'vmin':7e-18,
+                        'vmax':8e-12,
+                        'vmin_galaxy':1e-3,
+                        'vmax_galaxy':1e+2
 
     },
     xHII = {'cmap':'bone',
