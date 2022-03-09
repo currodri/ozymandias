@@ -43,7 +43,7 @@ glob_attrs.filters[1] = init_filter(cond_strs=['entropy_specific/>=/4.4e+8/erg*K
 glob_attrs.filters[2] = init_filter(cond_strs=['entropy_specific/>/23.2e+8/erg*K**-1*g**-1'],name='hot',group=gal)
 
 # Begin integration
-amr_integrator.integrate_region(output_path,selected_reg,glob_attrs)
+#amr_integrator.integrate_region(output_path,selected_reg,glob_attrs)
 mass_names = ['COLD','WARM','HOT']
 for i in range(0,3):
     mass = obj.quantity(glob_attrs.data[i,0,0,0],'code_mass')
@@ -74,5 +74,5 @@ glob_attrs.wvarnames.T.view('S128')[1] = b'mass'.ljust(128)
 
 # Begin integration
 filt = init_filter(cond_strs=['none'],name='none',group=gal)
-part_integrator.integrate_region(output_path,selected_reg,filt,glob_attrs)
+part_integrator.integrate_region(output_path,selected_reg,filt,glob_attrs,False,True)
 

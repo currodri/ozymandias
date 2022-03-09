@@ -89,7 +89,11 @@ module part_profiles
         integer :: i,j
         real(dbl) :: ytemp,wtemp,bigwtemp,bigatemp
         yvarloop: do i=1,prof%nyvar
-            call getpartvalue(reg,part,prof%yvarnames(i),ytemp)
+            if (prof%wvarnames(j)=='counts') then
+                ytemp = 1D0
+            else
+                call getpartvalue(reg,part,prof%yvarnames(i),ytemp)
+            endif
             wvarloop: do j=1,prof%nwvar
                 if (prof%wvarnames(j)=='counts'.or.prof%wvarnames(j)=='cumulative') then
                     wtemp = 1D0

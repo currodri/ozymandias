@@ -30,11 +30,13 @@ module part_integrator
         integer :: nwvars
         character(128),dimension(:),allocatable :: wvarnames
         real(dbl),dimension(:,:,:),allocatable :: data
-        integer(irg) :: ndm,nstar,nids
+        integer(irg) :: ndm,nstar,nids,ncont
 #ifndef LONGINT
         integer(irg), dimension(:),allocatable :: ids
+        integer(irg), dimension(:),allocatable :: cont_ids
 #else
         integer(ilg), dimension(:),allocatable :: ids
+        integer(ilg), dimension(:),allocatable :: cont_ids
 #endif
     end type part_region_attrs
 
@@ -128,7 +130,7 @@ module part_integrator
         end do varloop
     end subroutine renormalise
 
-    subroutine integrate_region(repository,reg,filt,attrs,get_ids)
+    subroutine integrate_region(repository,reg,filt,attrs,get_ids,check_contamination)
         use vectors
         use coordinate_systems
         use geometrical_regions
@@ -140,6 +142,7 @@ module part_integrator
         type(filter),intent(in) :: filt
         type(part_region_attrs),intent(inout) :: attrs
         logical,intent(in),optional :: get_ids
+        logical,intent(in),optional :: check_contamination
 
         ! Specific variables for this subroutine
         logical :: ok_part,ok_filter
@@ -163,8 +166,13 @@ module part_integrator
         real(dbl),dimension(:),allocatable :: m,age,met,imass
         real(dbl),dimension(:,:),allocatable :: x,v
 
-        integer :: count
-        count = 0
+        integer :: count=0
+        integer :: nmasscont=0
+        integer :: npartcont=0
+        real(dbl) :: ptmassmin=1d0,ptmassmax=0d0
+        real(dbl) :: masshr=0d0,masslr=0d0
+        real(dbl),dimension(1:100) :: massresbins=0d0
+        integer,dimension(1:100) :: order=0
 
 #ifdef LONGINT
         write(*,*) 'Using LONGINT for particle IDs'
@@ -235,6 +243,15 @@ module part_integrator
             allocate(attrs%ids(1:npart))
             attrs%ids = 0
             attrs%nids = npart
+        endif
+
+        ! If we're asked to check contamination, we also need to save the IDs
+        ! of the low resolution particles
+        if (present(get_ids) .and. get_ids .and. &
+            & present(check_contamination) .and. check_contamination) then
+            allocate(attrs%cont_ids(1:npart))
+            attrs%cont_ids = 0
+            attrs%ncont = 0
         endif
 
         ! Compute binned variables
@@ -324,6 +341,22 @@ module part_integrator
                 if (ok_part) then
                     if (present(get_ids) .and. get_ids) attrs%ids(inpart+i) = part%id
                     call getparttype(part,ptype)
+                    if (present(check_contamination) .and. check_contamination &
+                        .and. ptype .eq. 'dm') then
+                        ptmassmin = min(part%m,ptmassmin)
+                        ptmassmax = max(part%m,ptmassmax)
+                        if (.not. any(massresbins == part%m)) then
+                            massresbins(nmasscont+1) = part%m
+                            nmasscont = nmasscont + 1
+                        endif
+                        if (part%m > ptmassmin) then
+                            npartcont = npartcont + 1
+                            if (present(get_ids) .and. get_ids) attrs%cont_ids(inpart+i) = part%id
+                            masslr = masslr + part%m
+                        else
+                            masshr = masshr + part%m
+                        endif
+                    endif
                     if (ptype.eq.'dm') attrs%ndm = attrs%ndm + 1
                     if (ptype.eq.'star') attrs%nstar = attrs%nstar + 1
                     call rotate_vector(part%v,trans_matrix)
@@ -339,6 +372,116 @@ module part_integrator
         ! Finally, just renormalise for weighted quantities
         call renormalise(attrs)
 
+        ! If we want to check contamination, print
+        ! some global statistics
+        if (present(check_contamination) .and. check_contamination) then
+            write(*,*)'==== CONTAMINATION REPORT ===='
+            write(*,*)'>>> Total Mass:   ',masslr+masshr
+            write(*,*)'>>> % Mass in LR: ', masslr/(masslr+masshr)
+            write(*,*)'>>> # of LR:      ', npartcont
+            write(*,*)'>>> # of mass res:', nmasscont
+            if (nmasscont .gt. 0) then
+                call quick_sort_dp(massresbins(1:nmasscont),order(1:nmasscont),nmasscont)
+                write(*,*)'>>> Mass resolutions >>>'
+                do i=1,nmasscont
+                    write(*,*) massresbins(i)
+                end do
+            endif
+        endif
     end subroutine integrate_region
+
+    SUBROUTINE quick_sort_dp(list, order, n)
+        IMPLICIT NONE
+        ! Quick sort routine from:
+        ! Brainerd, W.S., Goldberg, C.H. & Adams, J.C. (1990) "Programmer's Guide to
+        ! Fortran 90", McGraw-Hill  ISBN 0-07-000248-7, pages 149-150.
+        ! Modified by Alan Miller to include an associated integer array which gives
+        ! the positions of the elements in the original order.
+        
+        
+        INTEGER :: n
+        REAL(dbl), DIMENSION (1:n), INTENT(INOUT)  :: list
+        INTEGER, DIMENSION (1:n), INTENT(OUT)  :: order
+        
+        ! Local variable
+        INTEGER :: i
+        
+        DO i = 1, n
+            order(i) = i
+        END DO
+        
+        CALL quick_sort_1_dp(1, n)
+        
+        CONTAINS
+        
+        RECURSIVE SUBROUTINE quick_sort_1_dp(left_end, right_end)
+        
+            INTEGER, INTENT(IN) :: left_end, right_end
+        
+            !     Local variables
+            INTEGER             :: i, j, itemp
+            REAL(kind=8)              :: reference, temp
+            INTEGER, PARAMETER  :: max_simple_sort_size = 6
+        
+            IF (right_end < left_end + max_simple_sort_size) THEN
+                ! Use interchange sort for small lists
+                CALL interchange_sort_dp(left_end, right_end)
+        
+            ELSE
+                ! Use partition ("quick") sort
+                reference = list((left_end + right_end)/2)
+                i = left_end - 1; j = right_end + 1
+        
+            DO
+                ! Scan list from left end until element >= reference is found
+                DO
+                    i = i + 1
+                    IF (list(i) >= reference) EXIT
+                END DO
+                ! Scan list from right end until element <= reference is found
+                DO
+                    j = j - 1
+                    IF (list(j) <= reference) EXIT
+                END DO
+        
+        
+                IF (i < j) THEN
+                    ! Swap two out-of-order elements
+                    temp = list(i); list(i) = list(j); list(j) = temp
+                    itemp = order(i); order(i) = order(j); order(j) = itemp
+                ELSE IF (i == j) THEN
+                    i = i + 1
+                    EXIT
+                ELSE
+                    EXIT
+                END IF
+                END DO
+                IF (left_end < j) CALL quick_sort_1_dp(left_end, j)
+                IF (i < right_end) CALL quick_sort_1_dp(i, right_end)
+            END IF
+        
+        END SUBROUTINE quick_sort_1_dp
+        
+        
+        SUBROUTINE interchange_sort_dp(left_end, right_end)
+        
+            INTEGER, INTENT(IN) :: left_end, right_end
+        
+            !     Local variables                                                                                                                                                                           
+            INTEGER             :: i, j, itemp
+            REAL(kind=8)           :: temp
+        
+            DO i = left_end, right_end - 1
+                DO j = i+1, right_end
+                IF (list(i) > list(j)) THEN
+                    temp = list(i); list(i) = list(j); list(j) = temp
+                    itemp = order(i); order(i) = order(j); order(j) = itemp
+                END IF
+                END DO
+            END DO
+        
+        END SUBROUTINE interchange_sort_dp
+        
+        END SUBROUTINE quick_sort_dp
 
 end module part_integrator
