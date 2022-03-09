@@ -163,7 +163,7 @@ plotting_dictionary = dict(
     cr_temperature_eff = {'cmap':'YlGnBu_r',#sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=False, as_cmap=True),
                         'text_over':'black',
                         'label':r'$T_{\rm CR,eff}$ [erg/cm$^{3}$]',
-                        'label_log':r'$\log(\frac{T_{\rm CR,eff}}{{\rm K}})$',
+                        'label_log':r'$\log\left(\frac{T_{\rm CR,eff}}{{\rm K}}\right)$',
                         'units':'K',
                         'vmin':2e+4,
                         'vmax':8e+6,
