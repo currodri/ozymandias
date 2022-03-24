@@ -23,7 +23,7 @@ module part_profiles
 
         if (.not.allocated(prof%yvarnames)) allocate(prof%yvarnames(prof%nyvar))
         if (.not.allocated(prof%wvarnames)) allocate(prof%wvarnames(prof%nwvar))
-        if (.not.allocated(prof%xdata)) allocate(prof%xdata(prof%nbins))
+        if (.not.allocated(prof%xdata)) allocate(prof%xdata(prof%nbins+1))
         if (.not.allocated(prof%ydata)) allocate(prof%ydata(prof%nbins,prof%nyvar,prof%nwvar,4))
     end subroutine allocate_profile_handler
 
@@ -34,7 +34,7 @@ module part_profiles
         type(region),intent(in) :: reg
         character(128),intent(in) :: varname
         integer,intent(in) :: nbins
-        real(dbl),dimension(1:nbins) :: bins
+        real(dbl),dimension(1:nbins+1) :: bins
         integer :: n
         character(128) :: tempvar,vartype,var
         integer :: index
@@ -45,12 +45,12 @@ module part_profiles
         var = tempvar(index+1:)
         select case (TRIM(var))
         case('r_sphere','r_cyl')
-            do n=1,nbins
-                bins(n) = dble(n)*(reg%rmax-reg%rmin)/dble(nbins) + reg%rmin
+            do n=0,nbins+1
+                bins(n+1) = dble(n)*(reg%rmax-reg%rmin)/dble(nbins) + reg%rmin
             end do
         case('z')
-            do n=1,nbins
-                bins(n) = dble(n)*(reg%zmax-reg%zmin)/dble(nbins) + reg%zmin
+            do n=0,nbins+1
+                bins(n+1) = dble(n)*(reg%zmax-reg%zmin)/dble(nbins) + reg%zmin
             end do
         !TODO: Add more cases
         end select
@@ -72,7 +72,8 @@ module part_profiles
         else
             call getpartvalue(reg,part,prof%xvarname,value)
         endif
-        ibin = int(dble(prof%nbins)*(value-prof%xdata(1))/(prof%xdata(prof%nbins)-prof%xdata(1)))
+        value = min(max(prof%xdata(1),value),prof%xdata(prof%nbins+1))
+        ibin = int(dble(prof%nbins)*(value-prof%xdata(1))/(prof%xdata(prof%nbins+1)-prof%xdata(1))) + 1
         ibin = max(ibin,1)
         ibin = min(ibin,prof%nbins)
     end subroutine findbinpos
@@ -86,23 +87,26 @@ module part_profiles
         type(particle),intent(in) :: part
         type(profile_handler),intent(inout) :: prof
         integer,intent(in) :: ibin
-        integer :: i,j
-        real(dbl) :: ytemp,wtemp,bigwtemp,bigatemp
+        integer :: i,j,index
+        real(dbl) :: ytemp,wtemp,bigwtemp,bigatemp,newytemp
+        character(128) :: tempvar,vartype,varname
         yvarloop: do i=1,prof%nyvar
-            if (prof%wvarnames(j)=='counts') then
-                ytemp = 1D0
-            else
-                call getpartvalue(reg,part,prof%yvarnames(i),ytemp)
-            endif
+            call getpartvalue(reg,part,prof%yvarnames(i),ytemp)
             wvarloop: do j=1,prof%nwvar
-                if (prof%wvarnames(j)=='counts'.or.prof%wvarnames(j)=='cumulative') then
+                newytemp = ytemp
+                tempvar = TRIM(prof%wvarnames(j))
+                index = scan(tempvar,'/')
+                vartype = tempvar(1:index-1)
+                varname = tempvar(index+1:)
+                if (varname=='counts'.or.varname=='cumulative') then
                     wtemp = 1D0
+                    if (varname=='counts') newytemp = 1D0
                 else
                     call getpartvalue(reg,part,prof%wvarnames(j),wtemp)
                 endif
                 ! Unbiased STD method. See: https://en.wikipedia.org/wiki/Reduced_chi-squared_statistic
                 ! Q_k
-                prof%ydata(ibin,i,j,1) = prof%ydata(ibin,i,j,1) + ytemp*wtemp
+                prof%ydata(ibin,i,j,1) = prof%ydata(ibin,i,j,1) + newytemp*wtemp
 
                 ! W_k
                 prof%ydata(ibin,i,j,2) = prof%ydata(ibin,i,j,2) + wtemp
@@ -111,7 +115,7 @@ module part_profiles
                 prof%ydata(ibin,i,j,3) = prof%ydata(ibin,i,j,3) + wtemp**2
 
                 !A_k
-                prof%ydata(ibin,i,j,4) = prof%ydata(ibin,i,j,4) + wtemp*(ytemp**2)
+                prof%ydata(ibin,i,j,4) = prof%ydata(ibin,i,j,4) + wtemp*(newytemp**2)
             end do wvarloop
         end do yvarloop
     end subroutine bindata
@@ -119,8 +123,9 @@ module part_profiles
     subroutine renormalise_bins(prof_data)
         implicit none
         type(profile_handler),intent(inout) :: prof_data
-        integer :: ibin,iy,iw
+        integer :: ibin,iy,iw,index
         real(dbl) :: Q_k,W_k,V_k,A_k
+        character(128) :: tempvar,vartype,varname
         binloop: do ibin=1,prof_data%nbins
             yloop: do iy=1,prof_data%nyvar
                 wloop: do iw=1,prof_data%nwvar
@@ -128,7 +133,11 @@ module part_profiles
                     W_k = prof_data%ydata(ibin,iy,iw,2)
                     V_k = prof_data%ydata(ibin,iy,iw,3)
                     A_k = prof_data%ydata(ibin,iy,iw,4)
-                    if (prof_data%wvarnames(iw) /= 'cumulative') then
+                    tempvar = TRIM(prof_data%wvarnames(iw))
+                    index = scan(tempvar,'/')
+                    vartype = tempvar(1:index-1)
+                    varname = tempvar(index+1:)
+                    if (varname /= 'cumulative') then
                         ! Mean value or mean weighted value
                         prof_data%ydata(ibin,iy,iw,1) = Q_k / W_k
                         ! Standard deviation or weighted standard deviation

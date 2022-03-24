@@ -237,7 +237,6 @@ class PhaseDiagram:
         self.filter = {}
         self.filter['name'] = phase_diagrams_gp.attrs['name']
         self.filter['conditions'] = phase_diagrams_gp['conditions'][:]
-
         for k in phase_diagrams_gp.keys():
             if k != 'xdata' and k != 'ydata' and k != 'conditions':
                 self.zvars[k] = []

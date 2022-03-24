@@ -124,7 +124,7 @@ if __name__ == '__main__':
                 galaxy_time.append(thubble)
                 bad_mass = False
                 if len(galaxy_time) >= 2:
-                    if (galaxy_masses[-1]-galaxy_masses[-2])/galaxy_masses[-2] > 0.8:
+                    if (galaxy_masses[-1]-galaxy_masses[-2])/galaxy_masses[-2] > 0.3:
                         bad_mass = True
                     else:
                         bad_mass = False
@@ -247,15 +247,15 @@ if __name__ == '__main__':
                 galaxy_time.append(thubble)
                 bad_mass = False
                 if len(galaxy_time) >= 2:
-                    if (galaxy_masses[-1]-galaxy_masses[-2])/galaxy_masses[-2] > 0.8:
+                    if (galaxy_masses[-1]-galaxy_masses[-2])/galaxy_masses[-2] > 0.3:
                         bad_mass = True
                     else:
                         bad_mass = False
                 
                 if bad_mass == True:
-                    print('Deleting')
-                    galaxy_masses[-2] = galaxy_masses[-1]
-                    galaxy_gas[-2] = galaxy_gas[-1]
+                    print('Deleting ', ozyfile)
+                    #galaxy_masses[-2] = galaxy_masses[-1]
+                    #galaxy_gas[-2] = galaxy_gas[-1]
 
                 try:
                     progind = sim.galaxies[progind].progen_galaxy_star

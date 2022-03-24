@@ -20,7 +20,7 @@ plotting_dictionary = dict(
             'units':'Msun',
             'vmin':1,
             'vmax':1e+8,
-            'vmin_galaxy':1,
+            'vmin_galaxy':1e+3,
             'vmax_galaxy':1e+8
     },
     temperature = {'cmap':sns.color_palette("rocket", as_cmap=True),
@@ -45,15 +45,15 @@ plotting_dictionary = dict(
                             'vmin_galaxy':5e+3,
                             'vmax_galaxy':8e+6
     },
-    thermal_pressure = {'cmap':sns.color_palette("rocket", as_cmap=True),
+    thermal_pressure = {'cmap':'viridis',
                             'text_over':'white',
                             'label':r'$P_{\rm ther}$ [erg/cm$^{-3}$]',
-                            'label_log':r'$\log(\frac{P_{\rm ther}}{{\rm erg/cm}^{-3}}})$',
+                            'label_log':r'$\log\left(\frac{P_{\rm ther}}{{\rm erg/cm}^{-3}}}\right)$',
                             'units':'erg*cm**-3',
-                            'vmin':5e+1,
-                            'vmax':2e+6,
-                            'vmin_galaxy':5e+3,
-                            'vmax_galaxy':8e+6
+                            'vmin':3e-15,
+                            'vmax':8e-9,
+                            'vmin_galaxy':3e-15,
+                            'vmax_galaxy':8e-9
     },
     thermal_energy_specific = {'cmap':sns.color_palette("rocket", as_cmap=True),
                                 'text_over':'white',
@@ -238,6 +238,16 @@ plotting_dictionary = dict(
                 'vmin':5e-4,
                 'vmax':0.8
 
+    },
+    r_sphere = {'cmap': 'cividis',
+                'text_over':'white',
+                'label':r'$r$ [kpc]',
+                'label_log':r'$\log\left(\frac{r}{kpc}\right)$',
+                'units':'kpc',
+                'vmin':0,
+                'vmax':100,
+                'vmin_galaxy':0,
+                'vmax_galaxy':20
     },
     v_sphere_r = {'cmap':sns.color_palette("vlag", as_cmap=True),
                     'text_over':'black',

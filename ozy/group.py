@@ -740,6 +740,23 @@ class Galaxy(Group):
         """Calculate velocity dispersions for the various components."""
         # TODO
         return
+    
+    def _get_tdyn(self):
+        """
+        Computes the dynamical time-scale tdyn as
+        the time required for a test particle to complete
+        one full orbit at 0.2 Rvir.
+
+        tdyn = 2pi*sqrt(R^3/(GM))
+        where we assume M = Mgas+Mstars*Mdm is measured 
+        within 0.2 Rvir
+        """
+        from unyt import G
+        
+        Mtot = self.mass['dm'] + self.mass['baryon']
+        r = 0.2*self.obj.halos[self.parent_halo_index].virial_quantities['radius']
+        tdyn = 2*np.pi*np.sqrt(r**3/(G*Mtot))
+        return tdyn
 class Halo(Group):
     """Halo class which has different levels of the halo hierarchy."""
     obj_type = 'halo'

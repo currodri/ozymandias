@@ -165,7 +165,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
                 selected_prof = i
                 break
         return group.profiles[selected_prof]
-    else:
+    elif save and recompute:
         print('Writing profile data in %s_data'%group.type)
     f.close()
     
@@ -229,27 +229,30 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
     # Organise everything in the Profile object
     xdata = np.zeros((3,prof.nbins))
     if hydro_data != None:
-        xdata[0,:] = hydro_data.xdata
+        xdata[0,:] = hydro_data.xdata[1:]
     if star_data != None:
-        xdata[1,:] = star_data.xdata
+        xdata[1,:] = star_data.xdata[1:]
     if dm_data != None:
-        xdata[2,:] = dm_data.xdata
+        xdata[2,:] = dm_data.xdata[1:]
     prof.xdata = group.obj.array(xdata, get_code_units(prof.xvar))
     # Save hydro y data
     if hydro_data != None:
         prof.ydata['hydro'] = []
         for v,var in enumerate(prof.yvars['hydro']):
-            prof.ydata['hydro'].append(group.obj.array(hydro_data.ydata[:,v,:,0:2], get_code_units(prof.yvars['hydro'][v])))
+            arr = np.copy(hydro_data.ydata[:,v,:,0:2])
+            prof.ydata['hydro'].append(group.obj.array(arr, get_code_units(prof.yvars['hydro'][v])))
     # Save star y data
     if star_data != None:
         prof.ydata['star'] = []
         for v,var in enumerate(prof.yvars['star']):
-            prof.ydata['star'].append(group.obj.array(star_data.ydata[:,v,:,0:2], get_code_units(prof.yvars['star'][v])))
+            arr = np.copy(star_data.ydata[:,v,:,0:2])
+            prof.ydata['star'].append(group.obj.array(arr, get_code_units(prof.yvars['star'][v])))
     # Save dm y data
     if dm_data != None:
         prof.ydata['dm'] = []
         for v,var in enumerate(prof.yvars['dm']):
-            prof.ydata['dm'].append(group.obj.array(dm_data.ydata[:,v,:,0:2], get_code_units(prof.yvars['dm'][v])))
+            arr = np.copy(dm_data.ydata[:,v,:,0:2])
+            prof.ydata['dm'].append(group.obj.array(arr, get_code_units(prof.yvars['dm'][v])))
     if save:
         write_profiles(group.obj, ozy_file, hydro_data, star_data, dm_data, prof)
     return prof

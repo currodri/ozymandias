@@ -21,6 +21,7 @@ module io_ramses
     use local
     use constants
     use vectors
+    use cooling_module
 
     type hydroID
         integer :: nvar
@@ -548,7 +549,8 @@ module io_ramses
         real(dbl),intent(inout)                       :: value
         type(vector) :: v_corrected,L,B
         type(basis) :: temp_basis
-        real(dbl) :: T,rho,cV
+        real(dbl) :: T,rho,cV,lambda,lambda_prime,ne,ecr,nH
+        real(dbl) :: scale_T2,scale_nH
 
         select case (TRIM(varname))
         case ('d_euclid')
@@ -705,6 +707,23 @@ module io_ramses
             ! Alfven speed defined as B / sqrt(rho)
             B = (/(var(varIDs%Blx)+var(varIDs%Brx)),(var(varIDs%Bly)+var(varIDs%Bry)),(var(varIDs%Blz)+var(varIDs%Brz))/)
             value = magnitude(B) / sqrt(var(varIDs%density))
+        case ('cr_GH08heat')
+            ! Cosmic rays hadronic and Coulomb heating from Guo&Ho(2008)
+            ! (Assume fully ionised gas)
+            ! TODO: Update for RT! 
+            lambda = 2.63D-16 * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
+            ne = var(varIDs%density) * sim%unit_d / mHydrogen 
+            ecr = var(varIDs%cr_pressure) / (4D0/3d0 - 1d0)
+            ecr = ecr * (sim%unit_d * ((sim%unit_l/sim%unit_t)**2))
+            value = lambda * ne * ecr
+        case ('net_cooling')
+            ! Net cooling rate taken from the cooling table in RAMSES output
+            scale_T2 = mHydrogen / kBoltzmann * ((sim%unit_l/sim%unit_t)**2)
+            scale_nH = XH / mHydrogen * sim%unit_d
+            T = var(varIDs%thermal_pressure) / var(varIDs%density) * scale_T2
+            nH = var(varIDs%density) * scale_nH
+            call solve_cooling(nH,T,var(varIDs%metallicity)/2D-2,lambda,lambda_prime)
+            value = lambda * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
         case ('B_left_x')
             value = var(varIDs%Blx)
         case ('B_left_y')
@@ -830,6 +849,7 @@ module io_ramses
         character(5) :: nchar
         integer :: ipos,impi,i,nx,ny,nz
         character(128) :: nomfich
+        character(80)  :: cooling_file
         logical :: ok
 
         ipos = index(repository,'output_')
@@ -918,6 +938,10 @@ module io_ramses
             end do
         endif
         close(10)
+
+        ! Also initialise the cooling table
+        cooling_file=TRIM(repository)//'/cooling_'//TRIM(nchar)//'.out'
+        call read_cool(cooling_file)
     end subroutine init_amr_read
 
     !---------------------------------------------------------------

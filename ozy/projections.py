@@ -55,9 +55,9 @@ class Projection(object):
 
     def save_FITS(self,name,unit_system=basic_conv):
         if self.pov.split('_')[0] != 'mollweide':
-            self.save_FITS_image(name,unit_system=basic_conv)
+            self.save_FITS_image(name,unit_system=unit_system)
         else:
-            self.save_FITS_healpix(name,unit_system=basic_conv)
+            self.save_FITS_healpix(name,unit_system=unit_system)
 
     def save_FITS_image(self,name,unit_system=basic_conv):
         if os.path.exists(name):
@@ -614,6 +614,7 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
                                 vmax=np.log10(plotting_def['vmax_galaxy']),extent=ex,
                                 interpolation='nearest')
             elif logscale and fields[ivar].split('/')[1] == 'v_sphere_r':
+                print(fields[ivar],np.min(hdul[h].data.T),np.max(hdul[h].data.T))
                 plot = ax[i,j].imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
                                 origin='upper',norm=SymLogNorm(linthresh=10, linscale=1,vmin=plotting_def['vmin'], vmax=plotting_def['vmax']),
                                 extent=ex,
@@ -736,7 +737,11 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=True,reds
     for i in range(0,nrow):
         ax.append([])
         for j in range(0,ncol):
-            ax[i].append(fig.add_subplot(plot_grid[i,j]))
+            if i==0 and j==0:
+                axmain = fig.add_subplot(plot_grid[i,j])
+                ax[i].append(axmain)
+            else:
+                ax[i].append(fig.add_subplot(plot_grid[i,j], sharex=axmain, sharey=axmain))
     ax = np.asarray(ax)
 
     for i in range(0, ax.shape[0]):
@@ -1210,6 +1215,54 @@ def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,
 
     return proj
     
+def load_single_galaxy_healpix(proj_FITS,field):
+    """This function uses the HEALPix projection information in a FITS file following
+        the OZY format and returns the map as an array."""
+    
+    # Make required imports
+    import matplotlib
+    import matplotlib.pyplot as plt
+    import matplotlib.font_manager as fm
+    from mpl_toolkits.axes_grid1 import AxesGrid, make_axes_locatable
+    from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+    from matplotlib.colors import LogNorm,SymLogNorm
+    import seaborn as sns
+    from reproject import reproject_from_healpix
+    from astropy.wcs import WCS
+    from astropy.visualization.wcsaxes.frame import EllipticalFrame
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    sns.set(style="white")
+    plt.rc('text', usetex=True)
+    plt.rc('font', family='serif')
+    hfont = {'fontname':'Helvetica'}
+    matplotlib.rc('text', usetex = True)
+    matplotlib.rc('font', **{'family' : "serif"})
+    params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
+    matplotlib.rcParams.update(params)
+
+    # First, check that the FITS file actually exists
+    if not os.path.exists(proj_FITS):
+        raise ImportError('File not found. Please check!')
+    
+    # Load FITS file
+    hdul = fits.open(proj_FITS)[1]
+    hdul_fields = hdul.data.columns.names
+
+    # Check that the required field is in this FITS
+    if field not in hdul_fields:
+        print('The field %s is not included in this file. Ignoring...'%field)
+        exit
+       
+    # Make adaptations for HEALPix and Astropy
+    target_wcs = WCS(target_header)
+
+    # Since everything is fine, we begin plotting…
+    nside = hdul.header["NSIDE"]
+
+    data = hdul.data[field]
+
+    return data,nside,target_wcs
+
 def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False):
     """This function uses the HEALPix projection information in a FITS file following
         the OZY format and plots it using the OZY standards."""
@@ -1254,7 +1307,6 @@ def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False):
     
     # Make adaptations for HEALPix and Astropy
     target_wcs = WCS(target_header)
-    print(target_wcs)
     # Since everything is fine, we begin plotting…
     nside = hdul.header["NSIDE"]
     ncolumns = int(len(fields)/2)

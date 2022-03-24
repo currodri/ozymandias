@@ -57,7 +57,7 @@ module amr_profiles
 
         if (.not.allocated(prof%yvarnames)) allocate(prof%yvarnames(prof%nyvar))
         if (.not.allocated(prof%wvarnames)) allocate(prof%wvarnames(prof%nwvar))
-        if (.not.allocated(prof%xdata)) allocate(prof%xdata(prof%nbins))
+        if (.not.allocated(prof%xdata)) allocate(prof%xdata(prof%nbins+1))
         if (.not.allocated(prof%ydata)) allocate(prof%ydata(prof%nbins,prof%nyvar,prof%nwvar,4))
     end subroutine allocate_profile_handler
 
@@ -67,8 +67,8 @@ module amr_profiles
 
         if (.not.allocated(prof%zvarnames)) allocate(prof%zvarnames(prof%nzvar))
         if (.not.allocated(prof%wvarnames)) allocate(prof%wvarnames(prof%nwvar))
-        if (.not.allocated(prof%xdata)) allocate(prof%xdata(prof%nbins(1)))
-        if (.not.allocated(prof%ydata)) allocate(prof%ydata(prof%nbins(2)))
+        if (.not.allocated(prof%xdata)) allocate(prof%xdata(prof%nbins(1)+1))
+        if (.not.allocated(prof%ydata)) allocate(prof%ydata(prof%nbins(2)+1))
         if (.not.allocated(prof%zdata)) allocate(prof%zdata(prof%nbins(1),prof%nbins(2),prof%nzvar,prof%nwvar,4))
     end subroutine allocate_profile_handler_twod
 
@@ -79,45 +79,65 @@ module amr_profiles
         type(region),intent(in) :: reg
         character(128),intent(in) :: varname
         integer,intent(in) :: nbins
-        real(dbl),dimension(1:nbins),intent(inout) :: bins
+        real(dbl),dimension(1:nbins+1),intent(inout) :: bins
         logical,intent(in) :: logscale
         integer :: n
-        real(dbl) :: temp_convfac
+        real(dbl) :: temp_convfac,pressure_convfac,velocity_convfac
 
         temp_convfac = ((sim%unit_l/sim%unit_t)**2)/1.38d-16*1.66d-24
+        pressure_convfac = sim%unit_d*((sim%unit_l/sim%unit_t)**2)
+        velocity_convfac = sim%unit_l/sim%unit_t
+
         select case (TRIM(varname))
         case('r_sphere','r_cyl')
-            do n=1,nbins
+            do n=0,nbins+1
                 if (logscale) then
-                    bins(n) = dble(n)*(log10(reg%rmax)-log10(reg%rmin))/dble(nbins)
-                    if (reg%rmin > 0D0) bins(n) = bins(n) + log10(reg%rmin)
+                    bins(n+1) = dble(n)*(log10(reg%rmax)-log10(reg%rmin))/dble(nbins)
+                    if (reg%rmin > 0D0) bins(n+1) = bins(n+1) + log10(reg%rmin)
                 else
-                    bins(n) = dble(n)*(reg%rmax-reg%rmin)/dble(nbins) + reg%rmin
+                    bins(n+1) = dble(n)*(reg%rmax-reg%rmin)/dble(nbins) + reg%rmin
                 endif
             end do
         case('z')
-            do n=1,nbins
+            do n=0,nbins+1
                 if (logscale) then
-                    bins(n) = dble(n)*(log10(reg%zmax)-log10(reg%zmin))/dble(nbins)
-                    if (reg%zmin > 0D0) bins(n) = bins(n) + log10(reg%zmin)
+                    bins(n+1) = dble(n)*(log10(reg%zmax)-log10(reg%zmin))/dble(nbins)
+                    if (reg%zmin > 0D0) bins(n+1) = bins(n+1) + log10(reg%zmin)
                 else
-                    bins(n) = dble(n)*(reg%zmax-reg%zmin)/dble(nbins) + reg%zmin
+                    bins(n+1) = dble(n)*(reg%zmax-reg%zmin)/dble(nbins) + reg%zmin
                 endif
             end do
         case('density')
-            do n=1,nbins
+            do n=0,nbins+1
                 if (logscale) then
-                    bins(n) = dble(n)*(log10(1D-20/sim%unit_d)-log10(1D-30/sim%unit_d))/dble(nbins) + log10(1D-30/sim%unit_d)
+                    bins(n+1) = dble(n)*(log10(1D-20/sim%unit_d)-log10(1D-30/sim%unit_d))/dble(nbins) + log10(1D-30/sim%unit_d)
                 else
-                    bins(n) = dble(n)*(1D-20/sim%unit_d - 1D-30/sim%unit_d)/dble(nbins) + 1D-30/sim%unit_d
+                    bins(n+1) = dble(n)*(1D-20/sim%unit_d - 1D-30/sim%unit_d)/dble(nbins) + 1D-30/sim%unit_d
                 endif
             end do
         case('temperature')
-            do n=1,nbins
+            do n=0,nbins+1
                 if (logscale) then
-                    bins(n) = dble(n)*(log10(1D8/temp_convfac)-log10(1D0/temp_convfac))/dble(nbins) + log10(1D0/temp_convfac)
+                    bins(n+1) = dble(n)*(log10(1D8/temp_convfac)-log10(1D0/temp_convfac))/dble(nbins) + log10(1D0/temp_convfac)
                 else
-                    bins(n) = dble(n)*(1D8/temp_convfac - 1D0/temp_convfac)/dble(nbins) + 1D0/temp_convfac
+                    bins(n+1) = dble(n)*(1D8/temp_convfac - 1D0/temp_convfac)/dble(nbins) + 1D0/temp_convfac
+                endif
+            end do
+        case('thermal_pressure')
+            do n=0,nbins+1
+                if (logscale) then
+                    bins(n+1) = dble(n)*(log10(1D-9/pressure_convfac)-log10(1D-16/pressure_convfac))/dble(nbins) + log10(1D-16/pressure_convfac)
+                else
+                    bins(n+1) = dble(n)*(1D-9/pressure_convfac - 1D-16/pressure_convfac)/dble(nbins) + 1D-16/pressure_convfac
+                endif
+            end do
+        case('v_sphere_r')
+            do n=0,nbins+1
+                if (logscale) then
+                    write(*,*)'You cannot use logscale for a velocity profile. Stopping!'
+                    stop
+                else
+                    bins(n+1) = dble(n)*(4D7/velocity_convfac + 3D7/velocity_convfac)/dble(nbins) - 3D7/velocity_convfac
                 endif
             end do
         !TODO: Add more cases
@@ -144,7 +164,8 @@ module amr_profiles
         else
             call getvarvalue(reg,cellsize,x,cellvars,prof%xvarname,value)
         endif
-        ibin = int(dble(prof%nbins)*(value-prof%xdata(1))/(prof%xdata(prof%nbins)-prof%xdata(1)))
+        value = min(max(prof%xdata(1),value),prof%xdata(prof%nbins+1))
+        ibin = int(dble(prof%nbins)*(value-prof%xdata(1))/(prof%xdata(prof%nbins+1)-prof%xdata(1))) + 1
         ibin = max(ibin,1)
         ibin = min(ibin,prof%nbins)
     end subroutine findbinpos
@@ -171,9 +192,9 @@ module amr_profiles
             call getvarvalue(reg,cellsize,x,cellvars,prof%xvarname,value)
         endif
         if (logscale) then
-            ibinx = int(dble(prof%nbins(1))*(log10(value)-prof%xdata(1))/(prof%xdata(prof%nbins(1))-prof%xdata(1)))
+            ibinx = int(dble(prof%nbins(1))*(log10(value)-prof%xdata(1))/(prof%xdata(prof%nbins(1)+1)-prof%xdata(1))) + 1
         else
-            ibinx = int(dble(prof%nbins(1))*(value-prof%xdata(1))/(prof%xdata(prof%nbins(1))-prof%xdata(1)))
+            ibinx = int(dble(prof%nbins(1))*(value-prof%xdata(1))/(prof%xdata(prof%nbins(1)+1)-prof%xdata(1))) + 1
         endif
         ibinx = max(ibinx,1)
         ibinx = min(ibinx,prof%nbins(1))
@@ -183,9 +204,9 @@ module amr_profiles
             call getvarvalue(reg,cellsize,x,cellvars,prof%yvarname,value)
         endif
         if (logscale) then
-            ibiny = int(dble(prof%nbins(2))*(log10(value)-prof%ydata(1))/(prof%ydata(prof%nbins(2))-prof%ydata(1)))
+            ibiny = int(dble(prof%nbins(2))*(log10(value)-prof%ydata(1))/(prof%ydata(prof%nbins(2)+1)-prof%ydata(1))) + 1
         else            
-            ibiny = int(dble(prof%nbins(2))*(value-prof%ydata(1))/(prof%xdata(prof%nbins(2))-prof%ydata(1)))
+            ibiny = int(dble(prof%nbins(2))*(value-prof%ydata(1))/(prof%ydata(prof%nbins(2)+1)-prof%ydata(1))) + 1
         endif
         ibiny = max(ibiny,1)
         ibiny = min(ibiny,prof%nbins(2))

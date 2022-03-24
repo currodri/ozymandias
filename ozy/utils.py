@@ -3,6 +3,8 @@ from collections import deque,Counter
 from bisect import insort, bisect_left
 from itertools import islice
 import sys
+import os
+import subprocess
 from ozy.dict_variables import get_code_units
 
 def as_si(x, ndp):
@@ -44,6 +46,135 @@ def read_infofile(infopath):
         if info['aexp'] < 1.0 and info['time'] <= 0.0:
             info['redshift'] = 1./info['aexp'] - 1.
     return info
+
+def closest_snap_z(simfolder,z):
+    """
+    Using the IDtoZetas Fortran script, it gets the snapshot
+    closest in redshift to the wanted value.
+    """
+    presentpath = os.getcwd()
+    os.chdir(simfolder)
+    result = subprocess.run('IDtoZetas.out -ask '+str(z), shell=True,stdout=subprocess.PIPE)
+    os.chdir(presentpath)
+    indexout = int(result.stdout.decode('utf-8').split('is')[1].split('(z')[0])
+
+    ozyfile = 'ozy_%05d.hdf5' % (indexout)
+
+    return ozyfile
+
+def get_tdyn(galaxy):
+        """
+        Computes the dynamical time-scale tdyn as
+        the time required for a test particle to complete
+        one full orbit at 0.2 Rvir.
+
+        tdyn = 2pi*sqrt(R^3/(GM))
+        where we assume M = Mgas+Mstars*Mdm is measured 
+        within 0.2 Rvir
+        """
+        from unyt import G
+        
+
+        Mtot = galaxy.mass['dm'] + galaxy.mass['baryon']
+        r = 0.2*galaxy.obj.halos[galaxy.parent_halo_index].virial_quantities['radius']
+        tdyn = 2*np.pi*np.sqrt(r**3/(G*Mtot))
+        return tdyn
+
+def find_neigh_snaps(simfolder,orig_snap,trange,minsnaps=3,returnweight=False):
+    """
+    This function searches for the closest snapshots
+    to a given one within a particular time frame.
+
+    It also gives the option of returning weights
+    corresponding to the contribution of each one to the time considered.
+    TODO: Use 3 snaps as a minimum
+    """
+    import glob
+    from astropy.cosmology import FlatLambdaCDM
+    import ozy
+
+    # Firstly, list all snapshots in the directory
+    presentpath = os.getcwd()
+    os.chdir(simfolder)
+    snapshots = glob.glob('output_0*')
+    snapshots.sort(key=lambda x: int(x[-5:]))
+    iorig = snapshots.index(orig_snap)
+
+    # Get time of original snapshot
+    ozy_orig = 'ozy_%05d.hdf5'%(int(snapshots[iorig][-5:]))
+    sim = ozy.load('Groups/'+ozy_orig)
+    cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
+                                    Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
+    t_orig = cosmo.age(sim.simulation.redshift).value
+
+    neigh_snaps = []
+    weights = []
+    times = []
+    # Find the snapshots just below the original one
+    for i in range(iorig-1,0,-1):
+        ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[i][-5:]))
+        sim = ozy.load('Groups/'+ozy_name)
+        cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
+                                        Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
+        thubble = cosmo.age(sim.simulation.redshift).value
+        if t_orig - thubble <= 0.5*trange and t_orig > thubble:
+            neigh_snaps.append(ozy_name)
+            tup = 0.5*(t_orig - thubble)
+            tdown = thubble - (t_orig - 0.5*trange)
+            weights.append(tup+tdown)
+            times.append(thubble)
+        elif t_orig - thubble > 0.5*trange:
+            if len(neigh_snaps) == 0:
+                # In the case that we need to extend a bit further
+                neigh_snaps.append(ozy_name)
+                tup = 0.5*(t_orig - thubble)
+                weights.append(tup)
+                times.append(thubble)
+                trange = 2*tup
+            break
+    
+    # Add original snapshot
+    neigh_snaps.append(ozy_orig)
+    weights.append(0.0)
+    times.append(t_orig)
+    indexorig = len(weights)
+    # And do the same for just above the original one
+    for i in range(iorig+1,len(snapshots),1):
+        ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[i][-5:]))
+        sim = ozy.load('Groups/'+ozy_name)
+        cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
+                                        Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
+        thubble = cosmo.age(sim.simulation.redshift).value
+        if thubble - t_orig <= 0.5*trange and t_orig < thubble:
+            neigh_snaps.append(ozy_name)
+            tdown = 0.5*(thubble - t_orig)
+            tup = (t_orig + 0.5*trange) - thubble
+            weights.append(tup+tdown)
+            times.append(thubble)
+        elif thubble - t_orig > 0.5*trange:
+            if len(neigh_snaps) <= 2:
+                # In the case that we need to extend a bit further
+                neigh_snaps.append(ozy_name)
+                tup = 0.5*(thubble - t_orig)
+                weights.append(tup)
+                times.append(thubble)
+            break
+    # And compute the weight of the original/middle snapshot
+    tup = 0.5*(times[indexorig] - times[indexorig-1])
+    tdown = 0.5*(times[indexorig-1] - times[indexorig-2])
+    weights[indexorig-1] = tup+tdown
+    
+    # And just go back to original place
+    os.chdir(presentpath)
+
+    neigh_snaps = np.asarray(neigh_snaps)
+    weights = np.asarray(weights)
+
+    if returnweight:
+        return neigh_snaps,weights
+    else:
+        return neigh_snaps
+
 def remove_out_zoom(obj, group):
     """Remove objects outside of zoom region.
     
