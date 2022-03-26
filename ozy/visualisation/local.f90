@@ -52,4 +52,6 @@ module constants
   real(dbl) :: gas_R=8.31446261815324D7 ! Ideal gas constant R in erg/(k*mol)
   real(dbl) :: atoweightH=1.00784 ! Atomic weight of Hydrogen in atomic mass units
   real(dbl) :: cVHydrogen=1.4D8 !123746.76463754028 ! Specific heat capacity at constat volume, in erg/(K*g)
+  real(dbl) :: XH=0.76 ! Hydrogen fraction
+  real(dbl) :: YHe=0.24 ! Helium fraction
 end module constants

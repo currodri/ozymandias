@@ -37,6 +37,8 @@ if __name__ == '__main__':
     parser.add_argument('--flowtype', type=str, default='outflow', help='Flow type to be plotted.')
     parser.add_argument('--sfr', type=str, default='100Myr',help='What SFR indicator bin to use.')
     parser.add_argument('--NUT', type=bool, default=True, help='If True, it looks for NUT as the most massive galaxy (stars) in the last snapshot.')
+    parser.add_argument('--recompute',action='store_true', help='If present, it recomputes 2D profiles.')
+
     args = parser.parse_args()
 
     if not isinstance(args.model, list):
@@ -146,13 +148,13 @@ if __name__ == '__main__':
                 
                 gf = {}
                 gf['inflow_50'] = compute_flows(gal,os.path.join(groupspath, ozyfile),'inflow',rmin=(0.5-0.01,'rvir'),
-                                                rmax=(0.5+0.01,'rvir'),save=False,recompute=False)
+                                                rmax=(0.5+0.01,'rvir'),save=False,recompute=args.recompute)
                 gf['inflow_100'] = compute_flows(gal,os.path.join(groupspath, ozyfile),'inflow',rmin=(1.0-0.01,'rvir'),
-                                                rmax=(1.0+0.01,'rvir'),save=False,recompute=False)
+                                                rmax=(1.0+0.01,'rvir'),save=False,recompute=args.recompute)
                 gf['outflow_50'] = compute_flows(gal,os.path.join(groupspath, ozyfile),'outflow',rmin=(0.5-0.01,'rvir'),
-                                                rmax=(0.5+0.01,'rvir'),save=False,recompute=False)
+                                                rmax=(0.5+0.01,'rvir'),save=False,recompute=args.recompute)
                 gf['outflow_100'] = compute_flows(gal,os.path.join(groupspath, ozyfile),'outflow',rmin=(1.0-0.01,'rvir'),
-                                                rmax=(1.0+0.01,'rvir'),save=False,recompute=False)
+                                                rmax=(1.0+0.01,'rvir'),save=False,recompute=args.recompute)
                 
                 
                 factor = 1
@@ -359,7 +361,7 @@ if __name__ == '__main__':
                     progind = -1
                 
                 gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
-                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=False)
+                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute)
                 
                 d_key = str(int(100*args.r))
                 try:
@@ -489,7 +491,7 @@ if __name__ == '__main__':
                     progind = -1
                 
                 gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
-                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=False,separate_phases=True)
+                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute,separate_phases=True)
                 
                 d_key = str(int(100*args.r))
                 factor = 1
@@ -644,7 +646,7 @@ if __name__ == '__main__':
                     progind = -1
                 
                 gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
-                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=False)
+                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute)
                 
                 d_key = str(int(100*args.r))
                 try:
@@ -831,7 +833,7 @@ if __name__ == '__main__':
                     progind = -1
                 
                 gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
-                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=False)
+                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute)
                 
                 d_key = str(int(100*args.r))
                 try:
@@ -1023,7 +1025,7 @@ if __name__ == '__main__':
                     progind = -1
                 
                 gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.type,rmin=(args.r-0.01,'rvir'),
-                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=False)
+                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute)
                 
                 d_key = str(int(100*args.r))
                 try:

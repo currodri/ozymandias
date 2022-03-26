@@ -512,6 +512,7 @@ module maps
                                     ! write(*,*)'Cell is inside'
                                     xtemp = x(i,:)
                                     vtemp = var(i,ind,varIDs%vx:varIDs%vz)
+                                    vtemp = vtemp - bbox%bulk_velocity
                                     call rotate_vector(vtemp,trans_matrix)
                                     var(i,ind,varIDs%vx:varIDs%vz) = vtemp
                                     
@@ -826,6 +827,7 @@ module maps
                     ok_part = ok_tag .and. ok_part
                 endif
                 if (ok_part) then
+                    part%v = part%v - bbox%bulk_velocity
                     call rotate_vector(part%v,trans_matrix)
                     if (nstar>0) then
                         if (TRIM(proj%weightvar).eq.'star/cumulative'.or.&

@@ -345,6 +345,7 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
 
     if region_type == 'sphere':
         reg.name = 'sphere'
+        reg.criteria_name = 'r_sphere'
         centre = vectors.vector()
         centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         reg.centre = centre
@@ -367,6 +368,7 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
 
     elif region_type == 'basic_sphere':
         reg.name = 'sphere'
+        reg.criteria_name = 'r_sphere'
         centre = vectors.vector()
         centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         reg.centre = centre

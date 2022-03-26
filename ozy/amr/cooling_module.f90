@@ -57,10 +57,10 @@ module cooling_module
   
     subroutine read_cool(filename)
         implicit none
-        character(LEN=80)::filename
-        open(unit=10,file=filename,form='unformatted')
+        character(LEN=128)::filename
+        open(unit=15,file=TRIM(filename),form='unformatted',status='old')
         ! Get size of table
-        read(10)ctable%n1,ctable%n2
+        read(15)ctable%n1,ctable%n2
 
         ! Allocate cooling table
         if(.not.allocated(ctable%cool)) then
@@ -80,21 +80,21 @@ module cooling_module
         endif
 
         ! And read values
-        read(10)ctable%nH
-        read(10)ctable%T2
-        read(10)ctable%cool
-        read(10)ctable%heat
-        read(10)ctable%cool_com
-        read(10)ctable%heat_com
-        read(10)ctable%metal
-        read(10)ctable%cool_prime
-        read(10)ctable%heat_prime
-        read(10)ctable%cool_com_prime
-        read(10)ctable%heat_com_prime
-        read(10)ctable%metal_prime
-        read(10)ctable%mu
-        if (if_species_abundances) read(10)ctable%n_spec
-        close(10)
+        read(15)ctable%nH
+        read(15)ctable%T2
+        read(15)ctable%cool
+        read(15)ctable%heat
+        read(15)ctable%cool_com
+        read(15)ctable%heat_com
+        read(15)ctable%metal
+        read(15)ctable%cool_prime
+        read(15)ctable%heat_prime
+        read(15)ctable%cool_com_prime
+        read(15)ctable%heat_com_prime
+        read(15)ctable%metal_prime
+        read(15)ctable%mu
+        if (if_species_abundances) read(15)ctable%n_spec
+        close(15)
 
         ! Some initialisations
         logT2max=log10(T2_max_fix)
@@ -147,59 +147,24 @@ module cooling_module
            yy3=yy2*yy
 
            ! Cooling
-           fa=ctable%cool(i_nH,i_T2  )*w1H+ctable%cool(i_nH+1,i_T2  )*w2H
-           fb=ctable%cool(i_nH,i_T2+1)*w1H+ctable%cool(i_nH+1,i_T2+1)*w2H
-           fprimea=ctable%cool_prime(i_nH,i_T2  )*w1H+ctable%cool_prime(i_nH+1,i_T2  )*w2H
-           fprimeb=ctable%cool_prime(i_nH,i_T2+1)*w1H+ctable%cool_prime(i_nH+1,i_T2+1)*w2H
-           alpha=fprimea
-           beta=3d0*(fb-fa)/h2-(2d0*fprimea+fprimeb)/h
-           gamma=(fprimea+fprimeb)/h2-2d0*(fb-fa)/h3
-           cool=10d0**(fa+alpha*yy+beta*yy2+gamma*yy3)
-           cool_prime=cool/tau*(alpha+2d0*beta*yy+3d0*gamma*yy2)
+           cool=10d0**(ctable%cool(i_nH,i_T2  ))
+           cool_prime=10d0**(ctable%cool_prime(i_nH,i_T2  ))
 
            ! Heating
-           fa=ctable%heat(i_nH,i_T2  )*w1H+ctable%heat(i_nH+1,i_T2  )*w2H
-           fb=ctable%heat(i_nH,i_T2+1)*w1H+ctable%heat(i_nH+1,i_T2+1)*w2H
-           fprimea=ctable%heat_prime(i_nH,i_T2  )*w1H+ctable%heat_prime(i_nH+1,i_T2  )*w2H
-           fprimeb=ctable%heat_prime(i_nH,i_T2+1)*w1H+ctable%heat_prime(i_nH+1,i_T2+1)*w2H
-           alpha=fprimea
-           beta=3d0*(fb-fa)/h2-(2d0*fprimea+fprimeb)/h
-           gamma=(fprimea+fprimeb)/h2-2d0*(fb-fa)/h3
-           heat=10d0**(fa+alpha*yy+beta*yy2+gamma*yy3)
-           heat_prime=heat/tau*(alpha+2d0*beta*yy+3d0*gamma*yy2)
+           heat=10d0**(ctable%heat(i_nH,i_T2  ))
+           heat_prime=10d0**(ctable%heat_prime(i_nH,i_T2  ))
 
            ! Compton cooling
-           fa=ctable%cool_com(i_nH,i_T2  )*w1H+ctable%cool_com(i_nH+1,i_T2  )*w2H
-           fb=ctable%cool_com(i_nH,i_T2+1)*w1H+ctable%cool_com(i_nH+1,i_T2+1)*w2H
-           fprimea=ctable%cool_com_prime(i_nH,i_T2  )*w1H+ctable%cool_com_prime(i_nH+1,i_T2  )*w2H
-           fprimeb=ctable%cool_com_prime(i_nH,i_T2+1)*w1H+ctable%cool_com_prime(i_nH+1,i_T2+1)*w2H
-           alpha=fprimea
-           beta=3d0*(fb-fa)/h2-(2d0*fprimea+fprimeb)/h
-           gamma=(fprimea+fprimeb)/h2-2d0*(fb-fa)/h3
-           cool_com=10d0**(fa+alpha*yy+beta*yy2+gamma*yy3)
-           cool_com_prime=cool_com/tau*(alpha+2d0*beta*yy+3d0*gamma*yy2)
+           cool_com=10d0**(ctable%cool_com(i_nH,i_T2  ))
+           cool_com_prime=10d0**(ctable%cool_com(i_nH,i_T2  ))
 
            ! Compton heating
-           fa=ctable%heat_com(i_nH,i_T2  )*w1H+ctable%heat_com(i_nH+1,i_T2  )*w2H
-           fb=ctable%heat_com(i_nH,i_T2+1)*w1H+ctable%heat_com(i_nH+1,i_T2+1)*w2H
-           fprimea=ctable%heat_com_prime(i_nH,i_T2  )*w1H+ctable%heat_com_prime(i_nH+1,i_T2  )*w2H
-           fprimeb=ctable%heat_com_prime(i_nH,i_T2+1)*w1H+ctable%heat_com_prime(i_nH+1,i_T2+1)*w2H
-           alpha=fprimea
-           beta=3d0*(fb-fa)/h2-(2d0*fprimea+fprimeb)/h
-           gamma=(fprimea+fprimeb)/h2-2d0*(fb-fa)/h3
-           heat_com=10d0**(fa+alpha*yy+beta*yy2+gamma*yy3)
-           heat_com_prime=heat_com/tau*(alpha+2d0*beta*yy+3d0*gamma*yy2)
+           heat_com=10d0**(ctable%heat_com(i_nH,i_T2  ))
+           heat_com_prime=10d0**(ctable%heat_com_prime(i_nH,i_T2  ))
 
            ! Metal cooling
-           fa=ctable%metal(i_nH,i_T2  )*w1H+ctable%metal(i_nH+1,i_T2  )*w2H
-           fb=ctable%metal(i_nH,i_T2+1)*w1H+ctable%metal(i_nH+1,i_T2+1)*w2H
-           fprimea=ctable%metal_prime(i_nH,i_T2  )*w1H+ctable%metal_prime(i_nH+1,i_T2  )*w2H
-           fprimeb=ctable%metal_prime(i_nH,i_T2+1)*w1H+ctable%metal_prime(i_nH+1,i_T2+1)*w2H
-           alpha=fprimea
-           beta=3d0*(fb-fa)/h2-(2d0*fprimea+fprimeb)/h
-           gamma=(fprimea+fprimeb)/h2-2d0*(fb-fa)/h3
-           metal=10d0**(fa+alpha*yy+beta*yy2+gamma*yy3)
-           metal_prime=metal/tau*(alpha+2d0*beta*yy+3d0*gamma*yy2)
+           metal=10d0**(ctable%metal(i_nH,i_T2  ))
+           metal_prime=10d0**(ctable%metal_prime(i_nH,i_T2  ))
 
            ! Total net cooling
            lambda=cool+zzz*metal-heat+(cool_com-heat_com)/nH

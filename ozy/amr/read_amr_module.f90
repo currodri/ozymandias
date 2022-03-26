@@ -547,7 +547,7 @@ module io_ramses
         real(dbl),dimension(1:varIDs%nvar),intent(in) :: var
         character(128),intent(in)                 :: varname
         real(dbl),intent(inout)                       :: value
-        type(vector) :: v_corrected,L,B
+        type(vector) :: v,L,B
         type(basis) :: temp_basis
         real(dbl) :: T,rho,cV,lambda,lambda_prime,ne,ecr,nH
         real(dbl) :: scale_T2,scale_nH
@@ -584,68 +584,54 @@ module io_ramses
             value = phi_cyl(x)
         case ('v_sphere_r')
             ! Velocity component in the spherical radial direction
-            ! 1. Correct velocity for bulk velocity of region
-            ! 2. Dot product of velocity vector with spherical radial
+            ! Dot product of velocity vector with spherical radial
             !    unit vector
-            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
-            v_corrected = v_corrected - reg%bulk_velocity
+            v = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
             call spherical_basis_from_cartesian(x,temp_basis)
-            value = v_corrected.DOT.temp_basis%u(1)
+            value = v.DOT.temp_basis%u(1)
         case ('v_sphere_phi')
             ! Velocity component in the spherical azimutal (phi) direction
-            ! 1. Correct velocity for bulk velocity of region
-            ! 2. Dot product of velocity vector with spherical phi
+            ! Dot product of velocity vector with spherical phi
             !    unit vector
-            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
-            v_corrected = v_corrected - reg%bulk_velocity
+            v = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
             call spherical_basis_from_cartesian(x,temp_basis)
-            value = v_corrected .DOT. temp_basis%u(3)
+            value = v .DOT. temp_basis%u(3)
         case ('v_sphere_theta')
             ! Velocity component in the spherical theta direction
-            ! 1. Correct velocity for bulk velocity of region
-            ! 2. Dot product of velocity vector with spherical theta
+            ! Dot product of velocity vector with spherical theta
             !    unit vector
-            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
-            v_corrected = v_corrected - reg%bulk_velocity
+            v = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
             call spherical_basis_from_cartesian(x,temp_basis)
-            value = v_corrected .DOT. temp_basis%u(2)
+            value = v .DOT. temp_basis%u(2)
         case ('v_cyl_r')
             ! Velocity component in the cylindrical radial direction
-            ! 1. Correct velocity for bulk velocity of region
-            ! 2. Dot product of velocity vector with cylindrical
+            ! Dot product of velocity vector with cylindrical
             !    radial unit vector
-            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
-            v_corrected = v_corrected - reg%bulk_velocity
+            v = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
             call cylindrical_basis_from_cartesian(x,temp_basis)
-            value = v_corrected.DOT.temp_basis%u(1)
+            value = v.DOT.temp_basis%u(1)
         case ('v_cyl_z')
             ! Velocity component in the cylindrical z direction
-            ! 1. Correct velocity for bulk velocity of region
-            ! 2. Dot product of velocity vector with cylindrical
+            ! Dot product of velocity vector with cylindrical
             !    z unit vector
-            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
-            v_corrected = v_corrected - reg%bulk_velocity
+            v = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
             call cylindrical_basis_from_cartesian(x,temp_basis)
-            value = v_corrected.DOT.temp_basis%u(3)
+            value = v.DOT.temp_basis%u(3)
         case ('v_cyl_phi')
             ! Velocity component in the cylyndrical azimutal (phi) direction
-            ! 1. Correct velocity for bulk velocity of region
-            ! 2. Dot product of velocity vector with cylindrical
+            ! Dot product of velocity vector with cylindrical
             !    phi unit vector
-            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
-            v_corrected = v_corrected - reg%bulk_velocity
+            v = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
             call cylindrical_basis_from_cartesian(x,temp_basis)
-            value = v_corrected.DOT.temp_basis%u(2)
+            value = v.DOT.temp_basis%u(2)
         case ('v_magnitude')
             ! Velocity magnitude from galaxy coordinates
-            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
-            v_corrected = v_corrected - reg%bulk_velocity
-            value = magnitude(v_corrected)
+            v = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
+            value = magnitude(v)
         case ('v_squared')
             ! Velocity magnitude squared from galaxy coordinates
-            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
-            v_corrected = v_corrected - reg%bulk_velocity
-            value = v_corrected.DOT.v_corrected
+            v = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
+            value = v.DOT.v
         case ('density')
             ! Density
             value = var(varIDs%density)
@@ -661,6 +647,11 @@ module io_ramses
         case ('temperature')
             ! Gas temperature
             value = var(varIDs%thermal_pressure) / var(varIDs%density) !/ 1.38d-16*1.66d-24
+            if (value < 0D0) then
+                scale_T2 = mHydrogen / kBoltzmann * ((sim%unit_l/sim%unit_t)**2)
+                write(*,*)'Cell with T<0: ',value*scale_T2
+                value = 1D0/scale_T2
+            endif
         case ('thermal_pressure')
             ! Thermal pressure
             value = var(varIDs%thermal_pressure)
@@ -684,7 +675,6 @@ module io_ramses
             value = sqrt(5D0/3d0 * (var(varIDs%thermal_pressure) / var(varIDs%density)))
         case ('kinetic_energy')
             ! Kinetic energy, computed as 1/2*density*volume*magnitude(velocity)
-            ! DISCLAIMER: Velocity not corrected for bulk velocity
             value = (0.5 * (var(varIDs%density) * (dx*dx)) * dx) * sqrt(var(varIDs%vx)**2 + var(varIDs%vy)**2 + var(varIDs%vz)**2)
         case ('magnetic_energy')
             ! Magnetic energy as magnitude(B)**2/2
@@ -711,7 +701,7 @@ module io_ramses
             ! Cosmic rays hadronic and Coulomb heating from Guo&Ho(2008)
             ! (Assume fully ionised gas)
             ! TODO: Update for RT! 
-            lambda = 2.63D-16 * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
+            lambda = 3D-16 * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
             ne = var(varIDs%density) * sim%unit_d / mHydrogen 
             ecr = var(varIDs%cr_pressure) / (4D0/3d0 - 1d0)
             ecr = ecr * (sim%unit_d * ((sim%unit_l/sim%unit_t)**2))
@@ -723,7 +713,8 @@ module io_ramses
             T = var(varIDs%thermal_pressure) / var(varIDs%density) * scale_T2
             nH = var(varIDs%density) * scale_nH
             call solve_cooling(nH,T,var(varIDs%metallicity)/2D-2,lambda,lambda_prime)
-            value = lambda * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
+            write(*,*)lambda
+            value = ((lambda * nH) * nH) * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
         case ('B_left_x')
             value = var(varIDs%Blx)
         case ('B_left_y')
@@ -757,77 +748,66 @@ module io_ramses
             value = var(varIDs%xHeIII)
         case ('momentum_x')
             ! Linear momentum in the x direction as density*volume*corrected_velocity_x
-            value = ((var(varIDs%density) * (dx*dx)) * dx) * (var(varIDs%vx) - reg%bulk_velocity%x)
+            value = ((var(varIDs%density) * (dx*dx)) * dx) * var(varIDs%vx)
         case ('momentum_y')
             ! Linear momentum in the y direction density*volume*corrected_velocity_y
-            value = ((var(varIDs%density) * (dx*dx)) * dx) * (var(varIDs%vy) - reg%bulk_velocity%y)
+            value = ((var(varIDs%density) * (dx*dx)) * dx) * var(varIDs%vy)
         case ('momentum_z')
             ! Linear momentum in the z direction density*volume*corrected_velocity_z
-            value = ((var(varIDs%density) * (dx*dx)) * dx) * (var(varIDs%vz) - reg%bulk_velocity%z)
+            value = ((var(varIDs%density) * (dx*dx)) * dx) * var(varIDs%vz)
         case ('momentum')
             ! Magnitude of linear momentum, using corrected velocity
-            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
-            v_corrected = v_corrected - reg%bulk_velocity
+            v = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
             value = ((var(varIDs%density) * (dx*dx)) * dx) * &
-                    & magnitude(v_corrected)
+                    & magnitude(v)
         case ('momentum_sphere_r')
             ! Linear momentum in the spherical radial direction
-            ! 1. Correct velocity for bulk velocity of region
-            ! 2. Dot product of velocity vector with spherical r
+            ! 1. Dot product of velocity vector with spherical r
             !    unit vector
-            ! 3. Multiply by mass of cell
-            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
-            v_corrected = v_corrected - reg%bulk_velocity
+            ! Multiply by mass of cell
+            v = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
             call spherical_basis_from_cartesian(x,temp_basis)
-            value = (var(varIDs%density) * (dx*dx)) * dx * (v_corrected .DOT. temp_basis%u(1))
+            value = (var(varIDs%density) * (dx*dx)) * dx * (v .DOT. temp_basis%u(1))
         case ('momentum_cyl_z')
             ! Linear momentum in the cylindrical z direction
-            ! 1. Correct velocity for bulk velocity of region
-            ! 2. Dot product of velocity vector with cylindrical z
+            ! 1. Dot product of velocity vector with cylindrical z
             !    unit vector
-            ! 3. Multiply by mass of cell
-            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
-            v_corrected = v_corrected - reg%bulk_velocity
+            ! Multiply by mass of cell
+            v = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
             call cylindrical_basis_from_cartesian(x,temp_basis)
-            value = (var(varIDs%density) * (dx*dx)) * dx * (v_corrected .DOT. temp_basis%u(3))
+            value = (var(varIDs%density) * (dx*dx)) * dx * (v .DOT. temp_basis%u(3))
         case ('ang_momentum_x')
             ! Corrected angular momentum in the x direction
-            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
-            v_corrected = v_corrected - reg%bulk_velocity
-            value = ((var(varIDs%density) * (dx*dx)) * dx) * (x%y * v_corrected%z &
-                        &- v_corrected%y * x%z)
+            v = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
+            value = ((var(varIDs%density) * (dx*dx)) * dx) * (x%y * v%z &
+                        &- v%y * x%z)
         case ('ang_momentum_y')
             ! Corrected angular momentum in the y direction
-            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
-            v_corrected = v_corrected - reg%bulk_velocity
-            value = ((var(varIDs%density) * (dx*dx)) * dx) * (x%z*v_corrected%x &
-                        &- v_corrected%z*x%x)
+            v = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
+            value = ((var(varIDs%density) * (dx*dx)) * dx) * (x%z*v%x &
+                        &- v%z*x%x)
         case ('ang_momentum_z')
             ! Corrected angular momentum in the z direction
-            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
-            v_corrected = v_corrected - reg%bulk_velocity
-            value = ((var(varIDs%density) * (dx*dx)) * dx) * (x%x*v_corrected%y &
-                        &- v_corrected%x*x%y)
+            v = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
+            value = ((var(varIDs%density) * (dx*dx)) * dx) * (x%x*v%y &
+                        &- v%x*x%y)
         case ('ang_momentum')
             ! Corrected magnitude of angular momentum
-            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
-            v_corrected = v_corrected - reg%bulk_velocity
-            L = x * v_corrected
+            v = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
+            L = x * v
             value = ((var(varIDs%density) * (dx*dx)) * dx) * magnitude(L)
         case ('massflow_rate_sphere_r')
             ! Mass flow rate through the cell in the radial direction
             ! Mass per unit time
-            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
-            v_corrected = v_corrected - reg%bulk_velocity
+            v = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
             call spherical_basis_from_cartesian(x,temp_basis)
-            value = (var(varIDs%density) * (dx*dx)) * (v_corrected .DOT. temp_basis%u(1))
+            value = (var(varIDs%density) * (dx*dx)) * (v .DOT. temp_basis%u(1))
         case ('massflux_rate_sphere_r')
             ! Mass flux through the cell in the radial direction
             ! Mass per unit time per unit surface
-            v_corrected = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
-            v_corrected = v_corrected - reg%bulk_velocity
+            v = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
             call spherical_basis_from_cartesian(x,temp_basis)
-            value = var(varIDs%density) * (v_corrected .DOT. temp_basis%u(1))
+            value = var(varIDs%density) * (v .DOT. temp_basis%u(1))
         case default
             write(*,*)'Variable not supported: ',TRIM(varname)
             write(*,*)'Aborting!'
@@ -849,7 +829,7 @@ module io_ramses
         character(5) :: nchar
         integer :: ipos,impi,i,nx,ny,nz
         character(128) :: nomfich
-        character(80)  :: cooling_file
+        character(128)  :: cooling_file
         logical :: ok
 
         ipos = index(repository,'output_')
@@ -1071,7 +1051,7 @@ module io_ramses
         real(dbl),intent(inout) :: value
         type(vector),optional,intent(in) :: dx
         
-        type(vector) :: v_corrected,L
+        type(vector) :: v,L
         type(basis) :: temp_basis
         character(6) :: ptype
         character(128) :: tempvar,vartype,varname,sfrstr,sfrtype
@@ -1141,93 +1121,86 @@ module io_ramses
                 value = phi_cyl(part%x)
             case ('v_sphere_r')
                 ! Velocity component in the spherical radial direction
-                ! 1. Correct velocity for bulk velocity of region
-                ! 2. Dot product of velocity vector with spherical radial
+                ! Dot product of velocity vector with spherical radial
                 !    unit vector
-                v_corrected = part%v - reg%bulk_velocity
+                v = part%v
                 call spherical_basis_from_cartesian(part%x,temp_basis)
-                value = v_corrected.DOT.temp_basis%u(1)
+                value = v.DOT.temp_basis%u(1)
             case ('v_sphere_phi')
                 ! Velocity component in the spherical azimutal (phi) direction
-                ! 1. Correct velocity for bulk velocity of region
-                ! 2. Dot product of velocity vector with spherical phi
+                ! Dot product of velocity vector with spherical phi
                 !    unit vector
-                v_corrected = part%v - reg%bulk_velocity
+                v = part%v
                 call spherical_basis_from_cartesian(part%x,temp_basis)
-                value = v_corrected .DOT. temp_basis%u(3)
+                value = v .DOT. temp_basis%u(3)
             case ('v_sphere_theta')
                 ! Velocity component in the spherical theta direction
-                ! 1. Correct velocity for bulk velocity of region
-                ! 2. Dot product of velocity vector with spherical theta
+                ! Dot product of velocity vector with spherical theta
                 !    unit vector
-                v_corrected = part%v - reg%bulk_velocity
+                v = part%v
                 call spherical_basis_from_cartesian(part%x,temp_basis)
-                value = v_corrected .DOT. temp_basis%u(2)
+                value = v .DOT. temp_basis%u(2)
             case ('v_cyl_r')
                 ! Velocity component in the cylindrical radial direction
-                ! 1. Correct velocity for bulk velocity of region
-                ! 2. Dot product of velocity vector with cylindrical
+                ! Dot product of velocity vector with cylindrical
                 !    radial unit vector
-                v_corrected = part%v - reg%bulk_velocity
+                v = part%v
                 call cylindrical_basis_from_cartesian(part%x,temp_basis)
-                value = v_corrected.DOT.temp_basis%u(1)
+                value = v.DOT.temp_basis%u(1)
             case ('v_cyl_z')
                 ! Velocity component in the cylindrical z direction
-                ! 1. Correct velocity for bulk velocity of region
-                ! 2. Dot product of velocity vector with cylindrical
+                ! Dot product of velocity vector with cylindrical
                 !    z unit vector
-                v_corrected = part%v - reg%bulk_velocity
+                v = part%v
                 call cylindrical_basis_from_cartesian(part%x,temp_basis)
-                value = v_corrected.DOT.temp_basis%u(3)
+                value = v.DOT.temp_basis%u(3)
             case ('v_cyl_phi')
                 ! Velocity component in the cylyndrical azimutal (phi) direction
-                ! 1. Correct velocity for bulk velocity of region
-                ! 2. Dot product of velocity vector with cylindrical
+                ! Dot product of velocity vector with cylindrical
                 !    phi unit vector
-                v_corrected = part%v - reg%bulk_velocity
+                v = part%v
                 call cylindrical_basis_from_cartesian(part%x,temp_basis)
-                value = v_corrected.DOT.temp_basis%u(2)
+                value = v.DOT.temp_basis%u(2)
             case ('momentum_x')
                 ! Linear momentum in the x direction as mass*corrected_velocity_x
-                value = part%m * (part%v%x - reg%bulk_velocity%x)
+                value = part%m * (part%v%x%x)
             case ('momentum_y')
                 ! Linear momentum in the y direction mass*corrected_velocity_y
-                value = part%m * (part%v%y - reg%bulk_velocity%y)
+                value = part%m * (part%v%y%y)
             case ('momentum_z')
                 ! Linear momentum in the z direction mass*corrected_velocity_z
-                value = part%m * (part%v%z - reg%bulk_velocity%z)
+                value = part%m * (part%v%z%z)
             case ('momentum')
                 ! Magnitude of linear momentum, using corrected velocity
-                v_corrected = part%v - reg%bulk_velocity
-                value = part%m * magnitude(v_corrected)
+                v = part%v
+                value = part%m * magnitude(v)
             case ('momentum_sphere_r')
                 ! Linear momentum in the spherical radial direction
-                ! 1. Correct velocity for bulk velocity of region
-                ! 2. Dot product of velocity vector with spherical phi
+                ! Dot product of velocity vector with spherical phi
                 !    unit vector
                 ! 3. Multiply by mass of particle
-                v_corrected = part%v - reg%bulk_velocity
+                v = part%v
                 call spherical_basis_from_cartesian(part%x,temp_basis)
-                value = part%m * (v_corrected .DOT. temp_basis%u(1))
+                value = part%m * (v .DOT. temp_basis%u(1))
             case ('ang_momentum_x')
                 ! Corrected angular momentum in the x direction
-                v_corrected = part%v - reg%bulk_velocity
-                value = part%m * (part%x%y * v_corrected%z &
-                            &- v_corrected%y * part%x%z)
+                v = part%v
+                value = part%m * (part%x%y * v%z &
+                            &- v%y * part%x%z)
             case ('ang_momentum_y')
                 ! Corrected angular momentum in the y direction
-                v_corrected = part%v - reg%bulk_velocity
-                value = part%m * (part%x%z * v_corrected%x &
-                            &- v_corrected%z * part%x%x)
+                v = part%v
+                value = part%m * (part%x%z * v%x &
+                            &- v%z * part%x%x)
             case ('ang_momentum_z')
                 ! Corrected angular momentum in the z direction
-                v_corrected = part%v - reg%bulk_velocity
-                value = part%m * (part%x%x * v_corrected%y &
-                            &- v_corrected%x * part%x%y)
+                v = part%v
+                value = part%m * (part%x%x * v%y &
+                            &- v%x * part%x%y)
             case ('ang_momentum')
                 ! Corrected magnitude of angular momentum
-                v_corrected = part%v - reg%bulk_velocity
-                L = part%x * v_corrected
+                v = part%v
+                L = part%x * v
                 value = part%m * magnitude(L)
             end select
         elseif (vartype.eq.'star'.and.ptype.eq.'star') then
@@ -1285,93 +1258,87 @@ module io_ramses
                     value = phi_cyl(part%x)
                 case ('v_sphere_r')
                     ! Velocity component in the spherical radial direction
-                    ! 1. Correct velocity for bulk velocity of region
-                    ! 2. Dot product of velocity vector with spherical radial
+    
+                    ! Dot product of velocity vector with spherical radial
                     !    unit vector
-                    v_corrected = part%v - reg%bulk_velocity
+                    v = part%v
                     call spherical_basis_from_cartesian(part%x,temp_basis)
-                    value = v_corrected.DOT.temp_basis%u(1)
+                    value = v.DOT.temp_basis%u(1)
                 case ('v_sphere_phi')
                     ! Velocity component in the spherical azimutal (phi) direction
-                    ! 1. Correct velocity for bulk velocity of region
-                    ! 2. Dot product of velocity vector with spherical phi
+                    ! Dot product of velocity vector with spherical phi
                     !    unit vector
-                    v_corrected = part%v - reg%bulk_velocity
+                    v = part%v
                     call spherical_basis_from_cartesian(part%x,temp_basis)
-                    value = v_corrected .DOT. temp_basis%u(3)
+                    value = v .DOT. temp_basis%u(3)
                 case ('v_sphere_theta')
                     ! Velocity component in the spherical theta direction
-                    ! 1. Correct velocity for bulk velocity of region
-                    ! 2. Dot product of velocity vector with spherical theta
+                    ! Dot product of velocity vector with spherical theta
                     !    unit vector
-                    v_corrected = part%v - reg%bulk_velocity
+                    v = part%v
                     call spherical_basis_from_cartesian(part%x,temp_basis)
-                    value = v_corrected .DOT. temp_basis%u(2)
+                    value = v .DOT. temp_basis%u(2)
                 case ('v_cyl_r')
                     ! Velocity component in the cylindrical radial direction
-                    ! 1. Correct velocity for bulk velocity of region
-                    ! 2. Dot product of velocity vector with cylindrical
+                    ! Dot product of velocity vector with cylindrical
                     !    radial unit vector
-                    v_corrected = part%v - reg%bulk_velocity
+                    v = part%v
                     call cylindrical_basis_from_cartesian(part%x,temp_basis)
-                    value = v_corrected.DOT.temp_basis%u(1)
+                    value = v.DOT.temp_basis%u(1)
                 case ('v_cyl_z')
                     ! Velocity component in the cylindrical z direction
-                    ! 1. Correct velocity for bulk velocity of region
-                    ! 2. Dot product of velocity vector with cylindrical
+                    ! Dot product of velocity vector with cylindrical
                     !    z unit vector
-                    v_corrected = part%v - reg%bulk_velocity
+                    v = part%v
                     call cylindrical_basis_from_cartesian(part%x,temp_basis)
-                    value = v_corrected.DOT.temp_basis%u(3)
+                    value = v.DOT.temp_basis%u(3)
                 case ('v_cyl_phi')
                     ! Velocity component in the cylyndrical azimutal (phi) direction
-                    ! 1. Correct velocity for bulk velocity of region
-                    ! 2. Dot product of velocity vector with cylindrical
+                    ! Dot product of velocity vector with cylindrical
                     !    phi unit vector
-                    v_corrected = part%v - reg%bulk_velocity
+                    v = part%v
                     call cylindrical_basis_from_cartesian(part%x,temp_basis)
-                    value = v_corrected.DOT.temp_basis%u(2)
+                    value = v.DOT.temp_basis%u(2)
                 case ('momentum_x')
                     ! Linear momentum in the x direction as mass*corrected_velocity_x
-                    value = part%m * (part%v%x - reg%bulk_velocity%x)
+                    value = part%m * (part%v%x%x)
                 case ('momentum_y')
                     ! Linear momentum in the y direction mass*corrected_velocity_y
-                    value = part%m * (part%v%y - reg%bulk_velocity%y)
+                    value = part%m * (part%v%y%y)
                 case ('momentum_z')
                     ! Linear momentum in the z direction mass*corrected_velocity_z
-                    value = part%m * (part%v%z - reg%bulk_velocity%z)
+                    value = part%m * (part%v%z%z)
                 case ('momentum')
                     ! Magnitude of linear momentum, using corrected velocity
-                    v_corrected = part%v - reg%bulk_velocity
-                    value = part%m * magnitude(v_corrected)
+                    v = part%v
+                    value = part%m * magnitude(v)
                 case ('momentum_sphere_r')
                     ! Linear momentum in the spherical radial direction
-                    ! 1. Correct velocity for bulk velocity of region
-                    ! 2. Dot product of velocity vector with spherical phi
+                    ! Dot product of velocity vector with spherical phi
                     !    unit vector
                     ! 3. Multiply by mass of particle
-                    v_corrected = part%v - reg%bulk_velocity
+                    v = part%v
                     call spherical_basis_from_cartesian(part%x,temp_basis)
-                    value = part%m * (v_corrected .DOT. temp_basis%u(1))
+                    value = part%m * (v .DOT. temp_basis%u(1))
                 case ('ang_momentum_x')
                     ! Corrected angular momentum in the x direction
-                    v_corrected = part%v - reg%bulk_velocity
-                    value = part%m * (part%x%y * v_corrected%z &
-                                &- v_corrected%y * part%x%z)
+                    v = part%v
+                    value = part%m * (part%x%y * v%z &
+                                &- v%y * part%x%z)
                 case ('ang_momentum_y')
                     ! Corrected angular momentum in the y direction
-                    v_corrected = part%v - reg%bulk_velocity
-                    value = part%m * (part%x%z * v_corrected%x &
-                                &- v_corrected%z * part%x%x)
+                    v = part%v
+                    value = part%m * (part%x%z * v%x &
+                                &- v%z * part%x%x)
                 case ('ang_momentum_z')
                     ! Corrected angular momentum in the z direction
-                    v_corrected = part%v - reg%bulk_velocity
-                    value = part%m * (part%x%x * v_corrected%y &
-                                &- v_corrected%x * part%x%y)
+                    v = part%v
+                    value = part%m * (part%x%x * v%y &
+                                &- v%x * part%x%y)
                 case ('ang_momentum')
                     ! Corrected magnitude of angular momentum
-                    v_corrected = part%v - reg%bulk_velocity
-                    L = part%x * v_corrected
+                    v = part%v
+                    L = part%x * v
                     value = part%m * magnitude(L)
                 case ('metallicity')
                     ! Metallicity

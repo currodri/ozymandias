@@ -164,10 +164,8 @@ module amr_profiles
         else
             call getvarvalue(reg,cellsize,x,cellvars,prof%xvarname,value)
         endif
-        value = min(max(prof%xdata(1),value),prof%xdata(prof%nbins+1))
         ibin = int(dble(prof%nbins)*(value-prof%xdata(1))/(prof%xdata(prof%nbins+1)-prof%xdata(1))) + 1
-        ibin = max(ibin,1)
-        ibin = min(ibin,prof%nbins)
+        if (value<prof%xdata(1).or.value>prof%xdata(prof%nbins+1)) ibin = 0
     end subroutine findbinpos
 
     subroutine findbinpos_twod(reg,distance,pos,cellvars,cellsize,prof,logscale,ibinx,ibiny)
@@ -191,25 +189,28 @@ module amr_profiles
         else
             call getvarvalue(reg,cellsize,x,cellvars,prof%xvarname,value)
         endif
+
         if (logscale) then
             ibinx = int(dble(prof%nbins(1))*(log10(value)-prof%xdata(1))/(prof%xdata(prof%nbins(1)+1)-prof%xdata(1))) + 1
+            if (log10(value)<prof%xdata(1).or.log10(value)>prof%xdata(prof%nbins(1)+1)) ibinx = 0
         else
             ibinx = int(dble(prof%nbins(1))*(value-prof%xdata(1))/(prof%xdata(prof%nbins(1)+1)-prof%xdata(1))) + 1
+            if (value<prof%xdata(1).or.value>prof%xdata(prof%nbins(1)+1)) ibinx = 0
         endif
-        ibinx = max(ibinx,1)
-        ibinx = min(ibinx,prof%nbins(1))
+
         if (prof%yvarname.eq.reg%criteria_name) then
             value = distance
         else
             call getvarvalue(reg,cellsize,x,cellvars,prof%yvarname,value)
         endif
+
         if (logscale) then
             ibiny = int(dble(prof%nbins(2))*(log10(value)-prof%ydata(1))/(prof%ydata(prof%nbins(2)+1)-prof%ydata(1))) + 1
+            if (log10(value)<prof%ydata(1).or.log10(value)>prof%ydata(prof%nbins(2)+1)) ibiny = 0
         else            
             ibiny = int(dble(prof%nbins(2))*(value-prof%ydata(1))/(prof%ydata(prof%nbins(2)+1)-prof%ydata(1))) + 1
+            if (value<prof%ydata(1).or.value>prof%ydata(prof%nbins(2)+1)) ibiny = 0
         endif
-        ibiny = max(ibiny,1)
-        ibiny = min(ibiny,prof%nbins(2))
     end subroutine findbinpos_twod
 
     subroutine bindata(reg,pos,cellvars,cellsize,prof,ibin)
@@ -247,20 +248,6 @@ module amr_profiles
                 !A_k
                 prof%ydata(ibin,i,j,4) = prof%ydata(ibin,i,j,4) + wtemp*(ytemp**2)
 
-                ! OLD METHOD (deprecated)
-                ! prof%ydata(ibin,i,j,1) = prof%ydata(ibin,i,j,1) + ytemp*wtemp
-                ! ! W_k-1     
-                ! bigwtemp = prof%ydata(ibin,i,j,2)
-                ! ! Sum weight
-                ! prof%ydata(ibin,i,j,2) = prof%ydata(ibin,i,j,2) + wtemp
-                ! ! A_k-1
-                ! bigatemp = prof%ydata(ibin,i,j,3)
-                ! ! A_k = A_k-1 + wtemp/W_k * (ytemp - A_k-1)
-                ! prof%ydata(ibin,i,j,3) = prof%ydata(ibin,i,j,3) + (wtemp / prof%ydata(ibin,i,j,2))&
-                !                         &* (ytemp - prof%ydata(ibin,i,j,3))
-                ! ! Q_k = Q_k-1 + wtemp
-                ! prof%ydata(ibin,i,j,4) = prof%ydata(ibin,i,j,4) + (wtemp * bigwtemp &
-                !                         &/ prof%ydata(ibin,i,j,2)) * (ytemp - bigatemp)**2
             end do wvarloop
         end do yvarloop
     end subroutine bindata
@@ -323,9 +310,6 @@ module amr_profiles
                         prof_data%ydata(ibin,iy,iw,2) = (A_k*W_k - Q_k**2) &
                                                         &/ (W_k**2 - V_k)
                         prof_data%ydata(ibin,iy,iw,2) = sqrt(prof_data%ydata(ibin,iy,iw,2))
-                        ! OLD METHOD (deprecated)
-                        ! prof_data%ydata(ibin,iy,iw,2) =  prof_data%ydata(ibin,iy,iw,4) &
-                        !                                 &/ (prof_data%ydata(ibin,iy,iw,2) - 1D0)
                     endif
                 end do wloop
             end do yloop
@@ -559,6 +543,7 @@ module amr_profiles
                             x(i,:) = xtemp
                             call checkifinside(x(i,:),reg,ok_cell,distance)
                             vtemp = var(i,ind,varIDs%vx:varIDs%vz)
+                            vtemp = vtemp - reg%bulk_velocity
                             call rotate_vector(vtemp,trans_matrix)
                             var(i,ind,varIDs%vx:varIDs%vz) = vtemp
                             ok_filter = filter_cell(reg,filt,xtemp,dx,var(i,ind,:))
@@ -632,7 +617,6 @@ module amr_profiles
         call get_cpu_map(reg)
         write(*,*)'ncpu_read:',amr%ncpu_read
         call get_cells_twodprofile(repository,reg,filt,prof_data,logscale)
-        ! write(*,*)prof_data%zdata
         call renormalise_bins_twod(prof_data)
 
     end subroutine twodprofile
@@ -835,6 +819,7 @@ module amr_profiles
                             ok_cell= ok_cell.and..not.ref(i).and.ok_filter
                             if (ok_cell) then
                                 vtemp = var(i,ind,varIDs%vx:varIDs%vz)
+                                vtemp = vtemp - reg%bulk_velocity
                                 call rotate_vector(vtemp,trans_matrix)
                                 var(i,ind,varIDs%vx:varIDs%vz) = vtemp
                                 xbinpos = 0; ybinpos=0

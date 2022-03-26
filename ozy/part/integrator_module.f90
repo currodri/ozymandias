@@ -64,39 +64,36 @@ module part_integrator
         ! Local variables
         integer :: i,j,index
         real(dbl) :: ytemp,wtemp
-        character(128) :: tempvar,vartype,varname,true_wname
+        character(128) :: tempvar,vartype,varname
 
         varloop: do i=1,attrs%nvars
             ! Get variable
             call getpartvalue(reg,part,attrs%varnames(i),ytemp)
-            wvarloop: do j=1,attrs%nwvars
-                ! Get weights
-                if (attrs%wvarnames(j)=='counts'.or.attrs%wvarnames(j)=='cumulative') then
-                    if (ytemp .eq. 0D0) then
-                        wtemp = 0D0
+            if (ytemp/=0D0) then
+                wvarloop: do j=1,attrs%nwvars
+                    tempvar = TRIM(attrs%wvarnames(j))
+                    index = scan(tempvar,'/')
+                    vartype = tempvar(1:index-1)
+                    varname = tempvar(index+1:)
+                    wtemp = 0D0
+                    ! Get weights
+                    if (varname=='counts'.or.varname=='cumulative') then
+                        wtemp = 1D0
                     else
-                        wtemp =  1D0
+                        call getpartvalue(reg,part,attrs%wvarnames(j),wtemp)
                     endif
-                else
-                    if (ytemp .eq. 0D0) then
-                        wtemp = 0D0
+                    ! Save to attrs
+                    attrs%data(i,j,1) = attrs%data(i,j,1) + ytemp*wtemp ! Value (weighted or not)
+                    if (attrs%data(i,j,2).eq.0D0) then
+                        attrs%data(i,j,2) = ytemp ! Just to make sure that the initial min is not zero
                     else
-                        index = scan(attrs%varnames(i),'/')
-                        true_wname = trim(attrs%varnames(i)(1:index-1))//'/'//attrs%wvarnames(j)
-                        call getpartvalue(reg,part,true_wname,wtemp)
+                        attrs%data(i,j,2) = min(ytemp,attrs%data(i,j,2))    ! Min value
                     endif
-                endif
-                ! Save to attrs
-                attrs%data(i,j,1) = attrs%data(i,j,1) + ytemp*wtemp ! Value (weighted or not)
-                if (attrs%data(i,j,2).eq.0D0) then
-                    attrs%data(i,j,2) = ytemp ! Just to make sure that the initial min is not zero
-                else
-                    attrs%data(i,j,2) = min(ytemp,attrs%data(i,j,2))    ! Min value
-                endif
-                attrs%data(i,j,3) = max(ytemp,attrs%data(i,j,3))    ! Max value
-                attrs%data(i,j,4) = attrs%data(i,j,4) + wtemp       ! Weight
+                    attrs%data(i,j,3) = max(ytemp,attrs%data(i,j,3))    ! Max value
+                    attrs%data(i,j,4) = attrs%data(i,j,4) + wtemp       ! Weight
 
-            end do wvarloop
+                end do wvarloop
+            endif
         end do varloop
 
     end subroutine extract_data
@@ -108,8 +105,9 @@ module part_integrator
         type(part_region_attrs),intent(inout) :: attrs
 
         ! Local variable
-        integer :: i,j,index,index2
+        integer :: i,j,index,index2,indexw
         character(128) :: tempvar,vartype,varname,sfrstr
+        character(128) :: tempwvar,wvartype,wvarname
         real(dbl) :: sfrind
 
         varloop: do i=1,attrs%nvars
@@ -119,11 +117,15 @@ module part_integrator
             varname = tempvar(index+1:)
             index2 = scan(varname,'_')
             wvarloop: do j=1,attrs%nwvars
-                if (attrs%wvarnames(j) .eq. 'cumulative' .and. index2.ne.0 .and. varname(1:index2-1).eq.'sfr') then
+                tempwvar = TRIM(attrs%wvarnames(j))
+                indexw = scan(tempwvar,'/')
+                wvartype = tempwvar(1:indexw-1)
+                wvarname = tempwvar(indexw+1:)
+                if (wvarname .eq. 'cumulative' .and. index2.ne.0 .and. varname(1:index2-1).eq.'sfr') then
                     sfrstr = varname(index2+1:)
                     read(sfrstr,'(F10.0)') sfrind
                     attrs%data(i,j,1) = attrs%data(i,j,1) * sim%unit_m/ (sfrind*1D6*2D33) ! We now have it in Msun/yr
-                elseif (attrs%wvarnames(j) /= 'cumulative' .and. index2.eq.0) then
+                elseif (wvarname /= 'cumulative' .and. index2.eq.0) then
                     attrs%data(i,j,1) = attrs%data(i,j,1) / attrs%data(i,j,4)
                 endif
             end do wvarloop

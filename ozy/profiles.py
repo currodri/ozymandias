@@ -170,61 +170,74 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
     f.close()
     
     # Initialise hydro profile data object
-    hydro_data = amrprofmod.profile_handler()
-    hydro_data.profdim = 1
-    hydro_data.xvarname = xvar
-    hydro_data.nyvar = len(prof.yvars['hydro'])
-    hydro_data.nwvar = len(prof.weightvars['hydro'])
-    hydro_data.nbins = nbins
+    if len(prof.yvars['hydro'])>0 and len(prof.weightvars['hydro'])>0:
+        hydro_data = amrprofmod.profile_handler()
+        hydro_data.profdim = 1
+        hydro_data.xvarname = xvar
+        hydro_data.nyvar = len(prof.yvars['hydro'])
+        hydro_data.nwvar = len(prof.weightvars['hydro'])
+        hydro_data.nbins = nbins
 
-    amrprofmod.allocate_profile_handler(hydro_data)
-    for i in range(0, len(prof.yvars['hydro'])):
-        hydro_data.yvarnames.T.view('S128')[i] = prof.yvars['hydro'][i].ljust(128)
-    for i in range(0, len(prof.weightvars['hydro'])):
-        hydro_data.wvarnames.T.view('S128')[i] = prof.weightvars['hydro'][i].ljust(128)
+        amrprofmod.allocate_profile_handler(hydro_data)
+        for i in range(0, len(prof.yvars['hydro'])):
+            hydro_data.yvarnames.T.view('S128')[i] = prof.yvars['hydro'][i].ljust(128)
+        for i in range(0, len(prof.weightvars['hydro'])):
+            hydro_data.wvarnames.T.view('S128')[i] = prof.weightvars['hydro'][i].ljust(128)
+        
+        # And now, compute hydro data profiles!
+        if hydro_data.nyvar > 0 and hydro_data.nwvar > 0:
+            amrprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,hydro_data,lmax,logscale)
+    else:
+        hydro_data = None
     
-    # And now, compute hydro data profiles!
-    if hydro_data.nyvar > 0 and hydro_data.nwvar > 0:
-        amrprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,hydro_data,lmax,logscale)
-
     # Initialise particles profile data object
-    star_data = partprofmod.profile_handler()
-    star_data.profdim = 1
-    star_data.xvarname = 'star/'+xvar
-    star_data.nyvar = len(prof.yvars['star'])
-    star_data.nwvar = len(prof.weightvars['star'])
-    star_data.nbins = nbins
+    if len(prof.yvars['star'])>0 and len(prof.weightvars['star']):
+        star_data = partprofmod.profile_handler()
+        star_data.profdim = 1
+        star_data.xvarname = 'star/'+xvar
+        star_data.nyvar = len(prof.yvars['star'])
+        star_data.nwvar = len(prof.weightvars['star'])
+        star_data.nbins = nbins
 
-    partprofmod.allocate_profile_handler(star_data)
-    for i in range(0, len(prof.yvars['star'])):
-        tempstr = 'star/'+prof.yvars['star'][i]
-        star_data.yvarnames.T.view('S128')[i] = tempstr.ljust(128)
-    for i in range(0, len(prof.weightvars['star'])):
-        tempstr = 'star/'+prof.weightvars['star'][i]
-        star_data.wvarnames.T.view('S128')[i] = tempstr.ljust(128)
+        partprofmod.allocate_profile_handler(star_data)
+        for i in range(0, len(prof.yvars['star'])):
+            tempstr = 'star/'+prof.yvars['star'][i]
+            star_data.yvarnames.T.view('S128')[i] = tempstr.ljust(128)
+        for i in range(0, len(prof.weightvars['star'])):
+            tempstr = 'star/'+prof.weightvars['star'][i]
+            star_data.wvarnames.T.view('S128')[i] = tempstr.ljust(128)
 
-    # And now, compute star data profiles!
-    if star_data.nyvar > 0 and star_data.nwvar > 0:
-        partprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,star_data,lmax)
+        # And now, compute star data profiles!
+        if star_data.nyvar > 0 and star_data.nwvar > 0:
+            partprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,star_data,lmax)
+    else:
+        star_data = None
+
+    
     # And the same for dm particles
-    dm_data = partprofmod.profile_handler()
-    dm_data.profdim = 1
-    dm_data.xvarname = 'dm/'+xvar
-    dm_data.nyvar = len(prof.yvars['dm'])
-    dm_data.nwvar = len(prof.weightvars['dm'])
-    dm_data.nbins = nbins
+    if len(prof.yvars['dm'])>0 and len(prof.yvars['dm'])>0:
+        dm_data = partprofmod.profile_handler()
+        dm_data.profdim = 1
+        dm_data.xvarname = 'dm/'+xvar
+        dm_data.nyvar = len(prof.yvars['dm'])
+        dm_data.nwvar = len(prof.yvars['dm'])
+        dm_data.nbins = nbins
 
-    partprofmod.allocate_profile_handler(dm_data)
-    for i in range(0, len(prof.yvars['dm'])):
-        tempstr = 'dm/'+prof.yvars['dm'][i]
-        dm_data.yvarnames.T.view('S128')[i] = tempstr.ljust(128)
-    for i in range(0, len(prof.weightvars['dm'])):
-        tempstr = 'dm/'+prof.weightvars['dm'][i]
-        dm_data.wvarnames.T.view('S128')[i] = tempstr.ljust(128)
+        partprofmod.allocate_profile_handler(dm_data)
+        for i in range(0, len(prof.yvars['dm'])):
+            tempstr = 'dm/'+prof.yvars['dm'][i]
+            dm_data.yvarnames.T.view('S128')[i] = tempstr.ljust(128)
+        for i in range(0, len(prof.weightvars['dm'])):
+            tempstr = 'dm/'+prof.weightvars['dm'][i]
+            dm_data.wvarnames.T.view('S128')[i] = tempstr.ljust(128)
 
-    # And now, compute dm data profiles!
-    if dm_data.nyvar > 0 and dm_data.nwvar > 0:
-        partprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,dm_data,lmax)
+        # And now, compute dm data profiles!
+        if dm_data.nyvar > 0 and dm_data.nwvar > 0:
+            partprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,dm_data,lmax)
+    else:
+        dm_data = None
+
+    
 
     # Organise everything in the Profile object
     xdata = np.zeros((3,prof.nbins))
@@ -296,11 +309,11 @@ def write_profiles(obj, ozy_file, hydro, star, dm, prof):
     # Save x data
     xdata = np.zeros((3,prof.nbins))
     if hydro != None:
-        xdata[0,:] = hydro.xdata
+        xdata[0,:] = hydro.xdata[1:]
     if star != None:
-        xdata[1,:] = star.xdata
+        xdata[1,:] = star.xdata[1:]
     if dm != None:
-        xdata[2,:] = dm.xdata
+        xdata[2,:] = dm.xdata[1:]
     hdprof.create_dataset('xdata', data=xdata)
     hdprof['xdata'].attrs.create('units', get_code_units(prof.xvar))
     # Save hydro y data

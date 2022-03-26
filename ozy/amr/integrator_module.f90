@@ -326,6 +326,7 @@ module amr_integrator
                             x(i,:) = xtemp
                             call checkifinside(x(i,:),reg,ok_cell,distance)
                             vtemp = var(i,ind,varIDs%vx:varIDs%vz)
+                            vtemp = vtemp - reg%bulk_velocity
                             call rotate_vector(vtemp,trans_matrix)
                             var(i,ind,varIDs%vx:varIDs%vz) = vtemp
                             filterloop: do ifilt=1,attrs%nfilter

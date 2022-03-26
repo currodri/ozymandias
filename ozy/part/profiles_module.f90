@@ -72,10 +72,8 @@ module part_profiles
         else
             call getpartvalue(reg,part,prof%xvarname,value)
         endif
-        value = min(max(prof%xdata(1),value),prof%xdata(prof%nbins+1))
         ibin = int(dble(prof%nbins)*(value-prof%xdata(1))/(prof%xdata(prof%nbins+1)-prof%xdata(1))) + 1
-        ibin = max(ibin,1)
-        ibin = min(ibin,prof%nbins)
+        if (value<prof%xdata(1).or.value>prof%xdata(prof%nbins+1)) ibin = 0
     end subroutine findbinpos
 
 
@@ -88,35 +86,36 @@ module part_profiles
         type(profile_handler),intent(inout) :: prof
         integer,intent(in) :: ibin
         integer :: i,j,index
-        real(dbl) :: ytemp,wtemp,bigwtemp,bigatemp,newytemp
+        real(dbl) :: ytemp,wtemp,bigwtemp,bigatemp
         character(128) :: tempvar,vartype,varname
         yvarloop: do i=1,prof%nyvar
             call getpartvalue(reg,part,prof%yvarnames(i),ytemp)
-            wvarloop: do j=1,prof%nwvar
-                newytemp = ytemp
-                tempvar = TRIM(prof%wvarnames(j))
-                index = scan(tempvar,'/')
-                vartype = tempvar(1:index-1)
-                varname = tempvar(index+1:)
-                if (varname=='counts'.or.varname=='cumulative') then
-                    wtemp = 1D0
-                    if (varname=='counts') newytemp = 1D0
-                else
-                    call getpartvalue(reg,part,prof%wvarnames(j),wtemp)
-                endif
-                ! Unbiased STD method. See: https://en.wikipedia.org/wiki/Reduced_chi-squared_statistic
-                ! Q_k
-                prof%ydata(ibin,i,j,1) = prof%ydata(ibin,i,j,1) + newytemp*wtemp
+            if (ytemp/=0D0) then
+                wvarloop: do j=1,prof%nwvar
+                    tempvar = TRIM(prof%wvarnames(j))
+                    index = scan(tempvar,'/')
+                    vartype = tempvar(1:index-1)
+                    varname = tempvar(index+1:)
+                    wtemp = 0D0
+                    if (varname=='counts'.or.varname=='cumulative') then
+                        wtemp = 1D0
+                    else
+                        call getpartvalue(reg,part,prof%wvarnames(j),wtemp)
+                    endif
+                    ! Unbiased STD method. See: https://en.wikipedia.org/wiki/Reduced_chi-squared_statistic
+                    ! Q_k
+                    prof%ydata(ibin,i,j,1) = prof%ydata(ibin,i,j,1) + ytemp*wtemp
 
-                ! W_k
-                prof%ydata(ibin,i,j,2) = prof%ydata(ibin,i,j,2) + wtemp
+                    ! W_k
+                    prof%ydata(ibin,i,j,2) = prof%ydata(ibin,i,j,2) + wtemp
 
-                ! V_k
-                prof%ydata(ibin,i,j,3) = prof%ydata(ibin,i,j,3) + wtemp**2
+                    ! V_k
+                    prof%ydata(ibin,i,j,3) = prof%ydata(ibin,i,j,3) + wtemp**2
 
-                !A_k
-                prof%ydata(ibin,i,j,4) = prof%ydata(ibin,i,j,4) + wtemp*(newytemp**2)
-            end do wvarloop
+                    !A_k
+                    prof%ydata(ibin,i,j,4) = prof%ydata(ibin,i,j,4) + wtemp*(ytemp**2)
+                end do wvarloop
+            endif
         end do yvarloop
     end subroutine bindata
 
@@ -172,6 +171,7 @@ module part_profiles
         character(128) :: nomfich
         type(vector) :: xtemp,vtemp
         type(particle) :: part
+        character(6) :: ptype
 #ifndef LONGINT
         integer(irg),dimension(:),allocatable :: id
 #else
@@ -205,7 +205,6 @@ module part_profiles
             icpu = amr%cpu_list(k)
             call title(icpu,ncharcpu)
             nomfich=TRIM(repository)//'/part_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
-            ! write(*,*)'Processing file '//TRIM(nomfich)
             open(unit=1,file=nomfich,status='old',form='unformatted')
             read(1)ncpu2
             read(1)ndim2
@@ -297,6 +296,7 @@ module part_profiles
                 ok_filter = filter_particle(reg,filt,part)
                 ok_part = ok_part.and.ok_filter
                 if (ok_part) then
+                    part%v = part%v -reg%bulk_velocity
                     call rotate_vector(part%v,trans_matrix)
                     binpos = 0
                     call findbinpos(reg,distance,part,prof_data,binpos)
