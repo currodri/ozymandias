@@ -1163,13 +1163,13 @@ module io_ramses
                 value = v.DOT.temp_basis%u(2)
             case ('momentum_x')
                 ! Linear momentum in the x direction as mass*corrected_velocity_x
-                value = part%m * (part%v%x%x)
+                value = part%m * (part%v%x)
             case ('momentum_y')
                 ! Linear momentum in the y direction mass*corrected_velocity_y
-                value = part%m * (part%v%y%y)
+                value = part%m * (part%v%y)
             case ('momentum_z')
                 ! Linear momentum in the z direction mass*corrected_velocity_z
-                value = part%m * (part%v%z%z)
+                value = part%m * (part%v%z)
             case ('momentum')
                 ! Magnitude of linear momentum, using corrected velocity
                 v = part%v
@@ -1301,13 +1301,13 @@ module io_ramses
                     value = v.DOT.temp_basis%u(2)
                 case ('momentum_x')
                     ! Linear momentum in the x direction as mass*corrected_velocity_x
-                    value = part%m * (part%v%x%x)
+                    value = part%m * (part%v%x)
                 case ('momentum_y')
                     ! Linear momentum in the y direction mass*corrected_velocity_y
-                    value = part%m * (part%v%y%y)
+                    value = part%m * (part%v%y)
                 case ('momentum_z')
                     ! Linear momentum in the z direction mass*corrected_velocity_z
-                    value = part%m * (part%v%z%z)
+                    value = part%m * (part%v%z)
                 case ('momentum')
                     ! Magnitude of linear momentum, using corrected velocity
                     v = part%v
