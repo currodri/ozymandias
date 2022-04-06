@@ -87,9 +87,6 @@ module io_ramses
     type(amr_info) :: amr
     type(hydroID)  :: varIDs
 
-    ! Compilation flags from RAMSES
-    logical :: longint=.false.
-
     contains
 
     subroutine retrieve_vars(repository,myvars)

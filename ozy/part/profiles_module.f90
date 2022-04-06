@@ -149,7 +149,12 @@ module part_profiles
         end do binloop
     end subroutine renormalise_bins
 
-    subroutine get_parts_onedprofile(repository,reg,filt,prof_data)
+    subroutine get_parts_onedprofile(repository,reg,filt,prof_data,tag_file,inverse_tag)
+#ifndef LONGINT
+        use utils, only:quick_sort_irg,binarysearch_irg
+#else
+        use utils, only:quick_sort_ilg,binarysearch_ilg
+#endif
         use vectors
         use coordinate_systems
         use geometrical_regions
@@ -158,12 +163,14 @@ module part_profiles
         type(region), intent(in)  :: reg
         type(filter),intent(in) :: filt
         type(profile_handler),intent(inout) :: prof_data
+        character(128),intent(in),optional :: tag_file
+        logical,intent(in),optional :: inverse_tag
 
-        logical :: ok_part,ok_filter
+        logical :: ok_part,ok_filter,ok_tag
         integer :: roterr
-        integer :: i,j,k
+        integer :: i,j,k,itag
         integer :: ipos,icpu,binpos
-        integer :: npart,npart2,nstar
+        integer :: npart,npart2,nstar,ntag
         integer :: ncpu2,ndim2
         real(dbl) :: distance
         real(dbl),dimension(1:3,1:3) :: trans_matrix
@@ -172,13 +179,40 @@ module part_profiles
         type(vector) :: xtemp,vtemp
         type(particle) :: part
         character(6) :: ptype
+        integer,dimension(:),allocatable :: order
 #ifndef LONGINT
-        integer(irg),dimension(:),allocatable :: id
+        integer(irg),dimension(:),allocatable :: id,tag_id
 #else
-        integer(ilg),dimension(:),allocatable :: id
+        integer(ilg),dimension(:),allocatable :: id,tag_id
 #endif
         real(dbl),dimension(:),allocatable :: m,age,met,imass
         real(dbl),dimension(:,:),allocatable :: x,v
+
+        ! If tagged particles file exists, read and allocate array
+        if (present(tag_file)) then
+            open(unit=58,file=TRIM(tag_file),status='old',form='formatted')
+            write(*,*)'Reading particle tags file '//TRIM(tag_file)
+            read(58,'(I11)')ntag
+            write(*,*)'Number of tagged particles in file: ',ntag
+            if (allocated(tag_id)) then
+                deallocate(tag_id)
+                allocate(tag_id(1:ntag))
+            else
+                allocate(tag_id(1:ntag))
+            endif
+            do itag=1,ntag
+                read(58,'(I11)')tag_id(itag)
+            end do
+            allocate(order(1:ntag))
+            write(*,*)'Sorting list of particle ids for binary search...'
+#ifndef LONGINT
+            call quick_sort_irg(tag_id,order,ntag)
+#else
+            call quick_sort_ilg(tag_id,order,ntag)
+#endif
+            deallocate(order)
+            close(58)
+        endif
 
         ! Compute rotation matrix
         trans_matrix = 0D0
@@ -240,6 +274,7 @@ module part_profiles
                 allocate(met(1:npart2))
                 allocate(imass(1:npart2))
             endif
+            if (present(tag_file) .and. (.not. allocated(id))) allocate(id(1:npart2))
             allocate(x(1:npart2,1:ndim2))
             allocate(v(1:npart2,1:ndim2))
 
@@ -267,6 +302,8 @@ module part_profiles
                 read(1)age
                 read(1)met
                 read(1)imass
+            elseif (present(tag_file) .and. nstar .eq. 0) then
+                read(1)id
             endif
             close(1)
 
@@ -282,6 +319,11 @@ module part_profiles
                     part%age = age(i)
                     part%met = met(i)
                     part%imass = imass(i)
+                elseif (present(tag_file)) then
+                    part%id = id(i)
+                    part%age = 0D0
+                    part%met = 0D0
+                    part%imass = 0D0
                 else
                     part%id = 0
                     part%age = 0D0
@@ -295,7 +337,19 @@ module part_profiles
                 call checkifinside(x(i,:),reg,ok_part,distance)
                 ok_filter = filter_particle(reg,filt,part)
                 ok_part = ok_part.and.ok_filter
+                ! Check if tags are present for particles
+                if (present(tag_file) .and. ok_part) then
+                    ok_tag = .false.      
+#ifndef LONGINT
+                    call binarysearch_irg(ntag,tag_id,part%id,ok_tag)
+#else
+                    call binarysearch_ilg(ntag,tag_id,part%id,ok_tag)
+#endif
+                    if (present(inverse_tag) .and. inverse_tag .and. ok_tag) ok_tag = .false.
+                    ok_part = ok_tag .and. ok_part
+                endif
                 if (ok_part) then
+                    if (part%m < 2.842170943040401D-014) write(*,*)part%m
                     part%v = part%v -reg%bulk_velocity
                     call rotate_vector(part%v,trans_matrix)
                     binpos = 0
@@ -304,11 +358,12 @@ module part_profiles
                 endif
             end do partloop
             deallocate(m,x,v)
-            if (nstar>0)deallocate(id,age,met,imass)
+            if (allocated(id))deallocate(id)
+            if (nstar>0)deallocate(age,met,imass)
         end do cpuloop
     end subroutine get_parts_onedprofile
 
-    subroutine onedprofile(repository,reg,filt,prof_data,lmax)
+    subroutine onedprofile(repository,reg,filt,prof_data,lmax,tag_file,inverse_tag)
         use geometrical_regions
         implicit none
         character(128),intent(in) :: repository
@@ -316,21 +371,31 @@ module part_profiles
         type(filter),intent(in) :: filt
         type(profile_handler),intent(inout) :: prof_data
         integer,intent(in) :: lmax
+        character(128),intent(in),optional :: tag_file
+        logical,intent(in),optional :: inverse_tag
 
         call read_hydrofile_descriptor(repository)
 
         call init_amr_read(repository)
         amr%lmax = lmax
         if (lmax.eq.0) amr%lmax = amr%nlevelmax
-        call check_families(repository)
+        ! Check if particle data uses family
+        if (sim%dm .and. sim%hydro) call check_families(repository)
         prof_data%xdata = 0D0
         prof_data%ydata = 0D0
         call makebins(reg,prof_data%xvarname,prof_data%nbins,prof_data%xdata)
 
         call get_cpu_map(reg)
         write(*,*)'ncpu_read:',amr%ncpu_read
-        call get_parts_onedprofile(repository,reg,filt,prof_data)
-
+        if (present(tag_file)) then
+            if (present(inverse_tag)) then
+                call get_parts_onedprofile(repository,reg,filt,prof_data,tag_file,inverse_tag)
+            else
+                call get_parts_onedprofile(repository,reg,filt,prof_data,tag_file)
+            endif
+        else
+            call get_parts_onedprofile(repository,reg,filt,prof_data)
+        endif
         call renormalise_bins(prof_data)
     end subroutine onedprofile
 end module part_profiles

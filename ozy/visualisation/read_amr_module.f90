@@ -73,10 +73,10 @@ module io_ramses
     end type data_handler
 
     type particle
-#ifdef LONGINT
-        integer(ish) :: id
-#else
+#ifndef LONGINT
         integer(irg) :: id
+#else
+        integer(ilg) :: id
 #endif
         type(vector) :: x,v
         real(dbl) :: m,met,imass,age,tform
@@ -722,6 +722,8 @@ module io_ramses
         case ('cr_energy_specific')
             ! Specific CR energy, computed as CR_energydensity*volume/cell mass
             value = (var(varIDs%cr_pressure) / (4D0/3d0 - 1d0)) / var(varIDs%density)
+        case ('cr_temperature_eff')
+            value = var(varIDs%cr_pressure) / var(varIDs%density)
         case ('xHII')
             ! Hydrogen ionisation fraction
             value = var(varIDs%xHII)
@@ -904,9 +906,11 @@ module io_ramses
         endif
         close(10)
 
-        ! Also initialise the cooling table
-        cooling_file=TRIM(repository)//'/cooling_'//TRIM(nchar)//'.out'
-        call read_cool(cooling_file)
+        if (sim%hydro) then
+            ! Also initialise the cooling table
+            cooling_file=TRIM(repository)//'/cooling_'//TRIM(nchar)//'.out'
+            call read_cool(cooling_file)
+        endif
     end subroutine init_amr_read
 
     !---------------------------------------------------------------

@@ -351,7 +351,6 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
     z = pd.obj.array(z,code_units_z)
     sim_z = pd.obj.simulation.redshift
     if logscale:
-        print(x.shape,y.shape,z.shape)
         plot = ax.pcolormesh(x,y,
                             z[:,:,0].in_units(plotting_z['units']).T,
                             shading='auto',
@@ -698,8 +697,12 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',logsca
                 break
             pd = pds[ipd]
             pd_weight = weights[ipd]
-            plotting_x = plotting_dictionary[pd[0][0].xvar]
-            plotting_y = plotting_dictionary[pd[0][0].yvar]
+            if doflows:
+                plotting_x = plotting_dictionary[pd[0][0].xvar]
+                plotting_y = plotting_dictionary[pd[0][0].yvar]
+            else:
+                plotting_x = plotting_dictionary[pd[0].xvar]
+                plotting_y = plotting_dictionary[pd[0].yvar]
             plotting_z = plotting_dictionary[field]
             ax[i,j].set_xlabel(plotting_x['label'],fontsize=18)
             if ipd%2 == 0:
@@ -714,23 +717,32 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',logsca
 
             ax[i,j].set_xscale('log')
             ax[i,j].set_yscale('log')
-            code_units_x = get_code_units(pd[0][0].xvar)
+            if doflows:
+                code_units_x = get_code_units(pd[0][0].xvar)
+            else:
+                code_units_x = get_code_units(pd[0].xvar)
 
             z = np.zeros((100,100))
             sim_z = np.zeros(len(pd_weight))
             tot_weight = 0
             for w in range(0, len(pd_weight)):
-                x = pd[w][0].obj.array(10**(pd[w][0].xdata[0].d),code_units_x)
+                if doflows:
+                    temp_pd = pd[w][0]
+                    temp_weight = pd_weight[w][0]
+                else:
+                    temp_pd = pd[w]
+                    temp_weight = pd_weight[w]
+                x = temp_pd.obj.array(10**(temp_pd.xdata[0].d),code_units_x)
                 x = x.in_units(plotting_x['units'])
-                code_units_y = get_code_units(pd[w][0].yvar)
-                y = pd[w][0].obj.array(10**(pd[w][0].ydata[0].d),code_units_y)
+                code_units_y = get_code_units(temp_pd.yvar)
+                y = temp_pd.obj.array(10**(temp_pd.ydata[0].d),code_units_y)
                 y = y.in_units(plotting_y['units'])
                 code_units_z = get_code_units(field)
-                ztemp = np.array(pd[w][0].zdata['hydro'][field_indexes[i]][:,:,weight_indexes[i],0].d,order='F')
-                ztemp = pd[w][0].obj.array(ztemp,code_units_z).in_units(plotting_z['units'])
-                z = z + ztemp.d*pd_weight[w][0]
-                tot_weight = tot_weight + pd_weight[w][0]
-                sim_z[w] = pd[w][0].obj.simulation.redshift
+                ztemp = np.array(temp_pd.zdata['hydro'][field_indexes[i]][:,:,weight_indexes[i],0].d,order='F')
+                ztemp = temp_pd.obj.array(ztemp,code_units_z).in_units(plotting_z['units'])
+                z = z + ztemp.d*temp_weight
+                tot_weight = tot_weight + temp_weight
+                sim_z[w] = temp_pd.obj.simulation.redshift
             z = z / tot_weight
             delta_z = sim_z.max() - sim_z.min()
             sim_z = np.mean(sim_z)
@@ -784,7 +796,7 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',logsca
                     a = np.nansum(y * z[:,k])
                     b = np.nansum(z[:,k])
                     y_mean[k] = a/b
-                ax[i,j].plot(x,y_mean,color='k',linewidth=2, linestyle='--')
+                ax[i,j].plot(x,y_mean,color='w',linewidth=2, linestyle='--')
             
             if ipd==0:
                 cbaxes = inset_axes(ax[i,j], width="200%", height="5%", loc='upper left',

@@ -65,7 +65,7 @@ KIND_MAP = kind_map
 #=======================================================================
 
 # names (without suffix), f90 sources
-LIBSRC_SOURCES = local linalg_module coordinates_module read_amr_module \
+LIBSRC_SOURCES = local utils linalg_module coordinates_module read_amr_module \
 				cosmology_module profiles_module integrator_module
 
 # file names

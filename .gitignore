@@ -141,3 +141,10 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+tests/NUT_00035_faceon_stars.png
+tests/NUT_00035_faceon.fits
+tests/NUT_00035_radial_density.png
+tests/NUT_00035_z_stars.png
+tests/NUT_00035_z.fits
+tests/test_00035.hdf5
+tests/test_00035.hdf5

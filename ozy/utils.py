@@ -461,7 +461,7 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
         else:
             reg.zmax = group.obj.quantity(zmax[0],str(zmax[1])).in_units('code_length')
         centre = vectors.vector()
-        im_centre = group.position.in_units('code_length').d + 0.99 * norm_L.d * reg.zmax
+        im_centre = group.position.in_units('code_length').d + norm_L.d * reg.zmax
         centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
         reg.centre = centre
         bulk = vectors.vector()
@@ -493,7 +493,7 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
         else:
             reg.zmax = group.obj.quantity(zmax[0],str(zmax[1])).in_units('code_length')
         centre = vectors.vector()
-        im_centre = group.position.d + 0.99 * norm_L.d * reg.zmax
+        im_centre = group.position.d + norm_L.d * reg.zmax
         centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
         reg.centre = centre
         bulk = vectors.vector()

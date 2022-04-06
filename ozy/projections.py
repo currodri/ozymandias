@@ -263,7 +263,8 @@ class Projection(object):
         except:
             pass
 
-def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_size=1024,pov='faceon',lmax=0,lmin=1,window=(0.0,'kpc')):
+def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_size=1024,
+                    pov='faceon',lmax=0,lmin=1,window=(0.0,'kpc'), tag_file=None, inverse_tag=False):
     """Function which computes a 2D projection centered on an objected from an OZY file."""
 
     if not isinstance(weight,list):
@@ -323,14 +324,18 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
                 raise KeyError('This DM variable is not supported. Please check!')
 
     # Setup camera details for the requested POV (Point of View)
+    if group.type == 'halo':
+        rvir = group.virial_quantities['radius'].d
+    else:
+        rvir = group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
     if window[0] == 0.0:
         if group.type == 'halo':
-            window = 1.2*group.virial_quantities['radius'].d
+            window = 1.2*rvir
         else:
-            window = 0.2*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            window = 0.2*rvir
     else:
         if window[1] == 'rvir':
-            window = window[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            window = window[0]*rvir
         else:
             window = group.obj.quantity(window[0],window[1]).in_units('code_length').d
     centre = vectors.vector()
@@ -403,7 +408,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         far_cut_depth = rmax
     elif proj.pov == 'top_midplane':
         axis = vectors.vector()
-        norm_L = group.angular_mom['gas'].d/np.linalg.norm(group.angular_mom['gas'].d)
+        norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
         los = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
         los /= np.linalg.norm(los)
         axis.x,axis.y,axis.z = los[0], los[1], los[2]
@@ -418,7 +423,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
     elif proj.pov == 'bottom_midplane':
         axis = vectors.vector()
-        norm_L = -group.angular_mom['gas'].d/np.linalg.norm(group.angular_mom['gas'].d)
+        norm_L = -group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
         los = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
         los /= np.linalg.norm(los)
         axis.x,axis.y,axis.z = los[0], los[1], los[2]
@@ -498,7 +503,11 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     # COMPUTE PARTICLES PROJECTION
     if len(proj.vars['star'])+len(proj.vars['dm']) != 0:
         print('Performing particle projection for '+str(len(proj.vars['star'])+len(proj.vars['dm']))+' variables')
-        maps.projection_parts(group.obj.simulation.fullpath,cam,bulk,parts_handler)
+        if tag_file != None:
+            print('Using the tag file for particles: ',tag_file)
+            maps.projection_parts(group.obj.simulation.fullpath,cam,bulk,parts_handler,tag_file,inverse_tag)
+        else:
+            maps.projection_parts(group.obj.simulation.fullpath,cam,bulk,parts_handler)
         # TODO: Weird issue when the direct toto array is given.
         data = np.copy(parts_handler.toto)
         if len(proj.vars['star']) == 0:
@@ -958,7 +967,7 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
     fontprops = fm.FontProperties(size=20,weight='bold')
     if scalebar:
         scalebar = AnchoredSizeBar(ax.transData,
-                                    1000, '1 Mpc', 'upper right', 
+                                    100, '100 kpc', 'upper right', 
                                     pad=0.1,
                                     color=plotting_def['text_over'],
                                     frameon=False,
@@ -986,9 +995,9 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
 
     fig.subplots_adjust(hspace=0,wspace=0,left=0,right=1, bottom=0, top=1)
     if stellar:
-        fig.savefig(proj_FITS.split('.')[0]+'_stars.png',format='png',dpi=300)
+        fig.savefig(proj_FITS.split('.fits')[0]+'_stars.png',format='png',dpi=300)
     else:
-        fig.savefig(proj_FITS.split('.')[0]+'.png',format='png',dpi=300)
+        fig.savefig(proj_FITS.split('.fits')[0]+'.png',format='png',dpi=300)
 
 def plot_galaxy_with_halos(proj_FITS,ozy_file,field,gasstars=True,dm=True,scalebar=True,redshift=True):
 

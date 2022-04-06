@@ -130,9 +130,8 @@ if __name__ == '__main__':
             simfolders = []
             origfolder = os.getcwd()
             print('Running from %s'%origfolder)
+            sample_tdyn = np.zeros(len(args.model))
             for i in range(0, len(args.model)):
-                pds.append([])
-                weights.append([])
                 if args.model[i][0] != '/':
                     simfolder = os.path.join(os.getcwd(), args.model[i])
                     args.model[i] = args.model[i].replace('_','\_')
@@ -141,7 +140,7 @@ if __name__ == '__main__':
                     args.model[i] = args.model[i].split('/')[-1]
                     args.model[i] = args.model[i].replace('_','\_')
                 simfolders.append(simfolder)
-                
+
                 if not os.path.exists(simfolder):
                     raise Exception('The given simulation name is not found in this directory!: %s'%simfolder)
                 
@@ -158,16 +157,37 @@ if __name__ == '__main__':
                 gal = sim.galaxies[progind]
 
                 tdyn = get_tdyn(gal).to('Gyr').d
+                sample_tdyn[i] = tdyn
+            median_tdyn = np.median(sample_tdyn)
+            std_tdyn = np.std(sample_tdyn)
+            print('For z=%.1f the median dynamical time is %.3f Gyr with a STD of %.4f'%(args.z[z],median_tdyn,std_tdyn))
+            for i in range(0, len(args.model)):
+                pds.append([])
+                weights.append([])
+                simfolder = simfolders[i]
+                if not os.path.exists(simfolder):
+                    raise Exception('The given simulation name is not found in this directory!: %s'%simfolder)
+                
+                groupspath = os.path.join(simfolder, 'Groups')
+                ozyfile = closest_snap_z(simfolder,args.z[z])
+
+                sim = ozy.load(os.path.join(groupspath, ozyfile))
+
+                progind = args.ind
+                if args.NUT:
+                    virial_mass = [i.virial_quantities['mass'] for i in sim.galaxies]
+                    progind = np.argmax(virial_mass)
+                    args.ind = 'NUT'
+                gal = sim.galaxies[progind]
+
                 orig_path = sim.simulation.fullpath.split('/')[-1]
-                print(simfolder,tdyn)
                 neigh_snaps, neigh_weights = find_neigh_snaps(simfolder, orig_path,
-                                                                tdyn, returnweight=True)
+                                                                median_tdyn, returnweight=True)
                 if args.region == 'galaxy':
                     rmin, rmax = (0.0, 'rvir'),(0.2, 'rvir')
                 elif args.region == 'halo':
                     rmin, rmax = (0.2, 'rvir'),(1.0, 'rvir')
                 for n in range(0, len(neigh_snaps)):
-                    print(neigh_snaps[n])
                     sim = ozy.load(os.path.join(groupspath, neigh_snaps[n]))
                     if args.NUT:
                         virial_mass = [i.virial_quantities['mass'] for i in sim.galaxies]

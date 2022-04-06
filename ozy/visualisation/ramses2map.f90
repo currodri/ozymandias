@@ -606,13 +606,14 @@ module maps
         
     end subroutine project_cells
 
-    subroutine projection_parts(repository,cam,bulk_velocity,proj,tag_file)
+    subroutine projection_parts(repository,cam,bulk_velocity,proj,tag_file,inverse_tag)
         implicit none
         character(128),intent(in) :: repository
         type(camera),intent(in) :: cam
         type(vector),intent(in) :: bulk_velocity
         type(projection_handler),intent(inout) :: proj
         character(128),intent(in),optional :: tag_file
+        logical,intent(in),optional :: inverse_tag
 
         type(region) :: bbox
 
@@ -628,14 +629,23 @@ module maps
         call get_cpu_map(bbox)
         call get_map_box(cam,bbox)
         if (present(tag_file)) then
-            call project_particles(repository,bbox,cam,proj,tag_file)
+            if (present(inverse_tag)) then
+                call project_particles(repository,bbox,cam,proj,tag_file,inverse_tag)
+            else
+                call project_particles(repository,bbox,cam,proj,tag_file)
+            endif
         else
             call project_particles(repository,bbox,cam,proj)
         endif
         write(*,*)minval(proj%toto),maxval(proj%toto)
     end subroutine projection_parts
 
-    subroutine project_particles(repository,bbox,cam,proj,tag_file)
+    subroutine project_particles(repository,bbox,cam,proj,tag_file,inverse_tag)
+#ifndef LONGINT
+        use utils, only:quick_sort_irg,binarysearch_irg
+#else
+        use utils, only:quick_sort_ilg,binarysearch_ilg
+#endif
         use cosmology
         implicit none
         character(128),intent(in) :: repository
@@ -643,15 +653,12 @@ module maps
         type(camera),intent(in) :: cam
         type(projection_handler),intent(inout) :: proj
         character(128),intent(in),optional :: tag_file
+        logical,intent(in),optional :: inverse_tag
 
         logical :: ok_part,ok_tag
         integer :: i,j,k,itag
         integer :: ipos,icpu,ix,iy,ixp1,iyp1,ivar
-#ifndef LONGINT
-        integer :: npart,npart2,nstar,nparttoto,ntag
-#else
         integer(irg) :: npart,npart2,nstar,nparttoto,ntag
-#endif
         integer :: ncpu2,ndim2
         real(dbl) :: weight,distance,mapvalue
         real(dbl) :: dx,dy,ddx,ddy,dex,dey
@@ -661,10 +668,11 @@ module maps
         character(128) :: nomfich
         type(vector) :: xtemp,vtemp,dcell
         type(particle) :: part
+        integer,dimension(:),allocatable :: order
 #ifndef LONGINT
-        integer,dimension(:),allocatable :: id,tag_id
-#else
         integer(irg),dimension(:),allocatable :: id,tag_id
+#else
+        integer(ilg),dimension(:),allocatable :: id,tag_id
 #endif
         integer,dimension(1:2) :: n_map
         real(dbl),dimension(:),allocatable :: m,age,met,imass
@@ -679,10 +687,20 @@ module maps
             if (allocated(tag_id)) then
                 deallocate(tag_id)
                 allocate(tag_id(1:ntag))
+            else
+                allocate(tag_id(1:ntag))
             endif
             do itag=1,ntag
                 read(58,'(I11)')tag_id(itag)
             end do
+            allocate(order(1:ntag))
+            write(*,*)'Sorting list of particle ids for binary search...'
+#ifndef LONGINT
+            call quick_sort_irg(tag_id,order,ntag)
+#else
+            call quick_sort_ilg(tag_id,order,ntag)
+#endif
+            deallocate(order)
             close(58)
         endif
         
@@ -749,12 +767,13 @@ module maps
             read(1)
             read(1)
             allocate(m(1:npart2))
-            allocate(id(1:npart2))
             if(nstar>0)then
                 allocate(age(1:npart2))
+                allocate(id(1:npart2))
                 allocate(met(1:npart2))
                 allocate(imass(1:npart2))
             endif
+            if (present(tag_file) .and. (.not. allocated(id))) allocate(id(1:npart2))
             allocate(x(1:npart2,1:ndim2))
             allocate(v(1:npart2,1:ndim2))
 
@@ -782,6 +801,8 @@ module maps
                 read(1)age
                 read(1)met
                 read(1)imass
+            elseif (present(tag_file) .and. nstar .eq. 0) then
+                read(1)id
             endif
             close(1)
 
@@ -816,14 +837,13 @@ module maps
                 call checkifinside(x(i,:),bbox,ok_part,distance)
                 ! Check if tags are present for particles
                 if (present(tag_file) .and. ok_part) then
-                    ok_tag = .false.
-                    do itag=1,ntag
-                        if ((tag_id(itag) .eq. part%id) .and. (part%id .ne. 0)) then
-                            ok_tag = .true.
-                            tag_id(itag) = 0
-                            exit
-                        endif
-                    end do
+                    ok_tag = .false.      
+#ifndef LONGINT
+                    call binarysearch_irg(ntag,tag_id,part%id,ok_tag)
+#else
+                    call binarysearch_ilg(ntag,tag_id,part%id,ok_tag)
+#endif
+                    if (present(inverse_tag) .and. inverse_tag .and. ok_tag) ok_tag = .false.
                     ok_part = ok_tag .and. ok_part
                 endif
                 if (ok_part) then
@@ -873,7 +893,8 @@ module maps
                     end do projvarloop
                 endif
             end do partloop
-            deallocate(id,m,x,v)
+            deallocate(m,x,v)
+            if (allocated(id))deallocate(id)
             if (nstar>0)deallocate(age,met,imass)
         end do cpuloop
         write(*,*)'> nparttoto: ',nparttoto
