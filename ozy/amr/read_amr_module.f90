@@ -713,7 +713,6 @@ module io_ramses
             T = var(varIDs%thermal_pressure) / var(varIDs%density) * scale_T2
             nH = var(varIDs%density) * scale_nH
             call solve_cooling(nH,T,var(varIDs%metallicity)/2D-2,lambda,lambda_prime)
-            write(*,*)lambda
             value = ((lambda * nH) * nH) * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
         case ('B_left_x')
             value = var(varIDs%Blx)

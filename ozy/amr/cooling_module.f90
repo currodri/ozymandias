@@ -40,7 +40,7 @@ module cooling_module
         real(kind=8),dimension(:,:,:),allocatable::n_spec
     end type cooling_table
 
-    type(cooling_table)::ctable
+    type(cooling_table),save::ctable
     ! Utilisation de table%n_spec si necessaire
     logical, parameter :: if_species_abundances=.true.
     logical, parameter :: self_shielding=.true.
@@ -54,6 +54,15 @@ module cooling_module
 
     real(kind=8):: logT2max,dlog_nH,dlog_T2,h,h2,h3,precoeff
     contains
+
+    subroutine retrieve_table(repository,mytable)
+        implicit none
+        character(128), intent(in) :: repository
+        type(cooling_table),intent(inout) :: mytable
+
+        call read_cool(repository)
+        mytable = ctable
+    end subroutine retrieve_table
   
     subroutine read_cool(filename)
         implicit none
@@ -115,12 +124,11 @@ module cooling_module
         integer::i_nH,i_T2
         real(kind=8)::boost
         real(kind=8)::facT,dlog_nH,dlog_T2
-        real(kind=8)::metal,cool,heat,cool_com,heat_com,w1T,w2T,w11,w12,w21,w22,err,yy,yy2,yy3
+        real(kind=8)::metal,cool,heat,cool_com,heat_com
         real(kind=8)::metal_prime,cool_prime,heat_prime,cool_com_prime,heat_com_prime,wcool
         real(kind=8)::fa,fb,fprimea,fprimeb,alpha,beta,gamma
         real(kind=8)::rgt,lft,tau
         real(kind=8)::facH,zzz
-        real(kind=8)::w1H,w2H
 
         ! Compute radiation boost factor
         if(self_shielding)then
@@ -130,22 +138,16 @@ module cooling_module
         endif
 
         ! Get the necessary values for the cell
+        dlog_nH = dble(ctable%n1-1)/(ctable%nH(ctable%n1)-ctable%nH(1))
+        dlog_T2 = dble(ctable%n2-1)/(ctable%T2(ctable%n2)-ctable%T2(1))
         zzz = zsolar
         facH = MIN(MAX(log10(nH/boost),ctable%nH(1)),ctable%nH(ctable%n1))
         i_nH = MIN(MAX(int((facH-ctable%nH(1))*dlog_nH)+1,1),ctable%n1-1)
-        w1H = (ctable%nH(i_nH+1)-facH)*dlog_nH
-        w2H = (facH-ctable%nH(i_nH))*dlog_nH
+        facT=log10(T2)
+        i_T2 = MIN(MAX(int((facT-ctable%T2(1))*dlog_T2)+1,1),ctable%n2-1)
         tau = T2
 
-        facT=log10(T2)
-
         if(facT.le.logT2max)then
-
-           i_T2 = MIN(MAX(int((facT-ctable%T2(1))*dlog_T2)+1,1),ctable%n2-1)
-           yy=facT-ctable%T2(i_T2)
-           yy2=yy*yy
-           yy3=yy2*yy
-
            ! Cooling
            cool=10d0**(ctable%cool(i_nH,i_T2  ))
            cool_prime=10d0**(ctable%cool_prime(i_nH,i_T2  ))

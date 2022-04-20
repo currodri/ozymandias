@@ -48,6 +48,8 @@ module constants
   use local
   implicit none
   public :: mHydrogen,kBoltzmann,gas_R,atoweightH,cVHydrogen
+  ! Other constants
+  real(dbl) :: pi=3.14159265359
   ! Physical constants
   real(dbl) :: mHydrogen=1.673532784796145D-24 ! Mass of hydrogen atom in g
   real(dbl) :: kBoltzmann=1.380649D-16 ! Boltzmann constant in erg/K

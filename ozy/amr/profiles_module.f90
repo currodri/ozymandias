@@ -140,6 +140,14 @@ module amr_profiles
                     bins(n+1) = dble(n)*(4D7/velocity_convfac + 3D7/velocity_convfac)/dble(nbins) - 3D7/velocity_convfac
                 endif
             end do
+        case('theta_sphere')
+            do n=0,nbins+1
+                if (logscale) then
+                    bins(n+1) = dble(n)*(log10(pi))/dble(nbins)
+                else
+                    bins(n+1) = dble(n)*(pi + 0D0)/dble(nbins) - 0D0
+                endif
+            end do
         !TODO: Add more cases
         end select
     end subroutine makebins
