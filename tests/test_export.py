@@ -7,7 +7,7 @@ virial_mass = [i.virial_quantities['mass'] for i in obj.galaxies]
 progind = np.argmax(virial_mass)
 gal = obj.galaxies[progind]
 
-r = 0.1 * obj.halos[gal.parent_halo_index].virial_quantities['radius'].to('code_length').d
+r = 0.01 * obj.halos[gal.parent_halo_index].virial_quantities['radius'].to('code_length').d
 pos = gal.position.to('code_length').d
 
 grid = unigrid_amr(obj, group=gal, lmax=14, xmin=(pos[0]-r,'code_length'), xmax=(pos[0]+r,'code_length'),

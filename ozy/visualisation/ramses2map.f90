@@ -285,8 +285,8 @@ module maps
 
         logical :: ok_cell
         integer :: i,j,k
-        integer :: ipos,icpu,ilevel,ind,idim,iidim,ivar
-        integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
+        integer :: ipos,icpu,ilevel,ind,idim,iidim,ivar,iskip,inbor
+        integer :: ix,iy,iz,ngrida,cumngrida,nx_full,ny_full,nz_full
         integer :: imin,imax,jmin,jmax
         integer :: nvarh
         integer :: roterr
@@ -298,8 +298,12 @@ module maps
         real(dbl),dimension(1:8,1:3) :: xc
         real(dbl),dimension(1:3,1:3) :: trans_matrix
         real(dbl),dimension(:,:),allocatable :: xg,x
-        real(dbl),dimension(:,:,:),allocatable :: var
-        integer,dimension(:,:),allocatable :: son
+        real(dbl),dimension(:,:),allocatable :: var
+        real(dbl),dimension(:,:),allocatable :: tempvar
+        integer,dimension(:,:),allocatable :: nbor
+        integer,dimension(:),allocatable :: son,tempson
+        integer,dimension(:),allocatable :: ind_grid,ind_cell,ind_cell2
+        integer ,dimension(0:amr%twondim)::ind_nbor
         logical,dimension(:),allocatable :: ref
         real(dbl) :: rho,map,weight
         real(dbl) :: xmin,ymin
@@ -377,6 +381,10 @@ module maps
             read(10)
             read(10)
 
+            allocate(nbor(1:amr%ngridmax,1:amr%twondim))
+            allocate(son(1:amr%ncoarse+amr%twotondim*amr%ngridmax))
+            cumngrida = 0
+
             ! Open HYDRO file and skip header
             nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
             open(unit=11,file=nomfich,status='old',form='unformatted')
@@ -387,6 +395,7 @@ module maps
             read(11)
             read(11)
 
+            allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:nvarh))
             ! Loop over levels
             levelloop: do ilevel=1,amr%lmax
                 ! Geometry
@@ -406,9 +415,9 @@ module maps
                 ngrida = ngridfile(icpu,ilevel)
                 grid(ilevel)%ngrid = ngrida
                 if(ngrida>0)then
-                    allocate(xg(1:ngrida,1:amr%ndim))
-                    allocate(son(1:ngrida,1:amr%twotondim))
-                    allocate(var(1:ngrida,1:amr%twotondim,1:nvarh))
+                    allocate(ind_grid(1:ngrida))
+                    allocate(ind_cell(1:ngrida))
+                    allocate(xg (1:ngrida,1:amr%ndim))
                     allocate(x  (1:ngrida,1:amr%ndim))
                     allocate(ref(1:ngrida))
                 endif
@@ -417,7 +426,11 @@ module maps
                 domloop: do j=1,amr%nboundary+amr%ncpu
                     ! Read AMR data
                     if (ngridfile(j,ilevel)>0) then
-                        read(10) ! Skip grid index
+                        if(j.eq.icpu)then
+                            read(10) ind_grid
+                        else
+                            read(10)
+                        end if
                         read(10) ! Skip next index
                         read(10) ! Skip prev index
 
@@ -431,14 +444,18 @@ module maps
                         end do
 
                         read(10) ! Skip father index
-                        do ind=1,2*amr%ndim
-                            read(10) ! Skip nbor index
+                        do ind=1,amr%twondim
+                            if(j.eq.icpu)then
+                                read(10)nbor(ind_grid,ind)
+                            else
+                                read(10)
+                            end if
                         end do
-
                         ! Read son index
                         do ind=1,amr%twotondim
+                            iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                             if(j.eq.icpu)then
-                                read(10)son(:,ind)
+                                read(10)son(ind_grid+iskip)
                             else
                                 read(10)
                             end if
@@ -461,9 +478,10 @@ module maps
                     if(ngridfile(j,ilevel)>0)then
                         ! Read hydro variables
                         tndimloop: do ind=1,amr%twotondim
+                            iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                             varloop: do ivar=1,nvarh
                                 if (j.eq.icpu) then
-                                    read(11)var(:,ind,ivar)
+                                    read(11)var(ind_grid+iskip,ivar)
                                 else
                                     read(11)
                                 endif
@@ -485,8 +503,14 @@ module maps
                         end do
 
                         ! Check if cell is refined
+                        iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                         do i=1,ngrida
-                            ref(i) = son(i,ind)>0.and.ilevel<amr%lmax
+                            ref(i) = son(ind_grid(i)+iskip)>0.and.ilevel<amr%lmax
+                        end do
+                        
+                        ! Get cell indexes
+                        do i=1,ngrida
+                            ind_cell(i) = iskip+ind_grid(i)
                         end do
 
                         ! Project positions onto the camera frame
@@ -494,47 +518,65 @@ module maps
                         ngridaloop: do i=1,ngrida
                             ! Check if cell is inside the desired region
                             distance = 0D0
-                            ! write(*,*)x(i,:)
+                            xtemp = x(i,:)
+                            xtemp = xtemp - bbox%centre
+                            x(i,:) = xtemp
                             call checkifinside(x(i,:),bbox,ok_cell,distance)
-                            !ok_cell = .true.
+                            xtemp = xtemp + bbox%centre
+                            x(i,:) = xtemp
                             ok_cell= ok_cell.and..not.ref(i)
-                            ! write(*,*)'x:',x(i,:)
                             if (ok_cell) then
                                 ix = int((x(i,1)+0.5*(bbox%xmax-bbox%xmin))*dble(nx_full)) + 1
                                 iy = int((x(i,2)+0.5*(bbox%ymax-bbox%ymin))*dble(ny_full)) + 1
-                                ! write(*,*)'ix,iy:',ix,iy
                                 weight = (min(x(i,3)+dx/2.,bbox%zmax)-max(x(i,3)-dx/2.,bbox%zmin))/dx
                                 weight = min(1.0d0,max(weight,0.0d0))
                                 if( ix>=grid(ilevel)%imin.and.&
                                     & iy>=grid(ilevel)%jmin.and.&
                                     & ix<=grid(ilevel)%imax.and.&
                                     & iy<=grid(ilevel)%jmax) then
-                                    ! write(*,*)'Cell is inside'
                                     xtemp = x(i,:)
-                                    vtemp = var(i,ind,varIDs%vx:varIDs%vz)
+
+                                    ! Velocity transformed --> ONLY FOR CENTRAL CELL
+                                    vtemp = var(ind_cell(i),varIDs%vx:varIDs%vz)
                                     vtemp = vtemp - bbox%bulk_velocity
                                     call rotate_vector(vtemp,trans_matrix)
-                                    var(i,ind,varIDs%vx:varIDs%vz) = vtemp
-                                    
-                                    call getvarvalue(bbox,dx,xtemp,var(i,ind,:),proj%weightvar,rho)
+                                    var(ind_cell(i),varIDs%vx:varIDs%vz) = vtemp
+
+                                    ! Get neighbours
+                                    allocate(ind_cell2(1))
+                                    ind_cell2(1) = ind_cell(i)
+                                    call getnbor(son,nbor,ind_cell2,ind_nbor,1)
+                                    deallocate(ind_cell2)
+                                    allocate(tempvar(0:amr%twondim,nvarh))
+                                    allocate(tempson(0:amr%twondim))
+                                    do inbor=0,amr%twondim
+                                        tempvar(inbor,:) = var(ind_nbor(inbor),:)
+                                        tempson(inbor)       = son(ind_nbor(inbor))
+                                    end do
+
+                                    ! Finally, get hydro data
+                                    call getvarvalue(bbox,dx,xtemp,tempvar,tempson,proj%weightvar,rho)
                                     grid(ilevel)%rho(ix,iy)=grid(ilevel)%rho(ix,iy)+rho*dx*weight/(bbox%zmax-bbox%zmin)
 
                                     projvarloop: do ivar=1,proj%nvars
-                                        call getvarvalue(bbox,dx,xtemp,var(i,ind,:),proj%varnames(ivar),map)
+                                        call getvarvalue(bbox,dx,xtemp,tempvar,tempson,proj%varnames(ivar),map)
                                         grid(ilevel)%map(ivar,ix,iy)=grid(ilevel)%map(ivar,ix,iy)+map*rho*dx*weight&
                                                                         &/(bbox%zmax-bbox%zmin)
                                     end do projvarloop
                                     
                                     
                                     ncells = ncells + 1
+                                    deallocate(tempvar,tempson)
                                 endif
 
                             endif
                         end do ngridaloop
                     end do cellloop
-                    deallocate(xg,son,var,ref,x)
+                    deallocate(xg,ref,x,ind_grid,ind_cell)
                 endif
+                cumngrida = cumngrida + ngrida
             end do levelloop
+            deallocate(nbor,son,var)
         end do cpuloop
         write(*,*)'ncells:',ncells
         ! Upload to maximum level (lmax)
@@ -834,7 +876,12 @@ module maps
                     part%met = 0D0
                     part%imass = 0D0
                 endif
+                xtemp = x(i,:)
+                xtemp = xtemp - bbox%centre
+                x(i,:) = xtemp
                 call checkifinside(x(i,:),bbox,ok_part,distance)
+                xtemp = xtemp + bbox%centre
+                x(i,:) = xtemp
                 ! Check if tags are present for particles
                 if (present(tag_file) .and. ok_part) then
                     ok_tag = .false.      
@@ -926,8 +973,8 @@ module maps
 
         logical :: ok_cell
         integer :: i,j,k
-        integer :: ipos,icpu,ilevel,ind,idim,iidim,ivar
-        integer :: ix,iy,iz,ngrida,ns
+        integer :: ipos,icpu,ilevel,ind,idim,iidim,ivar,iskip,inbor
+        integer :: ix,iy,iz,ngrida,ns,cumngrida
         integer :: imin,imax
         integer :: nvarh
         integer :: roterr
@@ -940,9 +987,13 @@ module maps
         real(dbl),dimension(1:8,1:3) :: xc
         real(dbl),dimension(1:3,1:3) :: trans_matrix
         real(dbl),dimension(:,:),allocatable :: xg,x
-        real(dbl),dimension(:,:,:),allocatable :: var
+        real(dbl),dimension(:,:),allocatable :: var
+        real(dbl),dimension(:,:),allocatable :: tempvar
         real(dbl),dimension(:),allocatable :: proj_rho
-        integer,dimension(:,:),allocatable :: son
+        integer,dimension(:,:),allocatable :: nbor
+        integer,dimension(:),allocatable :: son,tempson
+        integer,dimension(:),allocatable :: ind_grid,ind_cell,ind_cell2
+        integer ,dimension(0:amr%twondim):: ind_nbor
         integer,dimension(:),allocatable :: listpix,listpix_clean
         logical,dimension(:),allocatable :: ref
         real(dbl) :: rho,map,weight,aperture
@@ -1022,6 +1073,10 @@ module maps
             read(10)
             read(10)
 
+            allocate(nbor(1:amr%ngridmax,1:amr%twondim))
+            allocate(son(1:amr%ncoarse+amr%twotondim*amr%ngridmax))
+            cumngrida = 0
+
             ! Open HYDRO file and skip header
             nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
             open(unit=11,file=nomfich,status='old',form='unformatted')
@@ -1032,6 +1087,7 @@ module maps
             read(11)
             read(11)
 
+            allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:nvarh))
             ! Loop over levels
             levelloop: do ilevel=1,amr%lmax
                 ! Geometry
@@ -1049,9 +1105,9 @@ module maps
                 ngrida = ngridfile(icpu,ilevel)
                 ! grid(ilevel)%ngrid = ngrida
                 if(ngrida>0)then
-                    allocate(xg(1:ngrida,1:amr%ndim))
-                    allocate(son(1:ngrida,1:amr%twotondim))
-                    allocate(var(1:ngrida,1:amr%twotondim,1:nvarh))
+                    allocate(ind_grid(1:ngrida))
+                    allocate(ind_cell(1:ngrida))
+                    allocate(xg (1:ngrida,1:amr%ndim))
                     allocate(x  (1:ngrida,1:amr%ndim))
                     allocate(ref(1:ngrida))
                 endif
@@ -1060,7 +1116,11 @@ module maps
                 domloop: do j=1,amr%nboundary+amr%ncpu
                     ! Read AMR data
                     if (ngridfile(j,ilevel)>0) then
-                        read(10) ! Skip grid index
+                        if(j.eq.icpu)then
+                            read(10) ind_grid
+                        else
+                            read(10)
+                        end if
                         read(10) ! Skip next index
                         read(10) ! Skip prev index
 
@@ -1074,14 +1134,19 @@ module maps
                         end do
 
                         read(10) ! Skip father index
-                        do ind=1,2*amr%ndim
-                            read(10) ! Skip nbor index
+                        do ind=1,amr%twondim
+                            if(j.eq.icpu)then
+                                read(10)nbor(ind_grid,ind)
+                            else
+                                read(10)
+                            end if
                         end do
 
                         ! Read son index
                         do ind=1,amr%twotondim
+                            iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                             if(j.eq.icpu)then
-                                read(10)son(:,ind)
+                                read(10)son(ind_grid+iskip)
                             else
                                 read(10)
                             end if
@@ -1104,9 +1169,10 @@ module maps
                     if(ngridfile(j,ilevel)>0)then
                         ! Read hydro variables
                         tndimloop: do ind=1,amr%twotondim
+                            iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                             varloop: do ivar=1,nvarh
                                 if (j.eq.icpu) then
-                                    read(11)var(:,ind,ivar)
+                                    read(11)var(ind_grid+iskip,ivar)
                                 else
                                     read(11)
                                 endif
@@ -1128,8 +1194,14 @@ module maps
                         end do
 
                         ! Check if cell is refined
+                        iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                         do i=1,ngrida
-                            ref(i) = son(i,ind)>0.and.ilevel<amr%lmax
+                            ref(i) = son(ind_grid(i)+iskip)>0.and.ilevel<amr%lmax
+                        end do
+                        
+                        ! Get cell indexes
+                        do i=1,ngrida
+                            ind_cell(i) = iskip+ind_grid(i)
                         end do
 
                         ngridaloop: do i=1,ngrida
@@ -1164,12 +1236,24 @@ module maps
                                 ! If the cell contributes to at least one pixel, project
                                 if(nlist>0) then
                                     ! Rotate velocity with respect to galaxy frame
-                                    vtemp = var(i,ind,varIDs%vx:varIDs%vz)
+                                    vtemp = var(ind_cell(i),varIDs%vx:varIDs%vz)
                                     call rotate_vector(vtemp,trans_matrix)
-                                    var(i,ind,varIDs%vx:varIDs%vz) = vtemp
+                                    var(ind_cell(i),varIDs%vx:varIDs%vz) = vtemp
+
+                                    ! Get neighbours
+                                    allocate(ind_cell2(1))
+                                    ind_cell2(1) = ind_cell(i)
+                                    call getnbor(son,nbor,ind_cell2,ind_nbor,1)
+                                    deallocate(ind_cell2)
+                                    allocate(tempvar(0:amr%twondim,nvarh))
+                                    allocate(tempson(0:amr%twondim))
+                                    do inbor=0,amr%twondim
+                                        tempvar(inbor,:) = var(ind_nbor(inbor),:)
+                                        tempson(inbor)       = son(ind_nbor(inbor))
+                                    end do
                                     
                                     ! Get weight
-                                    call getvarvalue(reg,dx,xtemp,var(i,ind,:),proj%weightvar,rho)
+                                    call getvarvalue(reg,dx,xtemp,tempvar,tempson,proj%weightvar,rho)
                                     do j=1,size(listpix_clean)
                                         ix = listpix_clean(j)
                                         proj_rho(ix) = proj_rho(ix)+rho*dx*weight/(reg%rmax-reg%rmin)
@@ -1177,7 +1261,7 @@ module maps
 
                                     ! Get variable values
                                     projvarloop: do ivar=1,proj%nvars
-                                        call getvarvalue(reg,dx,xtemp,var(i,ind,:),proj%varnames(ivar),map)
+                                        call getvarvalue(reg,dx,xtemp,tempvar,tempson,proj%varnames(ivar),map)
                                         do j=1,size(listpix_clean)
                                             ix = listpix_clean(j)
                                             proj%toto(ivar,1,ix) = proj%toto(ivar,1,ix)+map*rho*dx*weight/(reg%rmax-reg%rmin)
@@ -1186,14 +1270,17 @@ module maps
                                     
                                     
                                     ncells = ncells + 1
+                                    deallocate(tempvar,tempson)
                                 endif
 
                             endif
                         end do ngridaloop
                     end do cellloop
-                    deallocate(xg,son,var,ref,x)
+                    deallocate(xg,ref,x,ind_grid,ind_cell)
                 endif
+                cumngrida = cumngrida + ngrida
             end do levelloop
+            deallocate(nbor,son,var)
         end do cpuloop
         write(*,*)'ncells:',ncells
 

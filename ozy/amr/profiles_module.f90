@@ -152,14 +152,15 @@ module amr_profiles
         end select
     end subroutine makebins
 
-    subroutine findbinpos(reg,distance,pos,cellvars,cellsize,prof,ibin)
+    subroutine findbinpos(reg,distance,pos,cellvars,cellsons,cellsize,prof,ibin)
         use vectors
         use geometrical_regions
         implicit none
         type(region),intent(in) :: reg
         real(dbl),dimension(1:3),intent(in) :: pos
         real(dbl),intent(in) :: distance
-        real(dbl),dimension(1:varIDs%nvar),intent(in) :: cellvars
+        real(dbl),dimension(0:amr%twondim,1:varIDs%nvar),intent(in) :: cellvars
+        integer,dimension(0:amr%twondim),intent(in) :: cellsons
         real(dbl),intent(in) :: cellsize
         type(profile_handler),intent(in) :: prof
         integer,intent(inout) :: ibin
@@ -170,20 +171,21 @@ module amr_profiles
         if (prof%xvarname.eq.reg%criteria_name) then
             value = distance
         else
-            call getvarvalue(reg,cellsize,x,cellvars,prof%xvarname,value)
+            call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%xvarname,value)
         endif
         ibin = int(dble(prof%nbins)*(value-prof%xdata(1))/(prof%xdata(prof%nbins+1)-prof%xdata(1))) + 1
         if (value<prof%xdata(1).or.value>prof%xdata(prof%nbins+1)) ibin = 0
     end subroutine findbinpos
 
-    subroutine findbinpos_twod(reg,distance,pos,cellvars,cellsize,prof,logscale,ibinx,ibiny)
+    subroutine findbinpos_twod(reg,distance,pos,cellvars,cellsons,cellsize,prof,logscale,ibinx,ibiny)
         use vectors
         use geometrical_regions
         implicit none
         type(region),intent(in) :: reg
         real(dbl),dimension(1:3),intent(in) :: pos
         real(dbl),intent(in) :: distance
-        real(dbl),dimension(1:varIDs%nvar),intent(in) :: cellvars
+        real(dbl),dimension(0:amr%twondim,1:varIDs%nvar),intent(in) :: cellvars
+        integer,dimension(0:amr%twondim),intent(in) :: cellsons
         real(dbl),intent(in) :: cellsize
         type(profile_handler_twod),intent(in) :: prof
         logical,intent(in) :: logscale
@@ -195,7 +197,7 @@ module amr_profiles
         if (prof%xvarname.eq.reg%criteria_name) then
             value = distance
         else
-            call getvarvalue(reg,cellsize,x,cellvars,prof%xvarname,value)
+            call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%xvarname,value)
         endif
 
         if (logscale) then
@@ -209,7 +211,7 @@ module amr_profiles
         if (prof%yvarname.eq.reg%criteria_name) then
             value = distance
         else
-            call getvarvalue(reg,cellsize,x,cellvars,prof%yvarname,value)
+            call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%yvarname,value)
         endif
 
         if (logscale) then
@@ -221,13 +223,14 @@ module amr_profiles
         endif
     end subroutine findbinpos_twod
 
-    subroutine bindata(reg,pos,cellvars,cellsize,prof,ibin)
+    subroutine bindata(reg,pos,cellvars,cellsons,cellsize,prof,ibin)
         use vectors
         use geometrical_regions
         implicit none
         type(region),intent(in) :: reg
         real(dbl),dimension(1:3),intent(in) :: pos
-        real(dbl),dimension(1:varIDs%nvar),intent(in) :: cellvars
+        real(dbl),dimension(0:amr%twondim,1:varIDs%nvar),intent(in) :: cellvars
+        integer,dimension(0:amr%twondim),intent(in) :: cellsons
         real(dbl),intent(in) :: cellsize
         type(profile_handler),intent(inout) :: prof
         integer,intent(in) :: ibin
@@ -236,12 +239,12 @@ module amr_profiles
         type(vector) :: x
         x = pos
         yvarloop: do i=1,prof%nyvar
-            call getvarvalue(reg,cellsize,x,cellvars,prof%yvarnames(i),ytemp)
+            call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%yvarnames(i),ytemp)
             wvarloop: do j=1,prof%nwvar
                 if (prof%wvarnames(j)=='counts'.or.prof%wvarnames(j)=='cumulative') then
                     wtemp = 1D0
                 else
-                    call getvarvalue(reg,cellsize,x,cellvars,prof%wvarnames(j),wtemp)
+                    call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%wvarnames(j),wtemp)
                 endif
                 ! Unbiased STD method. See: https://en.wikipedia.org/wiki/Reduced_chi-squared_statistic
                 ! Q_k
@@ -260,13 +263,14 @@ module amr_profiles
         end do yvarloop
     end subroutine bindata
 
-    subroutine bindata_twod(reg,pos,cellvars,cellsize,prof,ibinx,ibiny)
+    subroutine bindata_twod(reg,pos,cellvars,cellsons,cellsize,prof,ibinx,ibiny)
         use vectors
         use geometrical_regions
         implicit none
         type(region),intent(in) :: reg
         real(dbl),dimension(1:3),intent(in) :: pos
-        real(dbl),dimension(1:varIDs%nvar),intent(in) :: cellvars
+        real(dbl),dimension(0:amr%twondim,1:varIDs%nvar),intent(in) :: cellvars
+        integer,dimension(0:amr%twondim),intent(in) :: cellsons
         real(dbl),intent(in) :: cellsize
         type(profile_handler_twod),intent(inout) :: prof
         integer,intent(in) :: ibinx,ibiny
@@ -275,12 +279,12 @@ module amr_profiles
         type(vector) :: x
         x = pos
         zvarloop: do i=1,prof%nzvar
-            call getvarvalue(reg,cellsize,x,cellvars,prof%zvarnames(i),ytemp)
+            call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%zvarnames(i),ytemp)
             wvarloop: do j=1,prof%nwvar
                 if (prof%wvarnames(j)=='counts'.or.prof%wvarnames(j)=='cumulative') then
                     wtemp = 1D0
                 else
-                    call getvarvalue(reg,cellsize,x,cellvars,prof%wvarnames(j),wtemp)
+                    call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%wvarnames(j),wtemp)
                 endif
                 ! Unbiased STD method. See: https://en.wikipedia.org/wiki/Reduced_chi-squared_statistic
                 ! Q_k
@@ -364,8 +368,8 @@ module amr_profiles
         logical :: ok_cell,ok_filter
         ! logical :: filter_cell
         integer :: i,j,k
-        integer :: ipos,icpu,ilevel,ind,idim,ivar
-        integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
+        integer :: ipos,icpu,ilevel,ind,idim,ivar,iskip,inbor
+        integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full,cumngrida
         integer :: nvarh
         integer :: roterr
         character(5) :: nchar,ncharcpu
@@ -376,8 +380,12 @@ module amr_profiles
         real(dbl),dimension(1:8,1:3) :: xc
         real(dbl),dimension(3,3) :: trans_matrix
         real(dbl),dimension(:,:),allocatable :: xg,x
-        real(dbl),dimension(:,:,:),allocatable :: var
-        integer,dimension(:,:),allocatable :: son
+        real(dbl),dimension(:,:),allocatable :: var
+        real(dbl),dimension(:,:),allocatable :: tempvar
+        integer,dimension(:,:),allocatable :: nbor
+        integer,dimension(:),allocatable :: son,tempson
+        integer,dimension(:),allocatable :: ind_grid,ind_cell,ind_cell2
+        integer ,dimension(0:amr%twondim)::ind_nbor
         logical,dimension(:),allocatable :: ref
 
         allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
@@ -430,6 +438,11 @@ module amr_profiles
 
             ! Make sure that we are not trying to access too far in the refinement map…
             call check_lmax(ngridfile)
+
+            allocate(nbor(1:amr%ngridmax,1:amr%twondim))
+            allocate(son(1:amr%ncoarse+amr%twotondim*amr%ngridmax))
+            cumngrida = 0
+
             ! Open HYDRO file and skip header
             nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
             open(unit=11,file=nomfich,status='old',form='unformatted')
@@ -440,6 +453,7 @@ module amr_profiles
             read(11)
             read(11)
 
+            allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:nvarh))
             ! Loop over levels
             levelloop: do ilevel=1,amr%lmax
                 ! Geometry
@@ -459,9 +473,9 @@ module amr_profiles
                 ! Allocate work arrays
                 ngrida = ngridfile(icpu,ilevel)
                 if(ngrida>0) then
+                    allocate(ind_grid(1:ngrida))
+                    allocate(ind_cell(1:ngrida))
                     allocate(xg (1:ngrida,1:amr%ndim))
-                    allocate(son(1:ngrida,1:amr%twotondim))
-                    allocate(var(1:ngrida,1:amr%twotondim,1:nvarh))
                     allocate(x  (1:ngrida,1:amr%ndim))
                     allocate(ref(1:ngrida))
                 endif
@@ -471,7 +485,11 @@ module amr_profiles
                     
                     ! Read AMR data
                     if (ngridfile(j,ilevel)>0) then
-                        read(10) ! Skip grid index
+                        if(j.eq.icpu)then
+                            read(10) ind_grid
+                        else
+                            read(10)
+                        end if
                         read(10) ! Skip next index
                         read(10) ! Skip prev index
 
@@ -485,14 +503,19 @@ module amr_profiles
                         end do
 
                         read(10) ! Skip father index
-                        do ind=1,2*amr%ndim
-                            read(10) ! Skip nbor index
+                        do ind=1,amr%twondim
+                            if(j.eq.icpu)then
+                                read(10)nbor(ind_grid,ind)
+                            else
+                                read(10)
+                            end if
                         end do
 
                         ! Read son index
                         do ind=1,amr%twotondim
+                            iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                             if(j.eq.icpu)then
-                                read(10)son(:,ind)
+                                read(10)son(ind_grid+iskip)
                             else
                                 read(10)
                             end if
@@ -515,9 +538,10 @@ module amr_profiles
                     if(ngridfile(j,ilevel)>0)then
                         ! Read hydro variables
                         tndimloop: do ind=1,amr%twotondim
+                            iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                             varloop: do ivar=1,nvarh
                                 if (j.eq.icpu) then
-                                    read(11)var(:,ind,ivar)
+                                    read(11)var(ind_grid+iskip,ivar)
                                 else
                                     read(11)
                                 endif
@@ -539,9 +563,16 @@ module amr_profiles
                         end do
 
                         ! Check if cell is refined
+                        iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                         do i=1,ngrida
-                            ref(i) = son(i,ind)>0.and.ilevel<amr%lmax
+                            ref(i) = son(ind_grid(i)+iskip)>0.and.ilevel<amr%lmax
                         end do
+                        
+                        ! Get cell indexes
+                        do i=1,ngrida
+                            ind_cell(i) = iskip+ind_grid(i)
+                        end do
+
                         ngridaloop: do i=1,ngrida
                             ! Check if cell is inside the desired region
                             distance = 0D0
@@ -550,24 +581,40 @@ module amr_profiles
                             call rotate_vector(xtemp,trans_matrix)
                             x(i,:) = xtemp
                             call checkifinside(x(i,:),reg,ok_cell,distance)
-                            vtemp = var(i,ind,varIDs%vx:varIDs%vz)
+                            
+                            ! Velocity transformed --> ONLY FOR CENTRAL CELL
+                            vtemp = var(ind_cell(i),varIDs%vx:varIDs%vz)
                             vtemp = vtemp - reg%bulk_velocity
                             call rotate_vector(vtemp,trans_matrix)
-                            var(i,ind,varIDs%vx:varIDs%vz) = vtemp
-                            ok_filter = filter_cell(reg,filt,xtemp,dx,var(i,ind,:))
+                            var(ind_cell(i),varIDs%vx:varIDs%vz) = vtemp
+
+                            ! Get neighbours
+                            allocate(ind_cell2(1))
+                            ind_cell2(1) = ind_cell(i)
+                            call getnbor(son,nbor,ind_cell2,ind_nbor,1)
+                            deallocate(ind_cell2)
+                            allocate(tempvar(0:amr%twondim,nvarh))
+                            allocate(tempson(0:amr%twondim))
+                            do inbor=0,amr%twondim
+                                tempvar(inbor,:) = var(ind_nbor(inbor),:)
+                                tempson(inbor)       = son(ind_nbor(inbor))
+                            end do
+
+                            ok_filter = filter_cell(reg,filt,xtemp,dx,tempvar,tempson)
                             ok_cell= ok_cell.and..not.ref(i).and.ok_filter
-                            ! write(*,*)'ok_cell: ',ok_cell
                             if (ok_cell) then
                                 binpos = 0
-                                call findbinpos(reg,distance,x(i,:),var(i,ind,:),dx,prof_data,binpos)
-                                if (binpos.ne.0) call bindata(reg,x(i,:),var(i,ind,:),dx,prof_data,binpos)
+                                call findbinpos(reg,distance,x(i,:),tempvar,tempson,dx,prof_data,binpos)
+                                if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos)
                             endif
+                            deallocate(tempvar,tempson)
                         end do ngridaloop
                     end do cellloop
-
-                    deallocate(xg,son,var,ref,x)
+                    deallocate(xg,ref,x,ind_grid,ind_cell)
                 endif
+                cumngrida = cumngrida + ngrida
             end do levelloop
+            deallocate(nbor,son,var)
             close(10)
             close(11)
         end do cpuloop
@@ -642,8 +689,8 @@ module amr_profiles
         integer :: xbinpos,ybinpos
         logical :: ok_cell,ok_filter
         integer :: i,j,k
-        integer :: ipos,icpu,ilevel,ind,idim,ivar
-        integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
+        integer :: ipos,icpu,ilevel,ind,idim,ivar,iskip,inbor
+        integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full,cumngrida
         integer :: nvarh
         integer :: roterr
         character(5) :: nchar,ncharcpu
@@ -654,8 +701,12 @@ module amr_profiles
         real(dbl),dimension(1:8,1:3) :: xc
         real(dbl),dimension(3,3) :: trans_matrix
         real(dbl),dimension(:,:),allocatable :: xg,x
-        real(dbl),dimension(:,:,:),allocatable :: var
-        integer,dimension(:,:),allocatable :: son
+        real(dbl),dimension(:,:),allocatable :: var
+        real(dbl),dimension(:,:),allocatable :: tempvar
+        integer,dimension(:,:),allocatable :: nbor
+        integer,dimension(:),allocatable :: son,tempson
+        integer,dimension(:),allocatable :: ind_grid,ind_cell,ind_cell2
+        integer ,dimension(0:amr%twondim)::ind_nbor
         logical,dimension(:),allocatable :: ref
         
         allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
@@ -709,6 +760,11 @@ module amr_profiles
 
             ! Make sure that we are not trying to access to far in the refinement map…
             call check_lmax(ngridfile)
+
+            allocate(nbor(1:amr%ngridmax,1:amr%twondim))
+            allocate(son(1:amr%ncoarse+amr%twotondim*amr%ngridmax))
+            cumngrida = 0
+
             ! Open HYDRO file and skip header
             nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
             open(unit=11,file=nomfich,status='old',form='unformatted')
@@ -719,6 +775,7 @@ module amr_profiles
             read(11)
             read(11)
 
+            allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:nvarh))
             ! Loop over levels
             levelloop: do ilevel=1,amr%lmax
                 ! Geometry
@@ -737,9 +794,9 @@ module amr_profiles
                 ! Allocate work arrays
                 ngrida = ngridfile(icpu,ilevel)
                 if(ngrida>0) then
+                    allocate(ind_grid(1:ngrida))
+                    allocate(ind_cell(1:ngrida))
                     allocate(xg (1:ngrida,1:amr%ndim))
-                    allocate(son(1:ngrida,1:amr%twotondim))
-                    allocate(var(1:ngrida,1:amr%twotondim,1:nvarh))
                     allocate(x  (1:ngrida,1:amr%ndim))
                     allocate(ref(1:ngrida))
                 endif
@@ -747,7 +804,11 @@ module amr_profiles
                 domloop: do j=1,amr%nboundary+amr%ncpu
                     ! Read AMR data
                     if (ngridfile(j,ilevel)>0) then
-                        read(10) ! Skip grid index
+                        if(j.eq.icpu)then
+                            read(10) ind_grid
+                        else
+                            read(10)
+                        end if
                         read(10) ! Skip next index
                         read(10) ! Skip prev index
 
@@ -761,14 +822,19 @@ module amr_profiles
                         end do
 
                         read(10) ! Skip father index
-                        do ind=1,2*amr%ndim
-                            read(10) ! Skip nbor index
+                        do ind=1,amr%twondim
+                            if(j.eq.icpu)then
+                                read(10)nbor(ind_grid,ind)
+                            else
+                                read(10)
+                            end if
                         end do
 
                         ! Read son index
                         do ind=1,amr%twotondim
+                            iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                             if(j.eq.icpu)then
-                                read(10)son(:,ind)
+                                read(10)son(ind_grid+iskip)
                             else
                                 read(10)
                             end if
@@ -790,9 +856,10 @@ module amr_profiles
                     if(ngridfile(j,ilevel)>0)then
                         ! Read hydro variables
                         tndimloop: do ind=1,amr%twotondim
+                            iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                             varloop: do ivar=1,nvarh
                                 if (j.eq.icpu) then
-                                    read(11)var(:,ind,ivar)
+                                    read(11)var(ind_grid+iskip,ivar)
                                 else
                                     read(11)
                                 endif
@@ -811,9 +878,16 @@ module amr_profiles
                             x(i,2)=(xg(i,2)+xc(ind,2)-amr%xbound(2))
                             x(i,3)=(xg(i,3)+xc(ind,3)-amr%xbound(3))
                         end do
+
                         ! Check if cell is refined
+                        iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                         do i=1,ngrida
-                            ref(i) = son(i,ind)>0.and.ilevel<amr%lmax
+                            ref(i) = son(ind_grid(i)+iskip)>0.and.ilevel<amr%lmax
+                        end do
+                        
+                        ! Get cell indexes
+                        do i=1,ngrida
+                            ind_cell(i) = iskip+ind_grid(i)
                         end do
                         ngridaloop: do i=1,ngrida
                             ! Check if cell is inside the desired region
@@ -823,25 +897,44 @@ module amr_profiles
                             call rotate_vector(xtemp,trans_matrix)
                             x(i,:) = xtemp
                             call checkifinside(x(i,:),reg,ok_cell,distance)
-                            ok_filter = filter_cell(reg,filt,xtemp,dx,var(i,ind,:))
+
+                            ! Velocity transformed --> ONLY FOR CENTRAL CELL
+                            vtemp = var(ind_cell(i),varIDs%vx:varIDs%vz)
+                            vtemp = vtemp - reg%bulk_velocity
+                            call rotate_vector(vtemp,trans_matrix)
+                            var(ind_cell(i),varIDs%vx:varIDs%vz) = vtemp
+
+                            ! Get neighbours
+                            allocate(ind_cell2(1))
+                            ind_cell2(1) = ind_cell(i)
+                            call getnbor(son,nbor,ind_cell2,ind_nbor,1)
+                            deallocate(ind_cell2)
+                            allocate(tempvar(0:amr%twondim,nvarh))
+                            allocate(tempson(0:amr%twondim))
+                            do inbor=0,amr%twondim
+                                tempvar(inbor,:) = var(ind_nbor(inbor),:)
+                                tempson(inbor)       = son(ind_nbor(inbor))
+                            end do
+                            
+
+                            ok_filter = filter_cell(reg,filt,xtemp,dx,tempvar,tempson)
                             ok_cell= ok_cell.and..not.ref(i).and.ok_filter
                             if (ok_cell) then
-                                vtemp = var(i,ind,varIDs%vx:varIDs%vz)
-                                vtemp = vtemp - reg%bulk_velocity
-                                call rotate_vector(vtemp,trans_matrix)
-                                var(i,ind,varIDs%vx:varIDs%vz) = vtemp
                                 xbinpos = 0; ybinpos=0
-                                call findbinpos_twod(reg,distance,x(i,:),var(i,ind,:),&
+                                call findbinpos_twod(reg,distance,x(i,:),tempvar,tempson,&
                                                     &dx,prof_data,logscale,xbinpos,ybinpos)
                                 if (xbinpos.ne.0.and.ybinpos.ne.0) call bindata_twod(reg,x(i,:),&
-                                                                        &var(i,ind,:),dx,prof_data,xbinpos,ybinpos)
+                                                                        &tempvar,tempson,dx,prof_data,&
+                                                                        &xbinpos,ybinpos)
                             endif
+                            deallocate(tempvar,tempson)
                         end do ngridaloop
                     end do cellloop
-
-                    deallocate(xg,son,var,ref,x)
+                    deallocate(xg,ref,x,ind_grid,ind_cell)
                 endif
+                cumngrida = cumngrida + ngrida
             end do levelloop
+            deallocate(nbor,son,var)
             close(10)
             close(11)
         end do cpuloop

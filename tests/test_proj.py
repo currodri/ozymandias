@@ -9,9 +9,9 @@ virial_mass = [i.virial_quantities['mass'] for i in obj.galaxies]
 progind = np.argmax(virial_mass)
 gal = obj.galaxies[progind]
 
-proj = do_projection(gal,['gas/density','gas/temperature','gas/v_sphere_r','gas/magnetic_magnitude','star/sdensity','dm/sdensity'],window=(20,'kpc'),pov='faceon')
+proj = do_projection(gal,['gas/density','gas/temperature','gas/v_sphere_r','gas/grad_crp','star/sdensity','dm/sdensity'],window=(5,'kpc'),pov='faceon')
 proj.save_FITS('NUT_00035_faceon.fits')
-plot_single_galaxy_projection('NUT_00035_faceon.fits',['gas/density','gas/temperature','gas/v_sphere_r','gas/magnetic_magnitude','star/sdensity','dm/sdensity'])
+plot_single_galaxy_projection('NUT_00035_faceon.fits',['gas/density','gas/temperature','gas/v_sphere_r','gas/grad_crp','star/sdensity','dm/sdensity'])
 
 
 # proj = do_healpix_projection(gal,['gas/v_sphere_r','gas/density','gas/temperature','gas/metallicity'],r=(0.2,'rvir'),dr=(0.01,'rvir'))

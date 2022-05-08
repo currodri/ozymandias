@@ -90,13 +90,20 @@ class Projection(object):
                         code_units = get_code_units(field.split('/')[1])
                     temp_map = self.group.obj.array(imap[i],code_units)
                     first_unit = True
+                    make_div = False
+                    if len(code_units.split('/')) != 1:
+                        make_div = True
+                        code_units = code_units.replace('/','*')
                     for u in code_units.split('*'):
                         if first_unit:
                             units = unit_system[u]
                             first_unit = False
                             units_check = u
                         else:
-                            units += '*'+unit_system[u]
+                            if make_div:
+                                units += '/'+unit_system[u]
+                            else:
+                                units += '*'+unit_system[u]
                             units_check +='_'+u
                     if units_check in unit_system:
                         units = unit_system[units_check]

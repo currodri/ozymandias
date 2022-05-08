@@ -1,5 +1,3 @@
-COMMONS = /mnt/extraspace/currodri/Codes/ozymandias/ozy/fortran_commons
-
 #=======================================================================
 #                   define the compiler names
 #=======================================================================
@@ -33,7 +31,7 @@ ifeq ($(F90),ifort)
 
 	FPP      = gfortran -E # gfortran f90wrap temp files only. not compilation
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
-	F90FLAGS = -g -traceback -cpp -fpscomp logicals -fPIC ${HP_FLAGS_INTEL} # use 1 and 0 for True and False
+	F90FLAGS = -g -traceback -check bounds -cpp -fpscomp logicals -fPIC ${HP_FLAGS_INTEL} # use 1 and 0 for True and False
     FCOMP    = intelem # for f2py
     LIBS =
 endif
@@ -63,7 +61,7 @@ KIND_MAP = kind_map
 #
 #=======================================================================
 
-# VPATH	= ${COMMONS}
+VPATH = ../fortran_commons
 
 
 #=======================================================================

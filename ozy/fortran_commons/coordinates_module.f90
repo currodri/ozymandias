@@ -219,6 +219,7 @@ module geometrical_regions
     ! interest.
     !---------------------------------------------------------------
     subroutine limits(reg,lim)
+        use coordinate_systems
         implicit none
         type(region), intent(in) :: reg
         real(dbl), dimension(1:3,1:2), intent(inout) :: lim
@@ -227,13 +228,77 @@ module geometrical_regions
         real(dbl) :: cyl_rmax
         real(dbl)                    ::       cone_rmax
         type(basis) :: init_basis, out_basis
-        integer                         ::       i
+        type(vector) :: temp_vec
+        integer                         ::       i,j
+        real(dbl),dimension(3,3) :: trans_matrix
+        integer :: roterr
         box_cyl = 0D0
+        lim = 0D0
         select case (TRIM(reg%name))
         case ('cube')
             lim(1,1) = reg%xmin; lim(1,2) = reg%xmax
             lim(2,1) = reg%ymin; lim(2,2) = reg%ymax
             lim(3,1) = reg%zmin; lim(3,2) = reg%zmax
+            ! if (reg%axis%z .ne. 1D0) then
+            !     trans_matrix = 0D0
+            !     call new_z_coordinates(reg%axis,trans_matrix,roterr)
+            !     if (roterr.eq.1) then
+            !         write(*,*) 'Incorrect CS transformation!'
+            !         stop
+            !     endif
+            !     temp_vec = (/reg%xmin,reg%ymin,reg%zmin/)
+            !     call rotate_vector(temp_vec,transpose(trans_matrix))
+            !     lim(1,1) = min(temp_vec%x,lim(1,1)); lim(1,2) = max(temp_vec%x,lim(1,2))
+            !     lim(2,1) = min(temp_vec%y,lim(2,1)); lim(3,2) = max(temp_vec%y,lim(2,2))
+            !     lim(3,1) = min(temp_vec%z,lim(3,1)); lim(3,2) = max(temp_vec%z,lim(3,2))
+
+            !     temp_vec = (/reg%xmin,reg%ymin,reg%zmax/)
+            !     call rotate_vector(temp_vec,transpose(trans_matrix))
+            !     lim(1,1) = min(temp_vec%x,lim(1,1)); lim(1,2) = max(temp_vec%x,lim(1,2))
+            !     lim(2,1) = min(temp_vec%y,lim(2,1)); lim(3,2) = max(temp_vec%y,lim(2,2))
+            !     lim(3,1) = min(temp_vec%z,lim(3,1)); lim(3,2) = max(temp_vec%z,lim(3,2))
+
+            !     temp_vec = (/reg%xmin,reg%ymax,reg%zmin/)
+            !     call rotate_vector(temp_vec,transpose(trans_matrix))
+            !     lim(1,1) = min(temp_vec%x,lim(1,1)); lim(1,2) = max(temp_vec%x,lim(1,2))
+            !     lim(2,1) = min(temp_vec%y,lim(2,1)); lim(3,2) = max(temp_vec%y,lim(2,2))
+            !     lim(3,1) = min(temp_vec%z,lim(3,1)); lim(3,2) = max(temp_vec%z,lim(3,2))
+
+            !     temp_vec = (/reg%xmin,reg%ymax,reg%zmax/)
+            !     call rotate_vector(temp_vec,transpose(trans_matrix))
+            !     lim(1,1) = min(temp_vec%x,lim(1,1)); lim(1,2) = max(temp_vec%x,lim(1,2))
+            !     lim(2,1) = min(temp_vec%y,lim(2,1)); lim(3,2) = max(temp_vec%y,lim(2,2))
+            !     lim(3,1) = min(temp_vec%z,lim(3,1)); lim(3,2) = max(temp_vec%z,lim(3,2))
+
+            !     temp_vec = (/reg%xmax,reg%ymin,reg%zmin/)
+            !     call rotate_vector(temp_vec,transpose(trans_matrix))
+            !     lim(1,1) = min(temp_vec%x,lim(1,1)); lim(1,2) = max(temp_vec%x,lim(1,2))
+            !     lim(2,1) = min(temp_vec%y,lim(2,1)); lim(3,2) = max(temp_vec%y,lim(2,2))
+            !     lim(3,1) = min(temp_vec%z,lim(3,1)); lim(3,2) = max(temp_vec%z,lim(3,2))
+
+            !     temp_vec = (/reg%xmin,reg%ymin,reg%zmax/)
+            !     call rotate_vector(temp_vec,transpose(trans_matrix))
+            !     lim(1,1) = min(temp_vec%x,lim(1,1)); lim(1,2) = max(temp_vec%x,lim(1,2))
+            !     lim(2,1) = min(temp_vec%y,lim(2,1)); lim(3,2) = max(temp_vec%y,lim(2,2))
+            !     lim(3,1) = min(temp_vec%z,lim(3,1)); lim(3,2) = max(temp_vec%z,lim(3,2))
+
+            !     temp_vec = (/reg%xmax,reg%ymin,reg%zmax/)
+            !     call rotate_vector(temp_vec,transpose(trans_matrix))
+            !     lim(1,1) = min(temp_vec%x,lim(1,1)); lim(1,2) = max(temp_vec%x,lim(1,2))
+            !     lim(2,1) = min(temp_vec%y,lim(2,1)); lim(3,2) = max(temp_vec%y,lim(2,2))
+            !     lim(3,1) = min(temp_vec%z,lim(3,1)); lim(3,2) = max(temp_vec%z,lim(3,2))
+
+            !     temp_vec = (/reg%xmax,reg%ymax,reg%zmax/)
+            !     call rotate_vector(temp_vec,transpose(trans_matrix))
+            !     lim(1,1) = min(temp_vec%x,lim(1,1)); lim(1,2) = max(temp_vec%x,lim(1,2))
+            !     lim(2,1) = min(temp_vec%y,lim(2,1)); lim(3,2) = max(temp_vec%y,lim(2,2))
+            !     lim(3,1) = min(temp_vec%z,lim(3,1)); lim(3,2) = max(temp_vec%z,lim(3,2))
+
+            ! else
+            !     lim(1,1) = reg%xmin; lim(1,2) = reg%xmax
+            !     lim(2,1) = reg%ymin; lim(2,2) = reg%ymax
+            !     lim(3,1) = reg%zmin; lim(3,2) = reg%zmax
+            ! endif
         case ('sphere')
             lim(1,1) = reg%centre%x - reg%rmax; lim(1,2) = reg%centre%x + reg%rmax
             lim(2,1) = reg%centre%y - reg%rmax; lim(2,2) = reg%centre%y + reg%rmax

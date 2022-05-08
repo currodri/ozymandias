@@ -44,7 +44,7 @@ module amr_integrator
         if (.not.allocated(attrs%filters)) allocate(attrs%filters(attrs%nfilter))
     end subroutine allocate_amr_regions_attrs
 
-    subroutine extract_data(reg,pos,cellvars,cellsize,attrs,ifilt)
+    subroutine extract_data(reg,pos,cellvars,cellsons,cellsize,attrs,ifilt)
         use vectors
         use geometrical_regions
         implicit none
@@ -52,7 +52,8 @@ module amr_integrator
         ! Input/output variables
         type(region),intent(in) :: reg
         real(dbl),dimension(1:3),intent(in) :: pos
-        real(dbl),dimension(1:varIDs%nvar),intent(in) :: cellvars
+        real(dbl),dimension(0:amr%twondim,1:varIDs%nvar),intent(in) :: cellvars
+        integer,dimension(0:amr%twondim),intent(in) :: cellsons
         real(dbl),intent(in) :: cellsize
         type(amr_region_attrs),intent(inout) :: attrs
         integer, intent(in) :: ifilt
@@ -65,13 +66,13 @@ module amr_integrator
         x = pos
         varloop: do i=1,attrs%nvars
             ! Get variable
-            call getvarvalue(reg,cellsize,x,cellvars,attrs%varnames(i),ytemp)
+            call getvarvalue(reg,cellsize,x,cellvars,cellsons,attrs%varnames(i),ytemp)
             wvarloop: do j=1,attrs%nwvars
                 ! Get weights
                 if (attrs%wvarnames(j)=='counts'.or.attrs%wvarnames(j)=='cumulative') then
                     wtemp =  1D0
                 else
-                    call getvarvalue(reg,cellsize,x,cellvars,attrs%wvarnames(j),wtemp)
+                    call getvarvalue(reg,cellsize,x,cellvars,cellsons,attrs%wvarnames(j),wtemp)
                 endif
                 
                 ! Save to attrs
@@ -120,8 +121,8 @@ module amr_integrator
 
         ! Specific variables for this subroutine
         integer :: i,j,k
-        integer :: ipos,icpu,ilevel,ind,idim,ivar,ifilt
-        integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
+        integer :: ipos,icpu,ilevel,ind,idim,ivar,ifilt,iskip,inbor
+        integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full,cumngrida
         integer :: nvarh
         integer :: roterr
         character(5) :: nchar,ncharcpu
@@ -133,8 +134,12 @@ module amr_integrator
         real(dbl),dimension(1:8,1:3) :: xc
         real(dbl),dimension(3,3) :: trans_matrix
         real(dbl),dimension(:,:),allocatable :: xg,x
-        real(dbl),dimension(:,:,:),allocatable :: var
-        integer,dimension(:,:),allocatable :: son
+        real(dbl),dimension(:,:),allocatable :: var
+        real(dbl),dimension(:,:),allocatable :: tempvar
+        integer,dimension(:,:),allocatable :: nbor
+        integer,dimension(:),allocatable :: son,tempson
+        integer,dimension(:),allocatable :: ind_grid,ind_cell,ind_cell2
+        integer ,dimension(0:amr%twondim)::ind_nbor
         logical,dimension(:),allocatable :: ref
 
         ! Obtain details of the hydro variables stored
@@ -205,6 +210,11 @@ module amr_integrator
 
             ! Make sure that we are not trying to access to far in the refinement map…
             call check_lmax(ngridfile)
+
+            allocate(nbor(1:amr%ngridmax,1:amr%twondim))
+            allocate(son(1:amr%ncoarse+amr%twotondim*amr%ngridmax))
+            cumngrida = 0
+
             ! Open HYDRO file and skip header
             nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
             open(unit=11,file=nomfich,status='old',form='unformatted')
@@ -215,6 +225,7 @@ module amr_integrator
             read(11)
             read(11)
 
+            allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:nvarh))
             ! Loop over levels
             levelloop: do ilevel=1,amr%lmax
                 ! Geometry
@@ -234,9 +245,9 @@ module amr_integrator
                 ! Allocate work arrays
                 ngrida = ngridfile(icpu,ilevel)
                 if(ngrida>0) then
+                    allocate(ind_grid(1:ngrida))
+                    allocate(ind_cell(1:ngrida))
                     allocate(xg (1:ngrida,1:amr%ndim))
-                    allocate(son(1:ngrida,1:amr%twotondim))
-                    allocate(var(1:ngrida,1:amr%twotondim,1:nvarh))
                     allocate(x  (1:ngrida,1:amr%ndim))
                     allocate(ref(1:ngrida))
                 endif
@@ -246,7 +257,11 @@ module amr_integrator
                     
                     ! Read AMR data
                     if (ngridfile(j,ilevel)>0) then
-                        read(10) ! Skip grid index
+                        if(j.eq.icpu)then
+                            read(10) ind_grid
+                        else
+                            read(10)
+                        end if
                         read(10) ! Skip next index
                         read(10) ! Skip prev index
 
@@ -260,14 +275,19 @@ module amr_integrator
                         end do
 
                         read(10) ! Skip father index
-                        do ind=1,2*amr%ndim
-                            read(10) ! Skip nbor index
+                        do ind=1,amr%twondim
+                            if(j.eq.icpu)then
+                                read(10)nbor(ind_grid,ind)
+                            else
+                                read(10)
+                            end if
                         end do
 
                         ! Read son index
                         do ind=1,amr%twotondim
+                            iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                             if(j.eq.icpu)then
-                                read(10)son(:,ind)
+                                read(10)son(ind_grid+iskip)
                             else
                                 read(10)
                             end if
@@ -290,9 +310,10 @@ module amr_integrator
                     if(ngridfile(j,ilevel)>0)then
                         ! Read hydro variables
                         tndimloop: do ind=1,amr%twotondim
+                            iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                             varloop: do ivar=1,nvarh
                                 if (j.eq.icpu) then
-                                    read(11)var(:,ind,ivar)
+                                    read(11)var(ind_grid+iskip,ivar)
                                 else
                                     read(11)
                                 endif
@@ -314,9 +335,16 @@ module amr_integrator
                         end do
 
                         ! Check if cell is refined
+                        iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                         do i=1,ngrida
-                            ref(i) = son(i,ind)>0.and.ilevel<amr%lmax
+                            ref(i) = son(ind_grid(i)+iskip)>0.and.ilevel<amr%lmax
                         end do
+
+                        ! Get cell indexes
+                        do i=1,ngrida
+                            ind_cell(i) = iskip+ind_grid(i)
+                        end do
+
                         ngridaloop: do i=1,ngrida
                             ! Check if cell is inside the desired region
                             distance = 0D0
@@ -325,23 +353,40 @@ module amr_integrator
                             call rotate_vector(xtemp,trans_matrix)
                             x(i,:) = xtemp
                             call checkifinside(x(i,:),reg,ok_cell,distance)
-                            vtemp = var(i,ind,varIDs%vx:varIDs%vz)
+                            
+                            ! Velocity transformed --> ONLY FOR CENTRAL CELL
+                            vtemp = var(ind_cell(i),varIDs%vx:varIDs%vz)
                             vtemp = vtemp - reg%bulk_velocity
                             call rotate_vector(vtemp,trans_matrix)
-                            var(i,ind,varIDs%vx:varIDs%vz) = vtemp
+                            var(ind_cell(i),varIDs%vx:varIDs%vz) = vtemp
+
+                            ! Get neighbours
+                            allocate(ind_cell2(1))
+                            ind_cell2(1) = ind_cell(i)
+                            call getnbor(son,nbor,ind_cell2,ind_nbor,1)
+                            deallocate(ind_cell2)
+                            allocate(tempvar(0:amr%twondim,nvarh))
+                            allocate(tempson(0:amr%twondim))
+                            do inbor=0,amr%twondim
+                                tempvar(inbor,:) = var(ind_nbor(inbor),:)
+                                tempson(inbor)       = son(ind_nbor(inbor))
+                            end do
+
                             filterloop: do ifilt=1,attrs%nfilter
-                                ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx,var(i,ind,:))
+                                ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx,tempvar,tempson)
                                 ok_cell_each= ok_cell.and..not.ref(i).and.ok_filter
                                 if (ok_cell_each) then
-                                    call extract_data(reg,x(i,:),var(i,ind,:),dx,attrs,ifilt)
+                                    call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt)
                                 endif
                             end do filterloop
+                            deallocate(tempvar,tempson)
                         end do ngridaloop
                     end do cellloop
-
-                    deallocate(xg,son,var,ref,x)
+                    deallocate(xg,ref,x,ind_grid,ind_cell)
                 endif
+                cumngrida = cumngrida + ngrida
             end do levelloop
+            deallocate(nbor,son,var)
             close(10)
             close(11)
         end do cpuloop

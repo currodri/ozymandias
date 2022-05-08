@@ -186,6 +186,17 @@ plotting_dictionary = dict(
                         'vmax_galaxy':2e-10
 
     },
+    grad_crp = {'cmap':'YlGnBu_r',#sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=False, as_cmap=True),
+                        'text_over':'white',
+                        'label':r'$\vert \nabla P_{\rm CR}\vert$ [erg/cm$^{4}$]',
+                        'label_log':r'$\log(\frac{\vert \nabla P_{\rm CR}\vert}{{\rm erg/cm}^{4}})$',
+                        'units':'erg*cm**-4',
+                        'vmin':6e-34,
+                        'vmax':2e-31,
+                        'vmin_galaxy':6e-34,
+                        'vmax_galaxy':2e-31
+
+    },
     cr_energy_specific = {'cmap':sns.cubehelix_palette(start=.5, rot=-.75, as_cmap=True), #sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),
                                 'text_over':'white',
                                 'label':r'$\epsilon_{\rm CR}$ [erg/g]',
