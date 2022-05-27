@@ -17,6 +17,16 @@ from projections import geometrical_regions
 
 cartesian_basis = {'x':np.array([1.,0.,0.]),'y':np.array([0.,0.,1.]),'z':np.array([0.,0.,1.])}
 
+symlog_variables = [
+    'v_sphere_r',
+    'v_cyl_z',
+    'grav_crpfz',
+    'grav_therpfz',
+    'grav_crpfrsphere',
+    'grad_crpz',
+    'grav_gz'
+]
+
 target_header = fits.Header.fromstring("""
 NAXIS   =                    2
 NAXIS1  =                  480
@@ -348,9 +358,14 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     centre = vectors.vector()
     centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
     bulk = vectors.vector()
+    region_axis = vectors.vector()
+    norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
+    region_axis.x,region_axis.y,region_axis.z = norm_L[0], norm_L[1], norm_L[2]
+
     if group.type != 'halo':
         velocity = group.velocity.in_units('code_velocity')
         bulk.x, bulk.y, bulk.z = velocity.d[0], velocity.d[1], velocity.d[2]
+    print('bulk: ',bulk.x, bulk.y, bulk.z)
 
     if proj.pov == 'faceon':
         centre = vectors.vector()
@@ -373,6 +388,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
         los = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
         los /= np.linalg.norm(los)
+        print(los)
         axis.x,axis.y,axis.z = los[0], los[1], los[2]
         up_vector = vectors.vector()
         up_vector.x,up_vector.y,up_vector.z = norm_L[0], norm_L[1], norm_L[2]
@@ -458,7 +474,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         distance = rmax
         far_cut_depth = rmax
     
-    cam = obs_instruments.init_camera(centre,axis,up_vector,region_size,distance,far_cut_depth,map_max_size-1)
+    cam = obs_instruments.init_camera(centre,axis,up_vector,region_size,region_axis,distance,far_cut_depth,map_max_size-1)
 
     # Update projection details with the camera ones
     proj.width = region_size
@@ -560,6 +576,8 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
     import seaborn as sns
     sns.set(style="dark")
     plt.rcParams["axes.axisbelow"] = False
+    import scipy as sp                                                                                                                                                                                     
+    import scipy.ndimage                                                                                                                                                                                   
     # plt.rc('text', usetex=True)
     # plt.rc('font', family='serif')
     # hfont = {'fontname':'Helvetica'}
@@ -623,27 +641,30 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
                 stellar = True
             else:
                 plotting_def = plotting_dictionary[fields[ivar].split('/')[1]]
-            if logscale and fields[ivar].split('/')[1] != 'v_sphere_r':
+            if logscale and fields[ivar].split('/')[1] not in symlog_variables:
                 print(fields[ivar],np.min(hdul[h].data.T),np.max(hdul[h].data.T))
                 plot = ax[i,j].imshow(np.log10(hdul[h].data.T), cmap=plotting_def['cmap'],
-                                origin='upper',vmin=np.log10(plotting_def['vmin_galaxy']),
+                                origin='lower',vmin=np.log10(plotting_def['vmin_galaxy']),
                                 vmax=np.log10(plotting_def['vmax_galaxy']),extent=ex,
                                 interpolation='nearest')
-            elif logscale and fields[ivar].split('/')[1] == 'v_sphere_r':
+            elif logscale and fields[ivar].split('/')[1] in symlog_variables:
                 print(fields[ivar],np.min(hdul[h].data.T),np.max(hdul[h].data.T))
-                plot = ax[i,j].imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
-                                origin='upper',norm=SymLogNorm(linthresh=10, linscale=1,vmin=plotting_def['vmin'], vmax=plotting_def['vmax']),
+                sigma=1                                                                                                                                                                                            
+                cImage = sp.ndimage.filters.gaussian_filter(hdul[h].data.T, sigma, mode='constant')
+                plot = ax[i,j].imshow(cImage, cmap=plotting_def['cmap'],
+                                origin='lower',norm=SymLogNorm(linthresh=0.1, linscale=1,
+                                vmin=plotting_def['vmin_galaxy'], vmax=plotting_def['vmax_galaxy']),
                                 extent=ex,
                                 interpolation='nearest')
             else:
                 print(fields[ivar],np.min(hdul[h].data.T),np.max(hdul[h].data.T))
                 plot = ax[i,j].imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
-                                origin='upper',extent=ex,interpolation='nearest',
+                                origin='lower',extent=ex,interpolation='nearest',
                                 vmin=plotting_def['vmin'],vmax=plotting_def['vmax'])
 
             cbaxes = inset_axes(ax[i,j], width="80%", height="5%", loc='lower center')
             cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
-            if logscale and fields[ivar].split('/')[1] != 'v_sphere_r':
+            if logscale and fields[ivar].split('/')[1] not in symlog_variables:
                 cbar.set_label(plotting_def['label_log'],color=plotting_def['text_over'],fontsize=20,labelpad=-25, y=0.85,weight='bold')
             else:
                 cbar.set_label(plotting_def['label'],color=plotting_def['text_over'],fontsize=16,labelpad=-25, y=0.85)
@@ -753,11 +774,12 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=True,reds
     for i in range(0,nrow):
         ax.append([])
         for j in range(0,ncol):
-            if i==0 and j==0:
-                axmain = fig.add_subplot(plot_grid[i,j])
-                ax[i].append(axmain)
-            else:
-                ax[i].append(fig.add_subplot(plot_grid[i,j], sharex=axmain, sharey=axmain))
+            ax[i].append(fig.add_subplot(plot_grid[i,j]))
+            # if i==0 and j==0:
+            #     axmain = fig.add_subplot(plot_grid[i,j])
+            #     ax[i].append(axmain)
+            # else:
+            #     ax[i].append(fig.add_subplot(plot_grid[i,j], sharex=axmain, sharey=axmain))
     ax = np.asarray(ax)
 
     for i in range(0, ax.shape[0]):
@@ -822,7 +844,7 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=True,reds
                     rgbArray[:,:,2] = inflow*255*0.8
                     plot = ax[i,j].imshow(np.zeros((nx,ny,3), 'uint8'), cmap='gray',
                                     vmin=plotting_def['vmin_galaxy'],vmax=plotting_def['vmax_galaxy'])
-                    ax[i,j].imshow(rgbArray,origin='upper',extent=ex,interpolation='lanczos')
+                    ax[i,j].imshow(v_sphere,origin='upper',extent=ex,interpolation='lanczos')
                 
             elif logscale and fields[ivar].split('/')[1] != 'v_sphere_r':
                 plot = ax[i,j].imshow(np.log10(hdul[h].data.T), cmap=plotting_def['cmap'],

@@ -1,9 +1,10 @@
 module obs_instruments
     use local
     use vectors
+    use coordinate_systems
 
     type camera
-        type(vector) :: centre,los_axis,up_vector
+        type(vector) :: centre,los_axis,up_vector,region_axis
         real(dbl),dimension(1:2) :: region_size
         real(dbl) :: distance,far_cut_depth
         integer :: map_max_size=1024
@@ -20,9 +21,9 @@ module obs_instruments
         log2 = log(x) / log(2D0)
     end function
 
-    type(camera) function init_camera(centre,los_axis,up_vector,region_size,distance,far_cut_depth,map_max_size)
+    type(camera) function init_camera(centre,los_axis,up_vector,region_size,region_axis,distance,far_cut_depth,map_max_size)
         implicit none
-        type(vector),intent(in) :: centre,los_axis,up_vector
+        type(vector),intent(in) :: centre,los_axis,up_vector,region_axis
         real(dbl),dimension(1:2),intent(in) :: region_size
         real(dbl),intent(in) :: distance,far_cut_depth
         integer,intent(in) :: map_max_size
@@ -31,6 +32,7 @@ module obs_instruments
         
         init_camera%los_axis = los_axis
         init_camera%up_vector = up_vector
+        init_camera%region_axis = region_axis
 
         init_camera%region_size = region_size
         init_camera%distance = distance
@@ -69,7 +71,7 @@ module obs_instruments
 
         dx = cam%region_size(1); dy = cam%region_size(2)
         box%centre = cam%centre
-        box%axis = cam%los_axis
+        box%axis = cam%region_axis
         box%xmin = -dx/2D0; box%ymin = -dy/2D0; box%zmin = -cam%far_cut_depth
         box%xmax = dx/2D0; box%ymax = dy/2D0; box%zmax = cam%distance
     end subroutine get_map_box
@@ -283,7 +285,7 @@ module maps
         type(camera),intent(in) :: cam
         type(projection_handler),intent(inout) :: proj
 
-        logical :: ok_cell
+        logical :: ok_cell,read_gravity
         integer :: i,j,k
         integer :: ipos,icpu,ilevel,ind,idim,iidim,ivar,iskip,inbor
         integer :: ix,iy,iz,ngrida,cumngrida,nx_full,ny_full,nz_full
@@ -297,9 +299,11 @@ module maps
         integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
         real(dbl),dimension(1:8,1:3) :: xc
         real(dbl),dimension(1:3,1:3) :: trans_matrix
-        real(dbl),dimension(:,:),allocatable :: xg,x
+        real(dbl),dimension(:,:),allocatable :: xg,x,xorig
         real(dbl),dimension(:,:),allocatable :: var
+        real(dbl),dimension(:,:),allocatable :: grav_var
         real(dbl),dimension(:,:),allocatable :: tempvar
+        real(dbl),dimension(:,:),allocatable :: tempgrav_var
         integer,dimension(:,:),allocatable :: nbor
         integer,dimension(:),allocatable :: son,tempson
         integer,dimension(:),allocatable :: ind_grid,ind_cell,ind_cell2
@@ -316,6 +320,16 @@ module maps
 
 
         ncells = 0
+
+        ! Check whether we need to read the gravity files
+        read_gravity = .false.
+        do ivar=1,proj%nvars
+            if (proj%varnames(ivar)(1:4) .eq. 'grav') then
+                read_gravity = .true.
+                write(*,*)'Reading gravity files...'
+                exit
+            endif
+        end do
 
         ! Compute hierarchy
         do ilevel=1,amr%lmax
@@ -335,7 +349,13 @@ module maps
             grid(ilevel)%jmax = jmax
         end do
 
-        call los_transformation(cam,trans_matrix)
+        !call los_transformation(cam,trans_matrix)
+        trans_matrix = 0D0
+        call new_z_coordinates(bbox%axis,trans_matrix,roterr)
+        if (roterr.eq.1) then
+            write(*,*) 'Incorrect CS transformation!'
+            stop
+        endif
 
 
         allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
@@ -394,8 +414,18 @@ module maps
             read(11)
             read(11)
             read(11)
-
             allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:nvarh))
+
+            if (read_gravity) then
+                ! Open GRAV file and skip header
+                nomfich=TRIM(repository)//'/grav_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+                open(unit=12,file=nomfich,status='old',form='unformatted')
+                read(12) !ncpu
+                read(12) !ndim
+                read(12) !nlevelmax
+                read(12) !nboundary 
+                allocate(grav_var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:4))
+            endif
             ! Loop over levels
             levelloop: do ilevel=1,amr%lmax
                 ! Geometry
@@ -419,6 +449,7 @@ module maps
                     allocate(ind_cell(1:ngrida))
                     allocate(xg (1:ngrida,1:amr%ndim))
                     allocate(x  (1:ngrida,1:amr%ndim))
+                    allocate(xorig(1:ngrida,1:amr%ndim))
                     allocate(ref(1:ngrida))
                 endif
 
@@ -488,6 +519,30 @@ module maps
                             end do varloop
                         end do tndimloop
                     endif
+
+                    if (read_gravity) then
+                        ! Read GRAV data
+                        read(12)
+                        read(12)
+                        !write(*,*)'Reading grav file'
+                        if(ngridfile(j,ilevel)>0)then
+                            do ind=1,amr%twotondim
+                                iskip = amr%ncoarse+(ind-1)*amr%ngridmax
+                                if (j.eq.icpu) then
+                                    read(12)grav_var(ind_grid+iskip,1)
+                                    do ivar=1,amr%ndim
+                                        read(12)grav_var(ind_grid+iskip,ivar+1)
+                                    end do
+                                else
+                                    read(12)
+                                    do ivar=1,amr%ndim
+                                        read(12)
+                                    end do
+                                end if
+                            end do
+                        end if
+                        !write(*,*)'Done with reading grav file'
+                    end if
                 end do domloop
 
                 !Compute map
@@ -514,6 +569,7 @@ module maps
                         end do
 
                         ! Project positions onto the camera frame
+                        xorig = x
                         call project_points(cam,ngrida,x)
                         ngridaloop: do i=1,ngrida
                             ! Check if cell is inside the desired region
@@ -534,13 +590,23 @@ module maps
                                     & iy>=grid(ilevel)%jmin.and.&
                                     & ix<=grid(ilevel)%imax.and.&
                                     & iy<=grid(ilevel)%jmax) then
-                                    xtemp = x(i,:)
+                                    
+                                    xtemp = xorig(i,:)
+                                    xtemp = xtemp - bbox%centre
+                                    call rotate_vector(xtemp,trans_matrix)
 
                                     ! Velocity transformed --> ONLY FOR CENTRAL CELL
                                     vtemp = var(ind_cell(i),varIDs%vx:varIDs%vz)
                                     vtemp = vtemp - bbox%bulk_velocity
                                     call rotate_vector(vtemp,trans_matrix)
                                     var(ind_cell(i),varIDs%vx:varIDs%vz) = vtemp
+
+                                    ! Gravitational acc --> ONLY FOR CENTRAL CELL
+                                    if (read_gravity) then
+                                        vtemp = grav_var(ind_cell(i),2:4)
+                                        call rotate_vector(vtemp,trans_matrix)
+                                        grav_var(ind_cell(i),2:4) = vtemp
+                                    endif
 
                                     ! Get neighbours
                                     allocate(ind_cell2(1))
@@ -549,17 +615,27 @@ module maps
                                     deallocate(ind_cell2)
                                     allocate(tempvar(0:amr%twondim,nvarh))
                                     allocate(tempson(0:amr%twondim))
+                                    if (read_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
                                     do inbor=0,amr%twondim
                                         tempvar(inbor,:) = var(ind_nbor(inbor),:)
                                         tempson(inbor)       = son(ind_nbor(inbor))
+                                        if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(inbor),:)
                                     end do
 
                                     ! Finally, get hydro data
-                                    call getvarvalue(bbox,dx,xtemp,tempvar,tempson,proj%weightvar,rho)
+                                    if (read_gravity) then 
+                                        call getvarvalue(bbox,dx,xtemp,tempvar,tempson,proj%weightvar,rho,trans_matrix,tempgrav_var)
+                                    else
+                                        call getvarvalue(bbox,dx,xtemp,tempvar,tempson,proj%weightvar,rho,trans_matrix)
+                                    end if
                                     grid(ilevel)%rho(ix,iy)=grid(ilevel)%rho(ix,iy)+rho*dx*weight/(bbox%zmax-bbox%zmin)
 
                                     projvarloop: do ivar=1,proj%nvars
-                                        call getvarvalue(bbox,dx,xtemp,tempvar,tempson,proj%varnames(ivar),map)
+                                        if (read_gravity) then
+                                            call getvarvalue(bbox,dx,xtemp,tempvar,tempson,proj%varnames(ivar),map,trans_matrix,tempgrav_var)
+                                        else
+                                            call getvarvalue(bbox,dx,xtemp,tempvar,tempson,proj%varnames(ivar),map,trans_matrix)
+                                        end if
                                         grid(ilevel)%map(ivar,ix,iy)=grid(ilevel)%map(ivar,ix,iy)+map*rho*dx*weight&
                                                                         &/(bbox%zmax-bbox%zmin)
                                     end do projvarloop
@@ -567,16 +643,23 @@ module maps
                                     
                                     ncells = ncells + 1
                                     deallocate(tempvar,tempson)
+                                    if (read_gravity) deallocate(tempgrav_var)
                                 endif
 
                             endif
                         end do ngridaloop
                     end do cellloop
-                    deallocate(xg,ref,x,ind_grid,ind_cell)
+                    deallocate(xg,ref,x,xorig,ind_grid,ind_cell)
                 endif
                 cumngrida = cumngrida + ngrida
             end do levelloop
             deallocate(nbor,son,var)
+            close(10)
+            close(11)
+            if (read_gravity) then
+                close(12)
+                deallocate(grav_var)
+            end if
         end do cpuloop
         write(*,*)'ncells:',ncells
         ! Upload to maximum level (lmax)

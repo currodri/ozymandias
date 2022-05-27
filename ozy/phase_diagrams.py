@@ -193,12 +193,14 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins
     if hydro_data.nzvar > 0 and hydro_data.nwvar > 0:
         amrprofmod.twodprofile(group.obj.simulation.fullpath,selected_reg,filt,hydro_data,lmax,logscale)
     
-    copy_data = np.copy(hydro_data.xdata[1:])
     code_units = get_code_units(pd.xvar)
+    copy_data = np.copy(hydro_data.xdata)
+    copy_data = 0.5*(copy_data[:-1]+copy_data[1:])
     pd.xdata.append(group.obj.array(copy_data, code_units))
 
     code_units = get_code_units(pd.yvar)
-    copy_data = np.copy(hydro_data.ydata[1:])
+    copy_data = np.copy(hydro_data.ydata)
+    copy_data = 0.5*(copy_data[:-1]+copy_data[1:])
     pd.ydata.append(group.obj.array(copy_data, code_units))
     pd.zdata['hydro'] = []
     for i in range(0, len(pd.zvars['hydro'])):

@@ -14,7 +14,7 @@ gal = obj.galaxies[progind]
 output_path = obj.simulation.fullpath
 
 # Initialise region
-selected_reg = init_region(gal,'sphere')
+selected_reg = init_region(gal,'sphere',rmax=(0.12,'rvir'))
 
 nvar = 0
 quantity_names = ['mass','density','temperature']
@@ -43,11 +43,14 @@ glob_attrs.filters[1] = init_filter(cond_strs=['entropy_specific/>=/4.4e+8/erg*K
 glob_attrs.filters[2] = init_filter(cond_strs=['entropy_specific/>/23.2e+8/erg*K**-1*g**-1'],name='hot',group=gal)
 
 # Begin integration
-#amr_integrator.integrate_region(output_path,selected_reg,glob_attrs)
+amr_integrator.integrate_region(output_path,selected_reg,glob_attrs)
 mass_names = ['COLD','WARM','HOT']
+tot_mass = 0
 for i in range(0,3):
     mass = obj.quantity(glob_attrs.data[i,0,0,0],'code_mass')
+    tot_mass += mass
     print(mass_names[i]+': ',mass.to('Msun'))
+print('Total mass: ', tot_mass.to('Msun'))
 
 glob_attrs = part_integrator.part_region_attrs()
 glob_attrs.nvars = 11

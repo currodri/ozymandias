@@ -24,7 +24,7 @@ print('NUT velocity: ', velocity)
 
 prof = compute_profile(gal,'test_00035.hdf5', 'r_sphere', ['gas/density'],
                         ['gas/cumulative','gas/volume','gas/density'],
-                        region_type='sphere',save=True,recompute=False,nbins=100,rmax=(10.0,'kpc'))
+                        region_type='sphere',save=True,recompute=True,nbins=80,rmax=(4.0,'kpc'))
 
 fig, ax = plt.subplots(1, 1, sharex=True, figsize=(6,4), dpi=100, facecolor='w', edgecolor='k')
         
@@ -38,19 +38,58 @@ ax.yaxis.set_ticks_position('both')
 ax.minorticks_on()
 ax.tick_params(which='both',axis="both",direction="in")
 
-ax.plot(prof.xdata[0].in_units('kpc'),prof.ydata['hydro'][0][:,1,0].in_units('g*cm**-3'))
+print(prof.ydata['hydro'][0].shape)
 
-# Doing it with yt
+new_x = 0.5*(prof.xdata[0][:-1]+prof.xdata[0][1:])
+new_x = np.concatenate(([0.5*prof.xdata[0][0]], new_x),axis=0)
+new_x = obj.array(new_x,'code_length')
+print(new_x.in_units('kpc'),prof.ydata['hydro'][0][:,1,0].in_units('g*cm**-3'))
+ax.plot(new_x.in_units('kpc'),prof.ydata['hydro'][0][:,1,0].in_units('g*cm**-3'), label='ozymandias')
+
+# prof = compute_profile(gal,'test_00035.hdf5', 'r_sphere', ['gas/density'],
+#                         ['gas/cumulative','gas/volume','gas/density'],
+#                         region_type='sphere',save=True,recompute=True,nbins=20,rmax=(1.0,'kpc'))
+
+# new_x = 0.5*(prof.xdata[0][:-1]+prof.xdata[0][1:])
+# new_x = np.concatenate(([0.5*prof.xdata[0][0]], new_x),axis=0)
+# new_x = obj.array(new_x,'code_length')
+# print(new_x.in_units('kpc'),prof.ydata['hydro'][0][:,1,0].in_units('g*cm**-3'))
+# ax.plot(new_x.in_units('kpc'),prof.ydata['hydro'][0][:,1,0].in_units('g*cm**-3'), label='ozymandias 1.0',alpha=0.4)
+
+# prof = compute_profile(gal,'test_00035.hdf5', 'r_sphere', ['gas/density'],
+#                         ['gas/cumulative','gas/volume','gas/density'],
+#                         region_type='sphere',save=True,recompute=True,nbins=40,rmax=(2.0,'kpc'))
+
+# new_x = 0.5*(prof.xdata[0][:-1]+prof.xdata[0][1:])
+# new_x = np.concatenate(([0.5*prof.xdata[0][0]], new_x),axis=0)
+# new_x = obj.array(new_x,'code_length')
+# print(new_x.in_units('kpc'),prof.ydata['hydro'][0][:,1,0].in_units('g*cm**-3'))
+# ax.plot(new_x.in_units('kpc'),prof.ydata['hydro'][0][:,1,0].in_units('g*cm**-3'), label='ozymandias 2.0',alpha=0.4)
+
+# prof = compute_profile(gal,'test_00035.hdf5', 'r_sphere', ['gas/density'],
+#                         ['gas/cumulative','gas/volume','gas/density'],
+#                         region_type='sphere',save=True,recompute=True,nbins=80,rmax=(4.0,'kpc'))
+
+# new_x = 0.5*(prof.xdata[0][:-1]+prof.xdata[0][1:])
+# new_x = np.concatenate(([0.5*prof.xdata[0][0]], new_x),axis=0)
+# new_x = obj.array(new_x,'code_length')
+# print(new_x.in_units('kpc'),prof.ydata['hydro'][0][:,1,0].in_units('g*cm**-3'))
+# ax.plot(new_x.in_units('kpc'),prof.ydata['hydro'][0][:,1,0].in_units('g*cm**-3'), label='ozymandias 4.0',alpha=0.4)
+
+# # Doing it with yt
 ds = yt.load('/mnt/extraspace/currodri/NUT/cosmoNUTcrmhd/output_00035/info_00035.txt')
-sphere = ds.sphere(center=(gal.position[0].d, gal.position[1].d, gal.position[2].d), radius=(10.0, "kpc"))
+sphere = ds.sphere(center=(gal.position[0].d, gal.position[1].d, gal.position[2].d), radius=(4.0, "kpc"))
 rp0 = yt.create_profile(
     sphere,
     ("index", "radius"),
     ("gas", "density"),
-    weight_field=("index", "cell_volume")
+    weight_field=("index", "cell_volume"),
+    n_bins=80
 )
-ax.plot(rp0.x.in_units('kpc'),rp0['gas','density'].in_units('g*cm**-3'))
+print(rp0.x.in_units('kpc'))
+ax.plot(rp0.x.in_units('kpc'),rp0['gas','density'].in_units('g*cm**-3'), label='yT')
 
+ax.legend(loc='best')
 fig.savefig('NUT_00035_radial_density.png',dpi=200,format='png')
 
 # Initialise region

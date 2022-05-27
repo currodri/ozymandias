@@ -57,7 +57,7 @@ module amr_profiles
 
         if (.not.allocated(prof%yvarnames)) allocate(prof%yvarnames(prof%nyvar))
         if (.not.allocated(prof%wvarnames)) allocate(prof%wvarnames(prof%nwvar))
-        if (.not.allocated(prof%xdata)) allocate(prof%xdata(prof%nbins+1))
+        if (.not.allocated(prof%xdata)) allocate(prof%xdata(0:prof%nbins))
         if (.not.allocated(prof%ydata)) allocate(prof%ydata(prof%nbins,prof%nyvar,prof%nwvar,4))
     end subroutine allocate_profile_handler
 
@@ -67,8 +67,8 @@ module amr_profiles
 
         if (.not.allocated(prof%zvarnames)) allocate(prof%zvarnames(prof%nzvar))
         if (.not.allocated(prof%wvarnames)) allocate(prof%wvarnames(prof%nwvar))
-        if (.not.allocated(prof%xdata)) allocate(prof%xdata(prof%nbins(1)+1))
-        if (.not.allocated(prof%ydata)) allocate(prof%ydata(prof%nbins(2)+1))
+        if (.not.allocated(prof%xdata)) allocate(prof%xdata(0:prof%nbins(1)))
+        if (.not.allocated(prof%ydata)) allocate(prof%ydata(0:prof%nbins(2)))
         if (.not.allocated(prof%zdata)) allocate(prof%zdata(prof%nbins(1),prof%nbins(2),prof%nzvar,prof%nwvar,4))
     end subroutine allocate_profile_handler_twod
 
@@ -79,7 +79,7 @@ module amr_profiles
         type(region),intent(in) :: reg
         character(128),intent(in) :: varname
         integer,intent(in) :: nbins
-        real(dbl),dimension(1:nbins+1),intent(inout) :: bins
+        real(dbl),dimension(0:nbins),intent(inout) :: bins
         logical,intent(in) :: logscale
         integer :: n
         real(dbl) :: temp_convfac,pressure_convfac,velocity_convfac
@@ -90,69 +90,69 @@ module amr_profiles
 
         select case (TRIM(varname))
         case('r_sphere','r_cyl')
-            do n=0,nbins+1
+            do n=0,nbins
                 if (logscale) then
-                    bins(n+1) = dble(n)*(log10(reg%rmax)-log10(reg%rmin))/dble(nbins)
-                    if (reg%rmin > 0D0) bins(n+1) = bins(n+1) + log10(reg%rmin)
+                    bins(n) = dble(n)*(log10(reg%rmax)-log10(reg%rmin))/dble(nbins)
+                    if (reg%rmin > 0D0) bins(n) = bins(n) + log10(reg%rmin)
                 else
-                    bins(n+1) = dble(n)*(reg%rmax-reg%rmin)/dble(nbins) + reg%rmin
+                    bins(n) = dble(n)*(reg%rmax-reg%rmin)/dble(nbins) + reg%rmin
                 endif
             end do
         case('z')
-            do n=0,nbins+1
+            do n=0,nbins
                 if (logscale) then
-                    bins(n+1) = dble(n)*(log10(reg%zmax)-log10(reg%zmin))/dble(nbins)
-                    if (reg%zmin > 0D0) bins(n+1) = bins(n+1) + log10(reg%zmin)
+                    bins(n) = dble(n)*(log10(reg%zmax)-log10(reg%zmin))/dble(nbins)
+                    if (reg%zmin > 0D0) bins(n) = bins(n) + log10(reg%zmin)
                 else
-                    bins(n+1) = dble(n)*(reg%zmax-reg%zmin)/dble(nbins) + reg%zmin
+                    bins(n) = dble(n)*(reg%zmax-reg%zmin)/dble(nbins) + reg%zmin
                 endif
             end do
         case('density')
-            do n=0,nbins+1
+            do n=0,nbins
                 if (logscale) then
-                    bins(n+1) = dble(n)*(log10(1D-20/sim%unit_d)-log10(1D-30/sim%unit_d))/dble(nbins) + log10(1D-30/sim%unit_d)
+                    bins(n) = dble(n)*(log10(1D-20/sim%unit_d)-log10(1D-30/sim%unit_d))/dble(nbins) + log10(1D-30/sim%unit_d)
                 else
-                    bins(n+1) = dble(n)*(1D-20/sim%unit_d - 1D-30/sim%unit_d)/dble(nbins) + 1D-30/sim%unit_d
+                    bins(n) = dble(n)*(1D-20/sim%unit_d - 1D-30/sim%unit_d)/dble(nbins) + 1D-30/sim%unit_d
                 endif
             end do
         case('temperature')
-            do n=0,nbins+1
+            do n=0,nbins
                 if (logscale) then
-                    bins(n+1) = dble(n)*(log10(1D8/temp_convfac)-log10(1D0/temp_convfac))/dble(nbins) + log10(1D0/temp_convfac)
+                    bins(n) = dble(n)*(log10(1D8/temp_convfac)-log10(1D0/temp_convfac))/dble(nbins) + log10(1D0/temp_convfac)
                 else
-                    bins(n+1) = dble(n)*(1D8/temp_convfac - 1D0/temp_convfac)/dble(nbins) + 1D0/temp_convfac
+                    bins(n) = dble(n)*(1D8/temp_convfac - 1D0/temp_convfac)/dble(nbins) + 1D0/temp_convfac
                 endif
             end do
         case('thermal_pressure')
-            do n=0,nbins+1
+            do n=0,nbins
                 if (logscale) then
-                    bins(n+1) = dble(n)*(log10(1D-9/pressure_convfac)-log10(1D-16/pressure_convfac))/dble(nbins) + log10(1D-16/pressure_convfac)
+                    bins(n) = dble(n)*(log10(1D-9/pressure_convfac)-log10(1D-16/pressure_convfac))/dble(nbins) + log10(1D-16/pressure_convfac)
                 else
-                    bins(n+1) = dble(n)*(1D-9/pressure_convfac - 1D-16/pressure_convfac)/dble(nbins) + 1D-16/pressure_convfac
+                    bins(n) = dble(n)*(1D-9/pressure_convfac - 1D-16/pressure_convfac)/dble(nbins) + 1D-16/pressure_convfac
                 endif
             end do
         case('v_sphere_r')
-            do n=0,nbins+1
+            do n=0,nbins
                 if (logscale) then
                     write(*,*)'You cannot use logscale for a velocity profile. Stopping!'
                     stop
                 else
-                    bins(n+1) = dble(n)*(4D7/velocity_convfac + 3D7/velocity_convfac)/dble(nbins) - 3D7/velocity_convfac
+                    bins(n) = dble(n)*(4D7/velocity_convfac + 3D7/velocity_convfac)/dble(nbins) - 3D7/velocity_convfac
                 endif
             end do
         case('theta_sphere')
-            do n=0,nbins+1
+            do n=0,nbins
                 if (logscale) then
-                    bins(n+1) = dble(n)*(log10(pi))/dble(nbins)
+                    bins(n) = dble(n)*(log10(pi))/dble(nbins)
                 else
-                    bins(n+1) = dble(n)*(pi + 0D0)/dble(nbins) - 0D0
+                    bins(n) = dble(n)*(pi + 0D0)/dble(nbins) - 0D0
                 endif
             end do
         !TODO: Add more cases
         end select
     end subroutine makebins
 
-    subroutine findbinpos(reg,distance,pos,cellvars,cellsons,cellsize,prof,ibin)
+    subroutine findbinpos(reg,distance,pos,cellvars,cellsons,cellsize,prof,ibin,trans_matrix,grav_var)
         use vectors
         use geometrical_regions
         implicit none
@@ -164,6 +164,8 @@ module amr_profiles
         real(dbl),intent(in) :: cellsize
         type(profile_handler),intent(in) :: prof
         integer,intent(inout) :: ibin
+        real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
+        real(dbl),dimension(0:amr%twondim,1:4),optional,intent(in) :: grav_var
         real(dbl) :: value
         type(vector) :: x
 
@@ -171,13 +173,23 @@ module amr_profiles
         if (prof%xvarname.eq.reg%criteria_name) then
             value = distance
         else
-            call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%xvarname,value)
+            if (present(grav_var)) then
+                call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%xvarname,value,trans_matrix,grav_var)
+            else
+                call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%xvarname,value,trans_matrix)
+            end if
         endif
-        ibin = int(dble(prof%nbins)*(value-prof%xdata(1))/(prof%xdata(prof%nbins+1)-prof%xdata(1))) + 1
-        if (value<prof%xdata(1).or.value>prof%xdata(prof%nbins+1)) ibin = 0
+
+        ibin = int(dble(prof%nbins)*(value-prof%xdata(0))/(prof%xdata(prof%nbins)-prof%xdata(0))) + 1
+        
+        if (value .eq. prof%xdata(prof%nbins)) then
+            ibin = prof%nbins
+        else if (value<prof%xdata(0).or.value>prof%xdata(prof%nbins)) then
+            ibin = 0
+        end if
     end subroutine findbinpos
 
-    subroutine findbinpos_twod(reg,distance,pos,cellvars,cellsons,cellsize,prof,logscale,ibinx,ibiny)
+    subroutine findbinpos_twod(reg,distance,pos,cellvars,cellsons,cellsize,prof,logscale,ibinx,ibiny,trans_matrix,grav_var)
         use vectors
         use geometrical_regions
         implicit none
@@ -190,6 +202,8 @@ module amr_profiles
         type(profile_handler_twod),intent(in) :: prof
         logical,intent(in) :: logscale
         integer,intent(inout) :: ibinx,ibiny
+        real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
+        real(dbl),dimension(0:amr%twondim,1:4),optional,intent(in) :: grav_var
         real(dbl) :: value
         type(vector) :: x
 
@@ -197,33 +211,41 @@ module amr_profiles
         if (prof%xvarname.eq.reg%criteria_name) then
             value = distance
         else
-            call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%xvarname,value)
+            if (present(grav_var)) then
+                call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%xvarname,value,trans_matrix,grav_var)
+            else
+                call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%xvarname,value,trans_matrix)
+            end if
         endif
 
         if (logscale) then
-            ibinx = int(dble(prof%nbins(1))*(log10(value)-prof%xdata(1))/(prof%xdata(prof%nbins(1)+1)-prof%xdata(1))) + 1
-            if (log10(value)<prof%xdata(1).or.log10(value)>prof%xdata(prof%nbins(1)+1)) ibinx = 0
+            ibinx = int(dble(prof%nbins(1))*(log10(value)-prof%xdata(0))/(prof%xdata(prof%nbins(1))-prof%xdata(0))) + 1
+            if (log10(value)<prof%xdata(0).or.log10(value)>prof%xdata(prof%nbins(1))) ibinx = 0
         else
-            ibinx = int(dble(prof%nbins(1))*(value-prof%xdata(1))/(prof%xdata(prof%nbins(1)+1)-prof%xdata(1))) + 1
-            if (value<prof%xdata(1).or.value>prof%xdata(prof%nbins(1)+1)) ibinx = 0
+            ibinx = int(dble(prof%nbins(1))*(value-prof%xdata(0))/(prof%xdata(prof%nbins(1))-prof%xdata(0))) + 1
+            if (value<prof%xdata(0).or.value>prof%xdata(prof%nbins(1))) ibinx = 0
         endif
 
         if (prof%yvarname.eq.reg%criteria_name) then
             value = distance
         else
-            call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%yvarname,value)
+            if (present(grav_var)) then
+                call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%yvarname,value,trans_matrix,grav_var)
+            else
+                call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%yvarname,value,trans_matrix)
+            end if
         endif
 
         if (logscale) then
-            ibiny = int(dble(prof%nbins(2))*(log10(value)-prof%ydata(1))/(prof%ydata(prof%nbins(2)+1)-prof%ydata(1))) + 1
-            if (log10(value)<prof%ydata(1).or.log10(value)>prof%ydata(prof%nbins(2)+1)) ibiny = 0
+            ibiny = int(dble(prof%nbins(2))*(log10(value)-prof%ydata(0))/(prof%ydata(prof%nbins(2))-prof%ydata(0))) + 1
+            if (log10(value)<prof%ydata(0).or.log10(value)>prof%ydata(prof%nbins(2))) ibiny = 0
         else            
-            ibiny = int(dble(prof%nbins(2))*(value-prof%ydata(1))/(prof%ydata(prof%nbins(2)+1)-prof%ydata(1))) + 1
-            if (value<prof%ydata(1).or.value>prof%ydata(prof%nbins(2)+1)) ibiny = 0
+            ibiny = int(dble(prof%nbins(2))*(value-prof%ydata(0))/(prof%ydata(prof%nbins(2))-prof%ydata(0))) + 1
+            if (value<prof%ydata(0).or.value>prof%ydata(prof%nbins(2))) ibiny = 0
         endif
     end subroutine findbinpos_twod
 
-    subroutine bindata(reg,pos,cellvars,cellsons,cellsize,prof,ibin)
+    subroutine bindata(reg,pos,cellvars,cellsons,cellsize,prof,ibin,trans_matrix,grav_var)
         use vectors
         use geometrical_regions
         implicit none
@@ -234,12 +256,18 @@ module amr_profiles
         real(dbl),intent(in) :: cellsize
         type(profile_handler),intent(inout) :: prof
         integer,intent(in) :: ibin
+        real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
+        real(dbl),dimension(0:amr%twondim,1:4),optional,intent(in) :: grav_var
         integer :: i,j
         real(dbl) :: ytemp,wtemp,bigwtemp,bigatemp
         type(vector) :: x
         x = pos
         yvarloop: do i=1,prof%nyvar
-            call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%yvarnames(i),ytemp)
+            if (present(grav_var)) then
+                call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%yvarnames(i),ytemp,trans_matrix,grav_var)
+            else
+                call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%yvarnames(i),ytemp,trans_matrix)
+            end if                
             wvarloop: do j=1,prof%nwvar
                 if (prof%wvarnames(j)=='counts'.or.prof%wvarnames(j)=='cumulative') then
                     wtemp = 1D0
@@ -263,7 +291,7 @@ module amr_profiles
         end do yvarloop
     end subroutine bindata
 
-    subroutine bindata_twod(reg,pos,cellvars,cellsons,cellsize,prof,ibinx,ibiny)
+    subroutine bindata_twod(reg,pos,cellvars,cellsons,cellsize,prof,ibinx,ibiny,trans_matrix,grav_var)
         use vectors
         use geometrical_regions
         implicit none
@@ -274,12 +302,18 @@ module amr_profiles
         real(dbl),intent(in) :: cellsize
         type(profile_handler_twod),intent(inout) :: prof
         integer,intent(in) :: ibinx,ibiny
+        real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
+        real(dbl),dimension(0:amr%twondim,1:4),optional,intent(in) :: grav_var
         integer :: i,j
         real(dbl) :: ytemp,wtemp,bigwtemp,bigatemp
         type(vector) :: x
         x = pos
         zvarloop: do i=1,prof%nzvar
-            call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%zvarnames(i),ytemp)
+            if (present(grav_var)) then
+                call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%zvarnames(i),ytemp,trans_matrix,grav_var)
+            else
+                call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%zvarnames(i),ytemp,trans_matrix)
+            end if 
             wvarloop: do j=1,prof%nwvar
                 if (prof%wvarnames(j)=='counts'.or.prof%wvarnames(j)=='cumulative') then
                     wtemp = 1D0
@@ -365,7 +399,7 @@ module amr_profiles
         type(filter),intent(in) :: filt
         type(profile_handler),intent(inout) :: prof_data
         integer :: binpos
-        logical :: ok_cell,ok_filter
+        logical :: ok_cell,ok_filter,read_gravity
         ! logical :: filter_cell
         integer :: i,j,k
         integer :: ipos,icpu,ilevel,ind,idim,ivar,iskip,inbor
@@ -381,12 +415,24 @@ module amr_profiles
         real(dbl),dimension(3,3) :: trans_matrix
         real(dbl),dimension(:,:),allocatable :: xg,x
         real(dbl),dimension(:,:),allocatable :: var
+        real(dbl),dimension(:,:),allocatable :: grav_var
         real(dbl),dimension(:,:),allocatable :: tempvar
+        real(dbl),dimension(:,:),allocatable :: tempgrav_var
         integer,dimension(:,:),allocatable :: nbor
         integer,dimension(:),allocatable :: son,tempson
         integer,dimension(:),allocatable :: ind_grid,ind_cell,ind_cell2
-        integer ,dimension(0:amr%twondim)::ind_nbor
+        integer ,dimension(:),allocatable :: ind_nbor
         logical,dimension(:),allocatable :: ref
+
+        ! Check whether we need to read the gravity files
+        read_gravity = .false.
+        do ivar=1,prof_data%nyvar
+            if (prof_data%yvarnames(ivar)(1:4) .eq. 'grav') then
+                read_gravity = .true.
+                write(*,*)'Reading gravity files...'
+                exit
+            endif
+        end do
 
         allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
         allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
@@ -437,10 +483,11 @@ module amr_profiles
             read(10)
 
             ! Make sure that we are not trying to access too far in the refinement map…
-            call check_lmax(ngridfile)
+            ! call check_lmax(ngridfile)
 
             allocate(nbor(1:amr%ngridmax,1:amr%twondim))
             allocate(son(1:amr%ncoarse+amr%twotondim*amr%ngridmax))
+            son = 0; nbor = 0
             cumngrida = 0
 
             ! Open HYDRO file and skip header
@@ -454,6 +501,18 @@ module amr_profiles
             read(11)
 
             allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:nvarh))
+            
+            if (read_gravity) then
+                ! Open GRAV file and skip header
+                nomfich=TRIM(repository)//'/grav_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+                open(unit=12,file=nomfich,status='old',form='unformatted')
+                read(12) !ncpu
+                read(12) !ndim
+                read(12) !nlevelmax
+                read(12) !nboundary 
+                allocate(grav_var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:4))
+            endif
+
             ! Loop over levels
             levelloop: do ilevel=1,amr%lmax
                 ! Geometry
@@ -548,6 +607,28 @@ module amr_profiles
                             end do varloop
                         end do tndimloop
                     endif
+
+                    if (read_gravity) then
+                        ! Read GRAV data
+                        read(12)
+                        read(12)
+                        if(ngridfile(j,ilevel)>0)then
+                            do ind=1,amr%twotondim
+                                iskip = amr%ncoarse+(ind-1)*amr%ngridmax
+                                if (j.eq.icpu) then
+                                    read(12)grav_var(ind_grid+iskip,1)
+                                    do ivar=1,amr%ndim
+                                        read(12)grav_var(ind_grid+iskip,ivar+1)
+                                    end do
+                                else
+                                    read(12)
+                                    do ivar=1,amr%ndim
+                                        read(12)
+                                    end do
+                                end if
+                            end do
+                        end if
+                    end if
                 end do domloop
 
                 !Compute map
@@ -565,7 +646,7 @@ module amr_profiles
                         ! Check if cell is refined
                         iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                         do i=1,ngrida
-                            ref(i) = son(ind_grid(i)+iskip)>0.and.ilevel<amr%lmax
+                            ref(i) = son(ind_grid(i)+iskip)>0.and.ilevel<amr%nlevelmax
                         end do
                         
                         ! Get cell indexes
@@ -588,26 +669,43 @@ module amr_profiles
                             call rotate_vector(vtemp,trans_matrix)
                             var(ind_cell(i),varIDs%vx:varIDs%vz) = vtemp
 
+                            ! Gravitational acc --> ONLY FOR CENTRAL CELL
+                            if (read_gravity) then
+                                vtemp = grav_var(ind_cell(i),2:4)
+                                call rotate_vector(vtemp,trans_matrix)
+                                grav_var(ind_cell(i),2:4) = vtemp
+                            endif
+
                             ! Get neighbours
                             allocate(ind_cell2(1))
                             ind_cell2(1) = ind_cell(i)
+                            allocate(ind_nbor(0:amr%twondim))
                             call getnbor(son,nbor,ind_cell2,ind_nbor,1)
                             deallocate(ind_cell2)
                             allocate(tempvar(0:amr%twondim,nvarh))
                             allocate(tempson(0:amr%twondim))
+                            if (read_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
                             do inbor=0,amr%twondim
                                 tempvar(inbor,:) = var(ind_nbor(inbor),:)
                                 tempson(inbor)       = son(ind_nbor(inbor))
+                                if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(inbor),:)
                             end do
+                            deallocate(ind_nbor)
 
                             ok_filter = filter_cell(reg,filt,xtemp,dx,tempvar,tempson)
                             ok_cell= ok_cell.and..not.ref(i).and.ok_filter
                             if (ok_cell) then
                                 binpos = 0
-                                call findbinpos(reg,distance,x(i,:),tempvar,tempson,dx,prof_data,binpos)
-                                if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos)
+                                if (read_gravity) then
+                                    call findbinpos(reg,distance,x(i,:),tempvar,tempson,dx,prof_data,binpos,trans_matrix,tempgrav_var)
+                                    if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,trans_matrix,tempgrav_var)
+                                else
+                                    call findbinpos(reg,distance,x(i,:),tempvar,tempson,dx,prof_data,binpos,trans_matrix)
+                                    if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,trans_matrix)
+                                end if
                             endif
                             deallocate(tempvar,tempson)
+                            if (read_gravity) deallocate(tempgrav_var)
                         end do ngridaloop
                     end do cellloop
                     deallocate(xg,ref,x,ind_grid,ind_cell)
@@ -617,6 +715,10 @@ module amr_profiles
             deallocate(nbor,son,var)
             close(10)
             close(11)
+            if (read_gravity) then
+                close(12)
+                deallocate(grav_var)
+            end if
         end do cpuloop
     end subroutine get_cells_onedprofile
 
@@ -687,10 +789,10 @@ module amr_profiles
         type(profile_handler_twod),intent(inout) :: prof_data
         logical,intent(in) :: logscale
         integer :: xbinpos,ybinpos
-        logical :: ok_cell,ok_filter
+        logical :: ok_cell,ok_filter,read_gravity
         integer :: i,j,k
         integer :: ipos,icpu,ilevel,ind,idim,ivar,iskip,inbor
-        integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full,cumngrida
+        integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full,total_ncell
         integer :: nvarh
         integer :: roterr
         character(5) :: nchar,ncharcpu
@@ -702,13 +804,27 @@ module amr_profiles
         real(dbl),dimension(3,3) :: trans_matrix
         real(dbl),dimension(:,:),allocatable :: xg,x
         real(dbl),dimension(:,:),allocatable :: var
+        real(dbl),dimension(:,:),allocatable :: grav_var
         real(dbl),dimension(:,:),allocatable :: tempvar
+        real(dbl),dimension(:,:),allocatable :: tempgrav_var
         integer,dimension(:,:),allocatable :: nbor
         integer,dimension(:),allocatable :: son,tempson
         integer,dimension(:),allocatable :: ind_grid,ind_cell,ind_cell2
-        integer ,dimension(0:amr%twondim)::ind_nbor
+        integer ,dimension(:),allocatable :: ind_nbor
         logical,dimension(:),allocatable :: ref
+
+        total_ncell = 0
         
+        ! Check whether we need to read the gravity files
+        read_gravity = .false.
+        do ivar=1,prof_data%nzvar
+            if (prof_data%zvarnames(ivar)(1:4) .eq. 'grav') then
+                read_gravity = .true.
+                write(*,*)'Reading gravity files...'
+                exit
+            endif
+        end do
+
         allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
         allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
         if(amr%nboundary>0)allocate(ngridbound(1:amr%nboundary,1:amr%nlevelmax))
@@ -719,6 +835,7 @@ module amr_profiles
             write(*,*) 'Incorrect CS transformation!'
             stop
         endif
+
         ipos=INDEX(repository,'output_')
         nchar=repository(ipos+7:ipos+13)
         ! Loop over processor files
@@ -759,11 +876,11 @@ module amr_profiles
             read(10)
 
             ! Make sure that we are not trying to access to far in the refinement map…
-            call check_lmax(ngridfile)
+            ! call check_lmax(ngridfile)
 
             allocate(nbor(1:amr%ngridmax,1:amr%twondim))
             allocate(son(1:amr%ncoarse+amr%twotondim*amr%ngridmax))
-            cumngrida = 0
+            son = 0; nbor = 0
 
             ! Open HYDRO file and skip header
             nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
@@ -776,6 +893,18 @@ module amr_profiles
             read(11)
 
             allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:nvarh))
+
+            if (read_gravity) then
+                ! Open GRAV file and skip header
+                nomfich=TRIM(repository)//'/grav_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+                open(unit=12,file=nomfich,status='old',form='unformatted')
+                read(12) !ncpu
+                read(12) !ndim
+                read(12) !nlevelmax
+                read(12) !nboundary 
+                allocate(grav_var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:4))
+            endif
+
             ! Loop over levels
             levelloop: do ilevel=1,amr%lmax
                 ! Geometry
@@ -866,8 +995,29 @@ module amr_profiles
                             end do varloop
                         end do tndimloop
                     endif
-                end do domloop
 
+                    if (read_gravity) then
+                        ! Read GRAV data
+                        read(12)
+                        read(12)
+                        if(ngridfile(j,ilevel)>0)then
+                            do ind=1,amr%twotondim
+                                iskip = amr%ncoarse+(ind-1)*amr%ngridmax
+                                if (j.eq.icpu) then
+                                    read(12)grav_var(ind_grid+iskip,1)
+                                    do ivar=1,amr%ndim
+                                        read(12)grav_var(ind_grid+iskip,ivar+1)
+                                    end do
+                                else
+                                    read(12)
+                                    do ivar=1,amr%ndim
+                                        read(12)
+                                    end do
+                                end if
+                            end do
+                        end if
+                    end if
+                end do domloop
                 !Compute map
                 if (ngrida>0) then
                     ! Loop over cells
@@ -904,39 +1054,65 @@ module amr_profiles
                             call rotate_vector(vtemp,trans_matrix)
                             var(ind_cell(i),varIDs%vx:varIDs%vz) = vtemp
 
+                            ! Gravitational acc --> ONLY FOR CENTRAL CELL
+                            if (read_gravity) then
+                                vtemp = grav_var(ind_cell(i),2:4)
+                                call rotate_vector(vtemp,trans_matrix)
+                                grav_var(ind_cell(i),2:4) = vtemp
+                            endif
+
                             ! Get neighbours
                             allocate(ind_cell2(1))
                             ind_cell2(1) = ind_cell(i)
+                            allocate(ind_nbor(0:amr%twondim))
                             call getnbor(son,nbor,ind_cell2,ind_nbor,1)
                             deallocate(ind_cell2)
                             allocate(tempvar(0:amr%twondim,nvarh))
                             allocate(tempson(0:amr%twondim))
+                            if (read_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
                             do inbor=0,amr%twondim
                                 tempvar(inbor,:) = var(ind_nbor(inbor),:)
                                 tempson(inbor)       = son(ind_nbor(inbor))
+                                if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(inbor),:)
                             end do
-                            
+                            deallocate(ind_nbor)
 
                             ok_filter = filter_cell(reg,filt,xtemp,dx,tempvar,tempson)
                             ok_cell= ok_cell.and..not.ref(i).and.ok_filter
                             if (ok_cell) then
                                 xbinpos = 0; ybinpos=0
-                                call findbinpos_twod(reg,distance,x(i,:),tempvar,tempson,&
-                                                    &dx,prof_data,logscale,xbinpos,ybinpos)
-                                if (xbinpos.ne.0.and.ybinpos.ne.0) call bindata_twod(reg,x(i,:),&
-                                                                        &tempvar,tempson,dx,prof_data,&
-                                                                        &xbinpos,ybinpos)
+                                total_ncell = total_ncell + 1
+                                if (read_gravity) then
+                                    call findbinpos_twod(reg,distance,x(i,:),tempvar,tempson,&
+                                                        &dx,prof_data,logscale,xbinpos,ybinpos,&
+                                                        &trans_matrix,tempgrav_var)
+                                    if (xbinpos.ne.0.and.ybinpos.ne.0) call bindata_twod(reg,x(i,:),&
+                                                                            &tempvar,tempson,dx,prof_data,&
+                                                                            &xbinpos,ybinpos,&
+                                                                            &trans_matrix,tempgrav_var)
+                                else
+                                    call findbinpos_twod(reg,distance,x(i,:),tempvar,tempson,&
+                                                    &dx,prof_data,logscale,xbinpos,ybinpos,trans_matrix)
+                                    if (xbinpos.ne.0.and.ybinpos.ne.0) call bindata_twod(reg,x(i,:),&
+                                                                            &tempvar,tempson,dx,prof_data,&
+                                                                            &xbinpos,ybinpos,trans_matrix)
+                                end if
                             endif
                             deallocate(tempvar,tempson)
+                            if (read_gravity) deallocate(tempgrav_var)
                         end do ngridaloop
                     end do cellloop
                     deallocate(xg,ref,x,ind_grid,ind_cell)
                 endif
-                cumngrida = cumngrida + ngrida
             end do levelloop
             deallocate(nbor,son,var)
             close(10)
             close(11)
+            if (read_gravity) then
+                close(12)
+                deallocate(grav_var)
+            end if
         end do cpuloop
+        write(*,*)'Total number of cells used: ', total_ncell
     end subroutine get_cells_twodprofile
 end module amr_profiles

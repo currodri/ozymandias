@@ -197,6 +197,28 @@ plotting_dictionary = dict(
                         'vmax_galaxy':2e-31
 
     },
+    grad_crpz = {'cmap':sns.color_palette("vlag", as_cmap=True),
+                        'text_over':'black',
+                        'label':r'$\nabla_z P_{\rm CR}$ [erg/cm$^{4}$]',
+                        'label_log':r'$\log(\frac{\nabla_z P_{\rm CR}}{{\rm erg/cm}^{4}})$',
+                        'units':'erg*cm**-4',
+                        'vmin':-2e-31,
+                        'vmax':2e-31,
+                        'vmin_galaxy':-2e-28,
+                        'vmax_galaxy':2e-28
+
+    },
+    streaming_heating = {'cmap':'gnuplot',
+                        'text_over':'white',
+                        'label':r'$\Lambda_{\rm st}$ [erg/(s cm$^{3})$]',
+                        'label_log':r'$\log(\frac{\Lambda_{\rm st}}{{\rm erg/(s cm}^{3})})$',
+                        'units':'erg*s**-1*cm**-3',
+                        'vmin':3e-33,
+                        'vmax':1e-23,
+                        'vmin_galaxy':3e-33, 
+                        'vmax_galaxy':1e-23,
+
+    },
     cr_energy_specific = {'cmap':sns.cubehelix_palette(start=.5, rot=-.75, as_cmap=True), #sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),
                                 'text_over':'white',
                                 'label':r'$\epsilon_{\rm CR}$ [erg/g]',
@@ -217,6 +239,72 @@ plotting_dictionary = dict(
                         'vmax':8e-12,
                         'vmin_galaxy':1e-3,
                         'vmax_galaxy':1e+2
+
+    },
+    grav_crpfz = {'cmap':sns.color_palette("vlag", as_cmap=True),
+                        'text_over':'black',
+                        'label':r'$\frac{-\nabla_{z} P_{\rm CR}}{\rho g_{z}}$',
+                        'label_log':r'$\log(\frac{-\nabla_{z} P_{\rm CR}}{\rho g_{z}})$',
+                        'units':'dimensionless',
+                        'vmin':-100,
+                        'vmax':+100,
+                        'vmin_galaxy':-1,
+                        'vmax_galaxy':+1
+
+    },
+    grav_therpfz = {'cmap':sns.color_palette("vlag", as_cmap=True),
+                        'text_over':'black',
+                        'label':r'$\frac{-\nabla_{z} P_{\rm ther}}{\rho g_{z}}$',
+                        'label_log':r'$\log(\frac{-\nabla_{z} P_{\rm ther}}{\rho g_{z}})$',
+                        'units':'dimensionless',
+                        'vmin':-100,
+                        'vmax':+100,
+                        'vmin_galaxy':-10,
+                        'vmax_galaxy':+10
+
+    },
+    grav_crpfrsphere = {'cmap':sns.color_palette("vlag", as_cmap=True),
+                        'text_over':'black',
+                        'label':r'$\frac{-\nabla_{r} P_{\rm CR}}{\rho g_{r}}$',
+                        'label_log':r'$\log(\frac{-\nabla_{r} P_{\rm CR}}{\rho g_{r}})$',
+                        'units':'dimensionless',
+                        'vmin':-100,
+                        'vmax':+100,
+                        'vmin_galaxy':-1,
+                        'vmax_galaxy':+1
+
+    },
+    grav_therpfrsphere = {'cmap':sns.color_palette("vlag", as_cmap=True),
+                        'text_over':'black',
+                        'label':r'$\frac{-\nabla_{r} P_{\rm ther}}{\rho g_{r}}$',
+                        'label_log':r'$\log(\frac{-\nabla_{r} P_{\rm ther}}{\rho g_{r}})$',
+                        'units':'dimensionless',
+                        'vmin':-100,
+                        'vmax':+100,
+                        'vmin_galaxy':-1,
+                        'vmax_galaxy':+1
+
+    },
+    grav_crpf = {'cmap':sns.color_palette("vlag", as_cmap=True),
+                        'text_over':'black',
+                        'label':r'$\frac{\vert \nabla P_{\rm CR}\vert}{\rho \vert g\vert}$',
+                        'label_log':r'$\log(\frac{\vert \nabla P_{\rm CR}\vert}{\rho \vert g\vert})$',
+                        'units':'dimensionless',
+                        'vmin':0,
+                        'vmax':+10,
+                        'vmin_galaxy':1e-2,
+                        'vmax_galaxy':+1e+1
+
+    },
+        grav_gz = {'cmap':sns.color_palette("vlag", as_cmap=True),
+                        'text_over':'black',
+                        'label':r'$g_{z}$',
+                        'label_log':r'$\log(\frac{g_{z}}{{\rm cm/s}^2})$',
+                        'units':'cm/s**2',
+                        'vmin':-100,
+                        'vmax':+100,
+                        'vmin_galaxy':-2e-9,
+                        'vmax_galaxy':+2e-9
 
     },
     xHII = {'cmap':'bone',
@@ -266,7 +354,19 @@ plotting_dictionary = dict(
                     'label_log':r'$\log(\frac{v_r}{\rm km/s})$',
                     'units':'km*s**-1',
                     'vmin':-90,
-                    'vmax':+90
+                    'vmax':+90,
+                    'vmin_galaxy':-90,
+                    'vmax_galaxy':+90
+    },
+    v_cyl_z = {'cmap':sns.color_palette("vlag", as_cmap=True),
+                    'text_over':'black',
+                    'label':r'$v_z$ [km/s]',
+                    'label_log':r'$\log(\frac{v_z}{\rm km/s})$',
+                    'units':'km*s**-1',
+                    'vmin':-90,
+                    'vmax':+90,
+                    'vmin_galaxy':-90,
+                    'vmax_galaxy':+90
     },
     momentum_sphere_r = {'cmap':sns.color_palette("vlag", as_cmap=True),
                     'text_over':'black',
@@ -289,7 +389,9 @@ plotting_dictionary = dict(
                 'label_log':r'$\log\left(\frac{M_{*}}{{\rmM}_{\odot}}\right)$',
                 'units':'Msun',
                 'vmin':5.0,
-                'vmax':2e+7
+                'vmax':2e+7,
+                'vmin_galaxy':5.0,
+                'vmax_galaxy':2e+7
     },
     star_sdensity = {'cmap':'gray',
                         'text_over':'white',
@@ -319,7 +421,9 @@ plotting_dictionary = dict(
                 'label_log':r'$\log\left(\frac{M_{\rm DM}}{{\rmM}_{\odot}}\right)$',
                 'units':'Msun',
                 'vmin':3.0e+3,
-                'vmax':7e+6
+                'vmax':7e+6,
+                'vmin_galaxy':3.0e+3,
+                'vmax_galaxy':7e+6
     },
     star_metallicity = {'cmap':sns.color_palette("dark:salmon", as_cmap=True),
                         'text_over':'white',

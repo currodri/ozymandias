@@ -85,6 +85,7 @@ module cooling_module
             allocate(ctable%mu  (ctable%n1,ctable%n2))
             allocate(ctable%nH  (1:ctable%n1))
             allocate(ctable%T2  (1:ctable%n2))
+            if (if_species_abundances) allocate(ctable%n_spec(ctable%n1,ctable%n2,1:6))
         endif
 
         ! And read values

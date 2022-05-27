@@ -44,7 +44,7 @@ module amr_integrator
         if (.not.allocated(attrs%filters)) allocate(attrs%filters(attrs%nfilter))
     end subroutine allocate_amr_regions_attrs
 
-    subroutine extract_data(reg,pos,cellvars,cellsons,cellsize,attrs,ifilt)
+    subroutine extract_data(reg,pos,cellvars,cellsons,cellsize,attrs,ifilt,trans_matrix,grav_var)
         use vectors
         use geometrical_regions
         implicit none
@@ -57,6 +57,8 @@ module amr_integrator
         real(dbl),intent(in) :: cellsize
         type(amr_region_attrs),intent(inout) :: attrs
         integer, intent(in) :: ifilt
+        real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
+        real(dbl),dimension(0:amr%twondim,1:4),optional,intent(in) :: grav_var
 
         ! Local variables
         integer :: i,j
@@ -66,13 +68,21 @@ module amr_integrator
         x = pos
         varloop: do i=1,attrs%nvars
             ! Get variable
-            call getvarvalue(reg,cellsize,x,cellvars,cellsons,attrs%varnames(i),ytemp)
+            if (present(grav_var)) then
+                call getvarvalue(reg,cellsize,x,cellvars,cellsons,attrs%varnames(i),ytemp,trans_matrix,grav_var)
+            else
+                call getvarvalue(reg,cellsize,x,cellvars,cellsons,attrs%varnames(i),ytemp,trans_matrix)
+            end if
             wvarloop: do j=1,attrs%nwvars
                 ! Get weights
                 if (attrs%wvarnames(j)=='counts'.or.attrs%wvarnames(j)=='cumulative') then
                     wtemp =  1D0
                 else
-                    call getvarvalue(reg,cellsize,x,cellvars,cellsons,attrs%wvarnames(j),wtemp)
+                    if (present(grav_var)) then
+                        call getvarvalue(reg,cellsize,x,cellvars,cellsons,attrs%wvarnames(j),wtemp,trans_matrix,grav_var)
+                    else
+                        call getvarvalue(reg,cellsize,x,cellvars,cellsons,attrs%wvarnames(j),wtemp,trans_matrix)
+                    endif
                 endif
                 
                 ! Save to attrs
@@ -123,24 +133,31 @@ module amr_integrator
         integer :: i,j,k
         integer :: ipos,icpu,ilevel,ind,idim,ivar,ifilt,iskip,inbor
         integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full,cumngrida
+        integer :: tot_pos,tot_ref,total_ncell
         integer :: nvarh
         integer :: roterr
         character(5) :: nchar,ncharcpu
         character(128) :: nomfich
         real(dbl) :: distance,dx
         type(vector) :: xtemp,vtemp
-        logical :: ok_cell,ok_filter,ok_cell_each
+        logical :: ok_cell,ok_filter,ok_cell_each,read_gravity
         integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
         real(dbl),dimension(1:8,1:3) :: xc
         real(dbl),dimension(3,3) :: trans_matrix
         real(dbl),dimension(:,:),allocatable :: xg,x
         real(dbl),dimension(:,:),allocatable :: var
+        real(dbl),dimension(:,:),allocatable :: grav_var
         real(dbl),dimension(:,:),allocatable :: tempvar
+        real(dbl),dimension(:,:),allocatable :: tempgrav_var
         integer,dimension(:,:),allocatable :: nbor
         integer,dimension(:),allocatable :: son,tempson
         integer,dimension(:),allocatable :: ind_grid,ind_cell,ind_cell2
-        integer ,dimension(0:amr%twondim)::ind_nbor
+        integer ,dimension(:),allocatable :: ind_nbor
         logical,dimension(:),allocatable :: ref
+
+        total_ncell = 0
+        tot_pos = 0
+        tot_ref = 0
 
         ! Obtain details of the hydro variables stored
         call read_hydrofile_descriptor(repository)
@@ -152,6 +169,16 @@ module amr_integrator
         ! Compute the Hilbert curve
         call get_cpu_map(reg)
         write(*,*)'ncpu_read:',amr%ncpu_read
+
+        ! Check whether we need to read the gravity files
+        read_gravity = .false.
+        do ivar=1,attrs%nvars
+            if (attrs%varnames(ivar)(1:4) .eq. 'grav') then
+                read_gravity = .true.
+                write(*,*)'Reading gravity files...'
+                exit
+            endif
+        end do
 
         ! Just make sure that initial values are zero
         attrs%data = 0D0
@@ -209,10 +236,11 @@ module amr_integrator
             read(10)
 
             ! Make sure that we are not trying to access to far in the refinement map…
-            call check_lmax(ngridfile)
+            ! call check_lmax(ngridfile)
 
             allocate(nbor(1:amr%ngridmax,1:amr%twondim))
             allocate(son(1:amr%ncoarse+amr%twotondim*amr%ngridmax))
+            son = 0; nbor = 0
             cumngrida = 0
 
             ! Open HYDRO file and skip header
@@ -224,8 +252,19 @@ module amr_integrator
             read(11)
             read(11)
             read(11)
-
             allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:nvarh))
+            
+            if (read_gravity) then
+                ! Open GRAV file and skip header
+                nomfich=TRIM(repository)//'/grav_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+                open(unit=12,file=nomfich,status='old',form='unformatted')
+                read(12) !ncpu
+                read(12) !ndim
+                read(12) !nlevelmax
+                read(12) !nboundary 
+                allocate(grav_var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:4))
+            endif
+
             ! Loop over levels
             levelloop: do ilevel=1,amr%lmax
                 ! Geometry
@@ -251,7 +290,7 @@ module amr_integrator
                     allocate(x  (1:ngrida,1:amr%ndim))
                     allocate(ref(1:ngrida))
                 endif
-
+                !write(*,*)'Level allocation fine'
                 ! Loop over domains
                 domloop: do j=1,amr%nboundary+amr%ncpu
                     
@@ -303,7 +342,6 @@ module amr_integrator
                             read(10)
                         end do
                     endif
-
                     ! Read HYDRO data
                     read(11)
                     read(11)
@@ -320,6 +358,28 @@ module amr_integrator
                             end do varloop
                         end do tndimloop
                     endif
+
+                    if (read_gravity) then
+                        ! Read GRAV data
+                        read(12)
+                        read(12)
+                        if(ngridfile(j,ilevel)>0)then
+                            do ind=1,amr%twotondim
+                                iskip = amr%ncoarse+(ind-1)*amr%ngridmax
+                                if (j.eq.icpu) then
+                                    read(12)grav_var(ind_grid+iskip,1)
+                                    do ivar=1,amr%ndim
+                                        read(12)grav_var(ind_grid+iskip,ivar+1)
+                                    end do
+                                else
+                                    read(12)
+                                    do ivar=1,amr%ndim
+                                        read(12)
+                                    end do
+                                end if
+                            end do
+                        end if
+                    end if
                 end do domloop
 
                 ! Finally, get to every cell
@@ -360,26 +420,44 @@ module amr_integrator
                             call rotate_vector(vtemp,trans_matrix)
                             var(ind_cell(i),varIDs%vx:varIDs%vz) = vtemp
 
+                            ! Gravitational acc --> ONLY FOR CENTRAL CELL
+                            if (read_gravity) then
+                                vtemp = grav_var(ind_cell(i),2:4)
+                                call rotate_vector(vtemp,trans_matrix)
+                                grav_var(ind_cell(i),2:4) = vtemp
+                            endif
+
                             ! Get neighbours
                             allocate(ind_cell2(1))
                             ind_cell2(1) = ind_cell(i)
+                            allocate(ind_nbor(0:amr%twondim))
                             call getnbor(son,nbor,ind_cell2,ind_nbor,1)
                             deallocate(ind_cell2)
                             allocate(tempvar(0:amr%twondim,nvarh))
                             allocate(tempson(0:amr%twondim))
+                            if (read_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
                             do inbor=0,amr%twondim
                                 tempvar(inbor,:) = var(ind_nbor(inbor),:)
                                 tempson(inbor)       = son(ind_nbor(inbor))
+                                if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(inbor),:)
                             end do
-
+                            deallocate(ind_nbor)
+                            if (ok_cell)tot_pos = tot_pos + 1
+                            if (.not.ref(i))tot_ref = tot_ref + 1
                             filterloop: do ifilt=1,attrs%nfilter
                                 ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx,tempvar,tempson)
                                 ok_cell_each= ok_cell.and..not.ref(i).and.ok_filter
                                 if (ok_cell_each) then
-                                    call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt)
+                                    total_ncell = total_ncell + 1
+                                    if (read_gravity) then
+                                        call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt,trans_matrix,tempgrav_var)
+                                    else
+                                        call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt,trans_matrix)
+                                    endif
                                 endif
                             end do filterloop
                             deallocate(tempvar,tempson)
+                            if (read_gravity) deallocate(tempgrav_var)
                         end do ngridaloop
                     end do cellloop
                     deallocate(xg,ref,x,ind_grid,ind_cell)
@@ -389,10 +467,18 @@ module amr_integrator
             deallocate(nbor,son,var)
             close(10)
             close(11)
+            if (read_gravity) then
+                close(12)
+                deallocate(grav_var)
+            end if
         end do cpuloop
 
         ! Finally just renormalise for weighted quantities
         call renormalise(attrs)
+
+        write(*,*)'Total number of cells used: ', total_ncell
+        write(*,*)'Total number of cells refined: ', tot_ref
+        write(*,*)'Total number of cells in region: ', tot_pos
 
     end subroutine integrate_region
 
