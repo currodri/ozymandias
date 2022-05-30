@@ -25,7 +25,7 @@ ifeq ($(F90),ifort)
 
 	FPP      = gfortran -E # gfortran f90wrap temp files only. not compilation
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
-	F90FLAGS = -g -traceback -check bounds -cpp -fpscomp logicals -fPIC # use 1 and 0 for True and False
+	F90FLAGS = -fopenmp -cpp -fpscomp logicals -fPIC # use 1 and 0 for True and False
     FCOMP    = intelem # for f2py
     LIBS =
 endif
@@ -135,9 +135,9 @@ libsrc.a: ${LIBSRC_OBJECTS}
 
 _${PYTHON_MODN}.so: libsrc.a ${LIBSRC_FPP_FILES}
 	f90wrap -m ${PYTHON_MODN} ${LIBSRC_WRAP_FPP_FILES} -k ${KIND_MAP}
-	f2py-f90wrap --fcompiler=$(FCOMP) --build-dir . -c -m _${PYTHON_MODN} -L. -lsrc f90wrap*.f90
+	f2py-f90wrap --fcompiler=$(FCOMP) --f90flags='-fopenmp' -lgomp --build-dir . -c -m _${PYTHON_MODN} -L. -lsrc f90wrap*.f90
 
 _${PYTHON_MODN}_pkg.so: libsrc.a ${LIBSRC_FPP_FILES}
 	f90wrap -m ${PYTHON_MODN}_pkg ${LIBSRC_WRAP_FPP_FILES} -k ${KIND_MAP} -P
-	f2py-f90wrap --fcompiler=$(FCOMP) --build-dir . -c -m _${PYTHON_MODN}_pkg -L. -lsrc f90wrap*.f90
+	f2py-f90wrap --fcompiler=$(FCOMP) --f90flags='-fopenmp' -lgomp --build-dir . -c -m _${PYTHON_MODN}_pkg -L. -lsrc f90wrap*.f90
 

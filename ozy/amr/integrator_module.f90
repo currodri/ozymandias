@@ -119,6 +119,7 @@ module amr_integrator
     end subroutine renormalise
 
     subroutine integrate_region(repository,reg,attrs)
+        use OMP_LIB
         use vectors
         use coordinate_systems
         use geometrical_regions
@@ -130,10 +131,11 @@ module amr_integrator
         type(amr_region_attrs),intent(inout) :: attrs
 
         ! Specific variables for this subroutine
+        type(amr_region_attrs) :: temp_attrs
         integer :: i,j,k
         integer :: ipos,icpu,ilevel,ind,idim,ivar,ifilt,iskip,inbor
         integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full,cumngrida
-        integer :: tot_pos,tot_ref,total_ncell
+        integer :: total_ncell,partial_ncell
         integer :: nvarh
         integer :: roterr
         character(5) :: nchar,ncharcpu
@@ -154,10 +156,6 @@ module amr_integrator
         integer,dimension(:),allocatable :: ind_grid,ind_cell,ind_cell2
         integer ,dimension(:),allocatable :: ind_nbor
         logical,dimension(:),allocatable :: ref
-
-        total_ncell = 0
-        tot_pos = 0
-        tot_ref = 0
 
         ! Obtain details of the hydro variables stored
         call read_hydrofile_descriptor(repository)
@@ -182,7 +180,7 @@ module amr_integrator
 
         ! Just make sure that initial values are zero
         attrs%data = 0D0
-
+        temp_attrs = attrs
         ! Allocate grids
         allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
         allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
@@ -199,7 +197,12 @@ module amr_integrator
         ipos=INDEX(repository,'output_')
         nchar=repository(ipos+7:ipos+13)
 
+        ! write(*,*)'I am using nthreads = ',omp_get_num_threads()
         ! Loop over processor files
+        !$omp parallel default(private) shared(reg,trans_matrix,attrs,amr,sim,total_ncell)
+        total_ncell = 0
+        partial_ncell = 0
+        !$omp do
         cpuloop: do k=1,amr%ncpu_read
             icpu = amr%cpu_list(k)
             call title(icpu,ncharcpu)
@@ -442,17 +445,15 @@ module amr_integrator
                                 if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(inbor),:)
                             end do
                             deallocate(ind_nbor)
-                            if (ok_cell)tot_pos = tot_pos + 1
-                            if (.not.ref(i))tot_ref = tot_ref + 1
-                            filterloop: do ifilt=1,attrs%nfilter
-                                ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx,tempvar,tempson)
+                            filterloop: do ifilt=1,temp_attrs%nfilter
+                                ok_filter = filter_cell(reg,temp_attrs%filters(ifilt),xtemp,dx,tempvar,tempson)
                                 ok_cell_each= ok_cell.and..not.ref(i).and.ok_filter
                                 if (ok_cell_each) then
-                                    total_ncell = total_ncell + 1
+                                    partial_ncell = partial_ncell + 1
                                     if (read_gravity) then
-                                        call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt,trans_matrix,tempgrav_var)
+                                        call extract_data(reg,x(i,:),tempvar,tempson,dx,temp_attrs,ifilt,trans_matrix,tempgrav_var)
                                     else
-                                        call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt,trans_matrix)
+                                        call extract_data(reg,x(i,:),tempvar,tempson,dx,temp_attrs,ifilt,trans_matrix)
                                     endif
                                 endif
                             end do filterloop
@@ -472,13 +473,32 @@ module amr_integrator
                 deallocate(grav_var)
             end if
         end do cpuloop
+        !$omp end do
+
+        !$omp critical
+        total_ncell = total_ncell + partial_ncell
+        do i=1,attrs%nvars
+            do j=1,attrs%nwvars
+                do ifilt=1,attrs%nfilter
+                    ! Save to attrs
+                    attrs%data(ifilt,i,j,1) = attrs%data(ifilt,i,j,1) + temp_attrs%data(ifilt,i,j,1) ! Value (weighted or not)
+                    if (attrs%data(ifilt,i,j,2).eq.0D0) then
+                        attrs%data(ifilt,i,j,2) = temp_attrs%data(ifilt,i,j,2) ! Just to make sure that the initial min is not zero
+                    else
+                        attrs%data(ifilt,i,j,2) = min(temp_attrs%data(ifilt,i,j,2),attrs%data(ifilt,i,j,2))    ! Min value
+                    endif
+                    attrs%data(ifilt,i,j,3) = max(temp_attrs%data(ifilt,i,j,3),attrs%data(ifilt,i,j,3))    ! Max value
+                    attrs%data(ifilt,i,j,4) = attrs%data(ifilt,i,j,4) + temp_attrs%data(ifilt,i,j,4)       ! Weight
+                end do
+            end do
+        end do
+        !$omp end critical
+        !$omp end parallel
 
         ! Finally just renormalise for weighted quantities
         call renormalise(attrs)
 
         write(*,*)'Total number of cells used: ', total_ncell
-        write(*,*)'Total number of cells refined: ', tot_ref
-        write(*,*)'Total number of cells in region: ', tot_pos
 
     end subroutine integrate_region
 
