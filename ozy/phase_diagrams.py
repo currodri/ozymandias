@@ -4,6 +4,7 @@ import os
 import ozy
 from unyt import unyt_array,unyt_quantity
 from ozy.utils import init_region,init_filter
+from ozy.plot_settings import symlog_variables
 from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units
 # TODO: Allow for parallel computation of phase diagrams.
 from joblib import Parallel, delayed
@@ -409,7 +410,7 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=Tr
     from mpl_toolkits.axes_grid1 import AxesGrid, make_axes_locatable
     from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-    from matplotlib.colors import LogNorm
+    from matplotlib.colors import LogNorm,SymLogNorm
     import seaborn as sns
     from ozy.plot_settings import plotting_dictionary
     sns.set(style="white")
@@ -524,12 +525,23 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=Tr
             z = np.array(pd.zdata['hydro'][field_indexes[i]][:,:,weight_indexes[i],0].d,order='F')
             z = pd.obj.array(z,code_units_z)
             sim_z = pd.obj.simulation.redshift
-            plot = ax[i,j].pcolormesh(x,y,
-                                z.in_units(plotting_z['units']).T,
-                                shading='auto',
-                                cmap=plotting_z['cmap'],
-                                norm=LogNorm(vmin=plotting_z['vmin_galaxy'],
-                                vmax=plotting_z['vmax_galaxy']))
+            if pd.zvars['hydro'][field_indexes[i]].split('/')[-1] in symlog_variables:
+                plot = ax[i,j].pcolormesh(x,y,
+                                    z.in_units(plotting_z['units']).T,
+                                    shading='auto',
+                                    cmap=plotting_z['cmap'],
+                                    norm=SymLogNorm(linthresh=plotting_z['linthresh'],
+                                    linscale=plotting_z['linscale'],
+                                    vmin=plotting_z['vmin_galaxy'],
+                                    vmax=plotting_z['vmax_galaxy'],
+                                    base=10))
+            else:
+                plot = ax[i,j].pcolormesh(x,y,
+                                    z.in_units(plotting_z['units']).T,
+                                    shading='auto',
+                                    cmap=plotting_z['cmap'],
+                                    norm=LogNorm(vmin=plotting_z['vmin_galaxy'],
+                                    vmax=plotting_z['vmax_galaxy']))
             if redshift:
                 ax[i,j].text(0.05, 0.1, r'$z = %s$'%str(round(sim_z, 2)),
                             transform=ax[i,j].transAxes, fontsize=20,verticalalignment='top',

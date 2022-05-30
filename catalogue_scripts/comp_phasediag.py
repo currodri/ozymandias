@@ -37,7 +37,8 @@ if __name__ == '__main__':
     parser.add_argument('--weight', type=str, default='gas/cumulative', help='Weighting variable.')
     parser.add_argument('--doflows',action='store_true', help='If present, it separates for the outflows and inflows.')
     parser.add_argument('--recompute',action='store_true', help='If present, it recomputes 2D profiles.')
-    parser.add_argument('--nolog',action='store_false', help='If present, it deacticates logairthmic bins.')
+    parser.add_argument('--nolog',action='store_false', help='If present, it deactivates logairthmic bins.')
+    parser.add_argument('--stats',type=str, default='none', help='What stats to use for the overplotted line.')
     parser.add_argument('--NUT', type=bool, default=True, help='If True, it looks for NUT as the most massive galaxy (stars) in the last snapshot.')
     args = parser.parse_args()
 
@@ -113,7 +114,7 @@ if __name__ == '__main__':
                 os.chdir(origfolder)
             namephase = '_'+args.xvar+'_'+args.yvar+'_'
             plot_compare_phase_diagram(pds,args.field.split('/')[1],'compare_pd'+namephase+args.region+'_'+args.field.split('/')[1]+'_'+str(args.z[z]),
-                                        weightvar=args.weight.split('/')[1],stats='mean',extra_labels=args.model,
+                                        weightvar=args.weight.split('/')[1],stats=args.stats,extra_labels=args.model,
                                         doflows=args.doflows,logscale=args.nolog)
             args.model = simfolders
     elif args.type == 'model_stacked':

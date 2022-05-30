@@ -2,6 +2,17 @@ import matplotlib.pyplot as plt
 import swiftascmaps
 import seaborn as sns
 sns.set(style="white")
+
+symlog_variables = [
+    'v_sphere_r',
+    'v_cyl_z',
+    'grav_crpfz',
+    'grav_therpfz',
+    'grav_crpfrsphere',
+    'grad_crpz',
+    'grav_gz'
+]
+
 plotting_dictionary = dict(
     density = {'cmap': sns.color_palette("mako", as_cmap=True),
                 'text_over':'white',
@@ -270,8 +281,10 @@ plotting_dictionary = dict(
                         'units':'dimensionless',
                         'vmin':-100,
                         'vmax':+100,
-                        'vmin_galaxy':-1,
-                        'vmax_galaxy':+1
+                        'vmin_galaxy':-5,
+                        'vmax_galaxy':+5,
+                        'linthresh':1,
+                        'linscale':10
 
     },
     grav_therpfrsphere = {'cmap':sns.color_palette("vlag", as_cmap=True),

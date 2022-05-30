@@ -2,8 +2,12 @@ import numpy as np
 import h5py
 import os
 import ozy
-from ozy.plot_settings import plotting_dictionary
-from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units,basic_conv
+from ozy.plot_settings import plotting_dictionary, \
+                                symlog_variables
+from ozy.dict_variables import common_variables, \
+                                grid_variables, \
+                                particle_variables, \
+                                get_code_units,basic_conv
 import sys
 sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/visualisation')
 import re
@@ -16,16 +20,6 @@ from projections import vectors
 from projections import geometrical_regions
 
 cartesian_basis = {'x':np.array([1.,0.,0.]),'y':np.array([0.,0.,1.]),'z':np.array([0.,0.,1.])}
-
-symlog_variables = [
-    'v_sphere_r',
-    'v_cyl_z',
-    'grav_crpfz',
-    'grav_therpfz',
-    'grav_crpfrsphere',
-    'grad_crpz',
-    'grav_gz'
-]
 
 target_header = fits.Header.fromstring("""
 NAXIS   =                    2
