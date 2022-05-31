@@ -197,7 +197,7 @@ module amr_integrator
         ipos=INDEX(repository,'output_')
         nchar=repository(ipos+7:ipos+13)
 
-        ! write(*,*)'I am using nthreads = ',omp_get_num_threads()
+        write(*,*)'I am using nthreads = ',omp_get_num_threads()
         ! Loop over processor files
         !$omp parallel default(private) shared(reg,trans_matrix,attrs,amr,sim,total_ncell)
         total_ncell = 0
