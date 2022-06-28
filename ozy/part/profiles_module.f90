@@ -5,6 +5,7 @@ module part_profiles
     use cosmology
 
     type profile_handler
+        logical :: logscale
         integer :: profdim
         character(128) :: xvarname
         integer :: nyvar
@@ -23,21 +24,23 @@ module part_profiles
 
         if (.not.allocated(prof%yvarnames)) allocate(prof%yvarnames(prof%nyvar))
         if (.not.allocated(prof%wvarnames)) allocate(prof%wvarnames(prof%nwvar))
-        if (.not.allocated(prof%xdata)) allocate(prof%xdata(prof%nbins+1))
+        if (.not.allocated(prof%xdata)) allocate(prof%xdata(0:prof%nbins))
         if (.not.allocated(prof%ydata)) allocate(prof%ydata(prof%nbins,prof%nyvar,prof%nwvar,4))
     end subroutine allocate_profile_handler
 
-    subroutine makebins(reg,varname,nbins,bins)
+    subroutine makebins(reg,varname,nbins,bins,logscale)
         use geometrical_regions
 
         implicit none
         type(region),intent(in) :: reg
         character(128),intent(in) :: varname
         integer,intent(in) :: nbins
-        real(dbl),dimension(1:nbins+1) :: bins
+        real(dbl),dimension(0:nbins) :: bins
+        logical,intent(in)::logscale
         integer :: n
         character(128) :: tempvar,vartype,var
         integer :: index
+        real(dbl) :: rmin
 
         tempvar = TRIM(varname)
         index = scan(tempvar,'/')
@@ -45,12 +48,26 @@ module part_profiles
         var = tempvar(index+1:)
         select case (TRIM(var))
         case('r_sphere','r_cyl')
-            do n=0,nbins+1
-                bins(n+1) = dble(n)*(reg%rmax-reg%rmin)/dble(nbins) + reg%rmin
+            rmin = max(1D0/(2D0**(amr%nlevelmax-1)),1D-3*reg%rmax)
+            do n=0,nbins
+                if (logscale) then
+                    if (reg%rmin.eq.0D0) then
+                        bins(n) = dble(n)*(log10(reg%rmax)-log10(rmin))/dble(nbins) + log10(rmin)
+                    else
+                        bins(n) = dble(n)*(log10(reg%rmax)-log10(reg%rmin))/dble(nbins) + log10(reg%rmin)
+                    end if
+                else
+                    bins(n) = dble(n)*(reg%rmax-reg%rmin)/dble(nbins) + reg%rmin
+                endif
             end do
         case('z')
-            do n=0,nbins+1
-                bins(n+1) = dble(n)*(reg%zmax-reg%zmin)/dble(nbins) + reg%zmin
+            do n=0,nbins
+                if (logscale) then
+                    bins(n) = dble(n)*(log10(reg%zmax)-log10(reg%zmin))/dble(nbins)
+                    if (reg%zmin > 0D0) bins(n) = bins(n) + log10(reg%zmin)
+                else
+                    bins(n) = dble(n)*(reg%zmax-reg%zmin)/dble(nbins) + reg%zmin
+                endif
             end do
         !TODO: Add more cases
         end select
@@ -72,8 +89,14 @@ module part_profiles
         else
             call getpartvalue(reg,part,prof%xvarname,value)
         endif
-        ibin = int(dble(prof%nbins)*(value-prof%xdata(1))/(prof%xdata(prof%nbins+1)-prof%xdata(1))) + 1
-        if (value<prof%xdata(1).or.value>prof%xdata(prof%nbins+1)) ibin = 0
+        if (prof%logscale) value = log10(value)
+
+        ibin = int(dble(prof%nbins)*(value-prof%xdata(0))/(prof%xdata(prof%nbins)-prof%xdata(0))) + 1
+        if (value .eq. prof%xdata(prof%nbins)) then
+            ibin = prof%nbins
+        else if (value<prof%xdata(0).or.value>prof%xdata(prof%nbins)) then
+            ibin = 0
+        end if
     end subroutine findbinpos
 
 
@@ -363,7 +386,7 @@ module part_profiles
         end do cpuloop
     end subroutine get_parts_onedprofile
 
-    subroutine onedprofile(repository,reg,filt,prof_data,lmax,tag_file,inverse_tag)
+    subroutine onedprofile(repository,reg,filt,prof_data,lmax,logscale,tag_file,inverse_tag)
         use geometrical_regions
         implicit none
         character(128),intent(in) :: repository
@@ -371,6 +394,7 @@ module part_profiles
         type(filter),intent(in) :: filt
         type(profile_handler),intent(inout) :: prof_data
         integer,intent(in) :: lmax
+        logical,intent(in) :: logscale
         character(128),intent(in),optional :: tag_file
         logical,intent(in),optional :: inverse_tag
 
@@ -383,7 +407,8 @@ module part_profiles
         if (sim%dm .and. sim%hydro) call check_families(repository)
         prof_data%xdata = 0D0
         prof_data%ydata = 0D0
-        call makebins(reg,prof_data%xvarname,prof_data%nbins,prof_data%xdata)
+        prof_data%logscale = logscale
+        call makebins(reg,prof_data%xvarname,prof_data%nbins,prof_data%xdata,logscale)
 
         call get_cpu_map(reg)
         write(*,*)'ncpu_read:',amr%ncpu_read
@@ -397,5 +422,6 @@ module part_profiles
             call get_parts_onedprofile(repository,reg,filt,prof_data)
         endif
         call renormalise_bins(prof_data)
+        if (logscale) prof_data%xdata = 10.**(prof_data%xdata)
     end subroutine onedprofile
 end module part_profiles

@@ -119,7 +119,7 @@ module cooling_module
         ! nH [H/cc], T2 [T/mu in Kelvin], Zsolar [metallicity in Zsun]
         implicit none
         real(kind=8),intent(in)::nH,T2,zsolar
-        real(kind=8),intent(inout)::lambda,lambda_prime
+        real(kind=8),intent(out)::lambda,lambda_prime
 
         integer::i_nH,i_T2
         real(kind=8)::boost

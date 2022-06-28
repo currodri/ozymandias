@@ -24,7 +24,8 @@ print('NUT velocity: ', velocity)
 
 prof = compute_profile(gal,'test_00035.hdf5', 'r_sphere', ['gas/density'],
                         ['gas/cumulative','gas/volume','gas/density'],
-                        region_type='sphere',save=True,recompute=True,nbins=80,rmax=(4.0,'kpc'))
+                        region_type='sphere',save=True,recompute=True,nbins=80,rmax=(4.0,'kpc'),
+                        logscale=True)
 
 fig, ax = plt.subplots(1, 1, sharex=True, figsize=(6,4), dpi=100, facecolor='w', edgecolor='k')
         

@@ -642,7 +642,8 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
                                 vmax=np.log10(plotting_def['vmax_galaxy']),extent=ex,
                                 interpolation='nearest')
             elif logscale and fields[ivar].split('/')[1] in symlog_variables:
-                print(fields[ivar],np.min(hdul[h].data.T),np.max(hdul[h].data.T))
+                print(fields[ivar],np.nanmin(hdul[h].data.T),np.nanmax(hdul[h].data.T))
+                print(hdul[h].data.T)
                 sigma=1                                                                                                                                                                                            
                 cImage = sp.ndimage.filters.gaussian_filter(hdul[h].data.T, sigma, mode='constant')
                 plot = ax[i,j].imshow(cImage, cmap=plotting_def['cmap'],

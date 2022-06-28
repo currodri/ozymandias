@@ -25,6 +25,8 @@ module amr_profiles
     use filtering
 
     type profile_handler
+        logical :: logscale
+        logical :: cr_st=.false.,cr_heat=.false.
         integer :: profdim
         character(128) :: xvarname
         integer :: nyvar
@@ -37,6 +39,7 @@ module amr_profiles
     end type profile_handler
 
     type profile_handler_twod
+        logical :: cr_st=.false.,cr_heat=.false.
         integer :: profdim
         character(128) :: xvarname
         character(128) :: yvarname
@@ -59,6 +62,9 @@ module amr_profiles
         if (.not.allocated(prof%wvarnames)) allocate(prof%wvarnames(prof%nwvar))
         if (.not.allocated(prof%xdata)) allocate(prof%xdata(0:prof%nbins))
         if (.not.allocated(prof%ydata)) allocate(prof%ydata(prof%nbins,prof%nyvar,prof%nwvar,4))
+
+        if (prof%cr_st) sim%cr_st = .true.
+        if (prof%cr_heat)sim%cr_heat = .true.
     end subroutine allocate_profile_handler
 
     subroutine allocate_profile_handler_twod(prof)
@@ -70,6 +76,9 @@ module amr_profiles
         if (.not.allocated(prof%xdata)) allocate(prof%xdata(0:prof%nbins(1)))
         if (.not.allocated(prof%ydata)) allocate(prof%ydata(0:prof%nbins(2)))
         if (.not.allocated(prof%zdata)) allocate(prof%zdata(prof%nbins(1),prof%nbins(2),prof%nzvar,prof%nwvar,4))
+    
+        if (prof%cr_st) sim%cr_st = .true.
+        if (prof%cr_heat)sim%cr_heat = .true.
     end subroutine allocate_profile_handler_twod
 
     subroutine makebins(reg,varname,nbins,bins,logscale)
@@ -83,6 +92,7 @@ module amr_profiles
         logical,intent(in) :: logscale
         integer :: n
         real(dbl) :: temp_convfac,pressure_convfac,velocity_convfac
+        real(dbl) :: rmin
 
         temp_convfac = ((sim%unit_l/sim%unit_t)**2)/1.38d-16*1.66d-24
         pressure_convfac = sim%unit_d*((sim%unit_l/sim%unit_t)**2)
@@ -90,10 +100,14 @@ module amr_profiles
 
         select case (TRIM(varname))
         case('r_sphere','r_cyl')
+            rmin = max(1D0/(2D0**(amr%nlevelmax-1)),1D-3*reg%rmax)
             do n=0,nbins
                 if (logscale) then
-                    bins(n) = dble(n)*(log10(reg%rmax)-log10(reg%rmin))/dble(nbins)
-                    if (reg%rmin > 0D0) bins(n) = bins(n) + log10(reg%rmin)
+                    if (reg%rmin.eq.0D0) then
+                        bins(n) = dble(n)*(log10(reg%rmax)-log10(rmin))/dble(nbins) + log10(rmin)
+                    else
+                        bins(n) = dble(n)*(log10(reg%rmax)-log10(reg%rmin))/dble(nbins) + log10(reg%rmin)
+                    end if
                 else
                     bins(n) = dble(n)*(reg%rmax-reg%rmin)/dble(nbins) + reg%rmin
                 endif
@@ -121,6 +135,14 @@ module amr_profiles
                     bins(n) = dble(n)*(log10(1D8/temp_convfac)-log10(1D0/temp_convfac))/dble(nbins) + log10(1D0/temp_convfac)
                 else
                     bins(n) = dble(n)*(1D8/temp_convfac - 1D0/temp_convfac)/dble(nbins) + 1D0/temp_convfac
+                endif
+            end do
+        case('total_coolingtime')
+            do n=0,nbins
+                if (logscale) then
+                    bins(n) = dble(n)*(log10(3.15D18/sim%unit_t)-log10(3.15D13/sim%unit_t))/dble(nbins) + log10(3.15D13/sim%unit_t)
+                else
+                    bins(n) = dble(n)*(3.15D18/sim%unit_t - 3.15D13/sim%unit_t)/dble(nbins) + 3.15D13/sim%unit_t
                 endif
             end do
         case('thermal_pressure')
@@ -179,9 +201,9 @@ module amr_profiles
                 call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%xvarname,value,trans_matrix)
             end if
         endif
+        if (prof%logscale) value = log10(value)
 
         ibin = int(dble(prof%nbins)*(value-prof%xdata(0))/(prof%xdata(prof%nbins)-prof%xdata(0))) + 1
-        
         if (value .eq. prof%xdata(prof%nbins)) then
             ibin = prof%nbins
         else if (value<prof%xdata(0).or.value>prof%xdata(prof%nbins)) then
@@ -217,10 +239,14 @@ module amr_profiles
                 call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%xvarname,value,trans_matrix)
             end if
         endif
-
+        ! print*,value
         if (logscale) then
-            ibinx = int(dble(prof%nbins(1))*(log10(value)-prof%xdata(0))/(prof%xdata(prof%nbins(1))-prof%xdata(0))) + 1
-            if (log10(value)<prof%xdata(0).or.log10(value)>prof%xdata(prof%nbins(1))) ibinx = 0
+            if (value.le.0D0) then
+                ibinx = 0
+            else
+                ibinx = int(dble(prof%nbins(1))*(log10(value)-prof%xdata(0))/(prof%xdata(prof%nbins(1))-prof%xdata(0))) + 1
+                if (log10(value)<prof%xdata(0).or.log10(value)>prof%xdata(prof%nbins(1))) ibinx = 0
+            end if
         else
             ibinx = int(dble(prof%nbins(1))*(value-prof%xdata(0))/(prof%xdata(prof%nbins(1))-prof%xdata(0))) + 1
             if (value<prof%xdata(0).or.value>prof%xdata(prof%nbins(1))) ibinx = 0
@@ -235,14 +261,19 @@ module amr_profiles
                 call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%yvarname,value,trans_matrix)
             end if
         endif
-
+        ! print*,value
         if (logscale) then
-            ibiny = int(dble(prof%nbins(2))*(log10(value)-prof%ydata(0))/(prof%ydata(prof%nbins(2))-prof%ydata(0))) + 1
-            if (log10(value)<prof%ydata(0).or.log10(value)>prof%ydata(prof%nbins(2))) ibiny = 0
+            if (value.le.0D0) then
+                    ibiny = 0
+            else
+                ibiny = int(dble(prof%nbins(2))*(log10(value)-prof%ydata(0))/(prof%ydata(prof%nbins(2))-prof%ydata(0))) + 1
+                if (log10(value)<prof%ydata(0).or.log10(value)>prof%ydata(prof%nbins(2))) ibiny = 0
+            end if
         else            
             ibiny = int(dble(prof%nbins(2))*(value-prof%ydata(0))/(prof%ydata(prof%nbins(2))-prof%ydata(0))) + 1
             if (value<prof%ydata(0).or.value>prof%ydata(prof%nbins(2))) ibiny = 0
         endif
+        ! print*,ibiny,ibinx,value
     end subroutine findbinpos_twod
 
     subroutine bindata(reg,pos,cellvars,cellsons,cellsize,prof,ibin,trans_matrix,grav_var)
@@ -484,6 +515,7 @@ module amr_profiles
 
             ! Make sure that we are not trying to access too far in the refinement map…
             ! call check_lmax(ngridfile)
+            ! write(*,*)'active_lmax ', amr%active_lmax
 
             allocate(nbor(1:amr%ngridmax,1:amr%twondim))
             allocate(son(1:amr%ncoarse+amr%twotondim*amr%ngridmax))
@@ -739,6 +771,7 @@ module amr_profiles
         if (lmax.eq.0) amr%lmax = amr%nlevelmax
         prof_data%xdata = 0D0
         prof_data%ydata = 0D0
+        prof_data%logscale = logscale
         call makebins(reg,prof_data%xvarname,prof_data%nbins,prof_data%xdata,logscale)
         
         call get_cpu_map(reg)
@@ -746,6 +779,8 @@ module amr_profiles
         call get_cells_onedprofile(repository,reg,filt,prof_data)
 
         call renormalise_bins(prof_data)
+
+        if (logscale) prof_data%xdata = 10.**(prof_data%xdata)
 
     end subroutine onedprofile
 

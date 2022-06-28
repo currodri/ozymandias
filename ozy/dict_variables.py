@@ -55,6 +55,7 @@ grid_variables = dict(
     thermal_energy = 'code_energy',
     thermal_energy_specific = 'code_specific_energy',
     net_cooling = 'code_energy_density/code_time',
+    total_coolingtime = 'code_time',
     magnetic_magnitude = 'code_magnetic',
     magnetic_energy = 'code_energy',
     magnetic_energy_specific = 'code_specific_energy',

@@ -34,7 +34,7 @@ module io_ramses
     type amr_info
         integer :: ncpu,ndim,nlevelmax,nboundary,twotondim,ndom
         integer :: twondim,ngridmax,ncoarse
-        integer :: levelmin,levelmax,lmax,lmin
+        integer :: levelmin,levelmax,lmax,lmin, active_lmax
         integer :: ncpu_read
         character(80) :: ordering
         integer,dimension(:),allocatable :: cpu_list
@@ -46,6 +46,7 @@ module io_ramses
     type sim_info
         logical :: cosmo=.true.,family=.false.
         logical :: dm=.false.,hydro=.false.,mhd=.false.,cr=.false.,rt=.false.,bh=.false.
+        logical :: cr_st=.false.,cr_heat=.false.
         real(dbl) :: h0,t,aexp,unit_l,unit_d,unit_t,unit_m,boxlen,omega_m,omega_l,omega_k,omega_b
         real(dbl) :: time_tot,time_simu
         integer :: n_frw
@@ -240,7 +241,7 @@ module io_ramses
             ngridilevel=sum(ngridfile(:,i))
             if (ngridilevel.gt.0) then
                 if (amr%lmax.gt.i) then
-                    amr%lmax=i
+                    amr%active_lmax=i
                 endif
                 exit
             endif
@@ -446,9 +447,11 @@ module io_ramses
         case ('non_thermal_pressure_1')
             write(*,'(": Using non_thermal_pressure_1 as cosmic ray pressure (variable ",I2,")")') newID
             varIDs%cr_pressure = newID
+            sim%cr = .true.
         case ('cosmic_ray_01')
             write(*,'(": Using cosmic_ray_01 as cosmic ray pressure (variable ",I2,")")') newID
             varIDs%cr_pressure = newID
+            sim%cr = .true.
         case ('passive_scalar_1')
             write(*,'(": Using passive_scalar_1 as metallicity (variable ",I2,")")') newID
             varIDs%metallicity = newID
@@ -553,6 +556,7 @@ module io_ramses
         real(dbl) :: scale_T2,scale_nH
         real(dbl) :: dxleft,dxright
         real(dbl) :: bsign
+        real(dbl) :: lambda_co, lambda_st, lambda_cr
 
         select case (TRIM(varname))
         case ('d_euclid')
@@ -730,6 +734,7 @@ module io_ramses
             nH = var(0,varIDs%density) * scale_nH
             call solve_cooling(nH,T,var(0,varIDs%metallicity)/2D-2,lambda,lambda_prime)
             value = ((lambda * nH) * nH) * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
+            if (T.le.0D0) value = 0D0
         case ('B_left_x')
             value = var(0,varIDs%Blx)
         case ('B_left_y')
@@ -835,8 +840,61 @@ module io_ramses
             B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
             bsign = (B / magnitude(B)) .DOT. v
 
-            vst = B * (-1D0*bsign / sqrt(var(0,varIDs%density)))
-            value = -(4D0/3D0 - 1D0) * (vst .DOT. v)
+            vst = B * (bsign / sqrt(var(0,varIDs%density)))
+            value = (vst .DOT. v) / (4D0/3D0 - 1D0)
+        case ('total_coolingtime')
+            !TODO: Check units!
+            ! Net cooling rate taken from the cooling table in RAMSES output
+            scale_T2 = mHydrogen / kBoltzmann * ((sim%unit_l/sim%unit_t)**2)
+            scale_nH = XH / mHydrogen * sim%unit_d
+            T = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * scale_T2
+            nH = var(0,varIDs%density) * scale_nH
+            call solve_cooling(nH,T,var(0,varIDs%metallicity)/2D-2,lambda,lambda_prime)
+            lambda_co = ((lambda * nH) * nH) * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
+
+            if (sim%cr .and. sim%cr_st .and. sim%cr_heat) then
+                ! CR streaming heating
+                dxright = dx; dxleft = dx
+                if (son(1) .ne. 0) dxright = dxright * 1.5D0
+                if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
+                v%x = (var(1,varIDs%cr_pressure) - var(2,varIDs%cr_pressure)) / (dxright + dxleft)
+                dxright = dx; dxleft = dx
+                if (son(3) .ne. 0) dxright = dxright * 1.5D0
+                if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
+                v%y = (var(3,varIDs%cr_pressure) - var(4,varIDs%cr_pressure)) / (dxright + dxleft)
+                dxright = dx; dxleft = dx
+                if (son(5) .ne. 0) dxright = dxright * 1.5D0
+                if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
+                v%z = (var(5,varIDs%cr_pressure) - var(6,varIDs%cr_pressure)) / (dxright + dxleft)
+
+                B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+                bsign = (B / magnitude(B)) .DOT. v
+
+                vst = B * (bsign / sqrt(var(0,varIDs%density)))
+                lambda_st = (vst .DOT. v) / (4D0/3D0 - 1D0)
+            else
+                lambda_st = 0D0
+            end if
+
+            if (sim%cr) then
+                ! Cosmic rays hadronic and Coulomb heating from Guo&Ho(2008)
+                ! (Assume fully ionised gas)
+                ! TODO: Update for RT! 
+                lambda = 3D-16 * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
+                ne = var(0,varIDs%density) * sim%unit_d / mHydrogen 
+                ecr = var(0,varIDs%cr_pressure) / (4D0/3d0 - 1d0)
+                ecr = ecr * (sim%unit_d * ((sim%unit_l/sim%unit_t)**2))
+                lambda_cr = lambda * ne * ecr
+            else
+                lambda_cr = 0D0
+            end if
+
+            ! Thermal energy, computed as thermal_pressure*volume/(gamma - 1)
+            value = var(0,varIDs%thermal_pressure) / (5D0/3d0 - 1d0)
+
+            value = value / (lambda_co - lambda_st - lambda_cr)
+            if (T.le.0D0) value = 0D0
+
         case ('xHII')
             ! Hydrogen ionisation fraction
             value = var(0,varIDs%xHII)

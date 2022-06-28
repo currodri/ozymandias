@@ -1,3 +1,4 @@
+from matplotlib.pyplot import plot
 import numpy as np
 from collections import deque,Counter
 from bisect import insort, bisect_left
@@ -535,4 +536,303 @@ def init_filter(cond_strs, name, group):
         return filt
     else:
         raise ValueError("Condition strings are given, but a name for the filter. Please set!")
+
+def interp_nans(y):
+    """
+    This function fills up an array with NaNs by performing linear interpolation,
+    useful when binning has become too small that some bins are empty.
+    """
+    nans, x = np.isnan(y), lambda z: z.nonzero()[0]
+    y[nans]= np.interp(x(nans), x(~nans), y[~nans])
+
+    return y
+
+def get_SNevents_log(logfile,have_crs=False):
+    """This routine allows a quick read of a RAMSES simulation output in which
+        the MFB log has been activated.
+    """
+    import subprocess
+    import os
+
+    # Get creation time of file
+    ts = os.path.getmtime(logfile)
+
+    # Get line using grep
+    result = subprocess.run('grep "MFB" '+str(logfile),shell=True,stdout=subprocess.PIPE)
+    # Separate output in lines
+    result = result.stdout.decode('utf-8').split('\n')
+
+    if have_crs: 
+        nvar = 8
+        maxstr = 134
+        print('Logfile with CRs!')
+    else:
+        nvar = 6
+        maxstr = 74
+    
+
+    # Create data array
+    sn_data = np.zeros((len(result)-1,nvar))
+
+    if have_crs:
+
+        for i in range(0, len(result)-1):
+            line = result[i]
+            if len(line) == maxstr:
+                try:
+                    sn_data[i,0] = float(line[6:16]) # z
+                    sn_data[i,1] = float(line[20:28]) # N
+
+                    sn_data[i,2] = float(line[42:50]) # nH
+                    sn_data[i,3] = float(line[50:58]) # T
+                    sn_data[i,4] = float(line[58:66]) # Z
+                    sn_data[i,5] = float(line[66:74]) # eM
+                    sn_data[i,6] = float(line[74:82]) # eCR
+
+                    sn_data[i,7] = float(line[125:134]) # dx
+                except:
+                    print('Failure in line %i given by: '%i)
+                    print(line)
+    else:
+        for i in range(0, len(result)-1):
+            line = result[i]
+            if len(line) == maxstr:
+                try:
+                    sn_data[i,0] = float(line[6:16]) # z
+                    sn_data[i,1] = float(line[20:28]) # N
+
+                    sn_data[i,2] = float(line[35:43]) # nH
+                    sn_data[i,3] = float(line[43:51]) # T
+                    sn_data[i,4] = float(line[51:59]) # Z
+
+                    sn_data[i,5] = float(line[64:74]) # dx
+                except:
+                    print('Failure in line %i given by: '%i)
+                    print(line)
+    
+    sn_data = sn_data[sn_data[:,0].argsort()[::-1]]
+
+    print('Found %i SN events in %s'%(len(result)-1,logfile))
+
+    return sn_data,ts
+
+def sn_data_hdf5(logfiles,have_crs=False,outdir='Groups',filename='sn_catalogue.hdf5'):
+    """
+    This function builds the full catalogue of SN events found in a series of 
+    RAMSES logfiles in which the MFB log is ON. Temporal cross-matching is done
+    giving higher preference to more recent files.
+    """
+    import subprocess
+    import os
+    import h5py
+
+    # Get variables depending on whether we have CRs or not
+    if have_crs:
+        variables = ['z','number','density','temperature','metallicity','magnetic_energy','cr_energy','dx']
+    else:
+        variables = ['z','number','density','temperature','metallicity','dx']
+
+    # Check for the presence of a SN log catalogue
+    if not os.path.isdir(outdir):
+        os.makedirs(outdir)
+    update_file = False
+    if os.path.exists(os.path.join(outdir,filename)):
+        print('SN catalogue file already present!')
+        update_file = True
+        snfile = h5py.File(os.path.join(outdir,filename),'r+')
+        files_inside = snfile['files_used'].asstr()[:]
+        # Only read the files that are not already included
+        temp_logfiles = []
+        for i in range(0, len(logfiles)):
+            if not logfiles[i] in files_inside:
+                temp_logfiles.append(logfiles[i])
+        logfiles = temp_logfiles
+        if len(logfiles) == 0:
+            print('All asked files are already inside the found SN catalogue.')
+            return snfile
+    else:
+        snfile = h5py.File(os.path.join(outdir,filename),'a')
+        sim_name = os.getcwd().split('/')[-1]
+        snfile.attrs.create('sim_name', sim_name)
+        snfile.attrs.create('have_crs', have_crs)
+    
+    # Now load data from logfiles
+    raw_sn_data = []
+    log_timestamps = []
+    files_read = []
+
+    for i in range(0, len(logfiles)):
+        if os.path.exists(logfiles[i]):
+            sn_data, ts = get_SNevents_log(logfiles[i],have_crs=have_crs)
+            if sn_data.shape[0] > 0:
+                raw_sn_data.append(sn_data)
+                log_timestamps.append(ts)
+                files_read.append(str(logfiles[i]))
+    if len(files_read) == 0:
+            print('All asked files are already inside the found SN catalogue.')
+            return snfile
+    if not update_file:
+        snfile.create_dataset('files_used',data=files_read,compression=1,maxshape=(None,))
+    
+    # Order files to figure out preference
+    order_of_logs = np.asarray(log_timestamps).argsort()
+    raw_sn_data = np.asarray(raw_sn_data)[order_of_logs]
+
+    n_events = 0
+    limits = np.zeros((len(raw_sn_data),2), dtype=int)
+
+    for i in range(len(raw_sn_data),0,-1):
+        if i==len(raw_sn_data):
+            data = raw_sn_data[i-1]
+            n_events += len(data)
+            limits[i-1][0] = int(0)
+            limits[i-1][1] = int(len(data))
+        else:
+            data = raw_sn_data[i-1]
+            limits[i-1][0] = int(0)
+            prev_limit = raw_sn_data[i][limits[i][0],0]
+            z = data[:,0][::-1]
+            limits[i-1][1] = int(z.searchsorted(prev_limit))
+            n_events += limits[i-1][1]
+
+    # Now, we can feed this into the full array
+    full_sn_data = np.zeros((n_events,raw_sn_data[0].shape[1]))
+    current_events = 0
+
+
+    for i in range(0, len(raw_sn_data)):
+        j,k = current_events,current_events+limits[i][1]
+        data = raw_sn_data[i]
+        full_sn_data[j:k,:] = data[limits[i][0]:limits[i][1],:]
+        current_events += limits[i][1]
+
+    # If there is data to add to an old file, make sure to not double count
+    if update_file:
+        orig_z = snfile['z'][:]
+        low_limit = orig_z[::-1].searchsorted(full_sn_data[0,0])
+        high_limit = orig_z[::-1].searchsorted(full_sn_data[-1,0])
+        new_nevents = int(full_sn_data.shape[0] + high_limit + (len(orig_z)-low_limit))
+
+        files_inside = snfile['files_used']
+        new_files = np.concatenate((files_inside[:],files_read))
+        files_inside.resize((len(new_files),))
+        files_inside[:] = new_files
+
+        for v in range(0, len(variables)):
+            var = variables[v]
+            orig_data = snfile[var]
+            if (len(orig_z)-low_limit) == 0:
+                new_data = np.concatenate((full_sn_data[:,v],orig_data[-high_limit:]))
+            elif high_limit == 0:
+                new_data = np.concatenate((orig_data[:(len(orig_z)-low_limit)],full_sn_data[:,v]))
+            else:
+                new_data = np.concatenate((orig_data[0:(len(orig_z)-low_limit)],full_sn_data[:,v]))
+                new_data = np.concatenate((new_data, orig_data[:-high_limit]))
+            orig_data.resize((new_nevents,))
+            orig_data[:] = new_data
+
+    else:
+        for v in range(0, len(variables)):
+            var = variables[v]
+            data = full_sn_data[:,v]
+            snfile.create_dataset(var,data=data,compression=1,maxshape=(None,))
+    
+    return snfile
+
+
+def plot_cooling(cool_file):
+    """
+    This function allows for an easy inspection of the cooling curves
+    saved in the RAMSES outputs and how they are used in post-processing.
+    """
+    sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/amr')
+    from amr2 import cooling_module
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import LogNorm,SymLogNorm
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    from ozy.plot_settings import plotting_dictionary
+    from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units
+    
+    # Read table
+    cooling_module.read_cool(cool_file)
+    mytable = cooling_module.cooling_table()
+    cooling_module.retrieve_table(cool_file,mytable)
+
+    Z = np.array([0.001,0.1,1.0])
+
+    # Build figure
+    figsize = plt.figaspect(float((6.0 * 1) / (5.0 * 3)))
+    fig = plt.figure(figsize=figsize, facecolor='w',edgecolor='k')
+    plot_grid = fig.add_gridspec(1, 3, wspace=0, hspace=0)
+    ax = []
+    for i in range(0,3):
+        ax.append(fig.add_subplot(plot_grid[i]))
+    ax = np.asarray(ax)
+
+    # Solve cooling
+    cooling_data = np.zeros((3,mytable.n1,mytable.n2))
+
+    for i in range(0, mytable.n1):
+        for j in range(0, mytable.n2):
+            nH = 10**mytable.nh[i]
+            T2 = 10**mytable.t2[j]
+            for k in range(0,3):
+                l,lp = cooling_module.solve_cooling(nH,T2,Z[k])
+                cooling_data[k,i,j] = l*(nH**2)
+
+    # Plot data
+    for i in range(0,3):
+        plotting_z = plotting_dictionary['net_cooling']
+        ax[i].set_xlabel(r'$nH$ [cm$^{-3}$]',fontsize=18)
+        if i==0:
+            ax[i].set_ylabel(r'$T/\mu$ [K]',fontsize=18)
+        else:
+            ax[i].axes.yaxis.set_visible(False)
+        
+        ax[i].tick_params(labelsize=14,direction='in')
+        ax[i].xaxis.set_ticks_position('both')
+        ax[i].yaxis.set_ticks_position('both')
+        ax[i].minorticks_on()
+        ax[i].tick_params(which='major',axis="both",direction="in")
+
+        ax[i].set_xscale('log')
+        ax[i].set_yscale('log')
+        x = 10**mytable.nh[:]
+        y = 10**mytable.t2[:]
+        z = cooling_data[i,:,:]
+        print(abs(z).min(),z.max())
+        plot = ax[i].pcolormesh(x,y,z.T,shading='auto',cmap=plotting_z['cmap'],
+                                norm=SymLogNorm(linthresh=plotting_z['linthresh'],
+                                linscale=plotting_z['linscale'],
+                                vmin=plotting_z['vmin'],
+                                vmax=plotting_z['vmax'],
+                                base=10))
+        ax[i].text(0.5, 0.9, r'$Z = %.3f Z_{\odot}$'%Z[i],
+                            transform=ax[i].transAxes, fontsize=14,verticalalignment='top',
+                            color='black')
+        if i==0:
+            cbaxes = inset_axes(ax[i], width="300%", height="5%", loc='upper left',
+                                bbox_to_anchor=(0.0, 0., 1.0, 1.05),
+                                bbox_transform=ax[i].transAxes,borderpad=0)
+            cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
+            cbar.set_label(plotting_z['label'],fontsize=20)
+            cbar.ax.tick_params(labelsize=10)
+            cbaxes.xaxis.set_label_position('top')
+            cbaxes.xaxis.set_ticks_position('top')
+    fig.subplots_adjust(top=0.85,bottom=0.13,left=0.1,right=0.99)
+    fig.savefig(cool_file.split('.out')[0]+'_table.png',format='png',dpi=300)
+
+    return cooling_data
+
+
+
+    
+
+
+
+
+
+    
+
+
 

@@ -209,7 +209,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
 
         # And now, compute star data profiles!
         if star_data.nyvar > 0 and star_data.nwvar > 0:
-            partprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,star_data,lmax)
+            partprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,star_data,lmax,logscale)
     else:
         star_data = None
 
@@ -233,7 +233,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
 
         # And now, compute dm data profiles!
         if dm_data.nyvar > 0 and dm_data.nwvar > 0:
-            partprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,dm_data,lmax)
+            partprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,dm_data,lmax,logscale)
     else:
         dm_data = None
 

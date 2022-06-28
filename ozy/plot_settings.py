@@ -19,10 +19,10 @@ plotting_dictionary = dict(
                 'label':r'$\rho$ [g/cm$^{-3}$]',
                 'label_log':r'$\log\left(\frac{\rho}{{\rm g cm}^{-3}}\right)$',
                 'units':'g*cm**-3',
-                'vmin':2e-30,
-                'vmax':7e-22,
+                'vmin':2e-32,
+                'vmax':7e-20,
                 'vmin_galaxy':2e-28,
-                'vmax_galaxy':5e-22
+                'vmax_galaxy':5e-22,
     },
     mass = {'cmap':sns.color_palette("mako", as_cmap=True),
             'text_over':'white',
@@ -44,7 +44,7 @@ plotting_dictionary = dict(
                     'vmin_galaxy':8e+1,
                     'vmax_galaxy':8e+6,
                     'vmin_outflow':5e+3,
-                    'vmax_outflow':3e+5
+                    'vmax_outflow':3e+5,
     },
     thermal_energy = {'cmap':sns.color_palette("rocket", as_cmap=True),
                             'text_over':'white',
@@ -59,7 +59,7 @@ plotting_dictionary = dict(
     thermal_pressure = {'cmap':'viridis',
                             'text_over':'white',
                             'label':r'$P_{\rm ther}$ [erg/cm$^{-3}$]',
-                            'label_log':r'$\log\left(\frac{P_{\rm ther}}{{\rm erg/cm}^{-3}}}\right)$',
+                            'label_log':r'$\log\left(\frac{P_{\rm ther}}{{\rm erg/cm}^{-3}}\right)$',
                             'units':'erg*cm**-3',
                             'vmin':3e-15,
                             'vmax':8e-9,
@@ -75,6 +75,18 @@ plotting_dictionary = dict(
                                 'vmax':2e+6,
                                 'vmin_galaxy':5e+3,
                                 'vmax_galaxy':8e+6
+    },
+    net_cooling = {'cmap':'vlag',
+                        'text_over':'black',
+                        'label':r'$\Lambda_{\rm cool}$ [erg/(s cm$^{3}$)]',
+                        'label_log':r'$\log(\frac{\Lambda_{\rm cool}}{{\rm erg/(s cm}^{3})}})$',
+                        'units':'erg*s**-1*cm**-3',
+                        'vmin':-1e-18,
+                        'vmax':1e-10,
+                        'vmin_galaxy':1e-35,
+                        'vmax_galaxy':1e-23,
+                        'linthresh':1,
+                        'linscale':1
     },
     entropy_specific = {'cmap':'plasma',
                         'text_over':'white',
@@ -241,6 +253,17 @@ plotting_dictionary = dict(
                                 'vmax_galaxy':7e+15
 
     },
+    total_coolingtime = {'cmap':'swift.red',
+                                'text_over':'white',
+                                'label':r'$t_{\rm cool}$ [Myr]',
+                                'label_log':r'$\log(\frac{t_{\rm cool}}{\rm Myr})$',
+                                'units':'Myr',
+                                'vmin':1e+1,
+                                'vmax':7e+5,
+                                'vmin_galaxy':1e+1,
+                                'vmax_galaxy':7e+5
+
+    },
     crthermal_ratio = {'cmap':sns.color_palette("vlag", as_cmap=True),
                         'text_over':'black',
                         'label':r'$\frac{\nabla P_{\rm CR}}{\nabla P_{\rm ther}}$',
@@ -259,8 +282,8 @@ plotting_dictionary = dict(
                         'units':'dimensionless',
                         'vmin':-100,
                         'vmax':+100,
-                        'vmin_galaxy':-1,
-                        'vmax_galaxy':+1
+                        'vmin_galaxy':-5,
+                        'vmax_galaxy':+5
 
     },
     grav_therpfz = {'cmap':sns.color_palette("vlag", as_cmap=True),
@@ -270,8 +293,8 @@ plotting_dictionary = dict(
                         'units':'dimensionless',
                         'vmin':-100,
                         'vmax':+100,
-                        'vmin_galaxy':-10,
-                        'vmax_galaxy':+10
+                        'vmin_galaxy':-5,
+                        'vmax_galaxy':+5
 
     },
     grav_crpfrsphere = {'cmap':sns.color_palette("vlag", as_cmap=True),
@@ -294,8 +317,8 @@ plotting_dictionary = dict(
                         'units':'dimensionless',
                         'vmin':-100,
                         'vmax':+100,
-                        'vmin_galaxy':-1,
-                        'vmax_galaxy':+1
+                        'vmin_galaxy':-5,
+                        'vmax_galaxy':+5
 
     },
     grav_crpf = {'cmap':sns.color_palette("vlag", as_cmap=True),

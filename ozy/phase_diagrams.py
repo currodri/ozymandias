@@ -82,7 +82,8 @@ class PhaseDiagram(object):
 
 def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins=[100,100],region_type='sphere',
                             filter_conds='none',filter_name='none',logscale=True,recompute=False,save=False,
-                            rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(0.0,'rvir'), zmax=(0.2,'rvir')):
+                            rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(0.0,'rvir'), zmax=(0.2,'rvir'),
+                            cr_st=False,cr_heat=False):
     """Function which computes a phase diagram (2D profile) for a given group object."""
 
     if not isinstance(xvar,str) or not isinstance(yvar,str):
@@ -138,9 +139,9 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins
                 raise KeyError('This DM variable is not supported. Please check!')
 
     # Check that we do not have any inconsistency...
-    if xvar in grid_variables and len(pd.yvars['for_star'])>0 or xvar in grid_variables and len(pd.yvars['for_dm'])>0:
+    if xvar in grid_variables and len(pd.zvars['for_star'])>0 or xvar in grid_variables and len(pd.zvars['for_dm'])>0:
         raise KeyError("Having grid vs particle phase diagrams is not well-defined.")
-    elif xvar in particle_variables and len(pd.yvars['hydro'])>0:
+    elif xvar in particle_variables and len(pd.zvars['hydro'])>0:
         raise KeyError("Having particle vs grid phase diagrams is not well-defined.")
 
     # Now create region
@@ -183,6 +184,8 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins
     hydro_data.nzvar = len(pd.zvars['hydro'])
     hydro_data.nwvar = len(pd.weightvars['hydro'])
     hydro_data.nbins = np.asarray(nbins,order='F')
+    hydro_data.cr_st = cr_st
+    hydro_data.cr_heat = cr_heat
 
     amrprofmod.allocate_profile_handler_twod(hydro_data)
     for i in range(0, len(pd.zvars['hydro'])):
@@ -536,6 +539,8 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=Tr
                                     vmax=plotting_z['vmax_galaxy'],
                                     base=10))
             else:
+                z[z<0.0] = np.min(z[z>0.0])
+                z = np.nan_to_num(z, np.min(z))
                 plot = ax[i,j].pcolormesh(x,y,
                                     z.in_units(plotting_z['units']).T,
                                     shading='auto',

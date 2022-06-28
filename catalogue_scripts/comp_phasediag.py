@@ -65,7 +65,19 @@ if __name__ == '__main__':
                     args.model[i] = args.model[i].split('/')[-1]
                     args.model[i] = args.model[i].replace('_','\_')
                 simfolders.append(simfolder)
-                
+                #TODO: This should be done in a much cleaner way...
+                print(args.model[i])
+                if args.model[i] == 'cosmoNUTcrmhd': 
+                    cr_flags = [True,True]
+                elif args.model[i] == 'cosmoNUTcrmhd\_nost':
+                    cr_flags = [False,False]
+                elif args.model[i] == 'cosmoNUTcrmhd\_noheat':
+                    cr_flags = [True,False]
+                else:
+                    cr_flags = [False,False]
+
+                print(cr_flags)
+
                 if not os.path.exists(simfolder):
                     raise Exception('The given simulation name is not found in this directory!: %s'%simfolder)
                 
@@ -90,6 +102,8 @@ if __name__ == '__main__':
                     rmin, rmax = (0.0, 'rvir'),(0.2, 'rvir')
                 elif args.region == 'halo':
                     rmin, rmax = (0.2, 'rvir'),(1.0, 'rvir')
+                elif args.region == 'shell_rvir':
+                    rmin, rmax = (0.99, 'rvir'),(1.1, 'rvir')
                 print('log: ',args.nolog)
                 if args.doflows:
                     # Escape velocity at 0.2 Rvir of the halo
@@ -98,15 +112,19 @@ if __name__ == '__main__':
                     print('v_sphere_r/>=/%.3f/km*s**-1'%v_escape)
                     outflow = compute_phase_diagram(gal,os.path.join(groupspath, ozyfile), args.xvar,args.yvar, [args.field],
                                 [args.weight],save=True,recompute=args.recompute, filter_conds='v_sphere_r/>/10/km*s**-1', filter_name='outflow'+'_'+args.region,
-                                rmin=rmin,rmax=rmax,logscale=args.nolog)
+                                rmin=rmin,rmax=rmax,logscale=args.nolog,
+                                cr_st = cr_flags[0],cr_heat=cr_flags[1])
                     inflow = compute_phase_diagram(gal,os.path.join(groupspath, ozyfile), args.xvar,args.yvar, [args.field],
                                 [args.weight],save=True,recompute=args.recompute, filter_conds='v_sphere_r/</-10/km*s**-1', filter_name='inflow'+'_'+args.region,
-                                rmin=rmin,rmax=rmax,logscale=args.nolog)
+                                rmin=rmin,rmax=rmax,logscale=args.nolog,
+                                cr_st = cr_flags[0],cr_heat=cr_flags[1])
                     escape = compute_phase_diagram(gal,os.path.join(groupspath, ozyfile), args.xvar,args.yvar, [args.field],
                                 [args.weight],save=True,recompute=args.recompute, filter_conds='v_sphere_r/>=/%.3f/km*s**-1'%v_escape, filter_name='escaping'+'_'+args.region,
-                                rmin=rmin,rmax=rmax,logscale=args.nolog)
+                                rmin=rmin,rmax=rmax,logscale=args.nolog,
+                                cr_st = cr_flags[0],cr_heat=cr_flags[1])
                 pd = compute_phase_diagram(gal,os.path.join(groupspath, ozyfile), args.xvar,args.yvar, [args.field],
-                            [args.weight],save=True,recompute=args.recompute,rmin=rmin,rmax=rmax,filter_name=args.region,logscale=args.nolog)
+                            [args.weight],save=True,recompute=args.recompute,rmin=rmin,rmax=rmax,filter_name=args.region,logscale=args.nolog,
+                            cr_st = cr_flags[0],cr_heat=cr_flags[1])
                 if args.doflows:
                     pds.append([pd,outflow,inflow,escape])
                 else:
@@ -181,6 +199,19 @@ if __name__ == '__main__':
                     args.ind = 'NUT'
                 gal = sim.galaxies[progind]
 
+                #TODO: This should be done in a much cleaner way...
+                print(args.model[i])
+                if args.model[i] == 'cosmoNUTcrmhd': 
+                    cr_flags = [True,True]
+                elif args.model[i] == 'cosmoNUTcrmhd\_nost':
+                    cr_flags = [False,False]
+                elif args.model[i] == 'cosmoNUTcrmhd\_noheat':
+                    cr_flags = [True,False]
+                else:
+                    cr_flags = [False,False]
+
+                print(cr_flags)
+
                 orig_path = sim.simulation.fullpath.split('/')[-1]
                 neigh_snaps, neigh_weights = find_neigh_snaps(simfolder, orig_path,
                                                                 median_tdyn, returnweight=True)
@@ -188,6 +219,8 @@ if __name__ == '__main__':
                     rmin, rmax = (0.0, 'rvir'),(0.2, 'rvir')
                 elif args.region == 'halo':
                     rmin, rmax = (0.2, 'rvir'),(1.0, 'rvir')
+                elif args.region == 'shell_rvir':
+                    rmin, rmax = (0.99, 'rvir'),(1.1, 'rvir')
                 for n in range(0, len(neigh_snaps)):
                     sim = ozy.load(os.path.join(groupspath, neigh_snaps[n]))
                     if args.NUT:
@@ -202,15 +235,19 @@ if __name__ == '__main__':
                         print('v_sphere_r/>=/%.3f/km*s**-1'%v_escape)
                         outflow = compute_phase_diagram(gal,os.path.join(groupspath, neigh_snaps[n]), args.xvar,args.yvar, [args.field],
                                     [args.weight],save=True,recompute=args.recompute, filter_conds='v_sphere_r/>/10/km*s**-1', filter_name='outflow'+'_'+args.region,
-                                    rmin=rmin,rmax=rmax,logscale=args.nolog)
+                                    rmin=rmin,rmax=rmax,logscale=args.nolog,
+                                cr_st = cr_flags[0],cr_heat=cr_flags[1])
                         inflow = compute_phase_diagram(gal,os.path.join(groupspath, neigh_snaps[n]), args.xvar,args.yvar, [args.field],
                                     [args.weight],save=True,recompute=args.recompute, filter_conds='v_sphere_r/</-10/km*s**-1', filter_name='inflow'+'_'+args.region,
-                                    rmin=rmin,rmax=rmax,logscale=args.nolog)
+                                    rmin=rmin,rmax=rmax,logscale=args.nolog,
+                                cr_st = cr_flags[0],cr_heat=cr_flags[1])
                         escape = compute_phase_diagram(gal,os.path.join(groupspath, neigh_snaps[n]), args.xvar,args.yvar, [args.field],
                                     [args.weight],save=True,recompute=args.recompute, filter_conds='v_sphere_r/>=/%.3f/km*s**-1'%v_escape, filter_name='escaping'+'_'+args.region,
-                                    rmin=rmin,rmax=rmax,logscale=args.nolog)
+                                    rmin=rmin,rmax=rmax,logscale=args.nolog,
+                                cr_st = cr_flags[0],cr_heat=cr_flags[1])
                     pd = compute_phase_diagram(gal,os.path.join(groupspath, neigh_snaps[n]), args.xvar,args.yvar, [args.field],
-                                [args.weight],save=True,recompute=args.recompute,rmin=rmin,rmax=rmax,filter_name=args.region,logscale=args.nolog)
+                                [args.weight],save=True,recompute=args.recompute,rmin=rmin,rmax=rmax,filter_name=args.region,logscale=args.nolog,
+                                cr_st = cr_flags[0],cr_heat=cr_flags[1])
                     if args.doflows:
                         pds[i].append([pd,outflow,inflow,escape])
                         weights[i].append([neigh_weights[n]]*4)
