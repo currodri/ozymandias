@@ -254,8 +254,8 @@ if __name__ == '__main__':
                 
                 if bad_mass == True:
                     print('Deleting ', ozyfile)
-                    #galaxy_masses[-2] = galaxy_masses[-1]
-                    #galaxy_gas[-2] = galaxy_gas[-1]
+                    galaxy_masses[-2] = galaxy_masses[-1]
+                    galaxy_gas[-2] = galaxy_gas[-1]
 
                 try:
                     progind = sim.galaxies[progind].progen_galaxy_star

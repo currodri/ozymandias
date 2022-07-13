@@ -448,10 +448,10 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         up_vector.x,up_vector.y,up_vector.z = norm_L[0], norm_L[1], norm_L[2]
         rmax = window
         region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
-        distance = 0.3*rmax
-        far_cut_depth = 0.3*rmax
+        distance = rmax
+        far_cut_depth = rmax
         centre = vectors.vector()
-        im_centre = group.position.d + 0.99 * norm_L * rmax
+        im_centre = group.position.d + norm_L * rmax
         centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
     else:
         print("This point of view is not supported!")

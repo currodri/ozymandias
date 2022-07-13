@@ -675,6 +675,39 @@ module io_ramses
             if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
             v%z = (var(5,varIDs%thermal_pressure) - var(6,varIDs%thermal_pressure)) / (dxright + dxleft)
             value = magnitude(v)
+        case ('grad_therprsphere')
+            ! Thermal pressure gradient in the radial direction
+            dxright = dx; dxleft = dx
+            if (son(1) .ne. 0) dxright = dxright * 1.5D0
+            if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
+            v%x = (var(1,varIDs%thermal_pressure) - var(2,varIDs%thermal_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .ne. 0) dxright = dxright * 1.5D0
+            if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
+            v%y = (var(3,varIDs%thermal_pressure) - var(4,varIDs%thermal_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .ne. 0) dxright = dxright * 1.5D0
+            if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
+            v%z = (var(5,varIDs%thermal_pressure) - var(6,varIDs%thermal_pressure)) / (dxright + dxleft)
+            call rotate_vector(v,trans_matrix)
+            call spherical_basis_from_cartesian(x,temp_basis)
+            value = v.DOT.temp_basis%u(1)
+        case ('grad_therpz')
+            ! Thermal pressure gradient in the z direction
+            dxright = dx; dxleft = dx
+            if (son(1) .ne. 0) dxright = dxright * 1.5D0
+            if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
+            v%x = (var(1,varIDs%thermal_pressure) - var(2,varIDs%thermal_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .ne. 0) dxright = dxright * 1.5D0
+            if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
+            v%y = (var(3,varIDs%thermal_pressure) - var(4,varIDs%thermal_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .ne. 0) dxright = dxright * 1.5D0
+            if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
+            v%z = (var(5,varIDs%thermal_pressure) - var(6,varIDs%thermal_pressure)) / (dxright + dxleft)
+            call rotate_vector(v,trans_matrix)
+            value = v%z
         case ('thermal_energy')
             ! Thermal energy, computed as thermal_pressure*volume/(gamma - 1)
             value = ((var(0,varIDs%thermal_pressure) / (5D0/3d0 - 1d0)) * (dx * dx)) * dx
@@ -774,6 +807,23 @@ module io_ramses
             if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
             v%z = (var(5,varIDs%cr_pressure) - var(6,varIDs%cr_pressure)) / (dxright + dxleft)
             value = magnitude(v)
+        case ('grad_crprsphere')
+            ! CR pressure gradient in the radial direction
+            dxright = dx; dxleft = dx
+            if (son(1) .ne. 0) dxright = dxright * 1.5D0
+            if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
+            v%x = (var(1,varIDs%cr_pressure) - var(2,varIDs%cr_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .ne. 0) dxright = dxright * 1.5D0
+            if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
+            v%y = (var(3,varIDs%cr_pressure) - var(4,varIDs%cr_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .ne. 0) dxright = dxright * 1.5D0
+            if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
+            v%z = (var(5,varIDs%cr_pressure) - var(6,varIDs%cr_pressure)) / (dxright + dxleft)
+            call rotate_vector(v,trans_matrix)
+            call spherical_basis_from_cartesian(x,temp_basis)
+            value = (v.DOT.temp_basis%u(1))
         case ('grad_crpx')
             ! Gradient of CR pressure in the x direction
             dxright = dx; dxleft = dx
@@ -978,6 +1028,16 @@ module io_ramses
         case ('grav_gz')
             ! Gravitational acceleration in the z direction
             value = grav_var(0,4)
+        case ('grav_frsphere')
+            ! Total gravitational force in the radial direction
+            B = grav_var(0,2:4)
+            call spherical_basis_from_cartesian(x,temp_basis)
+            value = var(0,varIDs%density) * (B .DOT. temp_basis%u(1))
+        case ('grav_fz')
+            ! Gravitational force in the z direction
+            B = grav_var(0,2:4)
+            call rotate_vector(B,trans_matrix)
+            value = var(0,varIDs%density) * B%z
         case ('grav_crpf')
             ! Ratio of CR pressure gradient and gravitational acceleration
             dxright = dx; dxleft = dx

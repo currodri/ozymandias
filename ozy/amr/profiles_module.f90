@@ -113,10 +113,14 @@ module amr_profiles
                 endif
             end do
         case('z')
+            rmin = max(1D0/(2D0**(amr%nlevelmax-1)),1D-3*reg%zmax)
             do n=0,nbins
                 if (logscale) then
-                    bins(n) = dble(n)*(log10(reg%zmax)-log10(reg%zmin))/dble(nbins)
-                    if (reg%zmin > 0D0) bins(n) = bins(n) + log10(reg%zmin)
+                    if (reg%zmin.eq.0D0) then
+                        bins(n) = dble(n)*(log10(reg%zmax)-log10(rmin))/dble(nbins) + log10(rmin)
+                    else
+                        bins(n) = dble(n)*(log10(reg%zmax)-log10(reg%zmin))/dble(nbins) + log10(reg%zmin)
+                    end if
                 else
                     bins(n) = dble(n)*(reg%zmax-reg%zmin)/dble(nbins) + reg%zmin
                 endif

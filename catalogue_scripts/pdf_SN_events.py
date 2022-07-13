@@ -19,6 +19,31 @@ import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
 sns.set(style="white")
+import scipy.stats as st
+
+
+def contour_hist(x, y, ax, ax_histx, ax_histy, label):
+    # no labels
+    ax_histx.tick_params(axis="x", labelbottom=False)
+    ax_histy.tick_params(axis="y", labelleft=False)
+
+    # Peform the kernel density estimate
+    xmin,xmax = np.min(x), np.max(x)
+    ymin,ymax = np.min(y), np.max(y)
+    xx, yy = np.mgrid[xmin:xmax:100j, ymin:ymax:100j]
+    positions = np.vstack([xx.ravel(), yy.ravel()])
+    values = np.vstack([x, y])
+    kernel = st.gaussian_kde(values)
+    f = np.reshape(kernel(positions).T, xx.shape)
+    ax.contour(xx,yy,f, colors=line_dict[label], levels=10)
+    ax.plot([],[],color=line_dict[args.model[i]],label=sim2name[label])
+
+    # Histograms
+    histx, xedges = np.histogram(x, bins=200)
+    ax_histx.stairs(histx/len(x), xedges, color=line_dict[label])
+    
+    histy, yedges = np.histogram(y, bins=200)
+    ax_histy.stairs(histy/len(y), yedges, color=line_dict[label], orientation='horizontal')
 
 if __name__ == '__main__':
 
@@ -34,6 +59,7 @@ if __name__ == '__main__':
 
     line_dict = {'cosmoNUThd':'b','cosmoNUTmhd':'m','cosmoNUTcrmhd':'g','cosmoNUTcrmhd\_nost':'olive','cosmoNUTcrmhd\_noheat':'darkkhaki'}
     line_styles = {'cosmoNUThd':':','cosmoNUTmhd':'--','cosmoNUTcrmhd':'-','cosmoNUTcrmhd\_nost':'--','cosmoNUTcrmhd\_noheat':':'}
+    sim2name = {'cosmoNUThd':'HD','cosmoNUTmhd':'MHD','cosmoNUTcrmhd':'CRMHD','cosmoNUTcrmhd\_nost':'nostCRMHD','cosmoNUTcrmhd\_noheat':'noheatCRMHD'}
 
     if not isinstance(args.model, list):
         args.model = [args.model]
@@ -111,6 +137,7 @@ if __name__ == '__main__':
                     density=True, label=args.model[i], color=line_dict[args.model[i]],
                     histtype='step')
             hd.close()
+            del z
 
         ax.legend(loc='lower center', fontsize=14,frameon=False)
         fig.subplots_adjust(top=0.98, bottom=0.22,right=0.98,left=0.13)
@@ -118,9 +145,59 @@ if __name__ == '__main__':
     
     elif args.type=='2D':
 
-        name2label = {'density':r'$\log nH$ [cm$^{-3}$]', 'temperature':r'$\log T$ [K]'}
-        # Initialise global lists
-        x,y,hue = np.array([]),np.array([]),np.array([])
+        # definitions for the axes
+        left, width = 0.1, 0.65
+        bottom, height = 0.1, 0.65
+        spacing = 0.005
+
+
+        rect_contour = [left, bottom, width, height]
+        rect_histx = [left, bottom + height + spacing, width, 0.2]
+        rect_histy = [left + width + spacing, bottom, 0.2, height]
+
+        # And now add this to plot
+        xvar = args.var.split('-')[0]
+        yvar = args.var.split('-')[1]
+
+        # start with a square Figure
+        fig = plt.figure(figsize=(8, 8))
+        ax = fig.add_axes(rect_contour)
+        ax_histx = fig.add_axes(rect_histx, sharex=ax)
+        ax_histy = fig.add_axes(rect_histy, sharey=ax)
+
+        plotx = plotting_dictionary[xvar]
+        ax.set_xlabel(plotx['label_log'], fontsize=16)
+        ax.set_xlim([np.log10(plotx['vmin']),np.log10(plotx['vmax'])])
+        
+        ploty = plotting_dictionary[yvar]
+        ax.set_ylabel(ploty['label_log'], fontsize=16)
+        ax.set_ylim([np.log10(ploty['vmin']),np.log10(ploty['vmax'])])
+
+        ax.tick_params(labelsize=12)
+        ax.xaxis.set_ticks_position('both')
+        ax.yaxis.set_ticks_position('both')
+        ax.minorticks_on()
+        ax.tick_params(which='both',axis="both",direction="in")
+
+        ax_histx.spines['top'].set_visible(False)
+        ax_histx.spines['right'].set_visible(False)
+        ax_histx.tick_params(labelsize=12)
+        ax_histx.yaxis.set_ticks_position('left')
+        ax_histx.xaxis.set_ticks_position('bottom')
+        ax_histx.minorticks_on()
+        ax_histx.tick_params(which='both',axis="both",direction="in")
+        ax_histx.set_yscale('log')
+        ax_histx.set_ylim([5e-5,0.1])
+
+        ax_histy.spines['top'].set_visible(False)
+        ax_histy.spines['right'].set_visible(False)
+        ax_histy.tick_params(labelsize=12)
+        ax_histy.yaxis.set_ticks_position('left')
+        ax_histy.xaxis.set_ticks_position('bottom')
+        ax_histy.minorticks_on()
+        ax_histy.tick_params(which='both',axis="both",direction="in")
+        ax_histy.set_xscale('log')
+        ax_histy.set_xlim([3e-5,0.1])
 
         # Loop over models
         for i in range(0, len(args.model)):
@@ -167,10 +244,7 @@ if __name__ == '__main__':
             low_z_ind = int(z[::-1].searchsorted(args.zend))
             orig_size = hd['z'].len()
             print('%i SN events between z=%.2f and z=%.2f'%(high_z_ind-low_z_ind, args.zstart, args.zend))
-
-            # And now add this to plot
-            xvar = args.var.split('-')[0]
-            yvar = args.var.split('-')[1]
+            del z
 
             if xvar == 'thermal_pressure':
                 density = hd['density'][orig_size-high_z_ind:orig_size-low_z_ind]
@@ -180,7 +254,7 @@ if __name__ == '__main__':
                 plotdata = hd[xvar][orig_size-high_z_ind:orig_size-low_z_ind] + np.log10(mh.to('g'))
             elif xvar == 'temperature':
                 plotdata = hd[xvar][orig_size-high_z_ind:orig_size-low_z_ind]
-            x = np.concatenate((x,plotdata[:]))
+            x = np.copy(plotdata[:])
 
             if yvar == 'thermal_pressure':
                 density = hd['density'][orig_size-high_z_ind:orig_size-low_z_ind]
@@ -190,17 +264,13 @@ if __name__ == '__main__':
                 plotdata = hd[yvar][orig_size-high_z_ind:orig_size-low_z_ind] + np.log10(mh.to('g'))
             elif yvar == 'temperature':
                 plotdata = hd[yvar][orig_size-high_z_ind:orig_size-low_z_ind]
-            y = np.concatenate((y,plotdata[:]))
-            names = len(plotdata[:])*[args.model[i]]
-            hue = np.concatenate((hue, np.asarray(names)))
-
+            y = np.copy(plotdata[:])
             hd.close()
-        # Now construct data frame
-        df = pd.DataFrame({name2label[xvar]:x,name2label[yvar]:y,"Model":hue})
-
-        sns.jointplot(data=df, x=name2label[xvar], y=name2label[yvar], hue="Model", kind="kde", marginal_ticks=True, palette=line_dict)
-        plt.savefig(os.getcwd()+'/contours_SNevents_'+str(args.var)+'_'+str(args.zstart)+'_'+str(args.zend)+'.png', format='png', dpi=200)
-
+            contour_hist(x, y, ax, ax_histx, ax_histy, args.model[i])
+        
+        ax.legend(loc='lower left', fontsize=14,frameon=False)
+        fig.savefig(os.getcwd()+'/contours_SNevents_'+str(args.var)+'_'+str(args.zstart)+'_'+str(args.zend)+'.png', format='png', dpi=200)
+        print('Done')
 
        
 
