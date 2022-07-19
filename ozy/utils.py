@@ -545,6 +545,9 @@ def interp_nans(y):
     nans, x = np.isnan(y), lambda z: z.nonzero()[0]
     y[nans]= np.interp(x(nans), x(~nans), y[~nans])
 
+    nans, x = np.isinf(y), lambda z: z.nonzero()[0]
+    y[nans]= np.interp(x(nans), x(~nans), y[~nans])
+
     return y
 
 def get_SNevents_log(logfile,have_crs=False):

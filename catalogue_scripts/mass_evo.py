@@ -22,8 +22,8 @@ plt.rc('font', family='serif')
 hfont = {'fontname':'Helvetica'}
 matplotlib.rc('text', usetex = True)
 matplotlib.rc('font', **{'family' : "serif"})
-params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
-matplotlib.rcParams.update(params)
+# params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
+# matplotlib.rcParams.update(params)
 
 line_dict = {'cosmoNUThd':'royalblue',
                 'cosmoNUThd\_all\_cr10':'lightseagreen',

@@ -21,8 +21,8 @@ plt.rc('font', family='serif')
 hfont = {'fontname':'Helvetica'}
 matplotlib.rc('text', usetex = True)
 matplotlib.rc('font', **{'family' : "serif"})
-params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
-matplotlib.rcParams.update(params)
+# params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
+# matplotlib.rcParams.update(params)
 
 if __name__ == '__main__':
 
