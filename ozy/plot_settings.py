@@ -333,7 +333,31 @@ plotting_dictionary = dict(
                             'vmax':90,
                             'vmin_galaxy':3e-4,
                             'vmax_galaxy':90
-    }
+    },
+    DTM = {'cmap': sns.color_palette("icefire", as_cmap=True),
+                'text_over':'white',
+                'label':r'DTM',
+                'label_log':r'$\log\left(\rm DTM\right)$',
+                'units':'dimensionless',
+                'vmin':0,
+                'vmax':0.3,
+                'vmin_isolated':0.1,
+                'vmax_isolated':0.3,
+                'vmin_galaxy':8e-3,
+                'vmax_galaxy':0.2
+    },
+    slDust = {'cmap': 'RdYlBu',
+                'text_over':'white',
+                'label':r'$f_{\rm S/L}$',
+                'label_log':r'$\log\left(\frac{\rho}{{\rm g cm}^{-3}}\right)$',
+                'units':'dimensionless',
+                'vmin':0,
+                'vmax':0.9,
+                'vmin_isolated':0.1,
+                'vmax_isolated':0.9,
+                'vmin_galaxy':0,
+                'vmax_galaxy':0.9
+    },
 )
 
 circle_dictionary = dict(
@@ -350,3 +374,7 @@ circle_dictionary = dict(
                           'linestyle':':'
         }
 )
+
+nolog_vars = [
+        'slDust'
+]

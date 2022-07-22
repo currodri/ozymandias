@@ -24,11 +24,14 @@ module io_ramses
     use cooling_module
 
     type hydroID
-        integer :: nvar
+        integer :: nvar=0
         integer :: density=0,vx=0,vy=0,vz=0,thermal_pressure=0,metallicity=0
         integer :: Blx=0,Bly=0,Blz=0,Brx=0,Bry=0,Brz=0
         integer :: cr_pressure=0
         integer :: xHII=0,xHeII=0,xHeIII=0
+        integer :: chem_C=0,chem_D=0,chem_Fe=0,chem_H=0
+        integer :: chem_Mg=0,chem_N=0,chem_O=0,chem_S=0,chem_Si=0
+        integer :: sCDust=0,lCDust=0,sSilDust=0,lSilDust=0
     end type hydroID
 
     type amr_info
@@ -298,6 +301,11 @@ module io_ramses
         character(3)::igr3
         integer            ::  newID,statn
 
+        if (varIDs%nvar.ne.0) then
+            write(*,*)': Hydro descriptor already read'
+            return
+        endif
+
         nomfich=TRIM(repository)//'/hydro_file_descriptor.txt'
         inquire(file=nomfich, exist=ok) ! verify input file
         if ( ok ) then
@@ -471,6 +479,32 @@ module io_ramses
             varIDs%xHeII = newID
         case ('xHeIII')
             varIDs%xHeIII = newID
+        case ('chem_H')
+            varIDs%chem_H = newID
+        case ('chem_O')
+            varIDs%chem_O = newID
+        case ('chem_Fe')
+            varIDs%chem_Fe = newID
+        case ('chem_Mg')
+            varIDs%chem_Mg = newID
+        case ('chem_C')
+            varIDs%chem_C = newID
+        case ('chem_N')
+            varIDs%chem_N = newID
+        case ('chem_Si')
+            varIDs%chem_Si = newID
+        case ('chem_S')
+            varIDs%chem_S = newID
+        case ('chem_D')
+            varIDs%chem_D = newID
+        case ('dust_bin01')
+            varIDs%sCDust = newID
+        case ('dust_bin02')
+            varIDs%lCDust = newID
+        case ('dust_bin03')
+            varIDs%sSilDust = newID
+        case ('dust_bin04')
+            varIDs%lSilDust = newID
         end select
     end subroutine select_from_descriptor_IDs
 
@@ -489,8 +523,9 @@ module io_ramses
         character(128) :: nomfich
         logical            ::  ok
         character(25)  ::  newVar,newType
-        integer            ::  newID,status,nvar=0
+        integer            ::  newID,status,nvar
 
+        nvar=0
         nomfich=TRIM(repository)//'/hydro_file_descriptor.txt'
         inquire(file=nomfich, exist=ok) ! verify input file
         if ( ok ) then
@@ -541,6 +576,7 @@ module io_ramses
         type(basis) :: temp_basis
         real(dbl) :: T,rho,cV,lambda,lambda_prime,ne,ecr,nH
         real(dbl) :: scale_T2,scale_nH
+        real(dbl) :: smallDust, largeDust
 
         select case (TRIM(varname))
         case ('d_euclid')
@@ -795,6 +831,54 @@ module io_ramses
             v = (/var(varIDs%vx),var(varIDs%vy),var(varIDs%vz)/)
             call spherical_basis_from_cartesian(x,temp_basis)
             value = var(varIDs%density) * (v .DOT. temp_basis%u(1))
+        !TODO: There should be checks for whether dust exists and
+        ! if chemistry and/or different sizes are present
+        case ('density_CDust')
+            ! Full density of carbon dust grains
+            value = 0D0
+            if (varIDs%sCDust.ne.0) value = value + var(varIDs%sCDust)
+            if (varIDs%lCDust.ne.0) value = value + var(varIDs%lCDust)
+        case ('density_SilDust')
+            ! Full density of silicate dust grains
+            value = 0D0
+            if (varIDs%sSilDust.ne.0) value = value + var(varIDs%sSilDust)
+            if (varIDs%lSilDust.ne.0) value = value + var(varIDs%lSilDust)
+        case ('mass_CDust')
+            ! Full mass of carbon dust grains
+            value = 0D0
+            if (varIDs%sCDust.ne.0) value = value + var(varIDs%sCDust)
+            if (varIDs%lCDust.ne.0) value = value + var(varIDs%lCDust)
+            value = (value * (dx*dx)) * dx
+        case ('mass_SilDust')
+            ! Full mass of silicate dust grains
+            value = 0D0
+            if (varIDs%sSilDust.ne.0) value = value + var(varIDs%sSilDust)
+            if (varIDs%lSilDust.ne.0) value = value + var(varIDs%lSilDust)
+            value = (value * (dx*dx)) * dx
+        case ('DTM')
+            ! Dust-to-metal ratio
+            value = 0D0
+            if (varIDs%sCDust.ne.0) value = value + var(varIDs%sCDust)
+            if (varIDs%lCDust.ne.0) value = value + var(varIDs%lCDust)
+            if (varIDs%sSilDust.ne.0) value = value + var(varIDs%sSilDust)
+            if (varIDs%lSilDust.ne.0) value = value + var(varIDs%lSilDust)
+            value = value / (var(varIDs%metallicity)*varIDs%density)
+        case ('slDust')
+            ! Small to large grains ratio
+            smallDust = 0D0; largeDust = 0D0
+            if (varIDs%sCDust.ne.0) smallDust = smallDust + var(varIDs%sCDust)
+            if (varIDs%lCDust.ne.0) largeDust = largeDust + var(varIDs%lCDust)
+            if (varIDs%sSilDust.ne.0) smallDust = smallDust + var(varIDs%sSilDust)
+            if (varIDs%lSilDust.ne.0) largeDust = largeDust + var(varIDs%lSilDust)
+            value = smallDust / largeDust
+        case ('CSilDust')
+            ! Carbon to Silicate grains ratio
+            smallDust = 0D0; largeDust = 0D0
+            if (varIDs%sCDust.ne.0) smallDust = smallDust + var(varIDs%sCDust)
+            if (varIDs%lCDust.ne.0) smallDust = smallDust + var(varIDs%lCDust)
+            if (varIDs%sSilDust.ne.0) largeDust = largeDust + var(varIDs%sSilDust)
+            if (varIDs%lSilDust.ne.0) largeDust = largeDust + var(varIDs%lSilDust)
+            value = smallDust / largeDust
         case default
             write(*,*)'Variable not supported: ',TRIM(varname)
             write(*,*)'Aborting!'
@@ -816,7 +900,7 @@ module io_ramses
         character(5) :: nchar
         integer :: ipos,impi,i,nx,ny,nz
         character(128) :: nomfich
-        character(80)  :: cooling_file
+        character(128)  :: cooling_file
         logical :: ok
 
         ipos = index(repository,'output_')

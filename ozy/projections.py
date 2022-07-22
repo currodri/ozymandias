@@ -2,10 +2,10 @@ import numpy as np
 import h5py
 import os
 import ozy
-from ozy.plot_settings import plotting_dictionary
+from ozy.plot_settings import plotting_dictionary,nolog_vars
 from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units,basic_conv
 import sys
-sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/visualisation')
+sys.path.append('/home/currodri/Codes/ozymandias/ozy/visualisation')
 import re
 import healpy as hp
 from astropy.io import fits
@@ -610,33 +610,37 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
             ax[i,j].axes.yaxis.set_visible(False)
             ax[i,j].axis('off')
             h = [k for k in range(0,len(hdul)) if hdul[k].header['btype']==fields[ivar]][0]
-
             if fields[ivar].split('/')[0] == 'star' or fields[ivar].split('/')[0] == 'dm':
                 plotting_def = plotting_dictionary[fields[ivar].split('/')[0]+'_'+fields[ivar].split('/')[1]]
                 stellar = True
             else:
                 plotting_def = plotting_dictionary[fields[ivar].split('/')[1]]
-            if logscale and fields[ivar].split('/')[1] != 'v_sphere_r':
-                print(fields[ivar],np.min(hdul[h].data.T),np.max(hdul[h].data.T))
+            if logscale and fields[ivar].split('/')[1] != 'v_sphere_r' and (not fields[ivar].split('/')[1] in nolog_vars):
+                print(fields[ivar],np.nanmin(hdul[h].data.T),np.nanmax(hdul[h].data.T))
                 plot = ax[i,j].imshow(np.log10(hdul[h].data.T), cmap=plotting_def['cmap'],
                                 origin='upper',vmin=np.log10(plotting_def['vmin_galaxy']),
                                 vmax=np.log10(plotting_def['vmax_galaxy']),extent=ex,
                                 interpolation='nearest')
             elif logscale and fields[ivar].split('/')[1] == 'v_sphere_r':
-                print(fields[ivar],np.min(hdul[h].data.T),np.max(hdul[h].data.T))
+                print(fields[ivar],np.nanmin(hdul[h].data.T),np.nanmax(hdul[h].data.T))
                 plot = ax[i,j].imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
                                 origin='upper',norm=SymLogNorm(linthresh=10, linscale=1,vmin=plotting_def['vmin'], vmax=plotting_def['vmax']),
                                 extent=ex,
                                 interpolation='nearest')
+            elif fields[ivar].split('/')[1] in nolog_vars:
+                print(fields[ivar],np.nanmin(hdul[h].data.T),np.nanmax(hdul[h].data.T))
+                plot = ax[i,j].imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
+                                origin='upper',extent=ex,interpolation='nearest',
+                                vmin=plotting_def['vmin_galaxy'],vmax=plotting_def['vmax_galaxy'])
             else:
-                print(fields[ivar],np.min(hdul[h].data.T),np.max(hdul[h].data.T))
+                print(fields[ivar],np.nanmin(hdul[h].data.T),np.nanmax(hdul[h].data.T))
                 plot = ax[i,j].imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
                                 origin='upper',extent=ex,interpolation='nearest',
                                 vmin=plotting_def['vmin'],vmax=plotting_def['vmax'])
 
             cbaxes = inset_axes(ax[i,j], width="80%", height="5%", loc='lower center')
             cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
-            if logscale and fields[ivar].split('/')[1] != 'v_sphere_r':
+            if logscale and (fields[ivar].split('/')[1] != 'v_sphere_r' and not fields[ivar].split('/')[1] in nolog_vars):
                 cbar.set_label(plotting_def['label_log'],color=plotting_def['text_over'],fontsize=20,labelpad=-25, y=0.85,weight='bold')
             else:
                 cbar.set_label(plotting_def['label'],color=plotting_def['text_over'],fontsize=16,labelpad=-25, y=0.85)

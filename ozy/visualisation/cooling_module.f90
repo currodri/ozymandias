@@ -57,10 +57,10 @@ module cooling_module
   
     subroutine read_cool(filename)
         implicit none
-        character(LEN=80)::filename
-        open(unit=10,file=filename,form='unformatted')
+        character(LEN=128)::filename
+        open(unit=15,file=TRIM(filename),form='unformatted',status='old')
         ! Get size of table
-        read(10)ctable%n1,ctable%n2
+        read(15)ctable%n1,ctable%n2
 
         ! Allocate cooling table
         if(.not.allocated(ctable%cool)) then
@@ -80,21 +80,21 @@ module cooling_module
         endif
 
         ! And read values
-        read(10)ctable%nH
-        read(10)ctable%T2
-        read(10)ctable%cool
-        read(10)ctable%heat
-        read(10)ctable%cool_com
-        read(10)ctable%heat_com
-        read(10)ctable%metal
-        read(10)ctable%cool_prime
-        read(10)ctable%heat_prime
-        read(10)ctable%cool_com_prime
-        read(10)ctable%heat_com_prime
-        read(10)ctable%metal_prime
-        read(10)ctable%mu
-        if (if_species_abundances) read(10)ctable%n_spec
-        close(10)
+        read(15)ctable%nH
+        read(15)ctable%T2
+        read(15)ctable%cool
+        read(15)ctable%heat
+        read(15)ctable%cool_com
+        read(15)ctable%heat_com
+        read(15)ctable%metal
+        read(15)ctable%cool_prime
+        read(15)ctable%heat_prime
+        read(15)ctable%cool_com_prime
+        read(15)ctable%heat_com_prime
+        read(15)ctable%metal_prime
+        read(15)ctable%mu
+        if (if_species_abundances) read(15)ctable%n_spec
+        close(15)
 
         ! Some initialisations
         logT2max=log10(T2_max_fix)

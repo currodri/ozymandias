@@ -15,10 +15,10 @@ PYTHON   = python
 #                     additional flags
 #=======================================================================
 
-HP_FLAGS_INTEL = -L/usr/local/shared/healpix/3.40-intel/lib/ -lchealpix -lhealpix -lcfitsio
-HP_FLAGS = -L/usr/local/shared/healpix/3.40/lib/ -I/usr/local/shared/healpix/3.40/include -lchealpix -lhealpix -lcfitsio
-#HP_FLAGS_INTEL = -L/softs/healpix/3.81-ifort-2022.1.2/lib -I/softs/healpix/3.81-ifort-2022.1.2/include -lchealpix -lhealpix -lcfitsio -liomp5
-#HP_FLAGS = -L/softs/healpix/3.81-ifort-2022.1.2/lib -I/softs/healpix/3.81-ifort-2022.1.2/include -lchealpix -lhealpix -lcfitsio
+#HP_FLAGS_INTEL = -L/usr/local/shared/healpix/3.40-intel/lib/ -lchealpix -lhealpix -lcfitsio
+#HP_FLAGS = -L/usr/local/shared/healpix/3.40/lib/ -I/usr/local/shared/healpix/3.40/include -lchealpix -lhealpix -lcfitsio
+HP_FLAGS_INTEL = -L/softs/healpix/3.81-ifort-2022.1.2/lib -I/softs/healpix/3.81-ifort-2022.1.2/include -lchealpix -lhealpix -lcfitsio -liomp5
+HP_FLAGS = -L/softs/healpix/3.81-ifort-2022.1.2/lib -I/softs/healpix/3.81-ifort-2022.1.2/include -lchealpix -lhealpix -lcfitsio
 
 
 ifeq ($(F90),gfortran)

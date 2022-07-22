@@ -1,8 +1,8 @@
 import numpy as np
 from pprint import pprint
 import sys
-sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/amr')
-sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/part')
+sys.path.append('/home/currodri/Codes/ozymandias/ozy/amr')
+sys.path.append('/home/currodri/Codes/ozymandias/ozy/part')
 from amr2 import vectors
 from amr2 import geometrical_regions as geo
 from amr2 import filtering
@@ -83,6 +83,7 @@ class Galaxy(Group):
         self.radiation = {}
         self.outflows = {}
         self.inflows = {}
+        self.dust = {}
     def _process_galaxy(self):
         """Process each galaxy after creation. This means
         calculating the total mass, and then calculate the rest of masses,
@@ -290,7 +291,7 @@ class Galaxy(Group):
         # Initialise region
         selected_reg = init_region(self,'sphere')
 
-        # We do not want any particular filter, just simple integration will do
+        # Setting up the phase filters
         all_filt = filtering.filter()
         phase_names = ['cold','warm','hot']
         cold_filt = init_filter(cond_strs=['entropy_specific/</4.4e+8/erg*K**-1*g**-1'],name='cold',group=self)
@@ -306,20 +307,33 @@ class Galaxy(Group):
         quantity_names = []
         weight_names = ['cumulative','mass','volume']
         if self.obj.simulation.physics['hydro']:
-            quantity_names += ['mass','density','temperature',
+            add_quantities = ['mass','density','temperature',
                                 'ang_momentum_x','ang_momentum_y',
                                 'ang_momentum_z','thermal_energy','thermal_energy_specific']
+            quantity_names += add_quantities
+            nvar_hydro = len(add_quantities)
         if self.obj.simulation.physics['metals']:
-            quantity_names += ['metallicity']
+            add_quantities = ['metallicity']
+            quantity_names += add_quantities
+            nvar_metals = len(add_quantities)
         if self.obj.simulation.physics['magnetic']:
-            quantity_names += ['magnetic_energy','magnetic_energy_specific']
+            add_quantities = ['magnetic_energy','magnetic_energy_specific']
+            quantity_names += add_quantities
+            nvar_magnetic = len(add_quantities)
         if self.obj.simulation.physics['cr']:
-            quantity_names += ['cr_energy','cr_energy_specific']
-            
-        nvar = len(quantity_names)
+            add_quantities = ['cr_energy','cr_energy_specific']
+            quantity_names += add_quantities
+            nvar_cr = len(add_quantities)
+        if self.obj.simulation.physics['dust']:
+            add_quantities = ['DTM','slDust','density_CDust','density_SilDust',
+                                'mass_CDust','mass_SilDust','CSilDust']
+            quantity_names += add_quantities
+            nvar_dust = len(add_quantities)
         if self.obj.simulation.physics['rt']:
-            quantity_names += ['xHII','xHeII','xHeIII']
-                
+            add_quantities = ['xHII','xHeII','xHeIII']
+            quantity_names += add_quantities
+            nvar_rt = len(add_quantities)
+
         # Initialise Fortran derived type with attributes
         # This object hold the following attributes:
         # - nvars: number of variables
@@ -359,6 +373,7 @@ class Galaxy(Group):
             self.energies['thermal_energy_specific'] = self.obj.quantity(glob_attrs.data[0,7,2,0], 'code_specific_energy')
             if self.obj.simulation.physics['metals']:
                 self.metallicity['gas'] = glob_attrs.data[0,8,1,0] # Mass-weighted average!
+                nvar += nvar_metals
             for i in range(0, len(phase_names)):
                 self.mass['gas_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,0,0,0], 'code_mass')
                 print('Mass in %s gas is %.5f'%(phase_names[i],self.mass['gas_'+phase_names[i]].to('Msun')))
@@ -372,40 +387,49 @@ class Galaxy(Group):
                 self.energies['thermal_energy_specific_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,7,2,0], 'code_specific_energy')
                 if self.obj.simulation.physics['metals']:
                     self.metallicity['gas_'+phase_names[i]] = glob_attrs.data[i+1,8,1,0] # Mass-weighted average!
+            nvar += nvar_hydro
         else:
             self.mass['gas'] = self.obj.quantity(0.0, 'code_mass')
         
         if self.obj.simulation.physics['magnetic']:
             print('Computing magnetic energies')
-            if self.obj.simulation.physics['metals']:
-                self.energies['magnetic_energy'] = self.obj.quantity(glob_attrs.data[0,9,0,0], 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific'] = self.obj.quantity(glob_attrs.data[0,10,1,0], 'code_specific_energy')
-                for i in range(1,len(phase_names)):
-                    self.energies['magnetic_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,9,0,0], 'code_mass * code_velocity**2')
-                    self.energies['magnetic_energy_specific_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,10,1,0], 'code_specific_energy')
-            else:
-                self.energies['magnetic_energy'] = self.obj.quantity(glob_attrs.data[0,8,0,0], 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific'] = self.obj.quantity(glob_attrs.data[0,9,1,0], 'code_specific_energy')
-                for i in range(1,len(phase_names)):
-                    self.energies['magnetic_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,8,0,0], 'code_mass * code_velocity**2')
-                    self.energies['magnetic_energy_specific_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,9,1,0], 'code_specific_energy')
+            self.energies['magnetic_energy'] = self.obj.quantity(glob_attrs.data[0,nvar,0,0], 'code_mass * code_velocity**2')
+            self.energies['magnetic_energy_specific'] = self.obj.quantity(glob_attrs.data[0,nvar+1,1,0], 'code_specific_energy')
+            for i in range(1,len(phase_names)):
+                self.energies['magnetic_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,nvar,0,0], 'code_mass * code_velocity**2')
+                self.energies['magnetic_energy_specific_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,nvar+1,1,0], 'code_specific_energy')
+            nvar += nvar_magnetic
 
 
         if self.obj.simulation.physics['cr']:
             print('Computing CR energies')
-            if self.obj.simulation.physics['metals']:
-                self.energies['cr_energy'] = self.obj.quantity(glob_attrs.data[0,11,0,0], 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific'] = self.obj.quantity(glob_attrs.data[0,12,1,0], 'code_specific_energy')
-                for i in range(1, len(phase_names)):
-                    self.energies['cr_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,11,0,0], 'code_mass * code_velocity**2')
-                    self.energies['cr_energy_specific_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,12,1,0], 'code_specific_energy')
+            self.energies['cr_energy'] = self.obj.quantity(glob_attrs.data[0,nvar,0,0], 'code_mass * code_velocity**2')
+            self.energies['cr_energy_specific'] = self.obj.quantity(glob_attrs.data[0,nvar+1,1,0], 'code_specific_energy')
+            for i in range(1, len(phase_names)):
+                self.energies['cr_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,nvar,0,0], 'code_mass * code_velocity**2')
+                self.energies['cr_energy_specific_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,nvar+1,1,0], 'code_specific_energy')
+            nvar += nvar_cr
 
-            else:
-                self.energies['cr_energy'] = self.obj.quantity(glob_attrs.data[0,10,0,0], 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific'] = self.obj.quantity(glob_attrs.data[0,11,1,0], 'code_specific_energy')
-                for i in range(1, len(phase_names)):
-                    self.energies['cr_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,10,0,0], 'code_mass * code_velocity**2')
-                    self.energies['cr_energy_specific_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,11,1,0], 'code_specific_energy')
+        if self.obj.simulation.physics['dust']:
+            print('Computing Dust stuff')
+            self.dust['DTM_mass_weighted'] = self.obj.quantity(glob_attrs.data[0,nvar,1,0], 'dimensionless')
+            self.dust['DTM_volume_weighted'] = self.obj.quantity(glob_attrs.data[0,nvar,2,0], 'dimensionless')
+            self.dust['slDust'] = self.obj.quantity(glob_attrs.data[0,nvar+1,2,0], 'dimensionless') # Volume-weighted average
+            self.dust['density_CDust'] = self.obj.quantity(glob_attrs.data[0,nvar+2,2,0], 'code_density') # Volume-weighted average
+            self.dust['density_SilDust'] = self.obj.quantity(glob_attrs.data[0,nvar+3,2,0], 'code_density') # Volume-weighted average
+            self.dust['mass_CDust'] = self.obj.quantity(glob_attrs.data[0,nvar+4,2,0], 'code_mass') # Volume-weighted average
+            self.dust['mass_SilDust'] = self.obj.quantity(glob_attrs.data[0,nvar+5,2,0], 'code_mass') # Volume-weighted average
+            self.dust['CSilDust'] = self.obj.quantity(glob_attrs.data[0,nvar+6,2,0], 'dimensionless') # Volume-weighted average
+            for i in range(1, len(phase_names)):
+                self.dust['DTM_mass_weighted_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,nvar,1,0], 'dimensionless')
+                self.dust['DTM_volume_weighted_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,nvar,2,0], 'dimensionless')
+                self.dust['S/L_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,nvar+1,2,0], 'dimensionless') # Volume-weighted average
+                self.dust['density_CDust_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,nvar+2,2,0], 'code_density') # Volume-weighted average
+                self.dust['density_SilDust_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,nvar+3,2,0], 'code_density') # Volume-weighted average
+                self.dust['mass_CDust_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,nvar+4,2,0], 'code_mass') # Volume-weighted average
+                self.dust['mass_SilDust_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,nvar+5,2,0], 'code_mass') # Volume-weighted average
+                self.dust['C/Sil_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,nvar+6,2,0], 'dimensionless') # Volume-weighted average
+            nvar += nvar_dust
 
         if self.obj.simulation.physics['rt']:
             print('Computing ionisation fractions')

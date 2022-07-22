@@ -1,8 +1,8 @@
 import numpy as np
 # TODO: It should use a global fortran module, not the particles one
 import sys
-sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/part')
-import part2
+sys.path.append('/home/currodri/Codes/ozymandias/ozy/amr')
+import amr2
 
 class SimulationAttributes(object):
     """Class that contains the attributes of the simulation."""
@@ -61,8 +61,8 @@ class SimulationAttributes(object):
                         'AGN':False,
                         'dust':False}
         
-        varIDs = part2.io_ramses.hydroID()
-        part2.io_ramses.retrieve_vars(self.fullpath,varIDs)
+        varIDs = amr2.io_ramses.hydroID()
+        amr2.io_ramses.retrieve_vars(self.fullpath,varIDs)
         if varIDs.density != 0 and varIDs.vx != 0:
             self.physics['hydro'] = True
         if varIDs.metallicity != 0:
@@ -73,6 +73,8 @@ class SimulationAttributes(object):
             self.physics['cr'] = True
         if varIDs.xhii != 0:
             self.physics['rt'] = True
+        if varIDs.scdust != 0:
+            self.physics['dust'] = True
 
         
         

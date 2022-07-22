@@ -1,8 +1,8 @@
 import numpy as np
 from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units,basic_conv
 import sys
-sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/amr')
-sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/part')
+sys.path.append('/home/currodri/Codes/ozymandias/ozy/amr')
+sys.path.append('/home/currodri/Codes/ozymandias/ozy/part')
 
 def unigrid_amr(obj, group=None, filter=None, lmax =0, n=[100,100,100], vars=['gas/density'], xmin=(0,'code_length'), xmax=(1,'code_length'), ymin=(0,'code_length'),
                  ymax=(1,'code_length'), zmin=(0,'code_length'), zmax=(1,'code_length'), angmom = np.array([0,0,1]), symlog=True):

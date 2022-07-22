@@ -193,7 +193,7 @@ def auto_cleanHM(sim_folder, haloM_folder):
     # the installation of the package.
 
     clean_up_done = False
-    HalosExtractorRoute = '/mnt/zfsusers/currodri/bin/' # This requires the "make" of the Fortran code first.
+    HalosExtractorRoute = '/home/currodri/.local/bin/' # This requires the "make" of the Fortran code first.
     if (os.path.isfile(HalosExtractorRoute+"HaloExtractor.out")):        
         print("I am trying to clean the halos in the received folder to accelerate")
         print("execution. This is done once per simulation and really worth not   ")

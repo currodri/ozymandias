@@ -80,7 +80,7 @@ def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
     for snapdir in snapdirs:
         for snapindex in snapindexes:
             snaps.append(Snapshot(snapdir, snapname, snapindex))
-    
+
     if build_HaloMaker:
         rank_snaps = snaps[rank::nprocs]
         for snap in rank_snaps:
