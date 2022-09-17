@@ -192,13 +192,14 @@ def auto_cleanHM(sim_folder, haloM_folder):
     # TODO: The HalosExtractor should be a submodule of OZYMANDIAS, and compiled during
     # the installation of the package.
 
+    from __init__ import OZYPATH
+
     clean_up_done = False
-    HalosExtractorRoute = '/mnt/zfsusers/currodri/bin/' # This requires the "make" of the Fortran code first.
-    if (os.path.isfile(HalosExtractorRoute+"HaloExtractor.out")):        
+    if (os.path.isfile(OZYPATH+"HaloExtractor.out")):        
         print("I am trying to clean the halos in the received folder to accelerate")
         print("execution. This is done once per simulation and really worth not   ")
         print("having to read the particles")
-        os.system(str(HalosExtractorRoute)+"./HaloExtractor.out "+str(sim_folder+haloM_folder))
+        os.system(OZYPATH+"./HaloExtractor.out "+str(sim_folder+haloM_folder))
         clean_up_done = True
     else:
         print("I have tried to clean your halo files for faster execution but")

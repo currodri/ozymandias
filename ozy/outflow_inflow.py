@@ -6,9 +6,6 @@ from unyt import unyt_array,unyt_quantity
 from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units
 # TODO: Allow for parallel computation of flows.
 from joblib import Parallel, delayed
-import sys
-sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/amr')
-sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/part')
 from amr2 import amr_integrator
 from ozy.utils import init_region,init_filter
 blacklist = [

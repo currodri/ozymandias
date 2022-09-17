@@ -83,7 +83,9 @@ grid_variables = dict(
     grav_fz = 'code_pressure/code_length',
     xHII = 'dimensionless',
     xHeII = 'dimensionless',
-    xHeIII = 'dimensionless'
+    xHeIII = 'dimensionless',
+    dust_density = 'code_density',
+    DTM = 'dimensionless'
 )
 particle_variables = dict(
     age = 'Gyr',

@@ -8,8 +8,6 @@ from ozy.dict_variables import common_variables, \
                                 grid_variables, \
                                 particle_variables, \
                                 get_code_units,basic_conv
-import sys
-sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/visualisation')
 import re
 import healpy as hp
 from astropy.io import fits
@@ -335,12 +333,13 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
                 raise KeyError('This DM variable is not supported. Please check!')
 
     # Setup camera details for the requested POV (Point of View)
-    if group.type == 'halo':
-        rvir = group.virial_quantities['radius'].d
-    else:
-        rvir = group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+    if window[0] == 0.0 or window[1] == 'rvir':
+        if group.obj_type == 'halo':
+            rvir = group.virial_quantities['radius'].d
+        else:
+            rvir = group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
     if window[0] == 0.0:
-        if group.type == 'halo':
+        if group.obj_type == 'halo':
             window = 1.2*rvir
         else:
             window = 0.2*rvir
@@ -356,7 +355,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
     region_axis.x,region_axis.y,region_axis.z = norm_L[0], norm_L[1], norm_L[2]
 
-    if group.type != 'halo':
+    if group.obj_type != 'halo':
         velocity = group.velocity.in_units('code_velocity')
         bulk.x, bulk.y, bulk.z = velocity.d[0], velocity.d[1], velocity.d[2]
     print('bulk: ',bulk.x, bulk.y, bulk.z)
@@ -636,15 +635,16 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
             else:
                 plotting_def = plotting_dictionary[fields[ivar].split('/')[1]]
             if logscale and fields[ivar].split('/')[1] not in symlog_variables:
-                print(fields[ivar],np.min(hdul[h].data.T),np.max(hdul[h].data.T))
+                print(fields[ivar],np.nanmin(hdul[h].data.T),np.nanmax(hdul[h].data.T))
+                sigma=5
+                cImage = sp.ndimage.filters.gaussian_filter(hdul[h].data.T, sigma, mode='constant')
                 plot = ax[i,j].imshow(np.log10(hdul[h].data.T), cmap=plotting_def['cmap'],
                                 origin='lower',vmin=np.log10(plotting_def['vmin_galaxy']),
                                 vmax=np.log10(plotting_def['vmax_galaxy']),extent=ex,
                                 interpolation='nearest')
             elif logscale and fields[ivar].split('/')[1] in symlog_variables:
                 print(fields[ivar],np.nanmin(hdul[h].data.T),np.nanmax(hdul[h].data.T))
-                print(hdul[h].data.T)
-                sigma=1                                                                                                                                                                                            
+                sigma=5                                                                                                                                                                                            
                 cImage = sp.ndimage.filters.gaussian_filter(hdul[h].data.T, sigma, mode='constant')
                 plot = ax[i,j].imshow(cImage, cmap=plotting_def['cmap'],
                                 origin='lower',norm=SymLogNorm(linthresh=0.1, linscale=1,
@@ -660,9 +660,9 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
             cbaxes = inset_axes(ax[i,j], width="80%", height="5%", loc='lower center')
             cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
             if logscale and fields[ivar].split('/')[1] not in symlog_variables:
-                cbar.set_label(plotting_def['label_log'],color=plotting_def['text_over'],fontsize=20,labelpad=-25, y=0.85,weight='bold')
+                cbar.set_label(plotting_def['label_log'],color=plotting_def['text_over'],fontsize=20,labelpad=-27, y=0.85,weight='bold')
             else:
-                cbar.set_label(plotting_def['label'],color=plotting_def['text_over'],fontsize=16,labelpad=-25, y=0.85)
+                cbar.set_label(plotting_def['label'],color=plotting_def['text_over'],fontsize=16,labelpad=-27, y=0.85)
             cbar.ax.xaxis.label.set_font_properties(matplotlib.font_manager.FontProperties(weight='bold',size=8))
             cbar.ax.tick_params(axis='x', pad=-7, labelsize=8,labelcolor=plotting_def['text_over'])
             cbar.ax.tick_params(length=0,width=0)

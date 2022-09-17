@@ -13,10 +13,10 @@ PYTHON   = python
 #                     additional flags
 #=======================================================================
 
-HP_FLAGS_INTEL = -L/usr/local/shared/healpix/3.40-intel/lib/ -lchealpix -lhealpix -lcfitsio
-HP_FLAGS = -L/usr/local/shared/healpix/3.40/lib/ -I/usr/local/shared/healpix/3.40/include -lchealpix -lhealpix -lcfitsio
-#HP_FLAGS_INTEL = -L/softs/healpix/3.81-ifort-2022.1.2/lib -I/softs/healpix/3.81-ifort-2022.1.2/include -lchealpix -lhealpix -lcfitsio -liomp5
-#HP_FLAGS = -L/softs/healpix/3.81-ifort-2022.1.2/lib -I/softs/healpix/3.81-ifort-2022.1.2/include -lchealpix -lhealpix -lcfitsio
+# HP_FLAGS_INTEL = -L/usr/local/shared/healpix/3.40-intel/lib/ -lchealpix -lhealpix -lcfitsio
+# HP_FLAGS = -L/usr/local/shared/healpix/3.40/lib/ -I/usr/local/shared/healpix/3.40/include -lchealpix -lhealpix -lcfitsio
+HP_FLAGS_INTEL = -L/softs/healpix/3.81-ifort-2022.1.2/lib -I/softs/healpix/3.81-ifort-2022.1.2/include -lchealpix -lhealpix -lcfitsio -liomp5
+HP_FLAGS = -L/softs/healpix/3.81-ifort-2022.1.2/lib -I/softs/healpix/3.81-ifort-2022.1.2/include -lchealpix -lhealpix -lcfitsio
 
 
 ifeq ($(F90),gfortran)
@@ -31,8 +31,8 @@ ifeq ($(F90),ifort)
 
 	FPP      = gfortran -E # gfortran f90wrap temp files only. not compilation
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
-	#F90FLAGS = -g -traceback -check bounds -cpp -fpscomp logicals -fPIC ${HP_FLAGS_INTEL} # use 1 and 0 for True and False
-	F90FLAGS = -O3 -cpp -fpscomp logicals -fPIC ${HP_FLAGS_INTEL} # use 1 and 0 for True and False
+	# F90FLAGS = -g -traceback -check bounds -cpp -fpscomp logicals -fPIC ${HP_FLAGS_INTEL} # use 1 and 0 for True and False
+	F90FLAGS = -O3 -cpp -fpscomp logicals -fPIC -DAGEPROPER ${HP_FLAGS_INTEL} # use 1 and 0 for True and False
 	FCOMP    = intelem # for f2py
     LIBS =
 endif

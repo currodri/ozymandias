@@ -208,9 +208,18 @@ module part_profiles
 #else
         integer(ilg),dimension(:),allocatable :: id,tag_id
 #endif
+#ifndef IMASS
+        integer(1),dimension(:), allocatable :: part_tags
+#endif
         real(dbl),dimension(:),allocatable :: m,age,met,imass
         real(dbl),dimension(:,:),allocatable :: x,v
 
+#ifndef IMASS
+        if (sim%eta_sn .eq. -1D0) then
+            write(*,*)': eta_sn=-1 and not IMASS --> should set this up!'
+            stop
+        end if
+#endif
         ! If tagged particles file exists, read and allocate array
         if (present(tag_file)) then
             open(unit=58,file=TRIM(tag_file),status='old',form='formatted')
@@ -296,6 +305,9 @@ module part_profiles
                 allocate(id(1:npart2))
                 allocate(met(1:npart2))
                 allocate(imass(1:npart2))
+#ifndef IMASS
+                allocate(part_tags(1:npart2))
+#endif
             endif
             if (present(tag_file) .and. (.not. allocated(id))) allocate(id(1:npart2))
             allocate(x(1:npart2,1:ndim2))
@@ -320,11 +332,17 @@ module part_profiles
                 read(1) ! Skip level
                 if (sim%family) then
                     read(1) ! Skip family
+#ifndef IMASS
+                    read(1)part_tags
+#else
                     read(1) ! Skip tags
+#endif
                 endif
                 read(1)age
                 read(1)met
+#ifdef IMASS
                 read(1)imass
+#endif
             elseif (present(tag_file) .and. nstar .eq. 0) then
                 read(1)id
             endif
@@ -341,7 +359,16 @@ module part_profiles
                     part%id = id(i)
                     part%age = age(i)
                     part%met = met(i)
+#ifdef IMASS
                     part%imass = imass(i)
+#else
+                    part%imass = 0D0
+                    if (part_tags(i)==1) then
+                        part%imass = m(i)
+                    elseif (part_tags(i)==0.or.part_tags(i)==-1) then
+                        part%imass = m(i) / (1D0 - sim%eta_sn)
+                    end if
+#endif
                 elseif (present(tag_file)) then
                     part%id = id(i)
                     part%age = 0D0
@@ -383,6 +410,9 @@ module part_profiles
             deallocate(m,x,v)
             if (allocated(id))deallocate(id)
             if (nstar>0)deallocate(age,met,imass)
+#ifndef IMASS
+            if (nstar>0)deallocate(part_tags)
+#endif
         end do cpuloop
     end subroutine get_parts_onedprofile
 

@@ -8,9 +8,6 @@ from ozy.plot_settings import symlog_variables
 from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units
 # TODO: Allow for parallel computation of phase diagrams.
 from joblib import Parallel, delayed
-import sys
-sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/amr')
-sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/part')
 from amr2 import vectors
 from amr2 import geometrical_regions as geo
 from amr2 import filtering
