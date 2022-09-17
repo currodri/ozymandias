@@ -333,7 +333,6 @@ def tidal_radius(central, satellite, method='BT87_simple'):
 def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(0.0,'rvir'), xmax=(0.2,'rvir'),
                 ymin=(0.0,'rvir'), ymax=(0.2,'rvir'),zmin=(0.0,'rvir'), zmax=(0.2,'rvir')):
     """Initialise region Fortran derived type with details of group."""
-    sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/amr')
     from amr2 import vectors
     from amr2 import geometrical_regions as geo
     if not isinstance(rmin,tuple) or not isinstance(rmax,tuple):
@@ -507,7 +506,6 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
 
 def init_filter(cond_strs, name, group):
     """Initialise filter Fortran derived type with the condition strings provided."""
-    sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/amr')
     from amr2 import filtering
 
     if isinstance(cond_strs, str):
@@ -748,7 +746,6 @@ def plot_cooling(cool_file):
     This function allows for an easy inspection of the cooling curves
     saved in the RAMSES outputs and how they are used in post-processing.
     """
-    sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/amr')
     from amr2 import cooling_module
     import matplotlib.pyplot as plt
     from matplotlib.colors import LogNorm,SymLogNorm

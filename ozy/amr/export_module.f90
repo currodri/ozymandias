@@ -800,4 +800,385 @@ module export_amr
             end do
         end do
     end subroutine get_unigrid
+
+    subroutine amr2skirt(repository,reg,filt,varname,outpath)
+        use vectors
+        use coordinate_systems
+        use geometrical_regions
+        implicit none
+        
+        ! Input/output variables
+        character(128),intent(in) :: repository
+        type(region),intent(in) :: reg
+        type(filter),intent(in) :: filt
+        character(128),intent(in) :: varname
+        character(128),intent(in) :: outpath
+
+        ! Specific variables for this subroutine
+        integer :: i,j,k
+        integer :: ipos,icpu,ilevel,ind,idim,ivar,ifilt,iskip,inbor
+        integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full,cumngrida
+        integer :: tot_pos,tot_ref,total_ncell,cpu_ncell
+        integer :: nvarh
+        integer :: roterr
+        character(5) :: nchar,ncharcpu
+        character(128) :: nomfich
+        real(dbl) :: distance,dx,dx2kpc
+        real(dbl) :: myval
+        type(vector) :: xtemp,vtemp,xtempmin,xtempmax
+        logical :: ok_cell,ok_filter,ok_cell_each,read_gravity
+        integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
+        real(dbl),dimension(1:8,1:3) :: xc
+        real(dbl),dimension(3,3) :: trans_matrix
+        real(dbl),dimension(:,:),allocatable :: xg,x
+        real(dbl),dimension(:,:),allocatable :: var
+        real(dbl),dimension(:,:),allocatable :: grav_var
+        real(dbl),dimension(:,:),allocatable :: tempvar
+        real(dbl),dimension(:,:),allocatable :: tempgrav_var
+        integer,dimension(:,:),allocatable :: nbor
+        integer,dimension(:),allocatable :: son,tempson
+        integer,dimension(:),allocatable :: ind_grid,ind_cell,ind_cell2
+        integer ,dimension(:),allocatable :: ind_nbor
+        logical,dimension(:),allocatable :: ref
+
+        total_ncell = 0
+        cpu_ncell = 0
+
+        ! Obtain details of the hydro variables stored
+        call read_hydrofile_descriptor(repository)
+
+        ! Initialise parameters of the AMR structure and simulation attributes
+        call init_amr_read(repository)
+        amr%lmax = amr%nlevelmax
+
+        ! Compute the Hilbert curve
+        call get_cpu_map(reg)
+        write(*,*)'ncpu_read:',amr%ncpu_read
+
+        ! Check whether we need to read the gravity files
+        read_gravity = .false.
+        if (varname(1:4) .eq. 'grav') then
+            read_gravity = .true.
+            write(*,*)'Reading gravity files...'
+        end if
+
+        ! Allocate grids
+        allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
+        allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
+        if(amr%nboundary>0)allocate(ngridbound(1:amr%nboundary,1:amr%nlevelmax))
+
+        ! Compute linear transformation
+        trans_matrix = 0D0
+        call new_z_coordinates(reg%axis,trans_matrix,roterr)
+        if (roterr.eq.1) then
+            write(*,*) 'Incorrect CS transformation!'
+            stop
+        endif
+
+        ! Open output file and add header for SKIRT format
+        open(unit=7,file=TRIM(outpath),form='formatted')
+        write(7,98)
+        write(7,99)TRIM(varname)
+        write(7,97)
+        write(7,101)
+        write(7,97)
+        97 format('#')
+        98 format('# Gas cell data for simulated galaxy in RAMSES simulation')
+        99 format('# SKIRT 9 import format for a medium source using ',A,' method')
+        101 format('# Column 1: x-min (kpc)',/, &
+                    '# Column 2: y-min (kpc)',/,&
+                    '# Column 3: z-min (kpc)',/,&
+                    '# Column 4: x-max (kpc)',/, &
+                    '# Column 5: y-max (kpc)',/,&
+                    '# Column 6: z-max (kpc)',/,&
+                    '# Column 7: dust mass density (Msun/pc3)')
+
+        ipos=INDEX(repository,'output_')
+        nchar=repository(ipos+7:ipos+13)
+
+        ! Loop over processor files
+        cpuloop: do k=1,amr%ncpu_read
+            icpu = amr%cpu_list(k)
+            call title(icpu,ncharcpu)
+
+            ! Open AMR file and skip header
+            nomfich = TRIM(repository)//'/amr_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+            open(unit=10,file=nomfich,status='old',form='unformatted')
+            do i=1,21
+                read(10) ! Skip header
+            end do
+            ! Read grid numbers
+            read(10)ngridlevel
+            ngridfile(1:amr%ncpu,1:amr%nlevelmax) = ngridlevel
+            read(10) ! Skip
+            if(amr%nboundary>0) then
+                do i=1,2
+                    read(10)
+                end do
+                read(10)ngridbound
+                ngridfile(amr%ncpu+1:amr%ncpu+amr%nboundary,1:amr%nlevelmax) = ngridbound
+            endif
+            read(10) ! Skip
+            ! R. Teyssier: comment the single following line for old stuff
+            read(10)
+            if(TRIM(amr%ordering).eq.'bisection')then
+                do i=1,5
+                    read(10)
+                end do
+            else
+                read(10)
+            endif
+            read(10)
+            read(10)
+            read(10)
+
+            ! Make sure that we are not trying to access to far in the refinement map…
+            ! call check_lmax(ngridfile)
+
+            allocate(nbor(1:amr%ngridmax,1:amr%twondim))
+            allocate(son(1:amr%ncoarse+amr%twotondim*amr%ngridmax))
+            son = 0; nbor = 0
+            cumngrida = 0
+
+            ! Open HYDRO file and skip header
+            nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+            open(unit=11,file=nomfich,status='old',form='unformatted')
+            read(11)
+            read(11)nvarh
+            read(11)
+            read(11)
+            read(11)
+            read(11)
+            allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:nvarh))
+            
+            if (read_gravity) then
+                ! Open GRAV file and skip header
+                nomfich=TRIM(repository)//'/grav_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+                open(unit=12,file=nomfich,status='old',form='unformatted')
+                read(12) !ncpu
+                read(12) !ndim
+                read(12) !nlevelmax
+                read(12) !nboundary 
+                allocate(grav_var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:4))
+            endif
+
+            ! Loop over levels
+            levelloop: do ilevel=1,amr%lmax
+                ! Geometry
+                dx = 0.5**ilevel
+                dx2kpc = dx * (sim%unit_l*cm2kpc)
+                nx_full = 2**ilevel
+                ny_full = 2**ilevel
+                nz_full = 2**ilevel
+                do ind=1,amr%twotondim
+                    iz=(ind-1)/4
+                    iy=(ind-1-4*iz)/2
+                    ix=(ind-1-2*iy-4*iz)
+                    xc(ind,1)=(dble(ix)-0.5D0)*dx
+                    xc(ind,2)=(dble(iy)-0.5D0)*dx
+                    xc(ind,3)=(dble(iz)-0.5D0)*dx
+                end do
+                
+                ! Allocate work arrays
+                ngrida = ngridfile(icpu,ilevel)
+                if(ngrida>0) then
+                    allocate(ind_grid(1:ngrida))
+                    allocate(ind_cell(1:ngrida))
+                    allocate(xg (1:ngrida,1:amr%ndim))
+                    allocate(x  (1:ngrida,1:amr%ndim))
+                    allocate(ref(1:ngrida))
+                endif
+                !write(*,*)'Level allocation fine'
+                ! Loop over domains
+                domloop: do j=1,amr%nboundary+amr%ncpu
+                    
+                    ! Read AMR data
+                    if (ngridfile(j,ilevel)>0) then
+                        if(j.eq.icpu)then
+                            read(10) ind_grid
+                        else
+                            read(10)
+                        end if
+                        read(10) ! Skip next index
+                        read(10) ! Skip prev index
+
+                        ! Read grid center
+                        do idim=1,amr%ndim
+                            if(j.eq.icpu)then
+                                read(10)xg(:,idim)
+                            else
+                                read(10)
+                            endif
+                        end do
+
+                        read(10) ! Skip father index
+                        do ind=1,amr%twondim
+                            if(j.eq.icpu)then
+                                read(10)nbor(ind_grid,ind)
+                            else
+                                read(10)
+                            end if
+                        end do
+
+                        ! Read son index
+                        do ind=1,amr%twotondim
+                            iskip = amr%ncoarse+(ind-1)*amr%ngridmax
+                            if(j.eq.icpu)then
+                                read(10)son(ind_grid+iskip)
+                            else
+                                read(10)
+                            end if
+                        end do
+
+                        ! Skip cpu map
+                        do ind=1,amr%twotondim
+                            read(10)
+                        end do
+
+                        ! Skip refinement map
+                        do ind=1,amr%twotondim
+                            read(10)
+                        end do
+                    endif
+                    ! Read HYDRO data
+                    read(11)
+                    read(11)
+                    if(ngridfile(j,ilevel)>0)then
+                        ! Read hydro variables
+                        tndimloop: do ind=1,amr%twotondim
+                            iskip = amr%ncoarse+(ind-1)*amr%ngridmax
+                            varloop: do ivar=1,nvarh
+                                if (j.eq.icpu) then
+                                    read(11)var(ind_grid+iskip,ivar)
+                                else
+                                    read(11)
+                                endif
+                            end do varloop
+                        end do tndimloop
+                    endif
+
+                    if (read_gravity) then
+                        ! Read GRAV data
+                        read(12)
+                        read(12)
+                        if(ngridfile(j,ilevel)>0)then
+                            do ind=1,amr%twotondim
+                                iskip = amr%ncoarse+(ind-1)*amr%ngridmax
+                                if (j.eq.icpu) then
+                                    read(12)grav_var(ind_grid+iskip,1)
+                                    do ivar=1,amr%ndim
+                                        read(12)grav_var(ind_grid+iskip,ivar+1)
+                                    end do
+                                else
+                                    read(12)
+                                    do ivar=1,amr%ndim
+                                        read(12)
+                                    end do
+                                end if
+                            end do
+                        end if
+                    end if
+                end do domloop
+
+                ! Finally, get to every cell
+                if (ngrida>0) then
+                    ! Loop over cells
+                    cellloop: do ind=1,amr%twotondim
+
+                        ! Compute cell center
+                        do i=1,ngrida
+                            x(i,1)=(xg(i,1)+xc(ind,1)-amr%xbound(1))
+                            x(i,2)=(xg(i,2)+xc(ind,2)-amr%xbound(2))
+                            x(i,3)=(xg(i,3)+xc(ind,3)-amr%xbound(3))
+                        end do
+
+                        ! Check if cell is refined
+                        iskip = amr%ncoarse+(ind-1)*amr%ngridmax
+                        do i=1,ngrida
+                            ref(i) = son(ind_grid(i)+iskip)>0.and.ilevel<amr%lmax
+                        end do
+
+                        ! Get cell indexes
+                        do i=1,ngrida
+                            ind_cell(i) = iskip+ind_grid(i)
+                        end do
+
+                        ngridaloop: do i=1,ngrida
+                            ! Check if cell is inside the desired region
+                            distance = 0D0
+                            xtemp = x(i,:)
+                            xtemp = xtemp - reg%centre
+                            x(i,:) = xtemp
+                            call checkifinside(x(i,:),reg,ok_cell,distance)
+                            ! Velocity transformed --> ONLY FOR CENTRAL CELL
+                            vtemp = var(ind_cell(i),varIDs%vx:varIDs%vz)
+                            vtemp = vtemp - reg%bulk_velocity
+                            var(ind_cell(i),varIDs%vx:varIDs%vz) = vtemp
+
+                            ! Gravitational acc --> ONLY FOR CENTRAL CELL
+                            if (read_gravity) then
+                                vtemp = grav_var(ind_cell(i),2:4)
+                                call rotate_vector(vtemp,trans_matrix)
+                                grav_var(ind_cell(i),2:4) = vtemp
+                            endif
+
+                            ! Get neighbours
+                            allocate(ind_cell2(1))
+                            ind_cell2(1) = ind_cell(i)
+                            allocate(ind_nbor(0:amr%twondim))
+                            call getnbor(son,nbor,ind_cell2,ind_nbor,1)
+                            deallocate(ind_cell2)
+                            allocate(tempvar(0:amr%twondim,nvarh))
+                            allocate(tempson(0:amr%twondim))
+                            if (read_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
+                            do inbor=0,amr%twondim
+                                tempvar(inbor,:) = var(ind_nbor(inbor),:)
+                                tempson(inbor)       = son(ind_nbor(inbor))
+                                if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(inbor),:)
+                            end do
+                            deallocate(ind_nbor)
+
+                            ok_filter = filter_cell(reg,filt,xtemp,dx,tempvar,tempson)
+                            ok_cell_each= ok_cell.and..not.ref(i).and.ok_filter
+                            cpu_ncell = cpu_ncell + 1
+                            if (ok_cell_each) then
+                                total_ncell = total_ncell + 1
+                                if (read_gravity) then
+                                    call getvarvalue(reg,dx,xtemp,tempvar,tempson,varname,myval,trans_matrix,tempgrav_var)
+                                else
+                                    call getvarvalue(reg,dx,xtemp,tempvar,tempson,varname,myval,trans_matrix)
+                                endif
+                                ! Position to kpc
+                                xtemp = xtemp * (sim%unit_l*cm2kpc)
+                                x(i,:) = xtemp
+                                xtempmin = x(i,:) - dx2kpc/2D0
+                                xtempmax = x(i,:) + dx2kpc/2D0
+                                ! TODO: Change for the different methods
+                                myval = myval * (sim%unit_d*gcm32msunpc3)
+                                write(7,100)xtempmin%x,xtempmin%y,xtempmin%z,&
+                                            xtempmax%x,xtempmax%y,xtempmax%z,&
+                                            myval
+                                100 format(6F10.6,F16.12)
+                            endif
+                            deallocate(tempvar,tempson)
+                            if (read_gravity) deallocate(tempgrav_var)
+                        end do ngridaloop
+                    end do cellloop
+                    deallocate(xg,ref,x,ind_grid,ind_cell)
+                endif
+                cumngrida = cumngrida + ngrida
+            end do levelloop
+            deallocate(nbor,son,var)
+            close(10)
+            close(11)
+            if (read_gravity) then
+                close(12)
+                deallocate(grav_var)
+            end if
+        end do cpuloop
+
+        close(7)
+        write(*,*)'Number of cells in the CPU read: ', cpu_ncell
+        write(*,*)'Total number of cells used:      ', total_ncell
+    end subroutine amr2skirt
 end module export_amr

@@ -9,9 +9,6 @@ import ozy
 from ozy.utils import init_region,init_filter
 from ozy.dict_variables import (common_variables, get_code_units,
                                 grid_variables, particle_variables)
-
-sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/amr')
-sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/part')
 from amr2 import amr_profiles as amrprofmod
 from amr2 import geometrical_regions as geo
 from part2 import part_profiles as partprofmod

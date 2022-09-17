@@ -1,8 +1,5 @@
 import numpy as np
 from pprint import pprint
-import sys
-sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/amr')
-sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/part')
 from amr2 import vectors
 from amr2 import geometrical_regions as geo
 from amr2 import filtering
