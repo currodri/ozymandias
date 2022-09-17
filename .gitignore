@@ -148,3 +148,11 @@ tests/NUT_00035_z_stars.png
 tests/NUT_00035_z.fits
 tests/test_00035.hdf5
 tests/test_00035.hdf5
+
+# SUNSET files
+DataFiles.zip
+bruzual_charlot_2003.dat
+kext_albedo_WD_MW_3.1_60.txt
+filters.dat
+chab03.dat
+sunset_selfcontained.f90

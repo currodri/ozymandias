@@ -342,4 +342,57 @@ module utils
         end do
 
     end subroutine binarysearch_ilg
+
+    ! subroutine bspline_regridding(n,x,y,z,fcn,o,new_n,new_x,new_y,new_z,new_fcn,extrap)
+    !     use bspline_module
+
+    !     implicit none
+    !     integer,dimension(1:3),intent(in) :: n
+    !     real(dbl),dimension(1:n(1)),intent(in) :: x
+    !     real(dbl),dimension(1:n(2)),intent(in) :: y
+    !     real(dbl),dimension(1:n(3)),intent(in) :: z
+    !     real(dbl),dimension(1:n(1),1:n(2),1:n(3)), intent(in) :: fcn
+    !     integer,dimension(1:3),intent(in) :: o
+    !     integer,dimension(1:3),intent(in) :: new_n
+    !     real(dbl),dimension(1:new_n(1)),intent(in) :: new_x
+    !     real(dbl),dimension(1:new_n(2)),intent(in) :: new_y
+    !     real(dbl),dimension(1:new_n(3)),intent(in) :: new_z
+    !     real(dbl),dimension(1:new_n(1),1:new_n(2),1:new_n(3)), intent(inout) :: new_fcn
+    !     logical,optional :: extrap
+
+    !     integer :: i,j,k
+    !     integer :: iflag  !! status flag
+    !     integer :: inbvx,inbvy,inbvz,iloy,iloz
+    !     integer :: idx=0,idy=0,idz=0
+    !     real(dbl) :: val
+    !     real(dbl),dimension(1:n(1),1:n(2),1:n(3)) :: bcoeff
+    !     integer,parameter :: iknot  = 0    !! automatically select the knots
+    !     real(dbl),dimension(n(1)+o(1))    :: tx       !! x knots
+    !     real(dbl),dimension(n(2)+o(2))    :: ty       !! y knots
+    !     real(dbl),dimension(n(3)+o(3))    :: tz       !! z knots
+    !     real(dbl),dimension(o(2),o(3))    :: w2
+    !     real(dbl),dimension(o(3))         :: w1
+    !     real(dbl),dimension(3*maxval(o))     :: w0
+
+    !     inbvx = 1
+    !     inbvy = 1
+    !     inbvz = 1
+    !     iloy = 1
+    !     iloz = 1
+
+    !     call db3ink(x,n,y,n,z,n,fcn,o(1),o(2),o(3),iknot,tx,ty,tz,bcoeff,iflag)
+
+    !     if (iflag/=0) error stop 'error calling db2ink'
+    !     do i=1,new_n(1)
+    !         do j=1,new_n(2)
+    !             do k=1,new_n(3)
+    !                 call db3val(new_x(i),new_y(j),new_z(k),idx,idy,idz,tx,ty,tz,n(1),n(2),n(3),o(1),o(2),o(3),bcoeff,val,iflag,&
+    !                             inbvx,inbvy,inbvz,iloy,iloz,w1,w2,extrap)
+    !                 if (iflag/=0) error stop 'error calling db2val'
+    !                 new_fcn(i,j,k) = val
+    !             end do
+    !         end do
+    !     end do
+
+    ! end subroutine bspline_regridding
 end module utils

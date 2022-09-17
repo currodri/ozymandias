@@ -46,9 +46,9 @@ module io_ramses
     type sim_info
         logical :: cosmo=.true.,family=.false.
         logical :: dm=.false.,hydro=.false.,mhd=.false.,cr=.false.,rt=.false.,bh=.false.
-        logical :: cr_st=.false.,cr_heat=.false.
-        real(dbl) :: h0,t,aexp,unit_l,unit_d,unit_t,unit_m,boxlen,omega_m,omega_l,omega_k,omega_b
-        real(dbl) :: time_tot,time_simu
+        logical :: cr_st=.false.,cr_heat=.false.,dust=.false.
+        real(dbl) :: h0,t,aexp,unit_l,unit_d,unit_t,unit_m,unit_v,boxlen,omega_m,omega_l,omega_k,omega_b
+        real(dbl) :: time_tot,time_simu,redshift,T2,nH
         integer :: n_frw
         real(dbl),dimension(:),allocatable :: aexp_frw,hexp_frw,tau_frw,t_frw
     end type sim_info
@@ -553,7 +553,6 @@ module io_ramses
         type(vector) :: v,L,B,vst
         type(basis) :: temp_basis
         real(dbl) :: T,rho,cV,lambda,lambda_prime,ne,ecr,nH
-        real(dbl) :: scale_T2,scale_nH
         real(dbl) :: dxleft,dxright
         real(dbl) :: bsign
         real(dbl) :: lambda_co, lambda_st, lambda_cr
@@ -650,12 +649,18 @@ module io_ramses
         case ('metallicity')
             ! Metallicity
             value = var(0,varIDs%metallicity)/0.02
+        case ('dust_density')
+            ! TODO: For dust simulation it should be updated
+            if (.not. sim%dust) then
+                value = var(0,varIDs%metallicity) * (0.4d0 *var(0,varIDs%density))
+            else
+                value = 0d0
+            end if
         case ('temperature')
             ! Gas temperature
             value = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) !/ 1.38d-16*1.66d-24
             if (value < 0d0) then
-                scale_T2 = mHydrogen / kBoltzmann * ((sim%unit_l/sim%unit_t)**2)
-                value = 15d0/scale_T2
+                value = 15d0/sim%T2
             endif
         case ('thermal_pressure')
             ! Thermal pressure
@@ -761,10 +766,8 @@ module io_ramses
             value = lambda * ne * ecr
         case ('net_cooling')
             ! Net cooling rate taken from the cooling table in RAMSES output
-            scale_T2 = mHydrogen / kBoltzmann * ((sim%unit_l/sim%unit_t)**2)
-            scale_nH = XH / mHydrogen * sim%unit_d
-            T = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * scale_T2
-            nH = var(0,varIDs%density) * scale_nH
+            T = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * sim%T2
+            nH = var(0,varIDs%density) * sim%nH
             call solve_cooling(nH,T,var(0,varIDs%metallicity)/2D-2,lambda,lambda_prime)
             value = ((lambda * nH) * nH) * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
             if (T.le.0D0) value = 0D0
@@ -895,10 +898,8 @@ module io_ramses
         case ('total_coolingtime')
             !TODO: Check units!
             ! Net cooling rate taken from the cooling table in RAMSES output
-            scale_T2 = mHydrogen / kBoltzmann * ((sim%unit_l/sim%unit_t)**2)
-            scale_nH = XH / mHydrogen * sim%unit_d
-            T = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * scale_T2
-            nH = var(0,varIDs%density) * scale_nH
+            T = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * sim%T2
+            nH = var(0,varIDs%density) * sim%nH
             call solve_cooling(nH,T,var(0,varIDs%metallicity)/2D-2,lambda,lambda_prime)
             lambda_co = ((lambda * nH) * nH) * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
 
@@ -1239,6 +1240,10 @@ module io_ramses
         endif
         close(10)
 
+        sim%redshift = 1.0d0/sim%aexp - 1.0d0                          ! Current redshift
+        sim%T2 = mHydrogen / kBoltzmann * ((sim%unit_l/sim%unit_t)**2) ! Temperature conversion factor
+        sim%nH = XH / mHydrogen * sim%unit_d                           ! nH conversion factor
+        sim%unit_v = (sim%unit_l/sim%unit_t)                           ! Velocity unit
         if (sim%hydro) then
             ! Also initialise the cooling table
             cooling_file=TRIM(repository)//'/cooling_'//TRIM(nchar)//'.out'

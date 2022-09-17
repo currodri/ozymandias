@@ -7,6 +7,37 @@ import sys
 import os
 import subprocess
 from ozy.dict_variables import get_code_units
+import matplotlib.text as mtext
+import matplotlib.transforms as mtransforms
+import matplotlib.pyplot as plt
+
+class RotationAwareAnnotation(mtext.Annotation):
+    def __init__(self, s, xy, p, pa=None, ax=None, **kwargs):
+        self.ax = ax or plt.gca()
+        self.p = p
+        if not pa:
+            self.pa = xy
+        kwargs.update(rotation_mode=kwargs.get("rotation_mode", "anchor"))
+        mtext.Annotation.__init__(self, s, xy, **kwargs)
+        self.set_transform(mtransforms.IdentityTransform())
+        if 'clip_on' in kwargs:
+            self.set_clip_path(self.ax.patch)
+        self.ax._add_text(self)
+
+    def calc_angle(self):
+        p = self.ax.transData.transform_point(self.p)
+        pa = self.ax.transData.transform_point(self.pa)
+        ang = np.arctan2(p[1]-pa[1], p[0]-pa[0])
+        return np.rad2deg(ang)
+
+    def _get_rotation(self):
+        return self.calc_angle()
+
+    def _set_rotation(self, rotation):
+        pass
+
+    _rotation = property(_get_rotation, _set_rotation)
+
 
 def as_si(x, ndp):
     s = '{x:0.{ndp:d}e}'.format(x=x, ndp=ndp)
