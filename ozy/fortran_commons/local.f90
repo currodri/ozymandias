@@ -50,7 +50,10 @@ module constants
   real(dbl) :: pi=3.14159265359
   ! Mass
   real(dbl),parameter::g2msun=5.02739933e-034
+  ! Density
+  real(dbl),parameter::gcm32msunpc3=1.47755759e+22
   ! Distance
+  real(dbl),parameter::cm2km=1d-5
   real(dbl),parameter::cm2pc=3.24078e-19
   real(dbl),parameter::cm2kpc=3.2408d-22
   real(dbl),parameter::cm2Mpc=3.2408d-25
@@ -79,5 +82,5 @@ module constants
   real(dbl),parameter :: XH=0.76 ! Hydrogen fraction
   real(dbl),parameter :: YHe=0.24 ! Helium fraction
   real(dbl),parameter :: gamma_gas=1.6666667   ! Always assuming monatomic adiabatic gas
-  real(dbl),parameter::gamma_crs=1.3333333   ! Cosmic rays assumed always relativistic
+  real(dbl),parameter :: gamma_crs=1.3333333   ! Cosmic rays assumed always relativistic
 end module constants

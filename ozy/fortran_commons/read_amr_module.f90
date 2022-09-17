@@ -29,6 +29,8 @@ module io_ramses
         integer :: Blx=0,Bly=0,Blz=0,Brx=0,Bry=0,Brz=0
         integer :: cr_pressure=0
         integer :: xHII=0,xHeII=0,xHeIII=0
+        integer :: dust_density=0
+        integer :: sigma2=0
     end type hydroID
 
     type amr_info
@@ -51,6 +53,7 @@ module io_ramses
         real(dbl) :: time_tot,time_simu,redshift,T2,nH
         integer :: n_frw
         real(dbl),dimension(:),allocatable :: aexp_frw,hexp_frw,tau_frw,t_frw
+        real(dbl) :: eta_sn=-1D0
     end type sim_info
 
     type level
@@ -481,6 +484,17 @@ module io_ramses
             varIDs%xHeII = newID
         case ('xHeIII')
             varIDs%xHeIII = newID
+        case ('H_p1_fraction')
+            varIDs%xHII = newID
+        case ('He_p1_fraction')
+            varIDs%xHeII = newID
+        case ('He_p2_fraction')
+            varIDs%xHeIII = newID
+        case ('dust')
+            sim%dust = .true.
+            varIDs%dust_density = newID
+        case ('sigma2')
+            varIDs%sigma2 = newID
         end select
     end subroutine select_from_descriptor_IDs
 
@@ -640,6 +654,15 @@ module io_ramses
         case ('density')
             ! Density
             value = var(0,varIDs%density)
+        case ('dust_density')
+            ! Dust density
+            value = var(0,varIDs%dust_density) * var(0,varIDs%density)
+        case ('dust_mass')
+            ! Dust mass
+            value = (var(0,varIDs%dust_density) * var(0,varIDs%density) * (dx*dx)) * dx
+        case ('DTM')
+            ! Dust-to-metal ratio
+            value = var(0,varIDs%dust_density) / (var(0,varIDs%metallicity)*var(0,varIDs%density))
         case ('mass')
             ! Total mass, computed as density times volume of cell (dx**3)
             value = (var(0,varIDs%density) * (dx*dx)) * dx
@@ -1136,6 +1159,51 @@ module io_ramses
     end subroutine getvarvalue
 
     !---------------------------------------------------------------
+    ! Subroutine: GET ETA SN
+    !
+    ! When the initial particle mass is not saved, the initial
+    ! star particle mass needs to be computed by using the tags
+    ! and the value of the parameter eta_sn in the namelist of the
+    ! simulation
+    !---------------------------------------------------------------
+    subroutine get_eta_sn(repository)
+        implicit none
+        character(128), intent(in) :: repository
+        integer :: i,status,ipos,jpos
+        character(128) :: nomfich
+        character(6)  ::  param
+        real(dbl) ::  pvalue
+        character(200) :: line
+        logical :: ok
+
+        nomfich=TRIM(repository)//'/namelist.txt'
+        
+        inquire(file=nomfich, exist=ok) ! verify input file
+        if (ok) then
+            write(*,'(": Reading eta_sn from namelist.txt")')
+            open(unit=15,file=nomfich,status='old',form='formatted')
+            do
+                read(15,'(A)',iostat=status)line
+                if (status /= 0) exit
+                param = line(1:6)
+                if (param=='eta_sn') then
+                    ipos = index(line,'=')
+                    jpos = index(line,'!')
+                    read(line(ipos+1:jpos-1),'(F10.0)')pvalue
+                    sim%eta_sn = pvalue
+                    write(*,*)': Found eta_sn=',sim%eta_sn
+                    exit
+                end if
+            end do
+        else
+            write(*,'(": Namelist not found: eta_sn set to 0.2")')
+            sim%eta_sn = 2D-1
+        end if
+
+    end subroutine get_eta_sn
+
+
+    !---------------------------------------------------------------
     ! Subroutine: INITIAL AMR SETUP
     !
     ! This routine has been adapted from the RAMSES utils, in which
@@ -1240,14 +1308,19 @@ module io_ramses
         endif
         close(10)
 
+#ifndef IMASS
+        call get_eta_sn(repository)
+#endif
         sim%redshift = 1.0d0/sim%aexp - 1.0d0                          ! Current redshift
         sim%T2 = mHydrogen / kBoltzmann * ((sim%unit_l/sim%unit_t)**2) ! Temperature conversion factor
         sim%nH = XH / mHydrogen * sim%unit_d                           ! nH conversion factor
         sim%unit_v = (sim%unit_l/sim%unit_t)                           ! Velocity unit
+
         if (sim%hydro) then
             ! Also initialise the cooling table
             cooling_file=TRIM(repository)//'/cooling_'//TRIM(nchar)//'.out'
-            call read_cool(cooling_file)
+            inquire(file=cooling_file, exist=ok)
+            if(ok) call read_cool(cooling_file)
         endif
     end subroutine init_amr_read
 
@@ -1819,8 +1892,12 @@ module io_ramses
                             iii = iii + 1
                         end do
                         ! Interpolate time
+#ifdef AGEPROPER
+                        time = part%age
+#else
                         time = sim%t_frw(iii)*(part%age-sim%tau_frw(iii-1))/(sim%tau_frw(iii)-sim%tau_frw(iii-1))+ &
                                 & sim%t_frw(iii-1)*(part%age-sim%tau_frw(iii))/(sim%tau_frw(iii-1)-sim%tau_frw(iii))
+#endif
                         value = (sim%time_simu-time)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
                     endif
                 case ('birth_date')
@@ -1880,10 +1957,15 @@ module io_ramses
                         end do
                         ! Interpolate time
                         current_age_univ = (sim%time_tot+sim%time_simu)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+#ifdef AGEPROPER
+                        time = part%age
+#else
                         time = sim%t_frw(iii)*(part%age-sim%tau_frw(iii-1))/(sim%tau_frw(iii)-sim%tau_frw(iii-1))+ &
                                 & sim%t_frw(iii-1)*(part%age-sim%tau_frw(iii))/(sim%tau_frw(iii-1)-sim%tau_frw(iii))
+#endif
                         birth_date = (sim%time_tot+time)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
                     endif
+                    ! write(*,*)birth_date, current_age_univ, part%age
                     ! Compute SFR by binning star particles by age
                     if (birth_date >= (current_age_univ - sfrind)) then
                         select case (TRIM(sfrtype))

@@ -1,7 +1,4 @@
 import numpy as np
-# TODO: It should use a global fortran module, not the particles one
-import sys
-sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/part')
 import part2
 
 class SimulationAttributes(object):
