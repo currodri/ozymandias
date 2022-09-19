@@ -899,7 +899,8 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=True,reds
         fig.savefig('plot_comp_facevsedge.png',format='png',dpi=300)
 
 
-def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redshift=True,centers=[],radii=[],names=[]):
+def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redshift=True,colorbar=True,
+                                colormap=None, type_scale='',centers=[],radii=[],names=[]):
     """This function uses the projection information in a FITS file following the 
         OZY format and plots it following the OZY standards."""
     
@@ -912,6 +913,7 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
     from matplotlib.colors import LogNorm,SymLogNorm
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
     import seaborn as sns
+    import scipy as sp   
     sns.set(style="dark")
     plt.rcParams["axes.axisbelow"] = False
     # plt.rc('text', usetex=True)
@@ -936,6 +938,9 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
         print('Field %s is not between the ones you provided... Check!'%field)
         exit
 
+    if type_scale != '':
+        type_scale = '_'+type_scale
+
     # Since everything is fine, we begin plotting…
     figsize = plt.figaspect(float(7) / float(7))
     fig = plt.figure(figsize=figsize, facecolor='k', edgecolor='k')
@@ -944,7 +949,6 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
     width_x =  hdul[0].header['CDELT1']*hdul[0].header['NAXIS1']
     width_y =  hdul[0].header['CDELT2']*hdul[0].header['NAXIS2']
     ex = [-0.5*width_x,0.5*width_x,-0.5*width_y,0.5*width_y]
-    print(ex)
     ax.set_xlim([-0.5*width_x,0.5*width_y])
     ax.set_ylim([-0.5*width_x,0.5*width_y])
     ax.axes.xaxis.set_visible(False)
@@ -956,31 +960,36 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
         stellar = True
     else:
         plotting_def = plotting_dictionary[field.split('/')[1]]
-    print(np.min(np.log10(hdul[h].data.T)),np.max(np.log10(hdul[h].data.T)))
+    if colormap == None:
+        colormap = plotting_def['cmap']
+    sigma=1
     if logscale and field.split('/')[1] != 'v_sphere_r':
-        plot = ax.imshow(np.log10(hdul[h].data.T), cmap=plotting_def['cmap'],
-                        origin='upper',vmin=np.log10(plotting_def['vmin']),
-                        vmax=np.log10(plotting_def['vmax']),extent=ex,
+        cImage = sp.ndimage.filters.gaussian_filter(np.log10(hdul[h].data.T), sigma, mode='constant')
+        plot = ax.imshow(cImage, cmap=colormap,
+                        origin='upper',vmin=np.log10(plotting_def['vmin'+type_scale]),
+                        vmax=np.log10(plotting_def['vmax'+type_scale]),extent=ex,
                         interpolation='nearest')
     elif logscale and field.split('/')[1] == 'v_sphere_r':
-        plot = ax.imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
-                        origin='upper',norm=SymLogNorm(linthresh=10, linscale=1,vmin=plotting_def['vmin'], vmax=plotting_def['vmax']),
+        cImage = sp.ndimage.filters.gaussian_filter(hdul[h].data.T, sigma, mode='constant')
+        plot = ax.imshow(cImage, cmap=colormap,
+                        origin='upper',norm=SymLogNorm(linthresh=10, linscale=1,vmin=plotting_def['vmin'+type_scale], vmax=plotting_def['vmax'+type_scale]),
                         extent=ex,
                         interpolation='nearest')
     else:
-        plot = ax.imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
+        cImage = sp.ndimage.filters.gaussian_filter(hdul[h].data.T, sigma, mode='constant')
+        plot = ax.imshow(cImage, cmap=colormap,
                         origin='upper',extent=ex,interpolation='nearest',
-                        vmin=plotting_def['vmin'],vmax=plotting_def['vmax'])
-
-    cbaxes = inset_axes(ax, width="80%", height="5%", loc='lower center')
-    cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
-    if logscale and field.split('/')[1] != 'v_sphere_r':
-        cbar.set_label(plotting_def['label_log'],color=plotting_def['text_over'],fontsize=20,labelpad=-60, y=0.85,weight='bold')
-    else:
-        cbar.set_label(plotting_def['label'],color=plotting_def['text_over'],fontsize=20,labelpad=-10, y=1.25)
-    cbar.ax.xaxis.label.set_font_properties(matplotlib.font_manager.FontProperties(weight='bold',size=15))
-    cbar.ax.tick_params(axis='x', pad=-16, labelsize=13,labelcolor=plotting_def['text_over'])
-    cbar.ax.tick_params(length=0,width=0)
+                        vmin=plotting_def['vmin'+type_scale],vmax=plotting_def['vmax'+type_scale])
+    if colorbar:
+        cbaxes = inset_axes(ax, width="80%", height="5%", loc='lower center')
+        cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
+        if logscale and field.split('/')[1] != 'v_sphere_r':
+            cbar.set_label(plotting_def['label_log'],color=plotting_def['text_over'],fontsize=20,labelpad=-60, y=0.85,weight='bold')
+        else:
+            cbar.set_label(plotting_def['label'],color=plotting_def['text_over'],fontsize=20,labelpad=-10, y=1.25)
+        cbar.ax.xaxis.label.set_font_properties(matplotlib.font_manager.FontProperties(weight='bold',size=15))
+        cbar.ax.tick_params(axis='x', pad=-16, labelsize=13,labelcolor=plotting_def['text_over'])
+        cbar.ax.tick_params(length=0,width=0)
 
     if redshift:
         ax.text(0.03, 0.95, r'$z = ${z:.2f}'.format(z=hdul[h].header['redshift']), # Redshift
@@ -1018,10 +1027,8 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
         # ax.scatter(-centers[1:][2]*1000,-centers[1:][1]*1000)#,s=0.1,alpha=0.4,facecolor='r')
 
     fig.subplots_adjust(hspace=0,wspace=0,left=0,right=1, bottom=0, top=1)
-    if stellar:
-        fig.savefig(proj_FITS.split('.fits')[0]+'_stars.png',format='png',dpi=300)
-    else:
-        fig.savefig(proj_FITS.split('.fits')[0]+'.png',format='png',dpi=300)
+
+    fig.savefig(proj_FITS.split('.fits')[0]+'_'+field.split('/')[1]+'.png',format='png',dpi=330)
 
 def plot_galaxy_with_halos(proj_FITS,ozy_file,field,gasstars=True,dm=True,scalebar=True,redshift=True):
 

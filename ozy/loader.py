@@ -443,7 +443,7 @@ class Group:
         
 class Halo(Group):
     def __init__(self, obj, index):
-        self.type = 'halo'
+        self.obj_type = 'halo'
         self.obj = obj
         self._index = index
         self._galaxies = None
@@ -501,7 +501,7 @@ class Halo(Group):
 
 class Galaxy(Group):
     def __init__(self, obj, index):
-        self.type = 'galaxy'
+        self.obj_type = 'galaxy'
         self.obj = obj
         self._index = index
         self.halo = obj.halos[self.parent_halo_index]

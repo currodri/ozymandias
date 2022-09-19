@@ -654,9 +654,6 @@ module io_ramses
         case ('density')
             ! Density
             value = var(0,varIDs%density)
-        case ('dust_density')
-            ! Dust density
-            value = var(0,varIDs%dust_density) * var(0,varIDs%density)
         case ('dust_mass')
             ! Dust mass
             value = (var(0,varIDs%dust_density) * var(0,varIDs%density) * (dx*dx)) * dx
@@ -673,11 +670,12 @@ module io_ramses
             ! Metallicity
             value = var(0,varIDs%metallicity)/0.02
         case ('dust_density')
+            ! Dust density
             ! TODO: For dust simulation it should be updated
             if (.not. sim%dust) then
                 value = var(0,varIDs%metallicity) * (0.4d0 *var(0,varIDs%density))
             else
-                value = 0d0
+                value = var(0,varIDs%dust_density) * var(0,varIDs%density)
             end if
         case ('temperature')
             ! Gas temperature
