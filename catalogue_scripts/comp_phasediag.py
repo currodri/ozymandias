@@ -21,6 +21,19 @@ from ozy.phase_diagrams import compute_phase_diagram, \
                                 plot_compare_phase_diagram, \
                                 plot_compare_stacked_pd
 from ozy.utils import closest_snap_z, find_neigh_snaps, get_tdyn
+from astropy.cosmology import FlatLambdaCDM
+
+# Name conversions
+# TODO: This shouldn't be here...
+names = {'cosmoNUThd':'HD',
+        'cosmoNUThd\_all\_cr10':'HDcr10',
+        'cosmoNUThd\_all\_cr20':'HDcr20',
+        'cosmoNUTmhd':'MHD',
+        'cosmoNUTcrmhd':'CRMHD',
+        'cosmoNUTcrmhd\_nost':'nsCRMHD',
+        'cosmoNUTcrmhd\_noheat':'nhCRMHD',
+        'cosmoNUTrticrmhd':'RTCRiMHD'
+        }
 
 if __name__ == '__main__':
 
@@ -36,6 +49,7 @@ if __name__ == '__main__':
     parser.add_argument('--field', type=str, default='gas/mass', help='Field used in the colormap.')
     parser.add_argument('--weight', type=str, default='gas/cumulative', help='Weighting variable.')
     parser.add_argument('--doflows',action='store_true', help='If present, it separates for the outflows and inflows.')
+    parser.add_argument('--layout', type=str, default='compact', help='How the plots should be organised.')
     parser.add_argument('--recompute',action='store_true', help='If present, it recomputes 2D profiles.')
     parser.add_argument('--nolog',action='store_false', help='If present, it deactivates logairthmic bins.')
     parser.add_argument('--stats',type=str, default='none', help='What stats to use for the overplotted line.')
@@ -177,9 +191,15 @@ if __name__ == '__main__':
 
                 tdyn = get_tdyn(gal).to('Gyr').d
                 sample_tdyn[i] = tdyn
-            median_tdyn = np.median(sample_tdyn)
+            max_tdyn = np.max(sample_tdyn)
             std_tdyn = np.std(sample_tdyn)
-            print('For z=%.1f the median dynamical time is %.3f Gyr with a STD of %.4f'%(args.z[z],median_tdyn,std_tdyn))
+            print(sample_tdyn)
+            redshift = sim.simulation.redshift
+            h = sim.simulation.hubble_constant
+            cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
+                                    Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
+            print('For z=%.1f the maximum dynamical time is %.3f Gyr with a STD of %.4f'%(args.z[z],max_tdyn,std_tdyn))
+            print('The age of the Universe at z=%.1f is %.3f Gyr'%(args.z[z],cosmo.age(redshift).value))
             for i in range(0, len(args.model)):
                 pds.append([])
                 weights.append([])
@@ -214,7 +234,7 @@ if __name__ == '__main__':
 
                 orig_path = sim.simulation.fullpath.split('/')[-1]
                 neigh_snaps, neigh_weights = find_neigh_snaps(simfolder, orig_path,
-                                                                median_tdyn, returnweight=True)
+                                                                max_tdyn, returnweight=True)
                 if args.region == 'galaxy':
                     rmin, rmax = (0.0, 'rvir'),(0.2, 'rvir')
                 elif args.region == 'halo':
@@ -258,9 +278,10 @@ if __name__ == '__main__':
 
             print('Now plotting...')
             namephase = '_'+args.xvar+'_'+args.yvar+'_'
+            labels = [names[m] for m in args.model]
             plot_compare_stacked_pd(pds,weights,args.field.split('/')[1],'compare_stacked_pd'+namephase+args.region+'_'+args.field.split('/')[1]+'_'+str(args.z[z]),
-                                        weightvar=args.weight.split('/')[1],stats='mean',extra_labels=args.model,
-                                        doflows=args.doflows)
+                                        weightvar=args.weight.split('/')[1],stats='mean',extra_labels=labels,
+                                        doflows=args.doflows,layout=args.layout,gent=True)
             args.model = simfolders
     else:
         print('That comparison mode is not suported. Please check!')

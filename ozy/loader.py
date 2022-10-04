@@ -414,6 +414,11 @@ class OZY:
         for h in self.halos:
             galaxies.extend(h.satellite_galaxies)
     
+    @property
+    def most_massive_galaxy(self):
+        mstellar = [i.mass['stellar'] for i in self.galaxies]
+        ibig = np.argmax(mstellar)
+        return self.galaxies[ibig]
     def array(self, value, units):
         return unyt_array(value, units, registry=self.unit_registry)
 
@@ -488,6 +493,21 @@ class Halo(Group):
             self._init_galaxies()
         return self._satellite_galaxies
 
+    @property
+    def substructure_list(self):
+        subs = []
+        if self.nextsub == 0:
+            print('This halo does not seem to have a substructure assigned!')
+            return subs
+        haloIDs = self.obj._halo_data['ID'][:]
+        nexti = self.nextsub
+        while nexti != -1:
+            nextindex = np.where(nexti == haloIDs)[0][0]
+            subs.append(self.obj.halos[nextindex])
+            nexti = self.obj.halos[nextindex].nextsub
+        return subs
+
+
     @functools.lru_cache(maxsize=None)
     def __getattr__(self, attr):
         if attr in self.obj._halo_data:
@@ -501,7 +521,7 @@ class Halo(Group):
 
 class Galaxy(Group):
     def __init__(self, obj, index):
-        self.obj_type = 'galaxy'
+        self.type = 'galaxy'
         self.obj = obj
         self._index = index
         self.halo = obj.halos[self.parent_halo_index]

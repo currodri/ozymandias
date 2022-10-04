@@ -3,7 +3,7 @@ import h5py
 import os
 import ozy
 from unyt import unyt_array,unyt_quantity
-from ozy.utils import init_region,init_filter
+from ozy.utils import init_region,init_filter,gent_curve
 from ozy.plot_settings import symlog_variables
 from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units
 # TODO: Allow for parallel computation of phase diagrams.
@@ -340,7 +340,7 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
     ax.minorticks_on()
     ax.tick_params(which='both',axis="both",direction="in")
     ax.set_xlim([1e-30,1e-20])
-    ax.set_ylim([2,1e+8])
+    ax.set_ylim([15,3e+8])
     ax.set_xscale('log')
     ax.set_yscale('log')
     code_units_x = get_code_units(pd.xvar)
@@ -631,7 +631,10 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=Tr
         fig.subplots_adjust(top=0.92,bottom=0.05,left=0.1,right=0.95)
         fig.savefig(name+'.png',format='png',dpi=300)
 
-def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',logscale=True,redshift=True,stats='none',extra_labels='none',gent=False,powell=False,doflows=False):
+def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
+                            logscale=True,redshift=True,stats='none',
+                            extra_labels='none',gent=False,powell=False,
+                            doflows=False,layout='compact'):
 
     # Make required imports
     import matplotlib
@@ -644,13 +647,13 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',logsca
     import seaborn as sns
     from ozy.plot_settings import plotting_dictionary
     sns.set(style="white")
-    plt.rc('text', usetex=True)
-    plt.rc('font', family='serif')
-    hfont = {'fontname':'Helvetica'}
-    matplotlib.rc('text', usetex = True)
-    matplotlib.rc('font', **{'family' : "serif"})
-    params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
-    matplotlib.rcParams.update(params)
+    # plt.rc('text', usetex=True)
+    # plt.rc('font', family='serif')
+    # hfont = {'fontname':'Helvetica'}
+    # matplotlib.rc('text', usetex = True)
+    # matplotlib.rc('font', **{'family' : "serif"})
+    # params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
+    # matplotlib.rcParams.update(params)
     
     npds = len(pds)
     # Check that the required field is actually in the PDs provided
@@ -693,14 +696,27 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',logsca
         print('You should check the fields and weights available, not all your phase diagrams have them!')
         exit
     # With everything fine, we begin plotting…
-    nrow = int(len(pds)/2)
-    figsize = plt.figaspect(float((5.0 * nrow) / (5.0 * 2)))
-    fig = plt.figure(figsize=2*figsize, facecolor='w',edgecolor='k')
-    plot_grid = fig.add_gridspec(nrow, 2, wspace=0, hspace=0)#,  hspace=0,left=0,right=1, bottom=0, top=1)
+    if layout == 'compact':
+        ncol = 2
+        nrow = int(len(pds)/ncol)
+    elif layout == 'extended':
+        nrow = 1
+        ncol = len(pds)
+    else:
+        print('The layout asked is not allowed. Please check!')
+        exit
+    
+    if layout == 'compact':
+        figsize = plt.figaspect(float((5.0 * nrow) / (5.0 * ncol)))
+        fig = plt.figure(figsize=2*figsize, facecolor='w',edgecolor='k')
+    elif layout == 'extended':
+        figsize = plt.figaspect(float((6.0 * nrow) / (5.0 * ncol)))
+        fig = plt.figure(figsize=figsize, facecolor='w',edgecolor='k')
+    plot_grid = fig.add_gridspec(nrow, ncol, wspace=0, hspace=0)#,  hspace=0,left=0,right=1, bottom=0, top=1)
     ax = []
     for i in range(0,nrow):
         ax.append([])
-        for j in range(0,2):
+        for j in range(0,ncol):
             ax[i].append(fig.add_subplot(plot_grid[i,j]))
     ax = np.asarray(ax)
     for i in range(0, ax.shape[0]):
@@ -721,18 +737,27 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',logsca
                 plotting_y = plotting_dictionary[pd[0].yvar]
             plotting_z = plotting_dictionary[field]
             ax[i,j].set_xlabel(plotting_x['label'],fontsize=18)
-            if ipd%2 == 0:
-                ax[i,j].set_ylabel(plotting_y['label'],fontsize=18)
-            else:
-                ax[i,j].axes.yaxis.set_visible(False)
             ax[i,j].tick_params(labelsize=14,direction='in')
             ax[i,j].xaxis.set_ticks_position('both')
             ax[i,j].yaxis.set_ticks_position('both')
             ax[i,j].minorticks_on()
             ax[i,j].tick_params(which='major',axis="both",direction="in")
-
+            ax[i,j].set_xlim([1e-30,8e-20])
+            ax[i,j].set_ylim([15,1e+8])
             ax[i,j].set_xscale('log')
             ax[i,j].set_yscale('log')
+            # Get rid of the y-axis labels for the panels in the middle
+            if ipd%2 == 0 and layout == 'compact':
+                ax[i,j].set_ylabel(plotting_y['label'],fontsize=18)
+            elif layout == 'compact':
+                ax[i,j].axes.yaxis.set_visible(False)
+                ax[i,j].set_xticks([1e-28,1e-26,1e-24,1e-22,1e-20])
+            elif ipd != 0 and layout == 'extended':
+                ax[i,j].axes.yaxis.set_visible(False)
+                ax[i,j].set_xticks([1e-28,1e-26,1e-24,1e-22,1e-20])
+            else:
+                ax[i,j].set_ylabel(plotting_y['label'],fontsize=18)
+            
             if doflows:
                 code_units_x = get_code_units(pd[0][0].xvar)
             else:
@@ -760,6 +785,7 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',logsca
                 tot_weight = tot_weight + temp_weight
                 sim_z[w] = temp_pd.obj.simulation.redshift
             z = z / tot_weight
+            XX,YY = np.meshgrid(x,y)
             delta_z = sim_z.max() - sim_z.min()
             sim_z = np.mean(sim_z)
             if logscale:
@@ -782,7 +808,7 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',logsca
                             transform=ax[i,j].transAxes, fontsize=16,verticalalignment='top',
                             color='black')
             if isinstance(extra_labels,list):
-                ax[i,j].text(0.5, 0.9, extra_labels[ipd],
+                ax[i,j].text(0.7, 0.9, extra_labels[ipd],
                             transform=ax[i,j].transAxes, fontsize=14,verticalalignment='top',
                             color='black')
             if powell:
@@ -802,8 +828,17 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',logsca
                 ax[i,j].plot([1e-23,1e-23],[0,1e8],color='k',linewidth=1)
             
             if gent:
-                ax[i,j].plot([1e-30,1e-23],[2e5,2e5],color='k',linewidth=1)
-                ax[i,j].plot([1e-30,1e-23],[2e4,2e4],color='k',linewidth=1)
+                XX,YY = np.meshgrid(x,y)
+                z_cold = np.sum(z.T[XX>gent_curve('cold',YY)])
+                ax[i,j].plot([gent_curve('cold',2),gent_curve('cold',1e+8)], [2,1e+8],color='b')
+                z_warm = np.sum(z.T[(XX<gent_curve('cold',YY)) & (XX>gent_curve('hot',YY))])
+                ax[i,j].plot([gent_curve('hot',2),gent_curve('hot',1e+8)], [2,1e+8],color='r')
+                z_hot = np.sum(z.T[XX<gent_curve('hot',YY)])
+                z_tot = np.sum(z)
+                print('Distribution of masses in the Gent phases:')
+                print('Cold: %.3f, %.3f'%(100*z_cold/z_tot,z_cold))
+                print('Warm: %.3f, %.3f'%(100*z_warm/z_tot,z_warm))
+                print('Hot: %.3f, %.3f'%(100*z_hot/z_tot, z_hot))
 
             if stats == 'mean':
                 y_mean = np.zeros(len(x))
@@ -815,9 +850,15 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',logsca
                 ax[i,j].plot(x,y_mean,color='w',linewidth=2, linestyle='--')
             
             if ipd==0:
-                cbaxes = inset_axes(ax[i,j], width="200%", height="5%", loc='upper left',
-                                    bbox_to_anchor=(0.0, 0., 1.0, 1.05),
-                                    bbox_transform=ax[i,j].transAxes,borderpad=0)
+                if layout == 'compact':
+                    cbaxes = inset_axes(ax[i,j], width="200%", height="5%", loc='upper left',
+                                        bbox_to_anchor=(0.0, 0., 1.0, 1.05),
+                                        bbox_transform=ax[i,j].transAxes,borderpad=0)
+                elif layout == 'extended':
+                    width_ex = str(int(100*ncol))
+                    cbaxes = inset_axes(ax[i,j], width=width_ex+"%", height="5%", loc='upper left',
+                                        bbox_to_anchor=(0.0, 0., 1.0, 1.05),
+                                        bbox_transform=ax[i,j].transAxes,borderpad=0)
                 cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
                 cbar.set_label(plotting_z['label'],fontsize=20)
                 cbar.ax.tick_params(labelsize=10)
@@ -872,6 +913,8 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',logsca
                 f = interpolate.interp1d(integral, t)
                 t_contours = f(np.array([0.8*ztot]))
                 ax[i,j].contour(x, y, zescape.T, t_contours, colors='darkred', linewidths=2)
-        
-        fig.subplots_adjust(top=0.92,bottom=0.05,left=0.1,right=0.95)
+        if layout == 'compact':
+            fig.subplots_adjust(top=0.92,bottom=0.05,left=0.1,right=0.95)
+        elif layout == 'extended':
+            fig.subplots_adjust(top=0.85,bottom=0.12,left=0.07,right=0.98)
         fig.savefig(name+'.png',format='png',dpi=300)

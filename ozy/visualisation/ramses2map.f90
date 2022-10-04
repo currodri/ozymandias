@@ -314,12 +314,14 @@ module maps
         integer :: ndom
         integer,dimension(1:2) :: n_sample
         integer :: ncells
+        integer :: varlen,varfeed
         
 
         type(level),dimension(1:100) :: grid
 
 
         ncells = 0
+        varlen = 0;varfeed=0
 
         ! Check whether we need to read the gravity files
         read_gravity = .false.
@@ -415,6 +417,7 @@ module maps
             read(11)
             read(11)
             allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:nvarh))
+            varlen = amr%ncoarse+amr%twotondim*amr%ngridmax
 
             if (read_gravity) then
                 ! Open GRAV file and skip header
@@ -510,6 +513,7 @@ module maps
                         ! Read hydro variables
                         tndimloop: do ind=1,amr%twotondim
                             iskip = amr%ncoarse+(ind-1)*amr%ngridmax
+                            varfeed = varfeed + 1
                             varloop: do ivar=1,nvarh
                                 if (j.eq.icpu) then
                                     read(11)var(ind_grid+iskip,ivar)
@@ -544,7 +548,7 @@ module maps
                         !write(*,*)'Done with reading grav file'
                     end if
                 end do domloop
-
+                write(*,*)'varlen,varfeed',varlen,varfeed
                 !Compute map
                 if (ngrida>0) then
                     ! Loop over cells
@@ -620,6 +624,11 @@ module maps
                                         tempvar(inbor,:) = var(ind_nbor(inbor),:)
                                         tempson(inbor)       = son(ind_nbor(inbor))
                                         if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(inbor),:)
+                                        if (tempvar(inbor,1).eq.0d0) then
+                                            write(*,*)ind_nbor(inbor),'tempvar',var(ind_nbor(inbor),:)
+                                            write(*,*)ind_nbor(inbor),'son',son(ind_nbor(inbor))
+                                            ! stop
+                                        endif
                                     end do
 
                                     ! Finally, get hydro data

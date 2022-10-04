@@ -426,18 +426,26 @@ if __name__ == '__main__':
         elif sim.simulation.physics['cr']:
             ax.plot(mhalo,mstellar, markersize=10,marker='v', markeredgecolor='g',
                     markerfacecolor='g',label=args.model[i],color='g')
-
-    # Add fixed fb to plot
-    omega_dm = 1.0 - (sim.simulation.omega_lambda + sim.simulation.omega_k + sim.simulation.omega_baryon)
-    fb = sim.simulation.omega_baryon / omega_dm
-    mhalo = np.linspace(minmass,maxmass,100)
-    mhalo = 10**mhalo
-    mstar = lambda x: 0.3*x
-    ax.plot(mhalo,mstar(mhalo),linestyle='dashdot',color='k')
-    midx = 0.5*(maxmass+minmass)
-    an = RotationAwareAnnotation(r'$M_*=f_{\rm b}M_{\rm DM}$', xy=(10**midx,mstar(1.1*10**midx)), p=(10**(midx+0.5),mstar(1.1*10**(midx+0.5))), ax=ax,
-                                  xytext=(-1,1), textcoords="offset points", 
-                                  ha="center", va="baseline", fontsize=16)
+        if i == 0:
+            # Add fixed fb to plot
+            omega_dm = 1.0 - (sim.simulation.omega_lambda + sim.simulation.omega_k + sim.simulation.omega_baryon)
+            fb = sim.simulation.omega_baryon / omega_dm
+            mhalo_model = np.linspace(minmass,maxmass,100)
+            mhalo_model = 10**mhalo_model
+            mstar = lambda x: 0.3*x
+            ax.plot(mhalo_model,mstar(mhalo_model),linestyle='dashdot',color='k')
+            midx = 0.5*(maxmass+minmass)
+            an = RotationAwareAnnotation(r'$M_*=f_{\rm b}M_{\rm DM}$', xy=(10**midx,mstar(1.1*10**midx)), p=(10**(midx+0.5),mstar(1.1*10**(midx+0.5))), ax=ax,
+                                        xytext=(-1,1), textcoords="offset points", 
+                                        ha="center", va="baseline", fontsize=16)
+        # Compute conversion fractions just to print to screen (may be useful)
+        print(20*'-')
+        print('BARYON CONVERSION EFFICIENCY [%]')
+        print('Measured for model %s at the redshift bins of '%(args.model[i]),args.z)
+        max_mstellar = mstar(mhalo)
+        efficiency = 100 * mstellar / max_mstellar
+        print(efficiency)
+        print(20*'-')
 
     # Plot vertical lines separating redshifts
     ax.text(4.7e+9,2e+6, 'z=8', fontsize=16, color='k',alpha=0.5)

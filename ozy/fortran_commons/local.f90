@@ -48,6 +48,9 @@ module constants
   implicit none
   ! Other constants
   real(dbl) :: pi=3.14159265359
+  real(dbl) :: twopi = 6.283185307179586
+  real(dbl) :: smallc = 1D-10
+  real(dbl) :: smallr = 1D-10
   ! Mass
   real(dbl),parameter::g2msun=5.02739933e-034
   ! Density
@@ -83,4 +86,6 @@ module constants
   real(dbl),parameter :: YHe=0.24 ! Helium fraction
   real(dbl),parameter :: gamma_gas=1.6666667   ! Always assuming monatomic adiabatic gas
   real(dbl),parameter :: gamma_crs=1.3333333   ! Cosmic rays assumed always relativistic
+  ! Cosmology
+  real(dbl),parameter :: rhoc=1.8800000d-29   ! Critical density of the Universe (g cm-3)
 end module constants

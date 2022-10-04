@@ -13,13 +13,13 @@ gal = obj.galaxies[progind]
 # proj.save_FITS('NUT_00035_z.fits')
 # plot_single_galaxy_projection('NUT_00035_z.fits',['gas/density','gas/temperature','gas/v_cyl_z','gas/magnetic_magnitude','gas/streaming_heating','gas/grad_crp','gas/grav_crpfz'])
 
-proj = do_projection(gal,['gas/density','gas/temperature','gas/v_cyl_z','gas/v_sphere_r','gas/grav_crpfz','gas/grav_crpfrsphere','gas/grad_crpz','gas/grav_therpfz'],window=(0.1,'rvir'),pov='edgeon',weight=['gas/volume','star/cumulative'])
-proj.save_FITS('NUT_00035_edgeon.fits')
-plot_single_galaxy_projection('NUT_00035_edgeon.fits',['gas/density','gas/temperature','gas/v_cyl_z','gas/v_sphere_r','gas/grav_crpfz','gas/grav_crpfrsphere','gas/grad_crpz','gas/grav_therpfz'])
+# proj = do_projection(gal,['gas/density','gas/temperature','gas/v_cyl_z','gas/v_sphere_r','gas/grav_crpfz','gas/grav_crpfrsphere','gas/grad_crpz','gas/grav_therpfz'],window=(0.1,'rvir'),pov='edgeon',weight=['gas/volume','star/cumulative'])
+# proj.save_FITS('NUT_00035_edgeon.fits')
+# plot_single_galaxy_projection('NUT_00035_edgeon.fits',['gas/density','gas/temperature','gas/v_cyl_z','gas/v_sphere_r','gas/grav_crpfz','gas/grav_crpfrsphere','gas/grad_crpz','gas/grav_therpfz'])
 
-# proj = do_projection(gal,['gas/density','gas/temperature','gas/v_cyl_z','gas/magnetic_magnitude','gas/streaming_heating','gas/grad_crp','gas/grav_crpfz'],window=(5,'kpc'),pov='faceon')
-# proj.save_FITS('NUT_00035_faceon.fits')
-# plot_single_galaxy_projection('NUT_00035_faceon.fits',['gas/density','gas/temperature','gas/v_cyl_z','gas/magnetic_magnitude','gas/streaming_heating','gas/grad_crp','gas/grav_crpfz'])
+proj = do_projection(gal,['gas/density','gas/temperature','gas/eff_FKmag','gas/magnetic_magnitude','gas/streaming_heating','gas/grad_crp','gas/grav_crpfz'],window=(5,'kpc'),pov='faceon')
+proj.save_FITS('NUT_00035_faceon.fits')
+plot_single_galaxy_projection('NUT_00035_faceon.fits',['gas/density','gas/temperature','gas/eff_FKmag','gas/magnetic_magnitude','gas/streaming_heating','gas/grad_crp','gas/grav_crpfz'])
 
 # proj = do_healpix_projection(gal,['gas/v_sphere_r','gas/density','gas/temperature','gas/metallicity'],r=(0.2,'rvir'),dr=(0.01,'rvir'))
 # proj.save_FITS('NUT_00035_mollweide.fits')

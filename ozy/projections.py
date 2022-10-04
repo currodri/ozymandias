@@ -118,6 +118,15 @@ class Projection(object):
                     hdu.header["btype"] = field
                     hdu.header["bunit"] = re.sub('()', '', units)
                     hdu.header["redshift"] = self.group.obj.simulation.redshift
+                    hdu.header["los_x"] = self.los_axis[0]
+                    hdu.header["los_y"] = self.los_axis[1]
+                    hdu.header["los_z"] = self.los_axis[2]
+                    hdu.header["up_x"] = self.up_vector[0]
+                    hdu.header["up_y"] = self.up_vector[1]
+                    hdu.header["up_z"] = self.up_vector[2]
+                    hdu.header["centre_x"] = float(self.centre[0].in_units(unit_system['code_length']).d)
+                    hdu.header["centre_y"] = float(self.centre[1].in_units(unit_system['code_length']).d)
+                    hdu.header["centre_z"] = float(self.centre[2].in_units(unit_system['code_length']).d)
                     self.hdulist.append(hdu)
             counter += 1
         # Setup WCS in the coordinate systems of the camera
@@ -334,12 +343,12 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
 
     # Setup camera details for the requested POV (Point of View)
     if window[0] == 0.0 or window[1] == 'rvir':
-        if group.obj_type == 'halo':
+        if group.type == 'halo':
             rvir = group.virial_quantities['radius'].d
         else:
             rvir = group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
     if window[0] == 0.0:
-        if group.obj_type == 'halo':
+        if group.type == 'halo':
             window = 1.2*rvir
         else:
             window = 0.2*rvir
@@ -355,7 +364,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
     region_axis.x,region_axis.y,region_axis.z = norm_L[0], norm_L[1], norm_L[2]
 
-    if group.obj_type != 'halo':
+    if group.type != 'halo':
         velocity = group.velocity.in_units('code_velocity')
         bulk.x, bulk.y, bulk.z = velocity.d[0], velocity.d[1], velocity.d[2]
     print('bulk: ',bulk.x, bulk.y, bulk.z)
@@ -471,7 +480,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
 
     # Update projection details with the camera ones
     proj.width = region_size
-    proj.centre = np.array([group.position[0], group.position[1], group.position[2]])
+    proj.centre = group.position
     proj.distance = distance
     proj.far_cut_depth = far_cut_depth
     proj.los_axis = np.array([cam.los_axis.x,cam.los_axis.y,cam.los_axis.z])
@@ -552,7 +561,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     return proj
 
 
-def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,redshift=True,returnfig=False,pov='x',centers=[],radii=[],circle_keys=[]):
+def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,redshift=True,returnfig=False,
+                                    pov='x',centers=[],radii=[],circle_keys=[]):
     """This function uses the projection information in a FITS file following the 
         OZY format and plots it following the OZY standards."""
     
@@ -569,6 +579,7 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
     import seaborn as sns
     sns.set(style="dark")
     plt.rcParams["axes.axisbelow"] = False
+    from unyt import unyt_quantity,unyt_array
     import scipy as sp                                                                                                                                                                                     
     import scipy.ndimage                                                                                                                                                                                   
     # plt.rc('text', usetex=True)
@@ -609,9 +620,16 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
             ax[i].append(fig.add_subplot(plot_grid[i,j]))
     ax = np.asarray(ax)
 
-    width_x =  hdul[0].header['CDELT1']*hdul[0].header['NAXIS1']
-    width_y =  hdul[0].header['CDELT2']*hdul[0].header['NAXIS2']
+    # Construct camera
+    length_unit = unyt_quantity(1.0,hdul[0].header['CUNIT1'])
+    width_x =  hdul[0].header['CDELT1']*hdul[0].header['NAXIS1'] * length_unit
+    width_y =  hdul[0].header['CDELT2']*hdul[0].header['NAXIS2'] * length_unit
     ex = [-0.5*width_x,0.5*width_x,-0.5*width_y,0.5*width_y]
+    los_axis,up_axis,centre = vectors.vector(),vectors.vector(),vectors.vector()
+    los_axis.x,los_axis.y,los_axis.z = hdul[0].header['LOS_X'],hdul[0].header['LOS_Y'],hdul[0].header['LOS_Z']
+    up_axis.x,up_axis.y,up_axis.z = hdul[0].header['UP_X'],hdul[0].header['UP_Y'],hdul[0].header['UP_Z']
+    centre.x,centre.y,centre.z = hdul[0].header['CENTRE_X'],hdul[0].header['CENTRE_Y'],hdul[0].header['CENTRE_Z']
+    cam = obs_instruments.init_camera(centre,los_axis,up_axis,width_x.d,los_axis,width_x.d,width_x.d,hdul[0].header['NAXIS1'])
 
     stellar = False
     for i in range(0, ax.shape[0]):
@@ -685,26 +703,19 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
                 ax[i,j].add_artist(scalebar)
 
             if len(centers) != 0 and len(radii) != 0 and len(circle_keys) != 0:
-                if pov == 'x':
-                    centrecircle = (centers[0][1].in_units('kpc').d,centers[0][2].in_units('kpc').d)
-                elif pov == 'z':
-                    centrecircle = (centers[0][0].in_units('kpc').d,centers[0][1].in_units('kpc').d)
-                else:
-                    centrecircle = centers[0].in_units('kpc').d
-                r = radii[0].in_units('kpc').d
-                circle_settings = circle_dictionary[circle_keys[0]]
-                circle = plt.Circle(centrecircle,r,fill=False,edgecolor=circle_settings['edgecolor'],linestyle=circle_settings['linestyle'])
-                ax[i,j].add_patch(circle)
-                if len(centers) > 1:
-                    for c in range(1, len(centers)):
-                        if pov == 'x':
-                            centrecircle = (centers[c][1].in_units('kpc').d,centers[c][2].in_units('kpc').d)
-                        elif pov == 'z':
-                            centrecircle = (-centers[c][1].in_units('kpc').d,-centers[c][0].in_units('kpc').d)
-                        else:
-                            centrecircle = centers[c].in_units('kpc').d
-                        r = radii[c].in_units('kpc').d
-                        circle_settings = circle_dictionary[circle_keys[c]]
+                # This expects for each point:
+                # 1. a center given as a OZY.array
+                # 2. a radius given as an OZY.quantity
+                # 3. a dictionary of the plotting settings of the circle,
+                #    including the "edgecolor" and the "linestyle"
+                for c in range(0, len(centers)):
+                    centrecircle = centers[c].in_units(hdul[0].header['CUNIT1']).d
+                    dist = centrecircle - np.array([centre.x,centre.y,centre.z])
+                    dist = np.linalg.norm(dist)
+                    if dist <= (width_x/2):
+                        obs_instruments.project_points(cam,1,centrecircle)
+                        r = radii[c].in_units(hdul[0].header['CUNIT1']).d
+                        circle_settings = circle_keys[c]
                         circle = plt.Circle(centrecircle,r,fill=False,edgecolor=circle_settings['edgecolor'],linestyle=circle_settings['linestyle'])
                         ax[i,j].add_patch(circle)
 
@@ -1029,12 +1040,6 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
     fig.subplots_adjust(hspace=0,wspace=0,left=0,right=1, bottom=0, top=1)
 
     fig.savefig(proj_FITS.split('.fits')[0]+'_'+field.split('/')[1]+'.png',format='png',dpi=330)
-
-def plot_galaxy_with_halos(proj_FITS,ozy_file,field,gasstars=True,dm=True,scalebar=True,redshift=True):
-
-    # TODO: Implement this in a similar fashion as the single var projection
-
-    return
 
 def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=True,redshift=True, type_scale='galaxy'):
     """This function uses the projection information in a FITS file following the 
@@ -1444,3 +1449,47 @@ def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False):
         fig.savefig(proj_FITS.split('.')[0]+'_stars.png',format='png',dpi=300)
     else:
         fig.savefig(proj_FITS.split('.')[0]+'.png',format='png',dpi=300)
+
+def structure_overplotting(group, add_substructure=True, add_neighbours=False,
+                            tidal_method='BT87_simple'):
+    """
+    This routine obtains the plotting details to speed up the construction of
+    projections with substructure and/or neighbours information.
+    """
+    from ozy.plot_settings import circle_dictionary
+    from ozy.utils import tidal_radius
+    # Setup arrays with information
+    centers = []
+    radii = []
+    plot_dicts = []
+
+    # Get the central object information
+    if group.type == 'halo':
+        myhalo = group
+        centers.append(group.position)
+        radii.append(myhalo.virial_quantities['radius'])
+        plot_dicts.append(circle_dictionary['rvir_halo'])
+    elif group.type == 'galaxy':
+        myhalo = group.halo
+        centers.append(group.position)
+        radii.append(0.2*myhalo.virial_quantities['radius'])
+        plot_dicts.append(circle_dictionary['rvir_galaxy'])
+
+    # If asked for substructure, obtain the substructure of the host halo
+    if add_substructure:
+        subs = myhalo.substructure_list
+        for s in subs:
+            if s.npart >= 1000:
+                centers.append(s.position)
+                #radii.append(s.radius[tidal_method])
+                radii.append(tidal_radius(myhalo,s,method=tidal_method))
+                #radii.append(s.virial_quantities['radius'])
+                plot_dicts.append(circle_dictionary['tidal_'+tidal_method])
+    
+    # If asked for neighbours (so inside the virial radius) obtain them
+    if add_neighbours:
+        # TODO: This needs to be updated with the actual class procedure
+        # myhalo.get_neighbours_in(rvir)
+        pass
+    return centers,radii,plot_dicts
+

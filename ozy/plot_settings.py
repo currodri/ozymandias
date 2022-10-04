@@ -506,10 +506,23 @@ plotting_dictionary = dict(
                 'vmax':7e-30,
                 'vmin_galaxy':2e-33,
                 'vmax_galaxy':5e-30,
+    },
+    eff_FKmag = {'cmap':'magma',
+                'text_over':'white',
+                'label':r'$\epsilon_{\rm ff}^{\rm MTT}$',
+                'label_log':r'$\log{\epsilon_{\rm ff}^{\rm MTT}}$',
+                'units':'dimensionless',
+                'vmin':1e-4,
+                'vmax':0.01,
+                'vmin_galaxy':1e-4,
+                'vmax_galaxy':0.01
     }
 )
 
 circle_dictionary = dict(
+        rvir_halo = {'edgecolor': 'r',
+                        'linestyle':'--'
+        },
         rvir_galaxy = {'edgecolor': 'y',
                         'linestyle':'--'
         },

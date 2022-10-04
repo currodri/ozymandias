@@ -343,15 +343,56 @@ def tidal_radius(central, satellite, method='BT87_simple'):
     """
     Computation of the tidal radius of a satellite with respect to a central galaxy.
     """
+    from amr2 import filtering
+    from amr2 import amr_integrator
+    from part2 import part_integrator
 
     if method == 'BT87_simple':
-        r = (satellite.virial_quantities['mass']/(2.0*central.virial_quantities['mass']))**(1.0/3.0)
-        r = r * satellite.virial_quantities['radius']
+        """
+        This calculation in Binney & Tremaine 1987 assumes that both the satellite and
+        the host galaxy can be treated as singular isothermal spheres.
+        
+        The definition of tidal radius comes from approximating it as the Jacobi radius
+        in Eq 8.107, and mutiplying by the factor 1.145 assuming that the host halo 
+        can be approximated by a singular isothermal sphere.
+        """
+        # 1. Compute enclosed mass of the host halo within R0 (radial distance of satellite
+        #    to the halo centre)
 
-    elif method == 'BT87_centrifugal':
-        mass_ratio = satellite.virial_quantities['mass']/central.virial_quantities['mass']
-        r = (mass_ratio/(3.0 + mass_ratio))**(1.0/3.0)
-        r = r * satellite.virial_quantities['radius']
+        output_path = central.obj.simulation.fullpath
+        distance = central.position - satellite.position
+        d = central.obj.quantity(np.linalg.norm(distance.to('kpc').d),'kpc')
+
+        # Initialise region
+        selected_reg = init_region(central,'sphere',rmax=(d.to('kpc').d,'kpc'),rmin=(0.0,'kpc'))
+        filt = filtering.filter()
+
+        # Particles first
+        glob_attrs = part_integrator.part_region_attrs()
+        glob_attrs.nvars = 2
+        glob_attrs.nwvars = 1
+        part_integrator.allocate_part_regions_attrs(glob_attrs)
+        glob_attrs.varnames.T.view('S128')[0] = b'dm/mass'.ljust(128)
+        glob_attrs.varnames.T.view('S128')[1] = b'star/mass'.ljust(128)
+        glob_attrs.wvarnames.T.view('S128')[0] = b'cumulative'.ljust(128)
+        part_integrator.integrate_region(output_path,selected_reg,filt,glob_attrs)
+        part_mass = central.obj.quantity(glob_attrs.data[0,0,0]+glob_attrs.data[1,0,0], 'code_mass')
+
+        # Then gas
+        glob_attrs = amr_integrator.amr_region_attrs()
+        glob_attrs.nvars = 1
+        glob_attrs.nwvars = 1
+        glob_attrs.nfilter = 1
+        amr_integrator.allocate_amr_regions_attrs(glob_attrs)
+        glob_attrs.varnames.T.view('S128')[0] = b'mass'.ljust(128)
+        glob_attrs.wvarnames.T.view('S128')[0] = b'cumulative'.ljust(128)
+        glob_attrs.filters[0] = filt
+        amr_integrator.integrate_region(output_path,selected_reg,glob_attrs)
+        gas_mass = central.obj.quantity(glob_attrs.data[0,0,0,0], 'code_mass')
+
+        tot_mass = gas_mass  + part_mass
+        r = (satellite.virial_quantities['mass'] / (3.0*tot_mass))**(1.0/3.0) * d
+
     elif method == 'King62':
         #TODO: Add this calculation, which is significantly more complex
         pass
@@ -854,6 +895,21 @@ def plot_cooling(cool_file):
     fig.savefig(cool_file.split('.out')[0]+'_table.png',format='png',dpi=300)
 
     return cooling_data
+
+
+def gent_curve(limit,T):
+    from unyt import erg,g,K,cm
+    s_hot = 23.2e+8 * erg / K / g
+    s_cold = 4.4e+8 *  erg / K / g
+    cv = 1.4e+8 * erg / K / g
+    gamma = 5/3
+    rho = 0.0
+    if limit == 'hot':
+        rho = 1.673532784796145e-24 * (T/(np.exp(s_hot/cv)*K)) ** (1/(gamma-1)) * g/cm**3
+    elif limit == 'cold':
+        rho = 1.673532784796145e-24 * (T/(np.exp(s_cold/cv)*K)) ** (1/(gamma-1)) * g/cm**3
+    
+    return rho
 
 
 

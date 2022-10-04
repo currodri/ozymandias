@@ -601,6 +601,7 @@ module sunset
                     call getpartvalue(bbox,parts(i),'age',ageYr,dx)
                     call getpartvalue(bbox,parts(i),'birth_date',tbornYr,dx)
                     ageYr = ageYr * 1d9; tbornYr = tbornYr * 1d9
+                    
                 end if ProjectStar
             end do StarsLoop
         end do cpuloop
