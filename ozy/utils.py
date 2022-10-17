@@ -402,6 +402,44 @@ def tidal_radius(central, satellite, method='BT87_simple'):
     
     return r
 
+def structure_regions(group, add_substructure=True, add_neighbours=False,
+                            tidal_method='BT87_simple',rmax=(1e10,'kpc')):
+    """
+    This routine returns the regions of substructures so they can be used
+    by the Ozymandias Fortran routines
+    """
+    from ozy.plot_settings import circle_dictionary
+    from ozy.utils import tidal_radius
+    
+    mysubs = []
+
+    # Get the central object information
+    if group.type == 'halo':
+        myhalo = group
+    elif group.type == 'galaxy':
+        myhalo = group.halo
+
+    if isinstance(rmax, tuple):
+        rmax = group.obj.quantity(rmax[0],rmax[1])
+    # If asked for substructure, obtain the substructure of the host halo
+    if add_substructure:
+        subs = myhalo.substructure_list
+        for s in subs:
+            distance = group.position - s.position
+            d = group.obj.quantity(np.linalg.norm(distance.to('kpc').d),'kpc')
+            if s.npart >= 1000 and d.to('kpc')<=rmax.to('kpc'):
+                #tr = tidal_radius(myhalo,s,method=tidal_method)
+                tr = s.virial_quantities['radius']
+                mysubs.append(init_region(s,'sphere',rmax=(tr.to('kpc'),'kpc'),
+                            rmin=(0,'kpc')))
+    
+    # If asked for neighbours (so inside the virial radius) obtain them
+    if add_neighbours:
+        # TODO: This needs to be updated with the actual class procedure
+        # myhalo.get_neighbours_in(rvir)
+        pass
+    return mysubs
+
 def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(0.0,'rvir'), xmax=(0.2,'rvir'),
                 ymin=(0.0,'rvir'), ymax=(0.2,'rvir'),zmin=(0.0,'rvir'), zmax=(0.2,'rvir')):
     """Initialise region Fortran derived type with details of group."""
@@ -597,15 +635,25 @@ def init_filter(cond_strs, name, group):
         filtering.allocate_filter(filt)
         for i in range(0, filt.ncond):
             # Variable name
-            filt.cond_vars.T.view('S128')[i] = cond_strs[i].split('/')[0].ljust(128)
+            particle = False
+            if cond_strs[i].split('/')[0].split('_')[0] == 'star' or cond_strs[i].split('/')[0].split('_')[0] == 'dm':
+                correct_str = cond_strs[i].split('/')[0].split('_')[0] + '/' + '_'.join(cond_strs[i].split('/')[0].split('_')[1:])
+                particle = True
+            else:
+                correct_str = cond_strs[i].split('/')[0]
+            filt.cond_vars.T.view('S128')[i] = correct_str.ljust(128)
             # Expresion operator
             filt.cond_ops.T.view('S2')[i] = cond_strs[i].split('/')[1].ljust(2)
             # Value transformed to code units
             value = group.obj.quantity(float(cond_strs[i].split('/')[2]), cond_strs[i].split('/')[3])
-            filt.cond_vals[i] = value.in_units(get_code_units(cond_strs[i].split('/')[0])).d
+            if particle:
+                filt.cond_vals[i] = value.in_units(get_code_units(correct_str.split('/')[1])).d
+            else:
+                filt.cond_vals[i] = value.in_units(get_code_units(correct_str)).d
+
         return filt
     else:
-        raise ValueError("Condition strings are given, but a name for the filter. Please set!")
+        raise ValueError("Condition strings are given, but not a name for the filter. Please set!")
 
 def interp_nans(y):
     """

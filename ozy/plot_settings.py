@@ -179,8 +179,8 @@ plotting_dictionary = dict(
                         'units':'erg*cm**-3',
                         'vmin':7e-18,
                         'vmax':8e-12,
-                        'vmin_galaxy':6e-14,
-                        'vmax_galaxy':2e-10
+                        'vmin_galaxy':2e-12,
+                        'vmax_galaxy':8e-10
 
     },
     cr_temperature_eff = {'cmap':'YlGnBu_r',#sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=False, as_cmap=True),
@@ -217,7 +217,7 @@ plotting_dictionary = dict(
                         'vmin':6e-34,
                         'vmax':2e-31,
                         'vmin_galaxy':6e-34,
-                        'vmax_galaxy':2e-31
+                        'vmax_galaxy':6e-30
 
     },
     grad_crpz = {'cmap':sns.color_palette("vlag", as_cmap=True),
@@ -385,14 +385,20 @@ plotting_dictionary = dict(
                 'vmax_galaxy':20
     },
     v_sphere_r = {'cmap':sns.color_palette("vlag", as_cmap=True),
+                  'cmap_inflow':'GnBu_r',
+                  'cmap_outflow':'YlOrBr_r',
                     'text_over':'black',
                     'label':r'$v_r$ [km/s]',
                     'label_log':r'$\log(\frac{v_r}{\rm km/s})$',
                     'units':'km*s**-1',
-                    'vmin':-90,
-                    'vmax':+90,
-                    'vmin_galaxy':-90,
-                    'vmax_galaxy':+90
+                    'vmin':-120,
+                    'vmax':+190,
+                    'vmin_galaxy':-200,
+                    'vmax_galaxy':+250,
+                    'vmin_outflow':15,
+                    'vmax_outflow':300,
+                    'vmin_inflow':80,
+                    'vmax_inflow':20
     },
     v_cyl_z = {'cmap':sns.color_palette("vlag", as_cmap=True),
                     'text_over':'black',
@@ -448,7 +454,9 @@ plotting_dictionary = dict(
                         'vmin':4e+7,
                         'vmax':3e+9,
                         'vmin_galaxy':4e+7,
-                        'vmax_galaxy':3e+9
+                        'vmax_galaxy':3e+9,
+                        'vmin_cluster':4e+5,
+                        'vmax_cluster':3e+8
 
     },
     dm_mass = {'cmap':'cividis',
@@ -516,6 +524,26 @@ plotting_dictionary = dict(
                 'vmax':0.01,
                 'vmin_galaxy':1e-4,
                 'vmax_galaxy':0.01
+    },
+    eff_FK2 = {'cmap':'magma',
+                'text_over':'white',
+                'label':r'$\epsilon_{\rm ff}^{\rm MTT}$',
+                'label_log':r'$\log{\epsilon_{\rm ff}^{\rm MTT}}$',
+                'units':'dimensionless',
+                'vmin':1e-4,
+                'vmax':0.01,
+                'vmin_galaxy':1e-4,
+                'vmax_galaxy':0.01
+    },
+    neighbour_accuracy = {'cmap':'magma',
+                'text_over':'white',
+                'label':'Neighbour Accuracy',
+                'label_log':'Neighbour Accuracy',
+                'units':'dimensionless',
+                'vmin':0.9,
+                'vmax':1,
+                'vmin_galaxy':0.9,
+                'vmax_galaxy':1
     }
 )
 

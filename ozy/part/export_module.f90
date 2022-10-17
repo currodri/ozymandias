@@ -270,4 +270,172 @@ module export_part
         102 format('File includes ',I12,' star particles')
     end subroutine part2skirt
 
+    subroutine part2disperse(repository,reg,filt,prob,outpath)
+        use IFPORT
+        use vectors
+        use coordinate_systems
+        use geometrical_regions
+
+        implicit none
+        ! Input/output variables
+        character(128),intent(in) :: repository
+        type(region),intent(in) :: reg
+        type(filter),intent(in) :: filt
+        real(dbl),intent(in)    :: prob
+        character(128),intent(in) :: outpath
+
+        ! Specific variables for this subroutine
+        logical :: ok_part,ok_filter
+        integer :: roterr
+        integer :: i,j,k
+        integer :: ipos,icpu,binpos
+        integer :: npart,npart2,nstar,inpart=0
+        integer :: ncpu2,ndim2
+        integer :: npartsaved
+        real(dbl) :: distance,tempage,dx
+        character(5) :: nchar,ncharcpu
+        character(6) :: ptype
+        character(128) :: nomfich,varname
+        type(vector) :: xtemp,vtemp
+        type(particle) :: part
+        integer,dimension(:),allocatable :: plevel
+        real(dbl),dimension(:),allocatable :: m,age,met,imass
+        real(dbl),dimension(:,:),allocatable :: x,v
+        real(dbl) :: partprob
+
+        integer,parameter :: myseed = 86456
+
+        ! Initialise random seed
+        call srand(myseed)
+
+        ! Obtain details of the hydro variables stored
+        call read_hydrofile_descriptor(repository)
+
+        ! Initialise parameters of the AMR structure and simulation attributes
+        call init_amr_read(repository)
+        amr%lmax = amr%nlevelmax
+
+        ! Check if particle data uses family
+        if (sim%dm .and. sim%hydro) call check_families(repository)
+
+        ! Compute the Hilbert curve
+        call get_cpu_map(reg)
+        write(*,*)'ncpu_read:',amr%ncpu_read
+
+        ! Cosmological model
+        if (sim%aexp.eq.1.and.sim%h0.eq.1)sim%cosmo=.false.
+        if (sim%cosmo) then
+            call cosmology_model
+        else
+            sim%time_simu = sim%t
+            write(*,*)'Age simu=',sim%time_simu*sim%unit_t/(365.*24.*3600.*1d9)
+        endif
+
+        ! Check number of particles in selected CPUs
+        ipos = INDEX(repository,'output_')
+        nchar = repository(ipos+7:ipos+13)
+        npart = 0
+        do k=1,amr%ncpu_read
+            icpu = amr%cpu_list(k)
+            call title(icpu,ncharcpu)
+            nomfich=TRIM(repository)//'/part_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+            open(unit=1,file=nomfich,status='old',form='unformatted')
+            read(1)ncpu2
+            read(1)ndim2
+            read(1)npart2
+            read(1)
+            read(1)nstar
+            close(1)
+            npart=npart+npart2
+        end do
+        write(*,*)'Found ',npart,' particles.'
+        if(nstar>0)then
+            write(*,*)'Found ',nstar,' star particles.'
+        endif
+
+        npartsaved = 0
+        ! Open output file and add header for DISPERSE
+        open(unit=7,file=TRIM(outpath),form='formatted')
+        write(7,97)prob
+        write(7,98)
+        97 format('# DM particle positions for DISPERSE using random sampling with probability ',F10.2)
+        98 format('# px py pz [in kpc]')
+
+        cpuloop: do k=1,amr%ncpu_read
+            icpu = amr%cpu_list(k)
+            call title(icpu,ncharcpu)
+            nomfich=TRIM(repository)//'/part_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+            open(unit=1,file=nomfich,status='old',form='unformatted')
+            read(1)ncpu2
+            read(1)ndim2
+            read(1)npart2
+            read(1)
+            read(1)
+            read(1)
+            read(1)
+            read(1)
+            allocate(m(1:npart2))
+            if(nstar>0)then
+                allocate(age(1:npart2))
+            endif
+            allocate(x(1:npart2,1:ndim2))
+
+            ! Read position
+            do i=1,amr%ndim
+                read(1)m
+                x(1:npart2,i) = m/sim%boxlen
+            end do
+
+            ! Read velocity
+            do i=1,amr%ndim
+                read(1)m
+            end do
+
+            ! Read mass
+            read(1)m
+            if (nstar>0) then
+                read(1) ! Skip id
+                read(1) ! Skip level
+                if (sim%family) then
+                    read(1) ! Skip family
+                    read(1) ! Skip tags
+                endif
+                read(1)age
+                read(1) ! Skip metallicity
+                read(1) ! Skip imass
+            endif
+            close(1)
+
+            ! Get variable info for particles in the 
+            ! region of interest
+            partloop: do i=1,npart2
+                distance = 0D0
+                part%x = x(i,:)
+                part%age = age(i)
+                ! Check if particle is inside the desired region
+                part%x = part%x - reg%centre
+                x(i,:) = part%x
+                call checkifinside(x(i,:),reg,ok_part,distance)
+                ok_filter = filter_particle(reg,filt,part)
+                ok_part = ok_part.and.ok_filter
+                call getparttype(part,ptype)
+                partprob = rand()
+                if (ok_part.and.(ptype.eq.'dm').and.(partprob.le.prob)) then
+                    npartsaved = npartsaved + 1
+                    ! Position to kpc
+                    part%x = part%x * (sim%unit_l*cm2kpc)
+                    write(7,100)part%x%x,part%x%y,part%x%z
+                    100 format(3F16.7)
+                endif
+            end do partloop
+            inpart = inpart + npart2
+            deallocate(m,x)
+            if(nstar>0)deallocate(age)
+        end do cpuloop
+        
+        close(7)
+        write(*,102)npartsaved
+        102 format('File includes ',I12,' DM particles')
+    end subroutine part2disperse
+
 end module export_part

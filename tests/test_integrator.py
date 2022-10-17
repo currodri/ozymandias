@@ -1,10 +1,9 @@
 import numpy as np
 import ozy
 import sys
-sys.path.append('/mnt/zfsusers/currodri/Codes/ozymandias/ozy/amr')
 from amr2 import amr_integrator
 from part2 import part_integrator
-from ozy.utils import init_region,init_filter
+from ozy.utils import init_region,init_filter,structure_regions
 
 obj = ozy.load('test_00035.hdf5')
 virial_mass = [i.virial_quantities['mass'] for i in obj.galaxies]
@@ -15,6 +14,10 @@ output_path = obj.simulation.fullpath
 
 # Initialise region
 selected_reg = init_region(gal,'sphere',rmax=(0.12,'rvir'))
+
+subs = structure_regions(gal, add_substructure=True, add_neighbours=False,
+                                    tidal_method='BT87_simple')
+nsubs = len(subs)
 
 nvar = 0
 quantity_names = ['mass','density','temperature']
@@ -32,18 +35,22 @@ glob_attrs = amr_integrator.amr_region_attrs()
 glob_attrs.nvars = len(quantity_names)
 glob_attrs.nwvars = len(weight_names)
 glob_attrs.nfilter = 3
+glob_attrs.nsubs = nsubs
 amr_integrator.allocate_amr_regions_attrs(glob_attrs)
 for i in range(0, len(quantity_names)):
     glob_attrs.varnames.T.view('S128')[i] = quantity_names[i].ljust(128)
 for i in range(0, len(weight_names)):
     glob_attrs.wvarnames.T.view('S128')[i] = weight_names[i].ljust(128)
 
+for i in range(0,nsubs):
+    glob_attrs.subs[i] = subs[i]
+
 glob_attrs.filters[0] = init_filter(cond_strs=['entropy_specific/</4.4e+8/erg*K**-1*g**-1'],name='cold',group=gal)
 glob_attrs.filters[1] = init_filter(cond_strs=['entropy_specific/>=/4.4e+8/erg*K**-1*g**-1','entropy_specific/<=/23.2e+8/erg*K**-1*g**-1'],name='warm',group=gal)
 glob_attrs.filters[2] = init_filter(cond_strs=['entropy_specific/>/23.2e+8/erg*K**-1*g**-1'],name='hot',group=gal)
 
 # Begin integration
-amr_integrator.integrate_region(output_path,selected_reg,glob_attrs)
+amr_integrator.integrate_region(output_path,selected_reg,False,glob_attrs)
 mass_names = ['COLD','WARM','HOT']
 tot_mass = 0
 for i in range(0,3):

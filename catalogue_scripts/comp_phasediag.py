@@ -49,6 +49,8 @@ if __name__ == '__main__':
     parser.add_argument('--field', type=str, default='gas/mass', help='Field used in the colormap.')
     parser.add_argument('--weight', type=str, default='gas/cumulative', help='Weighting variable.')
     parser.add_argument('--doflows',action='store_true', help='If present, it separates for the outflows and inflows.')
+    parser.add_argument('--do_sf',action='store_true', help='If present, it separates the satr forming gas.')
+    parser.add_argument('--sfeff', type=float, default=0.01, help='For the case of plots with SF eff, is the theshold included.')
     parser.add_argument('--layout', type=str, default='compact', help='How the plots should be organised.')
     parser.add_argument('--recompute',action='store_true', help='If present, it recomputes 2D profiles.')
     parser.add_argument('--nolog',action='store_false', help='If present, it deactivates logairthmic bins.')
@@ -62,8 +64,8 @@ if __name__ == '__main__':
             print('You need multiple models if you want to compare models!')
             exit
         
-        if args.doflows:
-            print('You have asked for outflow/inflow contours!')
+        if args.doflows: print('You have asked for outflow/inflow contours!')
+        if args.do_sf: print('You have asked for the contours of SF gas.')
 
         for z in range(0, len(args.z)):
             pds = []
@@ -154,7 +156,8 @@ if __name__ == '__main__':
             print('You need multiple models if you want to compare models!')
             exit
         
-        print('You have asked for outflow/inflow contours!')
+        if args.doflows: print('You have asked for outflow/inflow contours!')
+        if args.do_sf: print('You have asked for the contours of SF gas.')
         print('Phase diagrams are the result of stacking!')
 
         for z in range(0, len(args.z)):
@@ -265,12 +268,30 @@ if __name__ == '__main__':
                                     [args.weight],save=True,recompute=args.recompute, filter_conds='v_sphere_r/>=/%.3f/km*s**-1'%v_escape, filter_name='escaping'+'_'+args.region,
                                     rmin=rmin,rmax=rmax,logscale=args.nolog,
                                 cr_st = cr_flags[0],cr_heat=cr_flags[1])
+                    if args.do_sf:
+                        if sim.simulation.physics['magnetic'] or sim.simulation.physics['cr']:
+                            sf_model = 'eff_FKmag'
+                        else:
+                            sf_model = 'eff_FK2'
+                        condition_sf = sf_model+'/>=/%.3f/dimensionless'%args.sfeff
+                        print(condition_sf)
+                        starforming = compute_phase_diagram(gal,os.path.join(groupspath, neigh_snaps[n]), args.xvar,args.yvar, [args.field],
+                                        [args.weight],save=True,recompute=args.recompute, filter_conds=condition_sf, filter_name='starforming'+'_'+args.region,
+                                        rmin=rmin,rmax=rmax,logscale=args.nolog,
+                                        cr_st = cr_flags[0],cr_heat=cr_flags[1])
+                        
                     pd = compute_phase_diagram(gal,os.path.join(groupspath, neigh_snaps[n]), args.xvar,args.yvar, [args.field],
                                 [args.weight],save=True,recompute=args.recompute,rmin=rmin,rmax=rmax,filter_name=args.region,logscale=args.nolog,
                                 cr_st = cr_flags[0],cr_heat=cr_flags[1])
-                    if args.doflows:
+                    if args.doflows and args.do_sf:
+                        pds[i].append([pd,outflow,inflow,escape,starforming])
+                        weights[i].append([neigh_weights[n]]*5)
+                    elif args.doflows:
                         pds[i].append([pd,outflow,inflow,escape])
                         weights[i].append([neigh_weights[n]]*4)
+                    elif args.do_sf:
+                        pds[i].append([pd,starforming])
+                        weights[i].append([neigh_weights[n]]*2)
                     else:
                         pds[i].append(pd)
                         weights[i].append(neigh_weights[n])
@@ -281,7 +302,7 @@ if __name__ == '__main__':
             labels = [names[m] for m in args.model]
             plot_compare_stacked_pd(pds,weights,args.field.split('/')[1],'compare_stacked_pd'+namephase+args.region+'_'+args.field.split('/')[1]+'_'+str(args.z[z]),
                                         weightvar=args.weight.split('/')[1],stats='mean',extra_labels=labels,
-                                        doflows=args.doflows,layout=args.layout,gent=True)
+                                        doflows=args.doflows,do_sf=args.do_sf,layout=args.layout,gent=True)
             args.model = simfolders
     else:
         print('That comparison mode is not suported. Please check!')

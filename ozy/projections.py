@@ -2,9 +2,10 @@ import numpy as np
 import h5py
 import os
 import ozy
+from ozy.utils import init_filter, init_region, structure_regions
 from ozy.plot_settings import plotting_dictionary, \
                                 symlog_variables
-from ozy.dict_variables import common_variables, \
+from ozy.dict_variables import check_need_neighbours, common_variables, \
                                 grid_variables, \
                                 particle_variables, \
                                 get_code_units,basic_conv
@@ -40,6 +41,7 @@ class Projection(object):
 
     def __init__(self,group):
         self.group = group
+        self.obj = group.obj
         self.pov = 'faceon'
         self.los_axis = np.array([0.,0.,1.])
         self.up_vector = np.array([0.,1.,0.])
@@ -51,6 +53,7 @@ class Projection(object):
         self.vars = dict(gas = [],star = [], dm = [])
         self.weight = ['density','star/density']
         self.data_maps = []
+        self.filters = []
         # These are details for the case of a HEALPix map
         self.nside = 32
         self.npix = hp.nside2npix(self.nside)
@@ -67,68 +70,76 @@ class Projection(object):
             os.remove(name)
         self.hdulist = fits.HDUList()
         first = True
-        counter = 0
-        for datatype, varlist in self.vars.items():
-            fields = []
-            if len(varlist)>0:
-                imap = self.data_maps[counter]
-                if not isinstance(imap,list) and not isinstance(imap,np.ndarray):
-                    imap = [imap]
-                for f in varlist:
-                    fields.append(datatype+'/'+f)
-                for i,field in enumerate(fields):
-                    # Some fields have specific numerical flags at the end
-                    # which do not interfere with the units. If that is 
-                    # the case, get rid of that last bit
-                    try:
-                        numflag = int(field.split('/')[1].split('_')[-1])
-                        numflag = True
-                    except:
-                        numflag = False
-                    if numflag:
-                        sfrstr = field.split('/')[1].split('_')[0] +'_'+ field.split('/')[1].split('_')[1]
-                        code_units = get_code_units(sfrstr)
-                    else:
-                        code_units = get_code_units(field.split('/')[1])
-                    temp_map = self.group.obj.array(imap[i],code_units)
-                    first_unit = True
-                    make_div = False
-                    if len(code_units.split('/')) != 1:
-                        make_div = True
-                        code_units = code_units.replace('/','*')
-                    for u in code_units.split('*'):
-                        if first_unit:
-                            units = unit_system[u]
-                            first_unit = False
-                            units_check = u
+        nfilter = len(self.filters)
+        for nf in range(0,nfilter):
+            filter_name = self.filters[nf]['name']
+            counter = 0
+            for datatype, varlist in self.vars.items():
+                fields = []
+                if len(varlist)>0:
+                    imap = self.data_maps[counter][nf]
+                    if not isinstance(imap,list) and not isinstance(imap,np.ndarray):
+                        imap = [imap]
+                    for f in varlist:
+                        fields.append(datatype+'/'+f)
+                    for i,field in enumerate(fields):
+                        # Some fields have specific numerical flags at the end
+                        # which do not interfere with the units. If that is 
+                        # the case, get rid of that last bit
+                        try:
+                            numflag = int(field.split('/')[1].split('_')[-1])
+                            numflag = True
+                        except:
+                            numflag = False
+                        if numflag:
+                            sfrstr = field.split('/')[1].split('_')[0] +'_'+ field.split('/')[1].split('_')[1]
+                            code_units = get_code_units(sfrstr)
                         else:
-                            if make_div:
-                                units += '/'+unit_system[u]
+                            code_units = get_code_units(field.split('/')[1])
+                        temp_map = self.group.obj.array(imap[i],code_units)
+                        first_unit = True
+                        make_div = False
+                        if len(code_units.split('/')) != 1:
+                            make_div = True
+                            code_units = code_units.replace('/','*')
+                        for u in code_units.split('*'):
+                            if first_unit:
+                                units = unit_system[u]
+                                first_unit = False
+                                units_check = u
                             else:
-                                units += '*'+unit_system[u]
-                            units_check +='_'+u
-                    if units_check in unit_system:
-                        units = unit_system[units_check]
-                    if first:
-                        hdu = fits.PrimaryHDU(np.array(temp_map.in_units(units)))
-                        first = False
-                    else:
-                        hdu = fits.ImageHDU(np.array(temp_map.in_units(units)))
-                    hdu.name = field
-                    hdu.header["btype"] = field
-                    hdu.header["bunit"] = re.sub('()', '', units)
-                    hdu.header["redshift"] = self.group.obj.simulation.redshift
-                    hdu.header["los_x"] = self.los_axis[0]
-                    hdu.header["los_y"] = self.los_axis[1]
-                    hdu.header["los_z"] = self.los_axis[2]
-                    hdu.header["up_x"] = self.up_vector[0]
-                    hdu.header["up_y"] = self.up_vector[1]
-                    hdu.header["up_z"] = self.up_vector[2]
-                    hdu.header["centre_x"] = float(self.centre[0].in_units(unit_system['code_length']).d)
-                    hdu.header["centre_y"] = float(self.centre[1].in_units(unit_system['code_length']).d)
-                    hdu.header["centre_z"] = float(self.centre[2].in_units(unit_system['code_length']).d)
-                    self.hdulist.append(hdu)
-            counter += 1
+                                if make_div:
+                                    units += '/'+unit_system[u]
+                                else:
+                                    units += '*'+unit_system[u]
+                                units_check +='_'+u
+                        if units_check in unit_system:
+                            units = unit_system[units_check]
+                        if first:
+                            hdu = fits.PrimaryHDU(np.array(temp_map.in_units(units)))
+                            first = False
+                        else:
+                            hdu = fits.ImageHDU(np.array(temp_map.in_units(units)))
+                        if filter_name != 'none':
+                            hdu.name = field+'/'+filter_name
+                            hdu.header["btype"] = field+'/'+filter_name
+                        else:
+                            hdu.name = field
+                            hdu.header["btype"] = field
+                        hdu.header["bunit"] = re.sub('()', '', units)
+                        hdu.header["redshift"] = self.group.obj.simulation.redshift
+                        hdu.header["los_x"] = self.los_axis[0]
+                        hdu.header["los_y"] = self.los_axis[1]
+                        hdu.header["los_z"] = self.los_axis[2]
+                        hdu.header["up_x"] = self.up_vector[0]
+                        hdu.header["up_y"] = self.up_vector[1]
+                        hdu.header["up_z"] = self.up_vector[2]
+                        hdu.header["centre_x"] = float(self.centre[0].in_units(unit_system['code_length']).d)
+                        hdu.header["centre_y"] = float(self.centre[1].in_units(unit_system['code_length']).d)
+                        hdu.header["centre_z"] = float(self.centre[2].in_units(unit_system['code_length']).d)
+                        self._save_filterinfo(hdu,self.filters[nf])
+                        self.hdulist.append(hdu)
+                counter += 1
         # Setup WCS in the coordinate systems of the camera
         w = WCS(header=self.hdulist[0].header,naxis=2)
         dx = self.group.obj.array(self.width[0],'code_length').in_units(unit_system['code_length']).d
@@ -281,8 +292,39 @@ class Projection(object):
         except:
             pass
 
+    def _get_python_filter(self,filt):
+        """Save the Fortran derived type as a dictionary inside the PhaseDiagram class (only the necessary info)."""
+        self.filters.append(dict())
+        self.filters[-1]['name'] = filt.name.decode().split(' ')[0]
+        self.filters[-1]['conditions'] = []
+        if self.filters[-1]['name'] != 'none':
+            for i in range(0, filt.ncond):
+                particle = False
+                cond_var = filt.cond_vars.T.view('S128')[i][0].decode().split(' ')[0]
+                if cond_var.split('/')[0] == 'star' or cond_var.split('/')[0] == 'dm':
+                    particle = True
+                    corrected_part_var = cond_var.split('/')[0] + '_' + cond_var.split('/')[1]
+                cond_op = filt.cond_ops.T.view('S2')[i][0].decode().split(' ')[0]
+                if particle:
+                    cond_units = get_code_units(cond_var.split('/')[1])
+                else:
+                    cond_units = get_code_units(cond_var)
+                cond_value = self.obj.quantity(filt.cond_vals[i], str(cond_units))
+                if particle:
+                    cond_str = cond_var+'/'+cond_op+'/'+str(cond_value.d)+'/'+cond_units
+                else:
+                    cond_str = corrected_part_var+'/'+cond_op+'/'+str(cond_value.d)+'/'+cond_units
+                self.filters[-1]['conditions'].append(cond_str)
+    def _save_filterinfo(self,hdu,filt):
+        """"This function unravels the information contained in a filter object into the FITS header"""
+        if filt['name'] != 'none':
+            for i in range(0, len(filt['conditions'])):
+                hdu.header["cond_"+str(i)] = filt['conditions'][i]
+
 def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_size=1024,
-                    pov='faceon',lmax=0,lmin=1,window=(0.0,'kpc'), tag_file=None, inverse_tag=False):
+                    pov='faceon',lmax=100,lmin=1,window=(0.0,'kpc'), tag_file=None,
+                    inverse_tag=False, remove_subs=False,
+                    filter_conds=['none'],filter_name=['none']):
     """Function which computes a 2D projection centered on an objected from an OZY file."""
 
     if not isinstance(weight,list):
@@ -292,10 +334,12 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         exit
     proj = Projection(group)
     proj.pov = pov
+    use_neigh = False
     
     for var in vars:
         var_type = var.split('/')[0]
         var_name = var.split('/')[1]
+        use_neigh = check_need_neighbours(var_name) or use_neigh
         if var_type == 'gas':
             if var_name in common_variables or var_name in grid_variables:
                 proj.vars['gas'].append(var_name)
@@ -325,6 +369,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     for w in weight:
         weight_type = w.split('/')[0]
         weight_name = w.split('/')[1]
+        use_neigh = check_need_neighbours(weight_name) or use_neigh
         if weight_type == 'gas':
             if weight_name in common_variables or weight_name in grid_variables:
                 proj.weight[0] = weight_name
@@ -340,6 +385,9 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
                 proj.weight[1] = w
             else:
                 raise KeyError('This DM variable is not supported. Please check!')
+
+    if use_neigh:
+        print('At least one variable needs neighbours!')
 
     # Setup camera details for the requested POV (Point of View)
     if window[0] == 0.0 or window[1] == 'rvir':
@@ -367,7 +415,6 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     if group.type != 'halo':
         velocity = group.velocity.in_units('code_velocity')
         bulk.x, bulk.y, bulk.z = velocity.d[0], velocity.d[1], velocity.d[2]
-    print('bulk: ',bulk.x, bulk.y, bulk.z)
 
     if proj.pov == 'faceon':
         centre = vectors.vector()
@@ -390,7 +437,6 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
         los = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
         los /= np.linalg.norm(los)
-        print(los)
         axis.x,axis.y,axis.z = los[0], los[1], los[2]
         up_vector = vectors.vector()
         up_vector.x,up_vector.y,up_vector.z = norm_L[0], norm_L[1], norm_L[2]
@@ -475,8 +521,43 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         region_size = np.array([2.0*rmax,2.0*rmax],order='F')
         distance = rmax
         far_cut_depth = rmax
+
+    # Now create filters if any conditions have been given...
+    nfilter = len(filter_conds)
+    for i in range(0,nfilter):
+        f = init_filter(filter_conds[i],filter_name[i],group)
+        proj._get_python_filter(f)
+        
+    # Do it for hydro first
+    filts = []
+    for i in range(0,nfilter):
+        cond_var = filter_conds[i].split('/')[0]
+        if cond_var in common_variables or cond_var in grid_variables:
+            f = init_filter(filter_conds[i],filter_name[i],group)
+        else:
+            # When a filter asks for a variable not existent in the common_variables
+            # or the grid_variables dictionaries just ignore it and set it to blank
+            f = init_filter('none','none',group)
+        filts.append(f)
+        
+    # Construct substructure regions if we want them out of the projection
+    if remove_subs:
+        subs = structure_regions(group, add_substructure=True, add_neighbours=False,
+                                    tidal_method='BT87_simple')
+        nsubs = len(subs)
+    else:
+        nsubs = 0
     
-    cam = obs_instruments.init_camera(centre,axis,up_vector,region_size,region_axis,distance,far_cut_depth,map_max_size-1)
+    cam = obs_instruments.init_camera(centre,axis,up_vector,region_size,region_axis,distance,
+                                      far_cut_depth,map_max_size-1,nfilter,nsubs)
+
+    # Now give filters to camera Fortran type
+    for i in range(0,nfilter):
+        cam.filters[i] = filts[i]
+        
+    if remove_subs and nsubs>0:
+        for i in range(0,nsubs):
+            cam.subs[i] = subs[i]
 
     # Update projection details with the camera ones
     proj.width = region_size
@@ -491,7 +572,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
 
     # Create projection_handler Fortran derived type for the results of the hydro data projection
     hydro_handler = maps.projection_handler()
-    hydro_handler.type = proj.pov
+    hydro_handler.pov = proj.pov
     hydro_handler.nvars = len(proj.vars['gas'])
     hydro_handler.weightvar = proj.weight[0]
     maps.allocate_projection_handler(hydro_handler)
@@ -501,16 +582,40 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     # COMPUTE HYDRO PROJECTION
     if len(proj.vars['gas']) != 0:
         print('Performing hydro projection for '+str(len(proj.vars['gas']))+' variables')
-        if lmax != 0:
-            maps.projection_hydro(group.obj.simulation.fullpath,cam,bulk,hydro_handler,int(lmax),int(lmin))
+        if lmax != 0 or lmin != 0:
+            maps.projection_hydro(group.obj.simulation.fullpath,cam,bulk,use_neigh,hydro_handler,int(lmax),int(lmin))
         else:
-            maps.projection_hydro(group.obj.simulation.fullpath,cam,bulk,hydro_handler)
+            maps.projection_hydro(group.obj.simulation.fullpath,cam,bulk,use_neigh,hydro_handler)
         # TODO: Weird issue when the direct toto array is given.
         data = np.copy(hydro_handler.toto)
         proj.data_maps.append(data)
     else:
         del proj.vars['gas']
 
+    # Now settup the filters for particles, making sure
+    # we do not include filters inexistent in particle data
+    filts = []
+    for i in range(0,nfilter):
+        cond_var = filter_conds[i].split('/')[0]
+        corrected_var = '_'.join(cond_var.split('_')[1:])
+        if corrected_var in common_variables or corrected_var in particle_variables:
+            f = init_filter(filter_conds[i],filter_name[i],group)
+        else:
+            # When a filter asks for a variable not existent in the common_variables
+            # or the particle_variables dictionaries just ignore it and set it to blank
+            f = init_filter('none','none',group)
+        filts.append(f)
+    
+    # Now give filters to camera Fortran type - updating the previous from hydro
+    cam = obs_instruments.init_camera(centre,axis,up_vector,region_size,region_axis,distance,
+                                      far_cut_depth,map_max_size,nfilter,nsubs)
+    for i in range(0,nfilter):
+        cam.filters[i] = filts[i]
+    
+    if remove_subs and nsubs>0:
+        for i in range(0,nsubs):
+            cam.subs[i] = subs[i]
+        
     # Create projection_handler Fortran derived type for the results of the hydro data projection
     parts_handler = maps.projection_handler()
     parts_handler.type = proj.pov
@@ -536,15 +641,15 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         # TODO: Weird issue when the direct toto array is given.
         data = np.copy(parts_handler.toto)
         if len(proj.vars['star']) == 0:
-            data_dm = data.reshape(len(proj.vars['dm']),data.shape[1],data.shape[2])
+            data_dm = data.reshape(nfilter,len(proj.vars['dm']),data.shape[2],data.shape[3])
             proj.data_maps.append(data_dm)
         elif len(proj.vars['dm']) == 0:
-            data_star = data[:len(proj.vars['star'])].reshape(len(proj.vars['star']),data.shape[1],data.shape[2])
+            data_star = data[:,:len(proj.vars['star'])].reshape(nfilter,len(proj.vars['star']),data.shape[2],data.shape[3])
             proj.data_maps.append(data_star)
         else:
-            data_star = data[:len(proj.vars['star'])].reshape(len(proj.vars['star']),data.shape[1],data.shape[2])
+            data_star = data[:,:len(proj.vars['star'])].reshape(nfilter,len(proj.vars['star']),data.shape[2],data.shape[3])
             proj.data_maps.append(data_star)
-            data_dm = data[len(proj.vars['star']):].reshape(len(proj.vars['dm']),data.shape[1],data.shape[2])
+            data_dm = data[:,len(proj.vars['star']):].reshape(nfilter,len(proj.vars['dm']),data.shape[2],data.shape[3])
             proj.data_maps.append(data_dm)
     else:
         if 'star' in proj.vars.keys():
@@ -562,7 +667,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
 
 
 def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,redshift=True,returnfig=False,
-                                    pov='x',centers=[],radii=[],circle_keys=[]):
+                                    pov='x',centers=[],radii=[],circle_keys=[],filter_name='none',smooth=False):
     """This function uses the projection information in a FITS file following the 
         OZY format and plots it following the OZY standards."""
     
@@ -594,10 +699,19 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
     # First,check that FITS file actually exists
     if not os.path.exists(proj_FITS):
         raise ImportError('File not found. Please check!: '+str(proj_FITS))
-    
+
+
     # Load FITS file
     hdul = fits.open(proj_FITS)
     hdul_fields = [h.header['btype'] for h in hdul]
+
+    # Add filter identification to the field
+    hdul_filtername = ['COND_0' in h.header for h in hdul]
+    if any(hdul_filtername):
+        for f in range(0,len(fields)):
+            fields[f] = fields[f] + '/' + filter_name
+    else:
+        print('WARNING: This FITS file does not have filter information, so anything you added will be ignored!')
 
     # Check that the required fields for plotting are in this FITS
     for i,f in enumerate(fields):
@@ -629,7 +743,9 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
     los_axis.x,los_axis.y,los_axis.z = hdul[0].header['LOS_X'],hdul[0].header['LOS_Y'],hdul[0].header['LOS_Z']
     up_axis.x,up_axis.y,up_axis.z = hdul[0].header['UP_X'],hdul[0].header['UP_Y'],hdul[0].header['UP_Z']
     centre.x,centre.y,centre.z = hdul[0].header['CENTRE_X'],hdul[0].header['CENTRE_Y'],hdul[0].header['CENTRE_Z']
-    cam = obs_instruments.init_camera(centre,los_axis,up_axis,width_x.d,los_axis,width_x.d,width_x.d,hdul[0].header['NAXIS1'])
+    cam = obs_instruments.init_camera(centre,los_axis,up_axis,width_x.d,los_axis,
+                                      width_x.d,width_x.d,hdul[0].header['NAXIS1'],
+                                      1,len(centers))
 
     stellar = False
     for i in range(0, ax.shape[0]):
@@ -652,28 +768,36 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
                 stellar = True
             else:
                 plotting_def = plotting_dictionary[fields[ivar].split('/')[1]]
-            if logscale and fields[ivar].split('/')[1] not in symlog_variables:
-                print(fields[ivar],np.nanmin(hdul[h].data.T),np.nanmax(hdul[h].data.T))
-                sigma=5
+            print(fields[ivar],np.nanmin(hdul[h].data.T),np.nanmax(hdul[h].data.T))
+            if smooth:
+                sigma=3
                 cImage = sp.ndimage.filters.gaussian_filter(hdul[h].data.T, sigma, mode='constant')
-                plot = ax[i,j].imshow(np.log10(hdul[h].data.T), cmap=plotting_def['cmap'],
+            else:
+                cImage = hdul[h].data.T
+            if logscale and fields[ivar].split('/')[1] not in symlog_variables:
+                
+                plot = ax[i,j].imshow(np.log10(cImage), cmap=plotting_def['cmap'],
                                 origin='lower',vmin=np.log10(plotting_def['vmin_galaxy']),
                                 vmax=np.log10(plotting_def['vmax_galaxy']),extent=ex,
                                 interpolation='nearest')
             elif logscale and fields[ivar].split('/')[1] in symlog_variables:
-                print(fields[ivar],np.nanmin(hdul[h].data.T),np.nanmax(hdul[h].data.T))
-                sigma=5                                                                                                                                                                                            
-                cImage = sp.ndimage.filters.gaussian_filter(hdul[h].data.T, sigma, mode='constant')
-                plot = ax[i,j].imshow(cImage, cmap=plotting_def['cmap'],
-                                origin='lower',norm=SymLogNorm(linthresh=0.1, linscale=1,
-                                vmin=plotting_def['vmin_galaxy'], vmax=plotting_def['vmax_galaxy']),
-                                extent=ex,
-                                interpolation='nearest')
+                if (filter_name != 'outflow' and filter_name != 'inflow'):
+                    plot = ax[i,j].imshow(cImage, cmap=plotting_def['cmap'],
+                                    origin='lower',norm=SymLogNorm(linthresh=0.1, linscale=1,
+                                    vmin=plotting_def['vmin_galaxy'], vmax=plotting_def['vmax_galaxy']),
+                                    extent=ex,
+                                    interpolation='nearest')
+                elif fields[ivar].split('/')[1] == 'v_sphere_r':
+                    if filter_name == 'inflow' and smooth:                                                                                                                                                                                          
+                        cImage = sp.ndimage.filters.gaussian_filter(-hdul[h].data.T, sigma, mode='constant')
+                    plot = ax[i,j].imshow(np.log10(cImage), cmap=plotting_def['cmap_'+filter_name],
+                                    origin='lower',vmin=np.log10(plotting_def['vmin_'+filter_name]),
+                                    vmax=np.log10(plotting_def['vmax_'+filter_name]),extent=ex,
+                                    interpolation='nearest')
             else:
-                print(fields[ivar],np.min(hdul[h].data.T),np.max(hdul[h].data.T))
                 plot = ax[i,j].imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
                                 origin='lower',extent=ex,interpolation='nearest',
-                                vmin=plotting_def['vmin'],vmax=plotting_def['vmax'])
+                                vmin=plotting_def['vmin_galaxy'],vmax=plotting_def['vmax_galaxy'])
 
             cbaxes = inset_axes(ax[i,j], width="80%", height="5%", loc='lower center')
             cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
@@ -720,12 +844,13 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
                         ax[i,j].add_patch(circle)
 
     fig.subplots_adjust(hspace=0,wspace=0,left=0,right=1, bottom=0, top=1)
-    if stellar:
-        fig.savefig(proj_FITS.split('.')[0]+'_stars.png',format='png',dpi=300)
-    elif returnfig:
+    if returnfig:
         return fig
     else:
-        fig.savefig(proj_FITS.split('.')[0]+'.png',format='png',dpi=300)
+        if filter_name != 'none':
+            fig.savefig(proj_FITS.split('.')[0]+'_'+filter_name+'.png',format='png',dpi=300)
+        else:
+            fig.savefig(proj_FITS.split('.')[0]+'.png',format='png',dpi=300)
 
 def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=True,redshift=True,returnfig=False,pov='x',labels=[],centers=[],radii=[],circle_keys=[]):
     """This function uses the projection information in a set of FITS files and combines in a single
@@ -975,7 +1100,7 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
         colormap = plotting_def['cmap']
     sigma=1
     if logscale and field.split('/')[1] != 'v_sphere_r':
-        cImage = sp.ndimage.filters.gaussian_filter(np.log10(hdul[h].data.T), sigma, mode='constant')
+        cImage = np.log10(hdul[h].data.T)#sp.ndimage.filters.gaussian_filter(np.log10(hdul[h].data.T), sigma, mode='constant')
         plot = ax.imshow(cImage, cmap=colormap,
                         origin='upper',vmin=np.log10(plotting_def['vmin'+type_scale]),
                         vmax=np.log10(plotting_def['vmax'+type_scale]),extent=ex,
@@ -1011,7 +1136,7 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
     fontprops = fm.FontProperties(size=20,weight='bold')
     if scalebar:
         scalebar = AnchoredSizeBar(ax.transData,
-                                    100, '100 kpc', 'upper right', 
+                                    10, '10 kpc', 'upper right', 
                                     pad=0.1,
                                     color=plotting_def['text_over'],
                                     frameon=False,
@@ -1451,7 +1576,7 @@ def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False):
         fig.savefig(proj_FITS.split('.')[0]+'.png',format='png',dpi=300)
 
 def structure_overplotting(group, add_substructure=True, add_neighbours=False,
-                            tidal_method='BT87_simple'):
+                            tidal_method='BT87_simple',rmax=(1e10,'kpc')):
     """
     This routine obtains the plotting details to speed up the construction of
     projections with substructure and/or neighbours information.
@@ -1475,15 +1600,19 @@ def structure_overplotting(group, add_substructure=True, add_neighbours=False,
         radii.append(0.2*myhalo.virial_quantities['radius'])
         plot_dicts.append(circle_dictionary['rvir_galaxy'])
 
+    if isinstance(rmax, tuple):
+        rmax = group.obj.quantity(rmax[0],rmax[1])
     # If asked for substructure, obtain the substructure of the host halo
     if add_substructure:
         subs = myhalo.substructure_list
         for s in subs:
-            if s.npart >= 1000:
+            distance = group.position - s.position
+            d = group.obj.quantity(np.linalg.norm(distance.to('kpc').d),'kpc')
+            if s.npart >= 1000 and d.to('kpc')<=rmax.to('kpc'):
                 centers.append(s.position)
                 #radii.append(s.radius[tidal_method])
-                radii.append(tidal_radius(myhalo,s,method=tidal_method))
-                #radii.append(s.virial_quantities['radius'])
+                #radii.append(tidal_radius(myhalo,s,method=tidal_method))
+                radii.append(s.virial_quantities['radius'])
                 plot_dicts.append(circle_dictionary['tidal_'+tidal_method])
     
     # If asked for neighbours (so inside the virial radius) obtain them
@@ -1492,4 +1621,3 @@ def structure_overplotting(group, add_substructure=True, add_neighbours=False,
         # myhalo.get_neighbours_in(rvir)
         pass
     return centers,radii,plot_dicts
-

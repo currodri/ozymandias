@@ -300,13 +300,13 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
     import seaborn as sns
     from ozy.plot_settings import plotting_dictionary
     sns.set(style="white")
-    plt.rc('text', usetex=True)
-    plt.rc('font', family='serif')
-    hfont = {'fontname':'Helvetica'}
-    matplotlib.rc('text', usetex = True)
-    matplotlib.rc('font', **{'family' : "serif"})
-    params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
-    matplotlib.rcParams.update(params)
+    # plt.rc('text', usetex=True)
+    # plt.rc('font', family='serif')
+    # hfont = {'fontname':'Helvetica'}
+    # matplotlib.rc('text', usetex = True)
+    # matplotlib.rc('font', **{'family' : "serif"})
+    # params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
+    # matplotlib.rcParams.update(params)
 
     # Check that the required field is actually in the PhaseDiagram
     if field not in pd.zvars['hydro']:
@@ -414,13 +414,13 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=Tr
     import seaborn as sns
     from ozy.plot_settings import plotting_dictionary
     sns.set(style="white")
-    plt.rc('text', usetex=True)
-    plt.rc('font', family='serif')
-    hfont = {'fontname':'Helvetica'}
-    matplotlib.rc('text', usetex = True)
-    matplotlib.rc('font', **{'family' : "serif"})
-    params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
-    matplotlib.rcParams.update(params)
+    # plt.rc('text', usetex=True)
+    # plt.rc('font', family='serif')
+    # hfont = {'fontname':'Helvetica'}
+    # matplotlib.rc('text', usetex = True)
+    # matplotlib.rc('font', **{'family' : "serif"})
+    # params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
+    # matplotlib.rcParams.update(params)
 
     # How many phase diagram datasets have been provided
     if isinstance(pds,list):
@@ -634,7 +634,7 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=Tr
 def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
                             logscale=True,redshift=True,stats='none',
                             extra_labels='none',gent=False,powell=False,
-                            doflows=False,layout='compact'):
+                            doflows=False,do_sf=False,layout='compact'):
 
     # Make required imports
     import matplotlib
@@ -660,7 +660,7 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
     field_indexes = []
     weight_indexes = []
     for pd in pds:
-        if doflows:
+        if doflows or do_sf:
             if field not in pd[0][0].zvars['hydro']:
                 raise KeyError('The field %s is not included in this PhaseDiagram object. Aborting!'%field)
             else:
@@ -729,7 +729,7 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
                 break
             pd = pds[ipd]
             pd_weight = weights[ipd]
-            if doflows:
+            if doflows or do_sf:
                 plotting_x = plotting_dictionary[pd[0][0].xvar]
                 plotting_y = plotting_dictionary[pd[0][0].yvar]
             else:
@@ -758,7 +758,7 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
             else:
                 ax[i,j].set_ylabel(plotting_y['label'],fontsize=18)
             
-            if doflows:
+            if doflows or do_sf:
                 code_units_x = get_code_units(pd[0][0].xvar)
             else:
                 code_units_x = get_code_units(pd[0].xvar)
@@ -767,7 +767,7 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
             sim_z = np.zeros(len(pd_weight))
             tot_weight = 0
             for w in range(0, len(pd_weight)):
-                if doflows:
+                if doflows or do_sf:
                     temp_pd = pd[w][0]
                     temp_weight = pd_weight[w][0]
                 else:
@@ -913,6 +913,29 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
                 f = interpolate.interp1d(integral, t)
                 t_contours = f(np.array([0.8*ztot]))
                 ax[i,j].contour(x, y, zescape.T, t_contours, colors='darkred', linewidths=2)
+            if do_sf:
+                from scipy import interpolate
+                n = 1000
+                expd_index = 1
+                if doflows:
+                    expd_index += 3
+                # Star forming
+                zsf = np.zeros((100,100))
+                tot_weight = 0
+                for w in range(0, len(weights[ipd])):
+                    espd = pds[ipd][w][expd_index]
+                    zsf_temp = np.array(espd.zdata['hydro'][field_indexes[i]][:,:,weight_indexes[i],0].d,order='F')
+                    zsf = zsf + espd.obj.array(zsf_temp,code_units_z).in_units(plotting_z['units']).d*weights[ipd][w][expd_index]
+                    tot_weight = tot_weight + weights[ipd][w][expd_index]
+                zsf = zsf / tot_weight
+                ztot_sf = np.sum(zsf)
+                t = np.linspace(0, ztot_sf, n)
+                integral = ((zsf >= t[:, None, None]) * zsf).sum(axis=(1,2))
+                f = interpolate.interp1d(integral, t)
+                t_contours = f(np.array([0.8*ztot_sf]))
+                ax[i,j].contour(x, y, zsf.T, t_contours, colors='black', linewidths=2)
+                print('Star forming: %.3f, %.3f'%(100*ztot_sf/z_tot, ztot_sf))
+                
         if layout == 'compact':
             fig.subplots_adjust(top=0.92,bottom=0.05,left=0.1,right=0.95)
         elif layout == 'extended':

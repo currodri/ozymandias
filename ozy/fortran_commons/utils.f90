@@ -343,6 +343,148 @@ module utils
 
     end subroutine binarysearch_ilg
 
+    subroutine binarysearch_dp(n,list,goal,ifound)
+        implicit none
+        
+        integer,intent(in) :: n
+        real(dbl),dimension(1:n),intent(in) :: list
+        real(dbl),intent(in) :: goal
+        logical :: found
+        integer,intent(inout) :: ifound
+
+        integer :: low
+        integer :: high
+        integer :: middle
+
+        low = 1
+        high = n
+        found = .false.
+        ifound = 0
+        
+        do while(low <= high .and. .not. found)
+            middle = (low + high)/2
+            if (goal == list(middle)) then
+                found = .true.
+                ifound = middle
+            elseif (goal < list(middle)) then
+                high = middle - 1
+            else
+                low = middle +1
+            endif
+        end do
+
+    end subroutine binarysearch_dp
+
+    !***********************************************************************
+    subroutine indexx(n,arr,indx)
+    
+    implicit none
+    
+    integer(kind=4)           :: n,indx(n)
+    real(dbl)              :: arr(n)
+    integer(kind=4),parameter :: m=7,nstack=50
+    integer(kind=4)           :: i,indxt,ir,itemp,j,jstack,k,l,istack(nstack)
+    real(dbl)              :: a
+    
+    do j = 1,n
+        indx(j) = j
+    enddo
+    
+    jstack = 0
+    l      = 1
+    ir     = n
+    1 if (ir-l .lt. m) then
+        do j = l+1,ir
+            indxt = indx(j)
+            a     = arr(indxt)
+            do i = j-1,1,-1
+            if (arr(indx(i)) .le. a) goto 2
+            indx(i+1) = indx(i)
+            enddo
+            i         = 0
+    2       indx(i+1) = indxt
+        enddo
+        if (jstack .eq. 0) return
+        ir     = istack(jstack)
+        l      = istack(jstack-1)
+        jstack = jstack-2
+    else
+        k         = (l+ir)/2
+        itemp     = indx(k)
+        indx(k)   = indx(l+1)
+        indx(l+1) = itemp
+        if (arr(indx(l+1)) .gt. arr(indx(ir))) then
+            itemp     = indx(l+1)
+            indx(l+1) = indx(ir)
+            indx(ir)  = itemp
+        endif
+        if (arr(indx(l)) .gt. arr(indx(ir))) then
+            itemp    = indx(l)
+            indx(l)  = indx(ir)
+            indx(ir) = itemp
+        endif
+        if (arr(indx(l+1)) .gt. arr(indx(l))) then
+            itemp     = indx(l+1)
+            indx(l+1) = indx(l)
+            indx(l)   = itemp
+        endif
+        i     = l+1
+        j     = ir
+        indxt = indx(l)
+        a     = arr(indxt)
+    3    continue
+        i     = i+1
+        if (arr(indx(i)) .lt. a) goto 3
+    4    continue
+        j     = j-1
+        if (arr(indx(j)) .gt. a) goto 4
+        if (j .lt. i) goto 5
+        itemp   = indx(i)
+        indx(i) = indx(j)
+        indx(j) = itemp
+        goto 3
+    5    continue
+        indx(l) = indx(j)
+        indx(j) = indxt
+        jstack  = jstack+2
+        if (jstack .gt. nstack) stop 'nstack too small in indexx'
+        if (ir-i+1 .ge. j-l) then
+            istack(jstack)   = ir
+            istack(jstack-1) = i
+            ir               = j-1
+        else
+            istack(jstack)   = j-1
+            istack(jstack-1) = l
+            l                = i
+        endif
+    endif
+    goto 1
+    
+    end subroutine indexx   
+
+    subroutine locate(xx,n,x,j)
+ 
+    implicit none
+    
+    integer(kind=4) ::  n
+    real(dbl)    ::  xx(n),x
+    integer(kind=4) ::  j,jl,ju,jm
+    
+    jl = 0
+    ju = n+1
+    do while (ju-jl .gt. 1) 
+        jm = (ju+jl)/2
+        if ((xx(n) .gt. xx(1)) .eqv. (x .gt. xx(jm))) then
+            jl = jm
+        else
+            ju = jm
+        endif
+    enddo
+    j = jl
+    
+    return
+    
+    end subroutine locate
     ! subroutine bspline_regridding(n,x,y,z,fcn,o,new_n,new_x,new_y,new_z,new_fcn,extrap)
     !     use bspline_module
 

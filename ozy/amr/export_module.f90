@@ -682,7 +682,8 @@ module export_amr
                             end do
 
                             ! Check filter
-                            ok_filter = filter_cell(reg,chunk%filt,xtemp,dx,tempvar,tempson)
+                            ok_filter = filter_cell(reg,chunk%filt,xtemp,dx,tempvar,&
+                                                    &tempson,trans_matrix)
                             ok_cell_each= ok_cell.and..not.ref(i).and.ok_filter
                             if (ok_cell_each) then
                                 ix=int(x(i,1)*dble(nx_full))+1
@@ -1138,7 +1139,13 @@ module export_amr
                             end do
                             deallocate(ind_nbor)
 
-                            ok_filter = filter_cell(reg,filt,xtemp,dx,tempvar,tempson)
+                            if (read_gravity) then
+                                ok_filter = filter_cell(reg,filt,xtemp,dx,tempvar,tempson,&
+                                                        &trans_matrix,tempgrav_var)
+                            else
+                                ok_filter = filter_cell(reg,filt,xtemp,dx,tempvar,tempson,&
+                                                        &trans_matrix)
+                            end if
                             ok_cell_each= ok_cell.and..not.ref(i).and.ok_filter
                             cpu_ncell = cpu_ncell + 1
                             if (ok_cell_each) then

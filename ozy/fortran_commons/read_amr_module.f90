@@ -59,6 +59,9 @@ module io_ramses
     type level
         integer::ilevel
         integer::ngrid
+        integer,dimension(:),allocatable :: ind_grid
+        integer,dimension(:),allocatable :: real_ind
+        real(dbl),dimension(:,:),allocatable :: xg
         real(dbl),dimension(:,:,:,:),pointer::cube
         real(dbl),dimension(:,:,:),pointer::map
         real(dbl),dimension(:,:),pointer::rho
@@ -576,6 +579,7 @@ module io_ramses
         real(dbl),intent(inout)                       :: value
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:amr%twondim,1:4),optional,intent(in) :: grav_var
+        real(dbl),dimension(0:amr%twondim,1:varIDs%nvar) :: tempvar
         type(vector) :: v,L,B,vst
         type(basis) :: temp_basis
         real(dbl) :: T,rho,cV,lambda,lambda_prime,ne,ecr,nH
@@ -1164,7 +1168,47 @@ module io_ramses
         case ('eff_FKmag')
             ! Enforce turbulence criterion + efficiency following Federrath & Klessen 2012
             star_maker = 'FKmag'
-            value  = sf_eff(reg,dx,x,var,star_maker)
+            ! Go back to box coordinates for the central cell, which is transformed usually
+            ! before sent to read_amr
+            ! Converging flow check
+            tempvar(:,:) = var(:,:)
+            v = tempvar(0,varIDs%vx:varIDs%vz)
+            call rotate_vector(v,transpose(trans_matrix))
+            v = v + reg%bulk_velocity
+            tempvar(0,varIDs%vx:varIDs%vz) = v
+            value  = sf_eff(reg,dx,x,tempvar,star_maker)
+        case ('eff_FK2')
+            ! Enforce turbulence criterion + efficiency following Federrath & Klessen 2012
+            star_maker = 'FK2'
+            ! Go back to box coordinates for the central cell, which is transformed usually
+            ! before sent to read_amr
+            ! Converging flow check
+            tempvar(:,:) = var(:,:)
+            v = tempvar(0,varIDs%vx:varIDs%vz)
+            call rotate_vector(v,transpose(trans_matrix))
+            v = v + reg%bulk_velocity
+            tempvar(0,varIDs%vx:varIDs%vz) = v
+            value  = sf_eff(reg,dx,x,tempvar,star_maker)
+        case ('neighbour_accuracy')
+            ! This variable is used as a debugging method to check
+            ! whether the nearest neighbour implementation is able to 
+            ! recover correct gravitational acceleration
+            
+            dxright = dx; dxleft = dx
+            if (son(1) .ne. 0) dxright = dxright * 1.5D0
+            if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
+            v%x = (grav_var(1,1) - grav_var(2,1)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .ne. 0) dxright = dxright * 1.5D0
+            if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
+            v%y = (grav_var(3,1) - grav_var(4,1)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .ne. 0) dxright = dxright * 1.5D0
+            if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
+            v%z = (grav_var(5,1) - grav_var(6,1)) / (dxright + dxleft)
+            B = grav_var(0,2:4)
+            call rotate_vector(B,transpose(trans_matrix))
+            value = B.DOT.v/(magnitude(v)*magnitude(B))
         case default
             write(*,*)'Variable not supported: ',TRIM(varname)
             write(*,*)'Aborting!'
@@ -1484,7 +1528,7 @@ module io_ramses
             ! Get neighbor cells if they exist, otherwise use straight injection from local cell
 
             darr = var(:,varIDs%density)
-            ! Converging flow check
+
             uarr = var(:,varIDs%vx)
             varr = var(:,varIDs%vy)
             warr = var(:,varIDs%vz)
@@ -1492,6 +1536,7 @@ module io_ramses
                 & + (varr(4)*darr(4)-varr(3)*darr(3)) & 
                 & + (warr(6)*darr(6)-warr(5)*darr(5))
             if (divv>0) return
+            
             ! Average velocity
             dtot  = sum(darr)
             uavg  = sum(darr*uarr)/dtot
@@ -1614,18 +1659,11 @@ module io_ramses
             ur    = (darr(1)*varr(1) + d*varr(0))/(darr(1)+d)
             trgv  = trgv + (ur-ul)**2
 
-            if (isnan(trgv)) then
-                write(*,*)darr
-                write(*,*)uarr
-                write(*,*)varr
-                write(*,*)warr
-                ! stop
-            endif
             ! Now compute sound speed squared
-            temp = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * (gamma_gas-1D0)
+            temp = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * gamma_gas
             ! TODO: This should be change to add also radiation pressure
             if (sim%cr) then
-                temp = temp + var(0,varIDs%cr_pressure) / var(0,varIDs%density) * (gamma_crs - 1D0) * gamma_crs
+                temp = temp + var(0,varIDs%cr_pressure) / var(0,varIDs%density) * gamma_crs
             end if
             temp = max(temp,smallc**2)
             c_s2 = temp
@@ -1645,6 +1683,7 @@ module io_ramses
             rho_local = d
             lamjt = (pi*trgv + sqrt(pi*pi*trgv*trgv + 36.0*pi*c_s2*factG*rho_local*dx**2))/(6.0*factG*rho_local*dx**2)
             if (lamjt > sf_lam) return ! Jeans length resolved: gas is stable
+            ! print*,'Jeans length notk resolved'
             ! Jeans length not resolved --> form stars to lower density and stabilise gas
             ! corresponding virial parameter for homogeneous sphere <= 1.5 in turbulent dominated 
             ! limit and <= 0.5 in pressure dominated limit (in good agreement with observations,
@@ -1663,11 +1702,173 @@ module io_ramses
                 phi_t = 0.57 ; theta = 0.33 ! best fit values of the Padoan & Nordlund multi-scale sf model to GMC simulation data 
                 scrit = log(0.067/theta**2*alpha0*trgv/c_s2) ! best fit from Padoan & Nordlund MS model again
             end if
-            write(*,*)trgv,c_s2
             sigs  = log(1.0+0.16*trgv/c_s2) ! factor 0.16 is b^2 where b=0.4 for a mixture of turbulence forcing modes
             
             sf_eff = e_cts/2.0*phi_t*exp(3.0/8.0*sigs)*(2.0-erfc((sigs-scrit)/sqrt(2.0*sigs)))
-            write(*,*)d*sim%nH,sf_eff
+        else if (TRIM(star_maker)=='FK2') then
+            ! Enforce turbulence criterion + efficiency following Federrath & Klessen 2012
+            d = var(0,varIDs%density)
+            if (d<d_gmc) return
+            ! We need to estimate the norm of the gradient of the velocity field in the cell (tensor of 2nd rank)
+            ! i.e. || A ||^2 = trace( A A^T) where A = grad vec(v) is the tensor. 
+            ! So construct values of velocity field on the 6 faces of the cell using simple linear interpolation 
+            ! from neighbouring cell values and differentiate. 
+            ! Get neighbor cells if they exist, otherwise use straight injection from local cell
+
+            darr = var(:,varIDs%density)
+
+            uarr = var(:,varIDs%vx)
+            varr = var(:,varIDs%vy)
+            warr = var(:,varIDs%vz)
+            divv  = (uarr(2)*darr(2)-uarr(1)*darr(1)) &
+                & + (varr(4)*darr(4)-varr(3)*darr(3)) & 
+                & + (warr(6)*darr(6)-warr(5)*darr(5))
+            if (divv>0) return
+            
+            ! Average velocity
+            dtot  = sum(darr)
+            uavg  = sum(darr*uarr)/dtot
+            vavg  = sum(darr*varr)/dtot
+            wavg  = sum(darr*warr)/dtot
+            ! Subtract the mean velocity field
+            uarr(:) = uarr(:) - uavg
+            varr(:) = varr(:) - vavg
+            warr(:) = warr(:) - wavg
+            ! Subtract the symmetric divergence field                    
+            ! ex)  (---->,<--): only subtract (-->,<--): result (-->,0) 
+            ! ex)  (<----,-->): only subtract (<--,-->): result (<--,0)
+            px_div = min( abs(darr(1)*uarr(1)),abs(darr(2)*uarr(2)))
+            py_div = min( abs(darr(3)*varr(3)),abs(darr(4)*varr(4)))
+            pz_div = min( abs(darr(5)*warr(5)),abs(darr(6)*warr(6)))
+
+            isConvergent = darr(2)*uarr(2) - darr(1)*uarr(1) < 0 
+            if (isConvergent) then
+                uarr(1) = uarr(1) - px_div/darr(1)
+                uarr(2) = uarr(2) + px_div/darr(2)
+            else ! comment out if you do not want to subtract outflows
+                uarr(1) = uarr(1) + px_div/darr(1)
+                uarr(2) = uarr(2) - px_div/darr(2)
+            end if 
+
+            isConvergent = darr(4)*varr(4) - darr(3)*varr(3) < 0
+            if (isConvergent) then
+                varr(3) = varr(3) - py_div/darr(3)
+                varr(4) = varr(4) + py_div/darr(4)
+            else ! comment out if you do not want to subtract outflows
+                varr(3) = varr(3) + py_div/darr(3)
+                varr(4) = varr(4) - py_div/darr(4)
+            end if
+
+            isConvergent = darr(6)*warr(6) - darr(5)*warr(5) < 0
+            if (isConvergent) then 
+                warr(5) = warr(5) - pz_div/darr(5)
+                warr(6) = warr(6) + pz_div/darr(6)
+            else ! comment out if you do not want to subtract outflows
+                warr(5) = warr(5) + pz_div/darr(5)
+                warr(6) = warr(6) - pz_div/darr(6)
+            end if
+
+            ! subtract the rotational velocity field (x-y) plane
+            ! ^y       <-        |4|        |-u|
+            ! |       |  |     |1| |2|   |-v|  |+v|
+            ! --->x    ->        |3|        |+u|
+            Jz  = - varr(1)*darr(1) + varr(2)*darr(2) &
+                &   + uarr(3)*darr(3) - uarr(4)*darr(4)
+            Jz  = Jz / 4.0
+
+            varr(1) = varr(1) + Jz/darr(1) 
+            varr(2) = varr(2) - Jz/darr(2) 
+            uarr(3) = uarr(3) - Jz/darr(3)
+            uarr(4) = uarr(4) + Jz/darr(4)
+
+            ! subtract the rotational velocity field (y-z) plane
+            ! ^z       <-        |6|        |-v|  
+            ! |       |  |     |3| |4|   |-w|  |+w|
+            ! --->y    ->        |5|        |+v|
+            Jx  = - warr(3)*darr(3) + warr(4)*darr(4) &
+                &   + varr(5)*darr(5) - varr(6)*darr(6)
+            Jx  = Jx / 4.0
+
+            warr(3) = warr(3) + Jx/darr(3) 
+            warr(4) = warr(4) - Jx/darr(4) 
+            varr(5) = varr(5) - Jx/darr(5)
+            varr(6) = varr(6) + Jx/darr(6)
+
+            ! subtract the rotational velocity field (x-z) plane
+            ! ^z       ->        |6|        |+u|  
+            ! |       |  |     |1| |2|   |+w|  |-w|
+            ! --->x    <-        |5|        |-u|
+            Jy  = + warr(1)*darr(1) - warr(2)*darr(2) &
+                &   - uarr(5)*darr(5) + uarr(6)*darr(6)
+            Jy  = Jy / 4.0
+
+            warr(1) = warr(1) - Jy/darr(1) 
+            warr(2) = warr(2) + Jy/darr(2) 
+            uarr(5) = uarr(5) + Jy/darr(5)
+            uarr(6) = uarr(6) - Jy/darr(6)
+
+            ! From this point, uarr,varr,warr is just the turbulent velocity
+            trgv  = 0.0
+
+            !x-direc
+            ul    = (darr(2)*uarr(2) + d*uarr(0))/(darr(2)+d)
+            ur    = (darr(1)*uarr(1) + d*uarr(0))/(darr(1)+d)
+            trgv  = trgv + (ur-ul)**2
+            !y-direc
+            ul    = (darr(4)*varr(4) + d*varr(0))/(darr(4)+d)
+            ur    = (darr(3)*varr(3) + d*varr(0))/(darr(3)+d)
+            trgv  = trgv + (ur-ul)**2
+            !z-direc
+            ul    = (darr(6)*warr(6) + d*warr(0))/(darr(6)+d)
+            ur    = (darr(5)*warr(5) + d*warr(0))/(darr(5)+d)
+            trgv  = trgv + (ur-ul)**2
+            !z-direc; tangential component - y
+            ul    = (darr(6)*varr(6) + d*varr(0))/(darr(6)+d)
+            ur    = (darr(5)*varr(5) + d*varr(0))/(darr(5)+d)
+            trgv  = trgv + (ur-ul)**2
+            !y-direc; tangential component - z
+            ul    = (darr(4)*warr(4) + d*warr(0))/(darr(4)+d)
+            ur    = (darr(3)*warr(3) + d*warr(0))/(darr(3)+d)
+            trgv  = trgv + (ur-ul)**2
+            !z-direc; tangential component - x
+            ul    = (darr(6)*uarr(6) + d*uarr(0))/(darr(6)+d)
+            ur    = (darr(5)*uarr(5) + d*uarr(0))/(darr(5)+d)
+            trgv  = trgv + (ur-ul)**2
+            !x-direc; tangential component - z
+            ul    = (darr(2)*warr(2) + d*warr(0))/(darr(2)+d)
+            ur    = (darr(1)*warr(1) + d*warr(0))/(darr(1)+d)
+            trgv  = trgv + (ur-ul)**2
+            !y-direc; tangential component - x
+            ul    = (darr(4)*uarr(4) + d*uarr(0))/(darr(4)+d)
+            ur    = (darr(3)*uarr(3) + d*uarr(0))/(darr(3)+d)
+            trgv  = trgv + (ur-ul)**2
+            !x-direc; tangential component - y
+            ul    = (darr(2)*varr(2) + d*varr(0))/(darr(2)+d)
+            ur    = (darr(1)*varr(1) + d*varr(0))/(darr(1)+d)
+            trgv  = trgv + (ur-ul)**2
+
+            ! Now compute sound speed squared
+            temp = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * gamma_gas
+            temp = max(temp,smallc**2)
+            c_s2 = temp
+            ! Calculate "turbulent" Jeans length in cell units, lamjt 
+            ! (see e.g. Chandrasekhar 51, Bonazzola et al 87, Federrath & Klessen 2012 eq 36)
+            rho_local = d
+            lamjt = (pi*trgv + sqrt(pi*pi*trgv*trgv + 36.0*pi*c_s2*factG*rho_local*dx**2))/(6.0*factG*rho_local*dx**2)
+            if (lamjt > sf_lam) return ! Jeans length resolved: gas is stable
+            ! print*,'Jeans length notk resolved'
+            ! Jeans length not resolved --> form stars to lower density and stabilise gas
+            ! corresponding virial parameter for homogeneous sphere <= 1.5 in turbulent dominated 
+            ! limit and <= 0.5 in pressure dominated limit (in good agreement with observations,
+            ! at least for massive (>= 10^5 M_sun) clouds see Kauffmann, Pillai, Goldsmith 2013, Fig.1)
+            alpha0 = 5d0/(pi*factG*rho_local)*(trgv + c_s2)/dx**2
+            ! Compute star formation efficiency per free-fall time (Federrath & Klessen 2012 eq 41)
+            ! e_cts is the unresolved (for us) proto-stellar feedback: i.e. the dense gas core-to-star efficiency
+            e_cts = 0.5  ! would be 1.0 without feedback (Federrath & Klessen 2012)
+            phi_t = 0.57 ; theta = 0.33 ! best fit values of the Padoan & Nordlund multi-scale sf model to GMC simulation data 
+            sigs  = log(1.0+0.16*trgv/c_s2) ! factor 0.16 is b^2 where b=0.4 for a mixture of turbulence forcing modes
+            scrit = log(0.067/theta**2*alpha0*trgv/c_s2) ! best fit from Padoan & Nordlund MS model again 
+            sf_eff = e_cts/2.0*phi_t*exp(3.0/8.0*sigs)*(2.0-erfc((sigs-scrit)/sqrt(2.0*sigs)))
         end if
 
         
@@ -1779,6 +1980,7 @@ module io_ramses
         close(10)
 
 #ifndef IMASS
+#warning: I am compiling without IMASS
         call get_eta_sn(repository)
 #endif
         sim%redshift = 1.0d0/sim%aexp - 1.0d0                          ! Current redshift
@@ -1922,7 +2124,6 @@ module io_ramses
                 igridn(i,j)=son(nbor(igrid(i),j))
             end do
         end do
-        
     end subroutine getnborgrids
 
     subroutine getnborcells(igridn,ind,icelln,ng)
@@ -1958,7 +2159,7 @@ module io_ramses
                  icelln(i,in)=iskip+igridn(i,ig)
               end if
            end do
-        end do
+        end do        
       
     end subroutine getnborcells
 
@@ -2499,7 +2700,8 @@ module filtering
         ! TODO: Finish this subroutine
     end subroutine cond_string_to_filter
 
-    logical function filter_cell(reg,filt,cell_x,cell_dx,cell_var,cell_son)
+    logical function filter_cell(reg,filt,cell_x,cell_dx,cell_var,cell_son,&
+                                &trans_matrix,grav_var)
         use vectors
         use geometrical_regions
         type(region), intent(in) :: reg
@@ -2508,6 +2710,8 @@ module filtering
         type(vector), intent(in) :: cell_x
         real(dbl), dimension(0:amr%twondim,1:varIDs%nvar), intent(in) :: cell_var
         integer,dimension(0:amr%twondim),intent(in) :: cell_son
+        real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
+        real(dbl),dimension(0:amr%twondim,1:4),intent(in),optional :: grav_var
         integer :: i
         real(dbl) :: value
 
@@ -2516,7 +2720,14 @@ module filtering
         if (filt%ncond == 0) return
 
         do i=1,filt%ncond
-            call getvarvalue(reg,cell_dx,cell_x,cell_var,cell_son,filt%cond_vars(i),value)
+            if (present(grav_var)) then
+
+                call getvarvalue(reg,cell_dx,cell_x,cell_var,cell_son,&
+                                &filt%cond_vars(i),value,trans_matrix,grav_var)
+            else
+                call getvarvalue(reg,cell_dx,cell_x,cell_var,cell_son,&
+                                    &filt%cond_vars(i),value,trans_matrix)
+            end if
             select case (TRIM(filt%cond_ops(i)))
             case('/=')
                 filter_cell = filter_cell .and. (value /= filt%cond_vals(i))
@@ -2576,5 +2787,22 @@ module filtering
             end select
         end do
     end function filter_particle
+
+    logical function filter_sub(sub,cell_x)
+        use vectors
+        use geometrical_regions
+        type(region),intent(in) :: sub
+        real(dbl),dimension(1:3), intent(in) :: cell_x
+        integer :: i
+        real(dbl) :: distance
+        real(dbl),dimension(1:3) :: pos
+
+        filter_sub = .True.
+
+        pos = cell_x - (/sub%centre%x,sub%centre%y,sub%centre%z/)
+
+        call checkifinside(pos,sub,filter_sub,distance)
+        filter_sub = .not.filter_sub
+    end function filter_sub
 
 end module filtering
