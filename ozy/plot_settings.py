@@ -8,6 +8,7 @@ symlog_variables = [
     'v_cyl_z',
     'grav_crpfz',
     'grav_therpfz',
+    'grav_therpfrsphere',
     'grav_crpfrsphere',
     'grad_crpz',
     'grav_gz'
@@ -318,7 +319,9 @@ plotting_dictionary = dict(
                         'vmin':-100,
                         'vmax':+100,
                         'vmin_galaxy':-5,
-                        'vmax_galaxy':+5
+                        'vmax_galaxy':+5,
+                        'linthresh':1,
+                        'linscale':10
 
     },
     grav_crpf = {'cmap':sns.color_palette("vlag", as_cmap=True),

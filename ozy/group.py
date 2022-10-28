@@ -27,6 +27,11 @@ class Group(object):
         """Initialise basic properties of group object."""
         self.obj      = obj
         self.ID       = -1
+        self.level    = -1
+        self.host     = -1
+        self.hostsub  = -1
+        self.nsub     = -1
+        self.nextsub  = -1
         self.npart    = 0
         self.units    = 'code'
         self.position = np.array([-1, -1, -1])
@@ -37,6 +42,12 @@ class Group(object):
         self.angular_mom = {}
         self.virial_quantities = {}
         self.energies = {}
+
+        if 'tidal_method' in self.obj._kwargs:
+            tidal_method  = self.obj._kwargs['tidal_method']
+        else:
+            tidal_method = 'BT87_simple'
+        self.radius[tidal_method] = self.obj.quantity(0.0, 'code_length')
     
     @property
     def _valid(self):
@@ -88,6 +99,11 @@ class Galaxy(Group):
         self._calculate_stardm_quantities()
         self._calculate_velocity_dispersions()
         self._calculate_gas_quantities()
+        if 'tidal_method' in self.obj._kwargs:
+            tidal_method  = self.obj._kwargs['tidal_method']
+        else:
+            tidal_method = 'BT87_simple'
+        self._calculate_substructure_tidal(tidal_method)
 
         self.mass['baryon'] = self.mass['stellar'] + self.mass['gas']
 
@@ -341,7 +357,7 @@ class Galaxy(Group):
         glob_attrs.filters[3] = hot_filt
 
         # Begin integration
-        amr_integrator.integrate_region(output_path,selected_reg,glob_attrs)
+        amr_integrator.integrate_region(output_path,selected_reg,False,glob_attrs)
 
         # Assign results to galaxy object
         if self.obj.simulation.physics['hydro']:
@@ -737,7 +753,17 @@ class Galaxy(Group):
         """Calculate velocity dispersions for the various components."""
         # TODO
         return
-    
+
+    def _calculate_substructure_tidal(self,tidal_method):
+        """Compute the tidal radii of substructure found for this object."""
+        from ozy.utils import tidal_radius
+        myhalo = self.obj.halos[self.parent_halo_index]
+        if myhalo != None:
+            subs = myhalo.substructure_list
+            for s in subs:
+                if s.npart >= 1000:
+                    s.radius[tidal_method] = tidal_radius(myhalo,s,method=tidal_method)
+        
     def _get_tdyn(self):
         """
         Computes the dynamical time-scale tdyn as
@@ -761,15 +787,32 @@ class Halo(Group):
         super(Halo, self).__init__(obj)
         self.spin = 0
         self.type               = 'halo'
-        self.level              = -1
-        self.host               = -1
-        self.hostsub            = -1
-        self.nsub               = -1
-        self.nextsub            = -1
         self.galaxies           = []
         self.central_galaxy     = None
         self.satellite_galaxies = []
         self.galaxy_index_list = []
+        
+    @property
+    def substructure_list(self):
+        subs = []
+        if self.nextsub == 0:
+            print('This halo does not seem to have a substructure assigned!')
+            return subs
+        haloIDs = [i.ID for i in self.obj.halos]
+        nexti = self.nextsub
+        while nexti != -1:
+            nextindex = np.where(nexti == haloIDs)[0][0]
+            subs.append(self.obj.halos[nextindex])
+            nexti = self.obj.halos[nextindex].nextsub
+        return subs
+        
+    def _compute_subs(self,tidal_method):
+        from ozy.utils  import tidal_radius
+        subs = self.substructure_list
+        for s in subs:
+            if s.npart >= 1000:
+                tr = tidal_radius(self,s,method=tidal_method)
+                s.radius[tidal_method] = tr
 
 def create_new_group(obj, grouptype):
     """Simple function to create a new instance of a specified :class:`group.Group`.

@@ -361,7 +361,7 @@ def tidal_radius(central, satellite, method='BT87_simple'):
 
         output_path = central.obj.simulation.fullpath
         distance = central.position - satellite.position
-        d = central.obj.quantity(np.linalg.norm(distance.to('kpc').d),'kpc')
+        d = central.obj.quantity(np.linalg.norm(distance.to('code_length')),'code_length')
 
         # Initialise region
         selected_reg = init_region(central,'sphere',rmax=(d.to('kpc').d,'kpc'),rmin=(0.0,'kpc'))
@@ -387,7 +387,7 @@ def tidal_radius(central, satellite, method='BT87_simple'):
         glob_attrs.varnames.T.view('S128')[0] = b'mass'.ljust(128)
         glob_attrs.wvarnames.T.view('S128')[0] = b'cumulative'.ljust(128)
         glob_attrs.filters[0] = filt
-        amr_integrator.integrate_region(output_path,selected_reg,glob_attrs)
+        amr_integrator.integrate_region(output_path,selected_reg,False,glob_attrs)
         gas_mass = central.obj.quantity(glob_attrs.data[0,0,0,0], 'code_mass')
 
         tot_mass = gas_mass  + part_mass
@@ -428,8 +428,10 @@ def structure_regions(group, add_substructure=True, add_neighbours=False,
             distance = group.position - s.position
             d = group.obj.quantity(np.linalg.norm(distance.to('kpc').d),'kpc')
             if s.npart >= 1000 and d.to('kpc')<=rmax.to('kpc'):
-                #tr = tidal_radius(myhalo,s,method=tidal_method)
-                tr = s.virial_quantities['radius']
+                try:
+                    tr  = s.radius[tidal_method]
+                except:
+                    tr = tidal_radius(myhalo,s,method=tidal_method)
                 mysubs.append(init_region(s,'sphere',rmax=(tr.to('kpc'),'kpc'),
                             rmin=(0,'kpc')))
     
@@ -641,15 +643,29 @@ def init_filter(cond_strs, name, group):
                 particle = True
             else:
                 correct_str = cond_strs[i].split('/')[0]
+            
             filt.cond_vars.T.view('S128')[i] = correct_str.ljust(128)
             # Expresion operator
             filt.cond_ops.T.view('S2')[i] = cond_strs[i].split('/')[1].ljust(2)
             # Value transformed to code units
-            value = group.obj.quantity(float(cond_strs[i].split('/')[2]), cond_strs[i].split('/')[3])
-            if particle:
-                filt.cond_vals[i] = value.in_units(get_code_units(correct_str.split('/')[1])).d
-            else:
-                filt.cond_vals[i] = value.in_units(get_code_units(correct_str)).d
+            try:
+                value = group.obj.quantity(float(cond_strs[i].split('/')[2]), cond_strs[i].split('/')[3])
+                if particle:
+                    filt.cond_vals[i] = value.in_units(get_code_units(correct_str.split('/')[1])).d
+                else:
+                    filt.cond_vals[i] = value.in_units(get_code_units(correct_str)).d
+            except:
+                # In the case of the condition value being a string
+                # we use variables for the filters
+                print('Using filter with variable instead of value!')
+                filt.use_var[i] = True
+                units1 = get_code_units(correct_str)
+                units2 = get_code_units(cond_strs[i].split('/')[2])
+                if units1 != units2:
+                    raise ValueError("You cannot compare %s and %s"%(units1,units2))
+                filt.cond_vars_comp.T.view('S128')[i] = cond_strs[i].split('/')[2].ljust(128)
+                # And in place of units we should have the factor of that variable that we want
+                filt.cond_vals[i] = cond_strs[i].split('/')[3]
 
         return filt
     else:

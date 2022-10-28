@@ -5,9 +5,8 @@ import ozy
 from unyt import unyt_array,unyt_quantity
 from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units
 # TODO: Allow for parallel computation of flows.
-from joblib import Parallel, delayed
 from amr2 import amr_integrator
-from ozy.utils import init_region,init_filter
+from ozy.utils import init_region,init_filter,structure_regions
 blacklist = [
     'data','weightvars'
 ]
@@ -22,6 +21,7 @@ class GalacticFlow(object):
         self.filter = None
         self.data = {}
         self.weightvars = []
+        self.rm_subs = False
 
     def _serialise(self,hdd):
         """This makes possible to save the group galactic flow attrs as dataset
@@ -81,10 +81,14 @@ def get_flow_name(gf_group, gf, r):
     return name
 
 def check_if_same_flow(hd,gf,r):
-    """This function looks at a OZY file for the flow data specified by gf for a particular object."""
-    if not str(gf.group.type)+'_data/flows/'+str(gf.group._index) in hd:
+    """This function looks at an OZY file for the flow data specified by gf for a particular object."""
+    if gf.rm_subs:
+        flow_key = '_data/flows_nosubs/'
+    else:
+        flow_key = '_data/flows/'
+    if not str(gf.group.type)+flow_key+str(gf.group._index) in hd:
         return False, 'none'
-    for g in hd[str(gf.group.type)+'_data/flows/'+str(gf.group._index)].keys():
+    for g in hd[str(gf.group.type)+flow_key+str(gf.group._index)].keys():
         check_type = (g.split('|')[0] == gf.type)
         check_region = (g.split('|')[1] == gf.region['type'])
         check_r = (g.split('|')[2] == str(r))
@@ -95,12 +99,15 @@ def check_if_same_flow(hd,gf,r):
 def write_flow(obj,ozy_file,gf,r):
     """This function writes the resulting flow data to the original OZY file."""
     f = h5py.File(ozy_file, 'r+')
-
+    if gf.rm_subs:
+        flow_key = '_data/flows_nosubs/'
+    else:
+        flow_key = '_data/flows/'
     # Create group in HDF5 file
     try:
-        flows = f.create_group(str(gf.group.type)+'_data/flows/'+str(gf.group._index))
+        flows = f.create_group(str(gf.group.type)+flow_key+str(gf.group._index))
     except:
-        flows = f[str(gf.group.type)+'_data/flows/'+str(gf.group._index)]
+        flows = f[str(gf.group.type)+flow_key+str(gf.group._index)]
 
     # Clean data and save to dataset
     gf_name = get_flow_name(flows,gf,r)
@@ -119,9 +126,13 @@ def write_flow(obj,ozy_file,gf,r):
     f.close()
     return
 
-def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'), rmax=(1.0,'rvir'),recompute=False,save=False,separate_phases=True):
+def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'), 
+                  rmax=(1.0,'rvir'),recompute=False,save=False,
+                  separate_phases=True,remove_subs=False):
     """Function which computes the analysis of galaxy wide flows, including outflows,
         inflows or AGN feedback."""
+
+    use_neigh = True
 
     # Begin by setting up the necessary details of a given flow type
     if flow_type == 'outflow':
@@ -178,18 +189,20 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'), rmax=(1.0,'rvir'),
     output_path = group.obj.simulation.fullpath
     nvar = 0
     quantity_names = []
-    weight_names = ['cumulative','volume','massflux_rate_sphere_r']
+    weight_names = ['cumulative','volume','momentum_sphere_r']
 
     if group.obj.simulation.physics['hydro']:
         quantity_names += ['density','temperature',
                             'momentum_sphere_r','v_sphere_r',
-                            'thermal_energy','thermal_energy_specific']
+                            'thermal_energy','thermal_energy_specific',
+                            'grav_therpfrsphere']
     if group.obj.simulation.physics['metals']:
         quantity_names += ['metallicity']
     if group.obj.simulation.physics['magnetic']:
         quantity_names += ['magnetic_energy','magnetic_energy_specific']
     if group.obj.simulation.physics['cr']:
-        quantity_names += ['cr_energy','cr_energy_specific']
+        quantity_names += ['cr_energy','cr_energy_specific',
+                            'grav_crpfrsphere']
 
     nvar = len(quantity_names)
     if group.obj.simulation.physics['rt']:
@@ -199,6 +212,7 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'), rmax=(1.0,'rvir'),
     gf = GalacticFlow(group)
     gf.type = flow_type
     gf.weightvars = weight_names
+    gf.rm_subs = remove_subs
 
     # Save region and filter details to GalacticFlow object
     gf._get_python_region(reg)
@@ -211,20 +225,41 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'), rmax=(1.0,'rvir'),
     f = h5py.File(ozy_file, 'r+')
     gf_present, gf_key = check_if_same_flow(f,gf,d_key)
     if gf_present and recompute:
-        del f[str(gf.group.type)+'_data/flows/'+str(gf.group._index)+'/'+str(gf_key)]
+        if remove_subs:
+            del f[str(gf.group.type)+'_data/flows_nosubs/'+str(gf.group._index)+'/'+str(gf_key)]
+        else:
+            del f[str(gf.group.type)+'_data/flows/'+str(gf.group._index)+'/'+str(gf_key)]
+
         print('Overwriting flow data in %s_data'%group.type)
     elif gf_present and not recompute:
         print('Flow data with same details already present for galaxy %s. No overwritting!'%group._index)
         group._init_flows()
-        for i,g in enumerate(group.flows):
-            if g.key ==gf_key:
-                selected_gf = i
-                break
-        return group.flows[selected_gf]
+        if remove_subs:
+            print('Removing substructure!')
+            for i,g in enumerate(group.flows_nosubs):
+                if g.key ==gf_key:
+                    selected_gf = i
+                    break
+            return group.flows_nosubs[selected_gf]
+        else:
+            for i,g in enumerate(group.flows):
+                if g.key ==gf_key:
+                    selected_gf = i
+                    break
+            return group.flows[selected_gf]
     else:
         print('Writing flow data in %s_data'%group.type)
     f.close()
 
+    # If substructre is removed, obtain regions
+    if remove_subs:
+        print('Removing substructure!')
+        subs = structure_regions(group, add_substructure=True, add_neighbours=False,
+                            tidal_method='BT87_simple')
+        nsubs = len(subs)
+    else:
+        nsubs = 0
+    
     # Begin integration
     print('Performing integration')
     if separate_phases:
@@ -240,6 +275,7 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'), rmax=(1.0,'rvir'),
         glob_attrs.nvars = len(quantity_names)
         glob_attrs.nwvars = len(weight_names)
         glob_attrs.nfilter = len(filt)
+        glob_attrs.nsubs = nsubs
         amr_integrator.allocate_amr_regions_attrs(glob_attrs)
         for i in range(0, len(quantity_names)):
             glob_attrs.varnames.T.view('S128')[i] = quantity_names[i].ljust(128)
@@ -247,8 +283,12 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'), rmax=(1.0,'rvir'),
             glob_attrs.wvarnames.T.view('S128')[i] = weight_names[i].ljust(128)
         for i in range(0, glob_attrs.nfilter):
             glob_attrs.filters[i] = filt[i]
+
+        if remove_subs and nsubs>0:
+            for i in range(0,nsubs):
+                glob_attrs.subs[i] = subs[i]
         
-        amr_integrator.integrate_region(output_path,reg,glob_attrs)
+        amr_integrator.integrate_region(output_path,reg,use_neigh,glob_attrs)
         for i,f in enumerate(filt):
             if f.name == 'all':
                 phase_name = ''
@@ -258,44 +298,51 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'), rmax=(1.0,'rvir'),
             # Assign results to galaxy object
             if group.obj.simulation.physics['hydro']:
                 print('Computing gas flow quantities')
-                gf.data['density_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[i,0,2,0], 'code_density')
-                gf.data['temperature_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[i,1,2,0], 'code_temperature')
+                gf.data['density_'+d_key+'rvir'+phase_name] = group.obj.array(glob_attrs.data[i,0,2,0:2], 'code_density')
+                gf.data['temperature_'+d_key+'rvir'+phase_name] = group.obj.array(glob_attrs.data[i,1,2,0:2], 'code_temperature')
                 # Powell et al. (2011) method
                 # gf.data['massflow_rate_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[2,1,0]*4*np.pi*(shell_r**2), 'code_mass*code_velocity/code_length')
                 # My method
                 gf.data['massflow_rate_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[i,2,0,0]/shell_width, 'code_mass*code_velocity/code_length')
-                gf.data['v_sphere_r_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[i,3,2,0], 'code_velocity')
+                gf.data['v_sphere_r_'+d_key+'rvir'+phase_name] = group.obj.array(glob_attrs.data[i,3,2,0:2], 'code_velocity')
                 gf.data['thermal_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[i,4,0,0], 'code_mass * code_velocity**2')
-                gf.data['thermal_energy_specific_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[i,5,2,0], 'code_specific_energy')
-                print('Massflow rate for %s phase'%phase_name+str(gf.data['massflow_rate_'+d_key+'rvir'+phase_name].in_units('Msun/yr')))
+                gf.data['thermal_energy_specific_'+d_key+'rvir'+phase_name] = group.obj.array(glob_attrs.data[i,5,2,0:2], 'code_specific_energy')
+                gf.data['grav_therpfrsphere_'+d_key+'rvir'+phase_name] = group.obj.array(glob_attrs.data[i,6,2,0:2], 'dimensionless')
+                print('Massflow rate for %s phase  '%phase_name+str(gf.data['massflow_rate_'+d_key+'rvir'+phase_name].in_units('Msun/yr')))
+                print('Thermal support for %s phase  '%phase_name+str(gf.data['grav_therpfrsphere_'+d_key+'rvir'+phase_name]))
+                print('Radial velocity flow-weighted for %s phase  '%phase_name+str(gf.data['v_sphere_r_'+d_key+'rvir'+phase_name].to('km/s')))
                 if group.obj.simulation.physics['metals']:
-                    gf.data['metallicity_'+d_key+'rvir'+phase_name] = glob_attrs.data[i,6,2,0]
+                    gf.data['metallicity_'+d_key+'rvir'+phase_name] = glob_attrs.data[i,7,2,0:2]
             else:
                 gf.data['massflow_rate_'+d_key+'rvir'+phase_name] = group.obj.quantity(0.0, 'code_mass*code_velocity/code_length')
             
             if group.obj.simulation.physics['magnetic']:
                 print('Computing magnetic energies')
                 if group.obj.simulation.physics['metals']:
-                    gf.data['magnetic_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[i,7,0,0], 'code_mass * code_velocity**2')
-                    gf.data['magnetic_energy_specific_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[i,8,2,0], 'code_specific_energy')
+                    gf.data['magnetic_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[i,8,0,0], 'code_mass * code_velocity**2')
+                    gf.data['magnetic_energy_specific_'+d_key+'rvir'+phase_name] = group.obj.array(glob_attrs.data[i,9,2,0:2], 'code_specific_energy')
                 else:
-                    gf.data['magnetic_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[i,6,0,0], 'code_mass * code_velocity**2')
-                    gf.data['magnetic_energy_specific_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[i,7,2,0], 'code_specific_energy')
+                    gf.data['magnetic_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[i,7,0,0], 'code_mass * code_velocity**2')
+                    gf.data['magnetic_energy_specific_'+d_key+'rvir'+phase_name] = group.obj.array(glob_attrs.data[i,8,2,0:2], 'code_specific_energy')
 
             if group.obj.simulation.physics['cr']:
                 print('Computing CR energies')
                 if group.obj.simulation.physics['metals']:
-                    gf.data['cr_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[i,9,0,0], 'code_mass * code_velocity**2')
-                    gf.data['cr_energy_specific_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[i,10,2,0], 'code_specific_energy')
+                    gf.data['cr_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[i,10,0,0], 'code_mass * code_velocity**2')
+                    gf.data['cr_energy_specific_'+d_key+'rvir'+phase_name] = group.obj.array(glob_attrs.data[i,11,2,0:2], 'code_specific_energy')
+                    gf.data['grav_crpfrsphere_'+d_key+'rvir'+phase_name] = group.obj.array(glob_attrs.data[i,12,2,0:2], 'dimensionless')
+                    print('CR support for %s phase  '%phase_name+str(gf.data['grav_crpfrsphere_'+d_key+'rvir'+phase_name]))
                 else:
-                    gf.data['cr_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[i,8,0,0], 'code_mass * code_velocity**2')
-                    gf.data['cr_energy_specific_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[i,9,2,0], 'code_specific_energy')
+                    gf.data['cr_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[i,9,0,0], 'code_mass * code_velocity**2')
+                    gf.data['cr_energy_specific_'+d_key+'rvir'+phase_name] = group.obj.array(glob_attrs.data[i,10,2,0:2], 'code_specific_energy')
+                    gf.data['grav_crpfrsphere_'+d_key+'rvir'+phase_name] = group.obj.array(glob_attrs.data[i,11,2,0:2], 'dimensionless')
+                    print('CR support for %s phase  '%phase_name+str(gf.data['grav_crpfrsphere_'+d_key+'rvir'+phase_name]))
 
             if group.obj.simulation.physics['rt']:
                 print('Computing ionisation fractions')
-                gf.data['xHII_'+d_key+'rvir'+phase_name] = glob_attrs.data[i,nvar,2,0]
-                gf.data['xHeII_'+d_key+'rvir'+phase_name] = glob_attrs.data[i,nvar+1,2,0]
-                gf.data['xHeIII_'+d_key+'rvir'+phase_name] = glob_attrs.data[i,nvar+2,2,0]
+                gf.data['xHII_'+d_key+'rvir'+phase_name] = glob_attrs.data[i,nvar,2,0:2]
+                gf.data['xHeII_'+d_key+'rvir'+phase_name] = glob_attrs.data[i,nvar+1,2,0:2]
+                gf.data['xHeIII_'+d_key+'rvir'+phase_name] = glob_attrs.data[i,nvar+2,2,0:2]
     else:
         # Initialise Fortran derived type with attributes
         # This object hold the following attributes:
@@ -309,23 +356,28 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'), rmax=(1.0,'rvir'),
         glob_attrs.nvars = len(quantity_names)
         glob_attrs.nwvars = len(weight_names)
         glob_attrs.nfilter = 1
+        glob_attrs.nsubs = nsubs
         amr_integrator.allocate_amr_regions_attrs(glob_attrs)
         for i in range(0, len(quantity_names)):
             glob_attrs.varnames.T.view('S128')[i] = quantity_names[i].ljust(128)
         for i in range(0, len(weight_names)):
             glob_attrs.wvarnames.T.view('S128')[i] = weight_names[i].ljust(128)
 
-        amr_integrator.integrate_region(output_path,reg,filt,glob_attrs)
+        if remove_subs and nsubs>0:
+            for i in range(0,nsubs):
+                glob_attrs.subs[i] = subs[i]
+
+        amr_integrator.integrate_region(output_path,reg,filt,use_neigh,glob_attrs)
 
         # Assign results to galaxy object
         if group.obj.simulation.physics['hydro']:
             print('Computing gas flow quantities')
-            gf.data['density_'+d_key+'rvir'] = group.obj.quantity(glob_attrs.data[0,0,2,0], 'code_density')
-            gf.data['temperature_'+d_key+'rvir'] = group.obj.quantity(glob_attrs.data[0,1,2,0], 'code_temperature')
+            gf.data['density_'+d_key+'rvir'] = group.obj.array(glob_attrs.data[0,0,2,0:2], 'code_density')
+            gf.data['temperature_'+d_key+'rvir'] = group.obj.array(glob_attrs.data[0,1,2,0:2], 'code_temperature')
             gf.data['massflow_rate_'+d_key+'rvir'] = group.obj.quantity(glob_attrs.data[0,2,1,0]*4*np.pi*(shell_r**2), 'code_mass*code_velocity/code_length')
-            gf.data['v_sphere_r_'+d_key+'rvir'] = group.obj.quantity(glob_attrs.data[0,3,2,0], 'code_velocity')
+            gf.data['v_sphere_r_'+d_key+'rvir'] = group.obj.array(glob_attrs.data[0,3,2,0:2], 'code_velocity')
             gf.data['thermal_energy_'+d_key+'rvir'] = group.obj.quantity(glob_attrs.data[0,4,0,0], 'code_mass * code_velocity**2')
-            gf.data['thermal_energy_specific_'+d_key+'rvir'] = group.obj.quantity(glob_attrs.data[0,5,2,0], 'code_specific_energy')
+            gf.data['thermal_energy_specific_'+d_key+'rvir'] = group.obj.array(glob_attrs.data[0,5,2,0:2], 'code_specific_energy')
             print('Massflow rate '+str(gf.data['massflow_rate_'+d_key+'rvir'].in_units('Msun/yr')))
             if group.obj.simulation.physics['metals']:
                 gf.data['metallicity_'+d_key+'rvir'] = glob_attrs.data[0,6,2,0]
@@ -336,25 +388,25 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'), rmax=(1.0,'rvir'),
             print('Computing magnetic energies')
             if group.obj.simulation.physics['metals']:
                 gf.data['magnetic_energy_'+d_key+'rvir'] = group.obj.quantity(glob_attrs.data[0,7,0,0], 'code_mass * code_velocity**2')
-                gf.data['magnetic_energy_specific_'+d_key+'rvir'] = group.obj.quantity(glob_attrs.data[0,8,2,0], 'code_specific_energy')
+                gf.data['magnetic_energy_specific_'+d_key+'rvir'] = group.obj.array(glob_attrs.data[0,8,2,0:2], 'code_specific_energy')
             else:
                 gf.data['magnetic_energy_'+d_key+'rvir'] = group.obj.quantity(glob_attrs.data[0,6,0,0], 'code_mass * code_velocity**2')
-                gf.data['magnetic_energy_specific_'+d_key+'rvir'] = group.obj.quantity(glob_attrs.data[0,7,2,0], 'code_specific_energy')
+                gf.data['magnetic_energy_specific_'+d_key+'rvir'] = group.obj.array(glob_attrs.data[0,7,2,0:2], 'code_specific_energy')
 
         if group.obj.simulation.physics['cr']:
             print('Computing CR energies')
             if group.obj.simulation.physics['metals']:
                 gf.data['cr_energy_'+d_key+'rvir'] = group.obj.quantity(glob_attrs.data[0,9,0,0], 'code_mass * code_velocity**2')
-                gf.data['cr_energy_specific_'+d_key+'rvir'] = group.obj.quantity(glob_attrs.data[0,10,2,0], 'code_specific_energy')
+                gf.data['cr_energy_specific_'+d_key+'rvir'] = group.obj.array(glob_attrs.data[0,10,2,0:2], 'code_specific_energy')
             else:
                 gf.data['cr_energy_'+d_key+'rvir'] = group.obj.quantity(glob_attrs.data[0,8,0,0], 'code_mass * code_velocity**2')
-                gf.data['cr_energy_specific_'+d_key+'rvir'] = group.obj.quantity(glob_attrs.data[0,9,2,0], 'code_specific_energy')
+                gf.data['cr_energy_specific_'+d_key+'rvir'] = group.obj.array(glob_attrs.data[0,9,2,0:2], 'code_specific_energy')
 
         if group.obj.simulation.physics['rt']:
             print('Computing ionisation fractions')
-            gf.data['xHII_'+d_key+'rvir'] = glob_attrs.data[0,nvar,2,0]
-            gf.data['xHeII_'+d_key+'rvir'] = glob_attrs.data[0,nvar+1,2,0]
-            gf.data['xHeIII_'+d_key+'rvir'] = glob_attrs.data[0,nvar+2,2,0]
+            gf.data['xHII_'+d_key+'rvir'] = glob_attrs.data[0,nvar,2,0:2]
+            gf.data['xHeII_'+d_key+'rvir'] = glob_attrs.data[0,nvar+1,2,0:2]
+            gf.data['xHeIII_'+d_key+'rvir'] = glob_attrs.data[0,nvar+2,2,0:2]
 
     if save:
         write_flow(group.obj, ozy_file, gf, d_key)

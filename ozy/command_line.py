@@ -26,7 +26,7 @@ def run():
         run_multiple_ozy(args.input, var_dict)
         return
     ozy_file = False
-    # Check if input file is a an ozymandias catalogue.
+    # Check if input file is an ozymandias catalogue.
     try:
         hd = h5py.File(args.input, 'r')
         if 'ozy' in hd.attrs.keys():

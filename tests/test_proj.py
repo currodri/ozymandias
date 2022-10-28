@@ -9,25 +9,25 @@ virial_mass = [i.virial_quantities['mass'] for i in obj.galaxies]
 progind = np.argmax(virial_mass)
 gal = obj.galaxies[progind]
 
-proj = do_projection(gal,['gas/density','gas/temperature','star/sdensity',
-                          'gas/neighbour_accuracy','gas/grad_crp','gas/eff_FKmag'],
-                            window=(5,'kpc'),pov='faceon',
-                            filter_conds=['none','star_age/<=/0.01/Myr'],
-                            filter_name=['all','young'],remove_subs=True)
-proj.save_FITS('NUT_00035_faceon.fits')
-plot_single_galaxy_projection('NUT_00035_faceon.fits',['gas/density','gas/temperature','star/sdensity',
-                                                  'gas/neighbour_accuracy','gas/grad_crp','gas/eff_FKmag'],
-                              filter_name='young')
-plot_single_galaxy_projection('NUT_00035_faceon.fits',['gas/density','gas/temperature','star/sdensity',
-                                                  'gas/neighbour_accuracy','gas/grad_crp','gas/eff_FKmag'],
-                              filter_name='all')
-
 # proj = do_projection(gal,['gas/density','gas/temperature','star/sdensity',
-#                           'gas/magnetic_magnitude','gas/cr_energy_density','dm/sdensity'],
-#                             window=(5,'kpc'),pov='edgeon')
-# proj.save_FITS('NUT_00035_edgeon.fits')
-# plot_single_galaxy_projection('NUT_00035_edgeon.fits',['gas/density','gas/temperature','star/sdensity',
-#                                 'gas/magnetic_magnitude','gas/cr_energy_density','dm/sdensity'])
+#                           'gas/neighbour_accuracy','gas/grad_crp','gas/eff_FKmag'],
+#                             window=(5,'kpc'),pov='faceon',
+#                             filter_conds=['none','star_age/<=/0.01/Myr'],
+#                             filter_name=['all','young'],remove_subs=True)
+# proj.save_FITS('NUT_00035_faceon.fits')
+# plot_single_galaxy_projection('NUT_00035_faceon.fits',['gas/density','gas/temperature','star/sdensity',
+#                                                   'gas/neighbour_accuracy','gas/grad_crp','gas/eff_FKmag'],
+#                               filter_name='young')
+# plot_single_galaxy_projection('NUT_00035_faceon.fits',['gas/density','gas/temperature','star/sdensity',
+#                                                   'gas/neighbour_accuracy','gas/grad_crp','gas/eff_FKmag'],
+#                               filter_name='all')
+
+proj = do_projection(gal,['gas/density','gas/temperature','star/sdensity',
+                          'gas/grav_therpfrsphere','gas/grav_crpfrsphere','dm/sdensity'],
+                            window=(5,'kpc'),pov='edgeon')
+proj.save_FITS('NUT_00035_edgeon.fits')
+plot_single_galaxy_projection('NUT_00035_edgeon.fits',['gas/density','gas/temperature','star/sdensity',
+                                'gas/grav_therpfrsphere','gas/grav_crpfrsphere','dm/sdensity'])
 
 # proj = do_projection(gal,['gas/density','gas/temperature','star/sdensity',
 #                           'gas/neighbour_accuracy','gas/grad_crp','gas/eff_FKmag'],

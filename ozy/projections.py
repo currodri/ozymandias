@@ -13,10 +13,10 @@ import re
 import healpy as hp
 from astropy.io import fits
 from astropy.wcs import WCS
-from projections import obs_instruments
-from projections import maps
-from projections import vectors
-from projections import geometrical_regions
+from vis import obs_instruments
+from vis import maps
+from vis import vectors
+from vis import geometrical_regions
 
 cartesian_basis = {'x':np.array([1.,0.,0.]),'y':np.array([0.,0.,1.]),'z':np.array([0.,0.,1.])}
 
@@ -311,9 +311,9 @@ class Projection(object):
                     cond_units = get_code_units(cond_var)
                 cond_value = self.obj.quantity(filt.cond_vals[i], str(cond_units))
                 if particle:
-                    cond_str = cond_var+'/'+cond_op+'/'+str(cond_value.d)+'/'+cond_units
-                else:
                     cond_str = corrected_part_var+'/'+cond_op+'/'+str(cond_value.d)+'/'+cond_units
+                else:
+                    cond_str = cond_var+'/'+cond_op+'/'+str(cond_value.d)+'/'+cond_units
                 self.filters[-1]['conditions'].append(cond_str)
     def _save_filterinfo(self,hdu,filt):
         """"This function unravels the information contained in a filter object into the FITS header"""
@@ -793,6 +793,12 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
                     plot = ax[i,j].imshow(np.log10(cImage), cmap=plotting_def['cmap_'+filter_name],
                                     origin='lower',vmin=np.log10(plotting_def['vmin_'+filter_name]),
                                     vmax=np.log10(plotting_def['vmax_'+filter_name]),extent=ex,
+                                    interpolation='nearest')
+                else:
+                    plot = ax[i,j].imshow(cImage, cmap=plotting_def['cmap'],
+                                    origin='lower',norm=SymLogNorm(linthresh=0.1, linscale=1,
+                                    vmin=plotting_def['vmin_galaxy'], vmax=plotting_def['vmax_galaxy']),
+                                    extent=ex,
                                     interpolation='nearest')
             else:
                 plot = ax[i,j].imshow(hdul[h].data.T, cmap=plotting_def['cmap'],

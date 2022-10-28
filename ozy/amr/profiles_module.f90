@@ -23,6 +23,7 @@ module amr_profiles
     use local
     use io_ramses
     use filtering
+    use geometrical_regions
 
     type profile_handler
         logical :: logscale
@@ -33,9 +34,11 @@ module amr_profiles
         character(128),dimension(:),allocatable :: yvarnames
         integer :: nbins
         integer :: nwvar
+        integer :: nsubs=0
         character(128),dimension(:),allocatable :: wvarnames
         real(dbl),dimension(:),allocatable :: xdata
         real(dbl),dimension(:,:,:,:),allocatable :: ydata
+        type(region),dimension(:),allocatable :: subs
     end type profile_handler
 
     type profile_handler_twod
@@ -65,6 +68,7 @@ module amr_profiles
 
         if (prof%cr_st) sim%cr_st = .true.
         if (prof%cr_heat)sim%cr_heat = .true.
+        if (.not.allocated(prof%subs).and.(prof%nsubs>0)) allocate(prof%subs(1:prof%nsubs))
     end subroutine allocate_profile_handler
 
     subroutine allocate_profile_handler_twod(prof)
@@ -163,7 +167,7 @@ module amr_profiles
                     write(*,*)'You cannot use logscale for a velocity profile. Stopping!'
                     stop
                 else
-                    bins(n) = dble(n)*(4D7/velocity_convfac + 3D7/velocity_convfac)/dble(nbins) - 3D7/velocity_convfac
+                    bins(n) = dble(n)*(4D7/velocity_convfac + 4D7/velocity_convfac)/dble(nbins) - 4D7/velocity_convfac
                 endif
             end do
         case('theta_sphere')
@@ -434,10 +438,10 @@ module amr_profiles
         type(filter),intent(in) :: filt
         type(profile_handler),intent(inout) :: prof_data
         integer :: binpos
-        logical :: ok_cell,ok_filter,read_gravity
+        logical :: ok_cell,ok_filter,read_gravity,ok_sub
         ! logical :: filter_cell
         integer :: i,j,k
-        integer :: ipos,icpu,ilevel,ind,idim,ivar,iskip,inbor,ison
+        integer :: ipos,icpu,ilevel,ind,idim,ivar,iskip,inbor,ison,isub
         integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
         integer :: nvarh
         integer :: roterr
@@ -449,7 +453,7 @@ module amr_profiles
         real(dbl),dimension(:),allocatable :: xxg,son_dens
         real(dbl),dimension(1:8,1:3) :: xc
         real(dbl),dimension(1:3,1:3) :: trans_matrix
-        real(dbl),dimension(:,:),allocatable :: x
+        real(dbl),dimension(:,:),allocatable :: x,xorig
         real(dbl),dimension(:,:),allocatable :: var
         real(dbl),dimension(:,:),allocatable :: grav_var
         real(dbl),dimension(:,:),allocatable :: tempvar
@@ -584,6 +588,7 @@ module amr_profiles
                         allocate(iig(1:ngrida))
                         allocate(xxg(1:ngrida))
                         
+                        
                         ! Read AMR data
                         read(10) grid(ilevel)%ind_grid
                         read(10) ! Skip next index
@@ -700,6 +705,7 @@ module amr_profiles
                 if(ngrida>0)then
                     allocate(ind_cell(1:ngrida))
                     allocate(x  (1:ngrida,1:amr%ndim))
+                    allocate(xorig(1:ngrida,1:amr%ndim))
                     allocate(ref(1:ngrida))
                 endif
 
@@ -738,7 +744,7 @@ module amr_profiles
                                 deallocate(son_dens)
                             end if
                         end do          
-
+                        xorig = x
                         ngridaloop: do i=1,ngrida
                             ! Check if cell is inside the desired region
                             distance = 0D0
@@ -787,6 +793,15 @@ module amr_profiles
                                                         &trans_matrix)
                             end if
                             ok_cell= ok_cell.and..not.ref(i).and.ok_filter
+
+                            ! If we are avoiding substructure, check whether we are safe
+                            if (prof_data%nsubs>0) then
+                                ok_sub = .true.
+                                do isub=1,prof_data%nsubs
+                                    ok_sub = ok_sub .and. filter_sub(prof_data%subs(isub),xorig(i,:))
+                                end do
+                                ok_cell = ok_cell .and. ok_sub
+                            end if
                             if (ok_cell) then
                                 binpos = 0
                                 if (read_gravity) then
@@ -801,7 +816,7 @@ module amr_profiles
                             if (read_gravity) deallocate(tempgrav_var)
                         end do ngridaloop
                     end do cellloop
-                    deallocate(ref,x,ind_cell)
+                    deallocate(ref,x,ind_cell,xorig)
                 endif
             end do levelloop2
             deallocate(nbor,son,var,cellpos)

@@ -16,7 +16,7 @@ PYTHON   = python
 ifeq ($(F90),gfortran)
 	FPP      = gfortran -E
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
-	F90FLAGS = -fPIC -cpp
+	F90FLAGS = -O3 -fPIC -cpp -ffree-line-length-256 -DIMASS -DNOIFPORT
     FCOMP    = gfortran
     LIBS     =
 endif

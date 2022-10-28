@@ -15,24 +15,24 @@ PYTHON   = python
 
 # HP_FLAGS_INTEL = -L/usr/local/shared/healpix/3.40-intel/lib/ -lchealpix -lhealpix -lcfitsio
 # HP_FLAGS = -L/usr/local/shared/healpix/3.40/lib/ -I/usr/local/shared/healpix/3.40/include -lchealpix -lhealpix -lcfitsio
-HP_FLAGS_INTEL = -L/softs/healpix/3.81-ifort-2022.1.2/lib -I/softs/healpix/3.81-ifort-2022.1.2/include -lchealpix -lhealpix -lcfitsio -liomp5
-HP_FLAGS = -L/softs/healpix/3.81-ifort-2022.1.2/lib -I/softs/healpix/3.81-ifort-2022.1.2/include -lchealpix -lhealpix -lcfitsio
+
 
 
 ifeq ($(F90),gfortran)
 	FPP      = gfortran -E
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
-	F90FLAGS = -fPIC -cpp ${HP_FLAGS}
+	HP_FLAGS = -L/usr/local/shared/healpix/3.40/lib -I/usr/local/shared/healpix/3.40/include -lchealpix -lhealpix -lcfitsio
+	F90FLAGS = -O3 -cpp -fPIC -DIMASS -ffree-line-length-256 ${HP_FLAGS}
     FCOMP    = gfortran
     LIBS     =
 endif
 
 ifeq ($(F90),ifort)
-
 	FPP      = gfortran -E # gfortran f90wrap temp files only. not compilation
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
-	#F90FLAGS = -g -traceback -check bounds -cpp -fpscomp logicals -fPIC -DIMASS ${HP_FLAGS_INTEL} # use 1 and 0 for True and False
-	F90FLAGS = -O3 -cpp -fpscomp logicals -fPIC -DIMASS ${HP_FLAGS_INTEL} # use 1 and 0 for True and False
+	HP_FLAGS = -L/softs/healpix/3.81-ifort-2022.1.2/lib -I/softs/healpix/3.81-ifort-2022.1.2/include -lchealpix -lhealpix -lcfitsio -liomp5
+	#F90FLAGS = -g -traceback -check bounds -cpp -fpscomp logicals -fPIC -DIMASS ${HP_FLAGS} # use 1 and 0 for True and False
+	F90FLAGS = -O3 -cpp -fpscomp logicals -fPIC -DIMASS ${HP_FLAGS} # use 1 and 0 for True and False
 	FCOMP    = intelem # for f2py
     LIBS =
 endif
@@ -54,7 +54,7 @@ endif
 # PROJECT CONFIG, do not put spaced behind the variables
 # ======================================================================
 # Python module name
-PYTHON_MODN = projections
+PYTHON_MODN = vis
 # mapping between Fortran and C types
 KIND_MAP = kind_map
 
@@ -143,10 +143,10 @@ libsrc.a: ${LIBSRC_OBJECTS}
 _${PYTHON_MODN}.so: libsrc.a ${LIBSRC_FPP_FILES}
 	f90wrap -m ${PYTHON_MODN} ${LIBSRC_WRAP_FPP_FILES} -k ${KIND_MAP} -v
 	f2py-f90wrap --fcompiler=$(FCOMP) --build-dir . -c -m _${PYTHON_MODN} -L. \
-	-lsrc f90wrap*.f90 ${HP_FLAGS_INTEL}
+	-lsrc f90wrap*.f90 ${HP_FLAGS}
 
 _${PYTHON_MODN}_pkg.so: libsrc.a ${LIBSRC_FPP_FILES}
 	f90wrap -m ${PYTHON_MODN}_pkg ${LIBSRC_WRAP_FPP_FILES} -k ${KIND_MAP} -v -P
 	f2py-f90wrap --fcompiler=$(FCOMP) --build-dir . -c -m _${PYTHON_MODN}_pkg -L. \
-	-lsrc f90wrap*.f90 ${HP_FLAGS_INTEL}
+	-lsrc f90wrap*.f90 ${HP_FLAGS}
 

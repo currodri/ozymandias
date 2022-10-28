@@ -19,6 +19,7 @@ blacklist = [
 class Profile(object):
 
     def __init__(self,group):
+        self.obj = group.obj
         self.group = group
         self.nbins = 0
         self.xvar = None
@@ -29,6 +30,7 @@ class Profile(object):
         self.weightvars = {}
         self.xdata = None
         self.ydata = {}
+        self.rm_subs = False
     
     def _serialise(self, hdd):
         """This makes possible to save the group profile attrs as dataset attributes of an HDF5 group."""
@@ -74,16 +76,19 @@ class Profile(object):
 
 
 
-def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region_type='sphere',filter_conds='none',
+def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,
+                    region_type='sphere',filter_conds='none',
                     filter_name='none',recompute=False,save=False,logscale=False,
-                    rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(0.0,'rvir'), zmax=(0.2,'rvir')):
+                    rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(0.0,'rvir'), zmax=(0.2,'rvir'),
+                    remove_subs=False):
     """Function which computes a 1D profile for a given group object."""
-
+    from ozy.utils import structure_regions
     if not isinstance(xvar, str):
         print('Single x variable 1D profile supported!')
         exit
     prof = Profile(group)
     prof.nbins = nbins
+    prof.rm_subs = remove_subs
     prof.xvar = xvar
     prof.yvars = dict(hydro = [],star = [], dm = [])
     prof.weightvars = dict(hydro = [],star = [], dm = [])
@@ -152,19 +157,40 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
     f = h5py.File(ozy_file, 'r+')
     prof_present,prof_key = check_if_same_profile(f, prof)
     if prof_present and recompute:
-        del f[str(prof.group.type)+'_data/profiles/'+str(group._index)+'/'+str(prof_key)]
+        if remove_subs:
+            del f[str(prof.group.type)+'_data/profiles_nosubs/'+str(group._index)+'/'+str(prof_key)]
+        else:
+            del f[str(prof.group.type)+'_data/profiles/'+str(group._index)+'/'+str(prof_key)]
+
         print('Overwriting profile data in %s_data'%group.type)
     elif prof_present and not recompute:
         print('Profile data with same details already present for galaxy %s. No overwritting!'%group._index)
         group._init_profiles()
-        for i,p in enumerate(group.profiles):
-            if p.key == prof_key:
-                selected_prof = i
-                break
-        return group.profiles[selected_prof]
+        if remove_subs:
+            print('Removing substructure!')
+            for i,p in enumerate(group.profiles_nosubs):
+                if p.key == prof_key:
+                    selected_prof = i
+                    break
+            return group.profiles_nosubs[selected_prof]
+        else:
+            for i,p in enumerate(group.profiles):
+                if p.key == prof_key:
+                    selected_prof = i
+                    break
+            return group.profiles[selected_prof]
     elif save and recompute:
         print('Writing profile data in %s_data'%group.type)
     f.close()
+    
+    # If substructre is removed, obtain regions
+    if remove_subs:
+        print('Removing substructure!')
+        subs = structure_regions(group, add_substructure=True, add_neighbours=False,
+                            tidal_method='BT87_simple')
+        nsubs = len(subs)
+    else:
+        nsubs = 0
     
     # Initialise hydro profile data object
     if len(prof.yvars['hydro'])>0 and len(prof.weightvars['hydro'])>0:
@@ -174,6 +200,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
         hydro_data.nyvar = len(prof.yvars['hydro'])
         hydro_data.nwvar = len(prof.weightvars['hydro'])
         hydro_data.nbins = nbins
+        hydro_data.nsubs = nsubs
 
         amrprofmod.allocate_profile_handler(hydro_data)
         for i in range(0, len(prof.yvars['hydro'])):
@@ -181,6 +208,9 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
         for i in range(0, len(prof.weightvars['hydro'])):
             hydro_data.wvarnames.T.view('S128')[i] = prof.weightvars['hydro'][i].ljust(128)
         
+        if remove_subs and nsubs>0:
+            for i in range(0,nsubs):
+                hydro_data.subs[i] = subs[i]
         # And now, compute hydro data profiles!
         if hydro_data.nyvar > 0 and hydro_data.nwvar > 0:
             amrprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,hydro_data,lmax,logscale)
@@ -237,13 +267,13 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
     
 
     # Organise everything in the Profile object
-    xdata = np.zeros((3,prof.nbins))
+    xdata = np.zeros((3,prof.nbins+1))
     if hydro_data != None:
-        xdata[0,:] = hydro_data.xdata[1:]
+        xdata[0,:] = hydro_data.xdata
     if star_data != None:
-        xdata[1,:] = star_data.xdata[1:]
+        xdata[1,:] = star_data.xdata
     if dm_data != None:
-        xdata[2,:] = dm_data.xdata[1:]
+        xdata[2,:] = dm_data.xdata
     prof.xdata = group.obj.array(xdata, get_code_units(prof.xvar))
     # Save hydro y data
     if hydro_data != None:
@@ -269,9 +299,13 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,region
 
 def check_if_same_profile(hd, profile):
     """This function checks if a profile for an object already exists with the same attributes."""
-    if not str(profile.group.type)+'_data/profiles/'+str(profile.group._index) in hd:
+    if profile.rm_subs:
+        prof_key = '_data/profiles_nosubs/'
+    else:
+        prof_key = '_data/profiles/'
+    if not str(profile.group.type)+prof_key+str(profile.group._index) in hd:
         return False, 'none'
-    for p in hd[str(profile.group.type)+'_data/profiles/'+str(profile.group._index)].keys():
+    for p in hd[str(profile.group.type)+prof_key+str(profile.group._index)].keys():
         check_xvar = (p.split('|')[0] == profile.xvar)
         check_filtername = (p.split('|')[1] == profile.filter['name'])
         check_regiontype = (p.split('|')[2] == profile.region['type'])
@@ -286,31 +320,35 @@ def get_profile_name(profiles_group,prof):
     name += '|'+str(prof.region['type'])
     if name in profiles_group:
         name += '|new'
-    print(name)
     return name
 def write_profiles(obj, ozy_file, hydro, star, dm, prof):
     """This function writes the resulting profile data for this group to the original OZY HDF5 file."""
 
     f = h5py.File(ozy_file, 'r+')
 
+    if prof.rm_subs:
+        prof_key = '_data/profiles_nosubs/'
+    else:
+        prof_key = '_data/profiles/'
+        
     # Create group in HDF5 file
     try:
-        profiles = f.create_group(str(prof.group.type)+'_data/profiles/'+str(prof.group._index))
+        profiles = f.create_group(str(prof.group.type)+prof_key+str(prof.group._index))
     except:
-        profiles = f[str(prof.group.type)+'_data/profiles/'+str(prof.group._index)]
+        profiles = f[str(prof.group.type)+prof_key+str(prof.group._index)]
     
     # Clean data and save to dataset
     prof_name = get_profile_name(profiles, prof)
     hdprof = profiles.create_group(prof_name)
     prof._serialise(hdprof)
     # Save x data
-    xdata = np.zeros((3,prof.nbins))
+    xdata = np.zeros((3,prof.nbins+1))
     if hydro != None:
-        xdata[0,:] = hydro.xdata[1:]
+        xdata[0,:] = hydro.xdata
     if star != None:
-        xdata[1,:] = star.xdata[1:]
+        xdata[1,:] = star.xdata
     if dm != None:
-        xdata[2,:] = dm.xdata[1:]
+        xdata[2,:] = dm.xdata
     hdprof.create_dataset('xdata', data=xdata)
     hdprof['xdata'].attrs.create('units', get_code_units(prof.xvar))
     # Save hydro y data

@@ -271,7 +271,11 @@ module export_part
     end subroutine part2skirt
 
     subroutine part2disperse(repository,reg,filt,prob,outpath)
+#ifndef NOIFPORT
         use IFPORT
+#else
+#warning Compiling without IFPORT
+#endif
         use vectors
         use coordinate_systems
         use geometrical_regions

@@ -295,6 +295,7 @@ module amr_integrator
                         allocate(son(1:ngrida,1:amr%twotondim))
                         allocate(var(1:ngrida,1:amr%twotondim,1:nvarh))
                         allocate(x  (1:ngrida,1:amr%ndim))
+                        allocate(xorig(1:ngrida,1:amr%ndim))
                         allocate(ref(1:ngrida))
                         if (read_gravity)allocate(grav_var(1:ngrida,1:amr%twotondim,1:4))
                     endif
@@ -464,7 +465,7 @@ module amr_integrator
                                 end if
                             end do ngridaloop
                         end do cellloop
-                        deallocate(xg,son,var,ref,x)
+                        deallocate(xg,son,var,ref,x,xorig)
                         if (read_gravity) then
                             deallocate(grav_var)
                         end if

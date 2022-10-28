@@ -769,6 +769,9 @@ module io_ramses
         case ('sound_speed')
             ! Thermal sound speed, ideal gas
             value = sqrt(5D0/3d0 * (var(0,varIDs%thermal_pressure) / var(0,varIDs%density)))
+        case ('rms_speed')
+            ! RMS speed, ideal gas (Maxwellian distribution)
+            value = sqrt(3d0 * (var(0,varIDs%thermal_pressure) / var(0,varIDs%density)))
         case ('kinetic_energy')
             ! Kinetic energy, computed as 1/2*density*volume*magnitude(velocity)
             value = (0.5 * (var(0,varIDs%density) * (dx*dx)) * dx) * sqrt(var(0,varIDs%vx)**2 + var(0,varIDs%vy)**2 + var(0,varIDs%vz)**2)
@@ -1077,6 +1080,9 @@ module io_ramses
             B = grav_var(0,2:4)
             call rotate_vector(B,trans_matrix)
             value = var(0,varIDs%density) * B%z
+        case ('escape_velocity')
+            ! Local gravitational escape velocity
+            value = sqrt(2d0*grav_var(0,1))
         case ('grav_crpf')
             ! Ratio of CR pressure gradient and gravitational acceleration
             dxright = dx; dxleft = dx
@@ -2677,8 +2683,10 @@ module filtering
         character(128) :: name
         integer :: ncond
         character(128), dimension(:), allocatable :: cond_vars
+        character(128), dimension(:), allocatable :: cond_vars_comp
         character(2), dimension(:), allocatable :: cond_ops
         real(dbl), dimension(:), allocatable :: cond_vals
+        logical, dimension(:), allocatable :: use_var
     end type filter
 
     contains
@@ -2688,8 +2696,11 @@ module filtering
         type(filter), intent(inout) :: filt
 
         if (.not.allocated(filt%cond_vars)) allocate(filt%cond_vars(filt%ncond))
+        if (.not.allocated(filt%cond_vars_comp)) allocate(filt%cond_vars_comp(filt%ncond))
         if (.not.allocated(filt%cond_ops)) allocate(filt%cond_ops(filt%ncond))
         if (.not.allocated(filt%cond_vals)) allocate(filt%cond_vals(filt%ncond))
+        if (.not.allocated(filt%use_var)) allocate(filt%use_var(filt%ncond))
+        filt%use_var = .false.
     end subroutine allocate_filter
 
     subroutine cond_string_to_filter(str, filt)
@@ -2713,7 +2724,7 @@ module filtering
         real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
         real(dbl),dimension(0:amr%twondim,1:4),intent(in),optional :: grav_var
         integer :: i
-        real(dbl) :: value
+        real(dbl) :: value,filt_value
 
         filter_cell = .true.
 
@@ -2721,26 +2732,37 @@ module filtering
 
         do i=1,filt%ncond
             if (present(grav_var)) then
-
                 call getvarvalue(reg,cell_dx,cell_x,cell_var,cell_son,&
                                 &filt%cond_vars(i),value,trans_matrix,grav_var)
             else
                 call getvarvalue(reg,cell_dx,cell_x,cell_var,cell_son,&
                                     &filt%cond_vars(i),value,trans_matrix)
             end if
+            if (filt%use_var(i)) then
+                if (present(grav_var)) then
+                    call getvarvalue(reg,cell_dx,cell_x,cell_var,cell_son,&
+                                    &filt%cond_vars_comp(i),filt_value,trans_matrix,grav_var)
+                else
+                    call getvarvalue(reg,cell_dx,cell_x,cell_var,cell_son,&
+                                        &filt%cond_vars_comp(i),filt_value,trans_matrix)
+                end if
+                filt_value = filt%cond_vals(i) * filt_value
+            else
+                filt_value = filt%cond_vals(i)
+            end if
             select case (TRIM(filt%cond_ops(i)))
             case('/=')
-                filter_cell = filter_cell .and. (value /= filt%cond_vals(i))
+                filter_cell = filter_cell .and. (value /= filt_value)
             case('==')
-                filter_cell = filter_cell .and. (value == filt%cond_vals(i))
+                filter_cell = filter_cell .and. (value == filt_value)
             case('<')
-                filter_cell = filter_cell .and. (value < filt%cond_vals(i))
+                filter_cell = filter_cell .and. (value < filt_value)
             case('<=')
-                filter_cell = filter_cell .and. (value <= filt%cond_vals(i))
+                filter_cell = filter_cell .and. (value <= filt_value)
             case('>')
-                filter_cell = filter_cell .and. (value > filt%cond_vals(i))
+                filter_cell = filter_cell .and. (value > filt_value)
             case('>=')
-                filter_cell = filter_cell .and. (value >= filt%cond_vals(i))
+                filter_cell = filter_cell .and. (value >= filt_value)
             case default
                 write(*,*)'Relation operator not supported: ',TRIM(filt%cond_ops(i))
                 write(*,*)'Aborting!'

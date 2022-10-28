@@ -148,7 +148,7 @@ class LazyDict(Mapping):
         p.pretty(dict(self))
 
 class Profile:
-    def __init__(self, obj, index, group_type, key,hd):
+    def __init__(self, obj, index, group_type, key, hd, nosubs):
         self.obj = obj
         self._index = index
         self.group_type = group_type
@@ -162,6 +162,7 @@ class Profile:
         self.weightvars = {}
         self.xdata = None
         self.ydata = {}
+        self.nosubs = nosubs
 
         self.blacklist = [
             'obj','_index','group_type','region',
@@ -170,7 +171,10 @@ class Profile:
         self._unpack(hd)
     
     def _unpack(self, hd):
-        path = str(self.group_type+'_data/profiles/'+str(self._index)+'/'+self.key)
+        if self.nosubs:
+            path = str(self.group_type+'_data/profiles_nosubs/'+str(self._index)+'/'+self.key)
+        else:
+            path = str(self.group_type+'_data/profiles/'+str(self._index)+'/'+self.key)
         profile_gp = hd[path]
         for k,v in profile_gp.attrs.items():
             if k in self.blacklist:
@@ -255,7 +259,7 @@ class PhaseDiagram:
                 self.ydata = unyt_array(phase_diagrams_gp['ydata'][:], phase_diagrams_gp['ydata'].attrs['units'], registry=self.obj.unit_registry)
 
 class GalacticFlow:
-    def __init__(self,obj,index,group_type,key,hd):
+    def __init__(self,obj,index,group_type,key,hd,nosubs):
         self.obj = obj
         self._index = index
         self.group_type = group_type
@@ -264,6 +268,7 @@ class GalacticFlow:
         self.type = 'none'
         self.filter = {}
         self.data = {}
+        self.nosubs = nosubs
 
         self.blacklist = [
             'obj','_index','group_type','region',
@@ -272,7 +277,10 @@ class GalacticFlow:
         self._unpack(hd)
 
     def _unpack(self,hd):
-        path = str(self.group_type+'_data/flows/'+str(self._index)+'/'+self.key)
+        if self.nosubs:
+            path = str(self.group_type+'_data/flows_nosubs/'+str(self._index)+'/'+self.key)
+        else:
+            path = str(self.group_type+'_data/flows/'+str(self._index)+'/'+self.key)
         flows_gp = hd[path]
         for k,v in flows_gp.attrs.items():
             if k not in self.blacklist:
@@ -291,9 +299,14 @@ class GalacticFlow:
                 data = flows_gp[k]
                 for j in data.keys():
                     unit = data[j].attrs['units']
-                    if unit =='code_energy':
-                        unit = 'code_mass * code_velocity**2'
-                    self.data[j] = unyt_quantity(data[j][()], unit, registry=self.obj.unit_registry)
+                    if data[j].shape == 1:
+                        if unit =='code_energy':
+                            unit = 'code_mass * code_velocity**2'
+                        self.data[j] = unyt_quantity(data[j][()], unit, registry=self.obj.unit_registry)
+                    else:
+                        if unit =='code_energy':
+                            unit = 'code_mass * code_velocity**2'
+                        self.data[j] = unyt_array(data[j][()], unit, registry=self.obj.unit_registry)
 
 class OZY:
     def __init__(self, filename, read_mode='r'):
@@ -338,6 +351,10 @@ class OZY:
             
             # Not all snaps will have galaxies, so we need to load firstly 
             # default values for everything.
+            self.have_flows = False
+            self.have_flows_nosubs = False
+            self.have_profiles = False
+            self.have_profiles_nosubs = False
             self._galaxy_data  = {}
             self._galaxy_dicts = defaultdict(dict)
             self.ngalaxies     = 0
@@ -371,6 +388,7 @@ class OZY:
                                          lambda i: Galaxy(self, i))
 
                 if 'galaxy_data/profiles' in hd:
+                    self.have_profiles = True
                     prof_indices = []
                     prof_keys = []
                     for k in hd['galaxy_data/profiles'].keys():
@@ -380,7 +398,19 @@ class OZY:
                     self._galaxy_profile_index_list = LazyList(
                         len(prof_indices), lambda i: int(prof_indices[i])
                     )
-                    self._galaxy_profiles = [Profile(self,int(prof_indices[i]),'galaxy', prof_keys[i],hd) for i in range(0, len(prof_indices))]
+                    self._galaxy_profiles = [Profile(self,int(prof_indices[i]),'galaxy', prof_keys[i],hd,False) for i in range(0, len(prof_indices))]
+                if 'galaxy_data/profiles_nosubs' in hd:
+                    self.have_profiles_nosubs = True
+                    prof_nosubs_indices = []
+                    prof_nosubs_keys = []
+                    for k in hd['galaxy_data/profiles_nosubs'].keys():
+                        for j in hd['galaxy_data/profiles_nosubs/'+k].keys():
+                            prof_nosubs_indices.append(int(k))
+                            prof_nosubs_keys.append(j)
+                    self._galaxy_profile_nosubs_index_list = LazyList(
+                        len(prof_nosubs_indices), lambda i: int(prof_nosubs_indices[i])
+                    )
+                    self._galaxy_profiles_nosubs = [Profile(self,int(prof_nosubs_indices[i]),'galaxy', prof_nosubs_keys[i],hd,True) for i in range(0, len(prof_nosubs_indices))]
                 if 'galaxy_data/phase_diagrams' in hd:
                     pd_indices = []
                     pd_keys = []
@@ -393,6 +423,7 @@ class OZY:
                     )
                     self._galaxy_phasediag = [PhaseDiagram(self,int(pd_indices[i]),'galaxy', pd_keys[i],hd) for i in range(0, len(pd_indices))]
                 if 'galaxy_data/flows' in hd:
+                    self.have_flows = True
                     gf_indices = []
                     gf_keys = []
                     for k in hd['galaxy_data/flows'].keys():
@@ -402,7 +433,19 @@ class OZY:
                     self._galaxy_flows_index_list = LazyList(
                         len(gf_indices), lambda i: int(gf_indices[i])
                     )
-                    self._galaxy_flows = [GalacticFlow(self,int(gf_indices[i]),'galaxy',gf_keys[i],hd) for i in range(0, len(gf_indices))]
+                    self._galaxy_flows = [GalacticFlow(self,int(gf_indices[i]),'galaxy',gf_keys[i],hd,False) for i in range(0, len(gf_indices))]
+                if 'galaxy_data/flows_nosubs' in hd:
+                    self.have_flows_nosubs = True
+                    gf_nosubs_indices = []
+                    gf_nosubs_keys = []
+                    for k in hd['galaxy_data/flows_nosubs'].keys():
+                        for j in hd['galaxy_data/flows_nosubs/'+k].keys():
+                            gf_nosubs_indices.append(int(k))
+                            gf_nosubs_keys.append(j)
+                    self._galaxy_flows_nosubs_index_list = LazyList(
+                        len(gf_nosubs_indices), lambda i: int(gf_nosubs_indices[i])
+                    )
+                    self._galaxy_flows_nosubs = [GalacticFlow(self,int(gf_nosubs_indices[i]),'galaxy',gf_nosubs_keys[i],hd,True) for i in range(0, len(gf_nosubs_indices))]
     
     @property
     def central_galaxies(self):
@@ -535,10 +578,18 @@ class Galaxy(Group):
 
     def _init_profiles(self):
         self.profiles = []
-        for p,profile_index in enumerate(self.obj._galaxy_profile_index_list):
-            if profile_index == self._index:
-                profile = self.obj._galaxy_profiles[p]
-                self.profiles.append(profile)
+        if self.obj.have_profiles:
+            for p,profile_index in enumerate(self.obj._galaxy_profile_index_list):
+                if profile_index == self._index:
+                    profile = self.obj._galaxy_profiles[p]
+                    self.profiles.append(profile)
+                
+        self.profiles_nosubs = []
+        if self.obj.have_profiles_nosubs:
+            for p,profile_index in enumerate(self.obj._galaxy_profile_nosubs_index_list):
+                if profile_index == self._index:
+                    profile = self.obj._galaxy_profiles_nosubs[p]
+                    self.profiles_nosubs.append(profile)
     
     def _init_phase_diagrams(self):
         self.phase_diagrams = []
@@ -549,10 +600,18 @@ class Galaxy(Group):
 
     def _init_flows(self):
         self.flows = []
-        for g,flow_index in enumerate(self.obj._galaxy_flows_index_list):
-            if flow_index == self._index:
-                flow = self.obj._galaxy_flows[g]
-                self.flows.append(flow)
+        if self.obj.have_flows:
+            for g,flow_index in enumerate(self.obj._galaxy_flows_index_list):
+                if flow_index == self._index:
+                    flow = self.obj._galaxy_flows[g]
+                    self.flows.append(flow)
+
+        self.flows_nosubs = []
+        if self.obj.have_flows_nosubs:
+            for g,flow_index in enumerate(self.obj._galaxy_flows_nosubs_index_list):
+                if flow_index == self._index:
+                    flow = self.obj._galaxy_flows_nosubs[g]
+                    self.flows_nosubs.append(flow)
 
     @property
     def slist(self):

@@ -93,18 +93,11 @@ def read_HM(obj, grouptype):
         tempR = np.fromfile(file=HMfile, dtype=np.int32, count=3)
         halo_tstep=tempR[1]
         tempR = np.fromfile(file=HMfile, dtype=np.int32, count=7)
-        if grouptype == 'halo':
-            new_group.level   = tempR[1]
-            new_group.host    = tempR[2]
-            new_group.hostsub = tempR[3]
-            new_group.nsub    = tempR[4]
-            new_group.nextsub = tempR[5]
-        else:
-            level   = tempR[1]
-            host    = tempR[2]
-            hostsub = tempR[3]
-            nsub    = tempR[4]
-            nextsub = tempR[5]
+        new_group.level   = tempR[1]
+        new_group.host    = tempR[2]
+        new_group.hostsub = tempR[3]
+        new_group.nsub    = tempR[4]
+        new_group.nextsub = tempR[5]
         # Halo total mass.
         tempR = np.fromfile(file=HMfile, dtype=np.float32, count=3)
         # Because of stupid HaloMaker, the units are in 10^11 Msun…
