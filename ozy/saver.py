@@ -95,7 +95,7 @@ def _write_dict(obj_list, k, v, hd):
             data = np.array([getattr(i,k)[kk].d for i in obj_list])
             unit = True
         else:
-            data = np.array([getattr(i,k)[kk] for i in obj_list])            
+            data = np.array([getattr(i,k)[kk] for i in obj_list])
         _write_dataset('%s.%s' % (k,kk), data, hd)
         if unit:
             hd['%s.%s' % (k,kk)].attrs.create('unit', str(vv.units).encode('utf8'))

@@ -26,7 +26,7 @@ ifeq ($(F90),ifort)
 	FPP      	 = gfortran -E # gfortran f90wrap temp files only. not compilation
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
 	F90FLAGS 	 = -O3 -cpp -fpscomp logicals -fPIC -DIMASS # use 1 and 0 for True and False
-	#F90FLAGS 	 = -g -traceback -cpp -fpscomp logicals -fPIC -DIMASS # use 1 and 0 for True and False
+	#F90FLAGS 	 = -check bounds -g -traceback -cpp -fpscomp logicals -fPIC -DIMASS # use 1 and 0 for True and False
     FCOMP    	 = intelem # for f2py
     LIBS =
 endif
@@ -65,7 +65,7 @@ VPATH = ../fortran_commons
 
 # names (without suffix), f90 sources
 LIBSRC_SOURCES = local linalg_module coordinates_module cooling_module \
-					read_amr_module \
+					read_amr_module statistics\
 					profiles_module integrator_module export_module \
 					
 
@@ -84,7 +84,7 @@ LIBSRC_FPP_FILES = $(addsuffix .fpp,${LIBSRC_SOURCES})
 
 # names (without suffix), f90 sources
 LIBSRC_WRAP_SOURCES = linalg_module coordinates_module cooling_module \
-						read_amr_module \
+						read_amr_module statistics\
 						profiles_module integrator_module export_module
 # file names
 LIBSRC_WRAP_FILES = $(addsuffix .f90,${LIBSRC_WRAP_SOURCES})

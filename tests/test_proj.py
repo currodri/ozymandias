@@ -22,12 +22,11 @@ gal = obj.galaxies[progind]
 #                                                   'gas/neighbour_accuracy','gas/grad_crp','gas/eff_FKmag'],
 #                               filter_name='all')
 
-proj = do_projection(gal,['gas/density','gas/temperature','star/sdensity',
-                          'gas/grav_therpfrsphere','gas/grav_crpfrsphere','dm/sdensity'],
-                            window=(5,'kpc'),pov='edgeon')
-proj.save_FITS('NUT_00035_edgeon.fits')
-plot_single_galaxy_projection('NUT_00035_edgeon.fits',['gas/density','gas/temperature','star/sdensity',
-                                'gas/grav_therpfrsphere','gas/grav_crpfrsphere','dm/sdensity'])
+# proj = do_projection(gal,['gas/density','gas/temperature','star/sdensity','dm/sdensity'],
+#                             window=(5,'kpc'),pov='edgeon')
+# proj.save_FITS('NUT_00035_edgeon.fits')
+# plot_single_galaxy_projection('NUT_00035_edgeon.fits',['gas/density','gas/temperature',
+#                                                        'star/sdensity','dm/sdensity'])
 
 # proj = do_projection(gal,['gas/density','gas/temperature','star/sdensity',
 #                           'gas/neighbour_accuracy','gas/grad_crp','gas/eff_FKmag'],
@@ -70,6 +69,9 @@ plot_single_galaxy_projection('NUT_00035_edgeon.fits',['gas/density','gas/temper
 # proj.save_FITS('NUT_00035_faceon.fits')
 # plot_single_galaxy_projection('NUT_00035_faceon.fits',['gas/density','gas/temperature','gas/eff_FKmag','gas/magnetic_magnitude','gas/streaming_heating','gas/grad_crp'])
 
-# proj = do_healpix_projection(gal,['gas/v_sphere_r','gas/density','gas/temperature','gas/metallicity'],r=(0.2,'rvir'),dr=(0.01,'rvir'))
+# proj = do_healpix_projection(gal,['gas/massflow_rate_sphere_r','gas/density','gas/temperature','gas/metallicity',
+#                                     'gas/magnetic_energy_specific','gas/cr_energy_specific'],
+#                                     r=(0.2,'rvir'),dr=(0.01,'rvir'),weight=['gas/absmomentum_sphere_r','star/mass'],
+#                                     remove_subs=True)
 # proj.save_FITS('NUT_00035_mollweide.fits')
-# plot_single_galaxy_healpix('NUT_00035_mollweide.fits',['gas/v_sphere_r','gas/density','gas/temperature','gas/metallicity'])
+plot_single_galaxy_healpix('NUT_00035_mollweide.fits',['gas/massflow_rate_sphere_r','gas/density','gas/temperature','gas/metallicity','gas/magnetic_energy_specific','gas/cr_energy_specific'])

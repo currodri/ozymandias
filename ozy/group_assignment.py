@@ -25,14 +25,16 @@ def galaxies_to_halos(obj):
             vec_dist       = galaxy.position - halo.position
             d              = np.linalg.norm(vec_dist)
             # TODO: Change to virial radius
-            halo_linking_l = 0.2 * halo.virial_quantities['radius']
+            halo_linking_l = 0.5 * halo.radius[linking_variable]
+            # halo_linking_l = 0.2 * halo.virial_quantities['radius']
             # If the galaxy is below the halo linking length, save distance.
             if d <= halo_linking_l:
                 distances[i] = d
                 masses[i]    = halo.virial_quantities['mass']
         # Assign most massive halo to galaxy.
         if not np.all(distances == np.infty):
-            galaxy.parent_halo_index = np.argmax(masses)
+            galaxy.parent_halo_index = np.argmin(distances)
+            #galaxy.parent_halo_index = np.argmax(masses)
     
     for halo in obj.halos:
         halo.galaxy_index_list = []
@@ -45,7 +47,13 @@ def galaxies_to_halos(obj):
     # Find lonely halos (i.e. those without a galaxy assigned).
     len_list = np.array([len(halo.galaxy_index_list) for halo in obj.halos])
     lonely_halos   = ma.masked_where(len_list > 0, obj.halos)
-    n_lonely_halos = len(lonely_halos[~lonely_halos.mask])
+    if type(lonely_halos.mask) != np.ndarray:
+        n_lonely_halos = len(obj.halos)
+        lonely_halos = np.array(obj.halos)
+        my_mask = np.full(n_lonely_halos,False)
+    else:
+        n_lonely_halos = len(lonely_halos[~lonely_halos.mask])
+        my_mask = lonely_halos.mask
     if n_lonely_halos > 0:
         lonely_halos_index_list = [k for k in range(0, len(lonely_halos)) if lonely_halos[k] is not ma.masked]
         for i in range(0, len(obj.galaxies)):
@@ -53,7 +61,7 @@ def galaxies_to_halos(obj):
             if galaxy.parent_halo_index == -1:
                 distances = np.full(n_lonely_halos, np.infty)
                 for j in range(0, n_lonely_halos):
-                    halo           = lonely_halos[~lonely_halos.mask][j]
+                    halo           = lonely_halos[~my_mask][j]
                     vec_dist       = galaxy.position - halo.position
                     d              = np.linalg.norm(vec_dist)
                     halo_linking_l = 1.0 * halo.radius[linking_variable]

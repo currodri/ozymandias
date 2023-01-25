@@ -32,7 +32,19 @@ line_dict = {'cosmoNUThd':'royalblue',
                 'cosmoNUTcrmhd':'g',
                 'cosmoNUTcrmhd\_nost':'olive',
                 'cosmoNUTcrmhd\_noheat':'darkgoldenrod',
+                'cosmoNUTcrmhd\_3e29':'firebrick',
                 'cosmoNUTrticrmhd':'firebrick'}
+
+names = {'cosmoNUThd':'HD',
+        'cosmoNUThd\_all\_cr10':'HDcr10',
+        'cosmoNUThd\_all\_cr20':'HDcr20',
+        'cosmoNUTmhd':'MHD',
+        'cosmoNUTcrmhd':'CRMHD',
+        'cosmoNUTcrmhd\_nost':'nsCRMHD',
+        'cosmoNUTcrmhd\_noheat':'nhCRMHD',
+        'cosmoNUTcrmhd\_3e29':r'CRMHD $\kappa = 3\times 10^{29}$ cm$^2$/s',
+        'cosmoNUTrticrmhd':'RTCRiMHD'
+        }
 
 if __name__ == '__main__':
 
@@ -266,12 +278,12 @@ if __name__ == '__main__':
             stellar_mass = galaxy_masses[::-1]
             gas_mass = galaxy_gas[::-1]
             time = galaxy_time[::-1]
-            axes[0].plot(time, stellar_mass, marker='o', markersize=2, label=args.model[i], color=line_dict[args.model[i]])
-            axes[1].plot(time, gas_mass, marker='o', markersize=2, label=args.model[i], color=line_dict[args.model[i]])
+            axes[0].plot(time, stellar_mass, marker='o', markersize=2, label=names[args.model[i]], color=line_dict[args.model[i]])
+            axes[1].plot(time, gas_mass, marker='o', markersize=2, label=names[args.model[i]], color=line_dict[args.model[i]])
             
         ax = axes[0]
         ax.set_xlabel(r'$t$ [Gyr]', fontsize=16)
-        ax.set_ylabel(r'$M_{*}/M_{\odot}$', fontsize=16)
+        ax.set_ylabel(r'$M_{*}$ [$M_{\odot}$]', fontsize=16)
         ax.set_ylim([9e+7,1e+11])
         ax.set_yscale('log')
         ax.tick_params(labelsize=12)
@@ -296,11 +308,11 @@ if __name__ == '__main__':
 
         ax = axes[1]
         ax.set_xlabel(r'$t$ [Gyr]', fontsize=16)
-        ax.set_ylabel(r'$M_{\rm gas}/M_{\odot}$', fontsize=16)
+        ax.set_ylabel(r'$M_{\rm gas}$ [$M_{\odot}$]', fontsize=16)
         ax.yaxis.set_label_position("right")
         ax.set_ylim([9e7,1e+11])
         ax.set_yscale('log')
-        ax.tick_params(labelsize=12,labelleft=False,labelright=True)
+        ax.tick_params(labelsize=15,labelleft=False,labelright=True)
         ax.xaxis.set_ticks_position('both')
         ax.yaxis.set_ticks_position('both')
         ax.minorticks_on()
@@ -318,7 +330,7 @@ if __name__ == '__main__':
         axR.xaxis.set_ticks_position('top') # set the position of the second x-axis to top
         axR.xaxis.set_label_position('top') # set the position of the second x-axis to top
         axR.set_xlabel(r'$z$', fontsize=16)
-        axR.tick_params(labelsize=12)
+        axR.tick_params(labelsize=15)
     
         ax.legend(loc='best', fontsize=14,frameon=False)
         fig.subplots_adjust(top=0.91, bottom=0.1,right=0.93,left=0.065,hspace=0.0,wspace=0.0)

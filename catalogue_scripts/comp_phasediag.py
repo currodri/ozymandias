@@ -32,7 +32,8 @@ names = {'cosmoNUThd':'HD',
         'cosmoNUTcrmhd':'CRMHD',
         'cosmoNUTcrmhd\_nost':'nsCRMHD',
         'cosmoNUTcrmhd\_noheat':'nhCRMHD',
-        'cosmoNUTrticrmhd':'RTCRiMHD'
+        'cosmoNUTrticrmhd':'RTCRiMHD',
+        'cosmoNUTcrmhd\_3e29':'3e29CRMHD'
         }
 
 if __name__ == '__main__':
@@ -53,7 +54,7 @@ if __name__ == '__main__':
     parser.add_argument('--sfeff', type=float, default=0.01, help='For the case of plots with SF eff, is the theshold included.')
     parser.add_argument('--layout', type=str, default='compact', help='How the plots should be organised.')
     parser.add_argument('--recompute',action='store_true', help='If present, it recomputes 2D profiles.')
-    parser.add_argument('--nolog',action='store_false', help='If present, it deactivates logairthmic bins.')
+    parser.add_argument('--scaletype',type=str, default='log_even', help='Type of scale for the bins.')
     parser.add_argument('--stats',type=str, default='none', help='What stats to use for the overplotted line.')
     parser.add_argument('--NUT', type=bool, default=True, help='If True, it looks for NUT as the most massive galaxy (stars) in the last snapshot.')
     args = parser.parse_args()
@@ -120,7 +121,7 @@ if __name__ == '__main__':
                     rmin, rmax = (0.2, 'rvir'),(1.0, 'rvir')
                 elif args.region == 'shell_rvir':
                     rmin, rmax = (0.99, 'rvir'),(1.1, 'rvir')
-                print('log: ',args.nolog)
+                print('scale type: ',args.scaletype)
                 if args.doflows:
                     # Escape velocity at 0.2 Rvir of the halo
                     v_escape = 2*G*gal.mass['total']/(0.2*sim.halos[gal.parent_halo_index].virial_quantities['radius'])
@@ -128,18 +129,18 @@ if __name__ == '__main__':
                     print('v_sphere_r/>=/%.3f/km*s**-1'%v_escape)
                     outflow = compute_phase_diagram(gal,os.path.join(groupspath, ozyfile), args.xvar,args.yvar, [args.field],
                                 [args.weight],save=True,recompute=args.recompute, filter_conds='v_sphere_r/>/10/km*s**-1', filter_name='outflow'+'_'+args.region,
-                                rmin=rmin,rmax=rmax,logscale=args.nolog,
+                                rmin=rmin,rmax=rmax,scaletype=args.scaletype,
                                 cr_st = cr_flags[0],cr_heat=cr_flags[1])
                     inflow = compute_phase_diagram(gal,os.path.join(groupspath, ozyfile), args.xvar,args.yvar, [args.field],
                                 [args.weight],save=True,recompute=args.recompute, filter_conds='v_sphere_r/</-10/km*s**-1', filter_name='inflow'+'_'+args.region,
-                                rmin=rmin,rmax=rmax,logscale=args.nolog,
+                                rmin=rmin,rmax=rmax,scaletype=args.scaletype,
                                 cr_st = cr_flags[0],cr_heat=cr_flags[1])
                     escape = compute_phase_diagram(gal,os.path.join(groupspath, ozyfile), args.xvar,args.yvar, [args.field],
                                 [args.weight],save=True,recompute=args.recompute, filter_conds='v_sphere_r/>=/%.3f/km*s**-1'%v_escape, filter_name='escaping'+'_'+args.region,
-                                rmin=rmin,rmax=rmax,logscale=args.nolog,
+                                rmin=rmin,rmax=rmax,scaletype=args.scaletype,
                                 cr_st = cr_flags[0],cr_heat=cr_flags[1])
                 pd = compute_phase_diagram(gal,os.path.join(groupspath, ozyfile), args.xvar,args.yvar, [args.field],
-                            [args.weight],save=True,recompute=args.recompute,rmin=rmin,rmax=rmax,filter_name=args.region,logscale=args.nolog,
+                            [args.weight],save=True,recompute=args.recompute,rmin=rmin,rmax=rmax,filter_name=args.region,scaletype=args.scaletype,
                             cr_st = cr_flags[0],cr_heat=cr_flags[1])
                 if args.doflows:
                     pds.append([pd,outflow,inflow,escape])
@@ -149,7 +150,7 @@ if __name__ == '__main__':
             namephase = '_'+args.xvar+'_'+args.yvar+'_'
             plot_compare_phase_diagram(pds,args.field.split('/')[1],'compare_pd'+namephase+args.region+'_'+args.field.split('/')[1]+'_'+str(args.z[z]),
                                         weightvar=args.weight.split('/')[1],stats=args.stats,extra_labels=args.model,
-                                        doflows=args.doflows,logscale=args.nolog)
+                                        doflows=args.doflows,scaletype=args.scaletype)
             args.model = simfolders
     elif args.type == 'model_stacked':
         if not isinstance(args.model, list):
@@ -258,15 +259,15 @@ if __name__ == '__main__':
                         print('v_sphere_r/>=/%.3f/km*s**-1'%v_escape)
                         outflow = compute_phase_diagram(gal,os.path.join(groupspath, neigh_snaps[n]), args.xvar,args.yvar, [args.field],
                                     [args.weight],save=True,recompute=args.recompute, filter_conds='v_sphere_r/>/10/km*s**-1', filter_name='outflow'+'_'+args.region,
-                                    rmin=rmin,rmax=rmax,logscale=args.nolog,
+                                    rmin=rmin,rmax=rmax,scaletype=args.scaletype,
                                 cr_st = cr_flags[0],cr_heat=cr_flags[1])
                         inflow = compute_phase_diagram(gal,os.path.join(groupspath, neigh_snaps[n]), args.xvar,args.yvar, [args.field],
                                     [args.weight],save=True,recompute=args.recompute, filter_conds='v_sphere_r/</-10/km*s**-1', filter_name='inflow'+'_'+args.region,
-                                    rmin=rmin,rmax=rmax,logscale=args.nolog,
+                                    rmin=rmin,rmax=rmax,scaletype=args.scaletype,
                                 cr_st = cr_flags[0],cr_heat=cr_flags[1])
                         escape = compute_phase_diagram(gal,os.path.join(groupspath, neigh_snaps[n]), args.xvar,args.yvar, [args.field],
                                     [args.weight],save=True,recompute=args.recompute, filter_conds='v_sphere_r/>=/%.3f/km*s**-1'%v_escape, filter_name='escaping'+'_'+args.region,
-                                    rmin=rmin,rmax=rmax,logscale=args.nolog,
+                                    rmin=rmin,rmax=rmax,scaletype=args.scaletype,
                                 cr_st = cr_flags[0],cr_heat=cr_flags[1])
                     if args.do_sf:
                         if sim.simulation.physics['magnetic'] or sim.simulation.physics['cr']:
@@ -277,11 +278,11 @@ if __name__ == '__main__':
                         print(condition_sf)
                         starforming = compute_phase_diagram(gal,os.path.join(groupspath, neigh_snaps[n]), args.xvar,args.yvar, [args.field],
                                         [args.weight],save=True,recompute=args.recompute, filter_conds=condition_sf, filter_name='starforming'+'_'+args.region,
-                                        rmin=rmin,rmax=rmax,logscale=args.nolog,
+                                        rmin=rmin,rmax=rmax,scaletype=args.scaletype,
                                         cr_st = cr_flags[0],cr_heat=cr_flags[1])
                         
                     pd = compute_phase_diagram(gal,os.path.join(groupspath, neigh_snaps[n]), args.xvar,args.yvar, [args.field],
-                                [args.weight],save=True,recompute=args.recompute,rmin=rmin,rmax=rmax,filter_name=args.region,logscale=args.nolog,
+                                [args.weight],save=True,recompute=args.recompute,rmin=rmin,rmax=rmax,filter_name=args.region,scaletype=args.scaletype,
                                 cr_st = cr_flags[0],cr_heat=cr_flags[1])
                     if args.doflows and args.do_sf:
                         pds[i].append([pd,outflow,inflow,escape,starforming])

@@ -58,6 +58,7 @@ module export_part
         integer(1),dimension(:), allocatable :: part_tags
 #endif
         integer,dimension(:),allocatable :: plevel
+        real(dbl) :: particle_h
         real(dbl),dimension(:),allocatable :: m,age,met,imass
         real(dbl),dimension(:,:),allocatable :: x,v
 
@@ -126,7 +127,7 @@ module export_part
         101 format('# Column 1: x-coordinate (kpc)',/, &
                     '# Column 2: y-coordinate (kpc)',/,&
                     '# Column 3: z-coordinate (kpc)',/,&
-                    '# Column 4: smoothing length (kpc)',/,&
+                    '# Column 4: smoothing length (pc)',/,&
                     '# Column 5: x-velocity (km/s)',/, &
                     '# Column 6: y-velocity (km/s)',/,&
                     '# Column 7: z-velocity (km/s)',/,&
@@ -157,7 +158,7 @@ module export_part
                 allocate(part_tags(1:npart2))
 #endif
             ! Settup arrays for the required smoothmethod
-            if (TRIM(sedmethod).eq.'level') then
+            if (TRIM(smoothmethod).eq.'level') then
                 allocate(plevel(1:npart2))
             end if
             endif
@@ -248,17 +249,25 @@ module export_part
                     varname = 'star/age'
                     call getpartvalue(reg,part,varname,tempage)
                     part%age = tempage
+                    ! Get smoothing length with the choosen method
+                    select case (TRIM(smoothmethod))
+                        case ('constant')
+                            particle_h = H
+                        case ('level')
+                            particle_h = (1D0/(2**plevel(i)))*sim%unit_l*cm2pc
+                    end select
                     write(7,100)part%x%x,part%x%y,part%x%z,&
-                                h,&
+                                particle_h,&
                                 part%v%x,part%v%y,part%v%z,&
                                 part%imass,&
                                 part%met,&
                                 part%age
-                    100 format(3F10.6,F10.6,4F10.2,F10.6,F10.6)
+                    100 format(3F10.6,F10.2,4F10.2,F10.6,F10.6)
                 endif
             end do partloop
             deallocate(m,x,v)
             if (nstar>0)deallocate(age,met,imass)
+            if (allocated(plevel)) deallocate(plevel)
 #ifndef IMASS
             if (nstar>0)deallocate(part_tags)
 #endif

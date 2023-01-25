@@ -79,7 +79,7 @@ def read_infofile(infopath):
             info['redshift'] = 1./info['aexp'] - 1.
     return info
 
-def closest_snap_z(simfolder,z):
+def closest_snap_z(simfolder,z,return_index=False):
     """
     Using the IDtoZetas Fortran script, it gets the snapshot
     closest in redshift to the wanted value.
@@ -92,8 +92,11 @@ def closest_snap_z(simfolder,z):
 
     ozyfile = 'ozy_%05d.hdf5' % (indexout)
 
-    return ozyfile
-
+    if return_index:
+        return ozyfile, indexout
+    else:
+        return ozyfile
+    
 def get_tdyn(galaxy):
         """
         Computes the dynamical time-scale tdyn as
@@ -344,7 +347,7 @@ def tidal_radius(central, satellite, method='BT87_simple'):
     Computation of the tidal radius of a satellite with respect to a central galaxy.
     """
     from amr2 import filtering
-    from amr2 import amr_integrator
+    from amr2 import amr_integrator,stats_utils
     from part2 import part_integrator
 
     if method == 'BT87_simple':
@@ -381,14 +384,21 @@ def tidal_radius(central, satellite, method='BT87_simple'):
         # Then gas
         glob_attrs = amr_integrator.amr_region_attrs()
         glob_attrs.nvars = 1
-        glob_attrs.nwvars = 1
         glob_attrs.nfilter = 1
         amr_integrator.allocate_amr_regions_attrs(glob_attrs)
         glob_attrs.varnames.T.view('S128')[0] = b'mass'.ljust(128)
-        glob_attrs.wvarnames.T.view('S128')[0] = b'cumulative'.ljust(128)
+        glob_attrs.result[0].nbins = 5
+        glob_attrs.result[0].nfilter = 1
+        glob_attrs.result[0].nwvars = 1
+        glob_attrs.result[0].varname = 'mass'
+        mybins = get_code_bins(central.obj,'gas/mass',5)
+        glob_attrs.result[0].scaletype = mybins[1]
+        stats_utils.allocate_pdf(glob_attrs.result[0])
+        glob_attrs.result[0].bins = mybins[0]
+        glob_attrs.result[0].wvarnames.T.view('S128')[0] = b'mass'.ljust(128)
         glob_attrs.filters[0] = filt
         amr_integrator.integrate_region(output_path,selected_reg,False,glob_attrs)
-        gas_mass = central.obj.quantity(glob_attrs.data[0,0,0,0], 'code_mass')
+        gas_mass = central.obj.quantity(glob_attrs.result[0].totweights[0,0], 'code_mass')
 
         tot_mass = gas_mass  + part_mass
         r = (satellite.virial_quantities['mass'] / (3.0*tot_mass))**(1.0/3.0) * d
@@ -976,6 +986,237 @@ def gent_curve(limit,T):
     return rho
 
 
+def stats_from_pdf(x,PDF):
+    """This function allows a quick computation of summary statistics
+        used when normalised PDFs are returned from Ozymandias codes.
+    """
+    from scipy import interpolate, optimize
+
+    # Check for misbehaving PDFs
+    if any(np.isnan(PDF)):
+        print('Empty PDF, ignoring!')
+        return np.zeros(5)
+    if all(PDF==0):
+        print('Empty PDF, ignoring!')
+        return np.zeros(5)
+    if any(PDF<0):
+        print('This PDF has negative values, so will be ignored!')
+        return np.zeros(5)
+
+    CDF = np.cumsum(PDF)
+    if CDF[-1] > 1.1 or CDF[-1]<0.9:
+        print('Your PDF exceeds/lacks a total integral of 1 by more than 10%. Please check!')
+        PDF = PDF/np.sum(PDF)
+        CDF = np.cumsum(PDF)
+    
+    # Mean using sum over x * PDF(x)
+    mean = np.sum(x*PDF)
+
+    # Standard deviation using sqrt of the sum over (x-mean)^2 * PDF
+    std = np.sqrt(abs(np.sum((x-mean)**2*PDF)))
+    # Get interpolation of discrete CDF
+    f = interpolate.interp1d(x,CDF)
+    
+    # import matplotlib.pyplot as plt
+    # fig, ax = plt.subplots(1, 1, sharex=True, figsize=(6,4), dpi=100, facecolor='w', edgecolor='k')
+    # ax.set_ylim([0,1])
+    # ax.step(x,CDF)
+    # ax.plot(x,f(x))
+    # ax.plot([mean,mean],[0,1])
+    # fig.savefig('/mnt/zfsusers/currodri/Codes/ozymandias/tests/test_cdf.png')
+    # fig, ax = plt.subplots(1, 1, sharex=True, figsize=(6,4), dpi=100, facecolor='w', edgecolor='k')
+    # ax.step(x,PDF)
+    # ax.plot([mean,mean],[0,max(PDF)])
+    # fig.savefig('/mnt/zfsusers/currodri/Codes/ozymandias/tests/test_pdf.png')
+    interp_median = lambda x: f(x) - 0.5
+    interp_q2 = lambda x: f(x) - 0.25
+    interp_q4 = lambda x: f(x) - 0.75
+
+    try:
+        # Find roots of the interpolated CDF using the Newton-Rhapson method,
+        # beginning from the mean value
+        median = optimize.newton(interp_median,mean)
+        q2 = optimize.newton(interp_q2,median)
+        q4 = optimize.newton(interp_q4,median)
+    except:
+        # If that doesn't converge, just try the safer Brent's method
+        print(interp_q2(min(x)),interp_q2(max(x)))
+        if interp_q2(min(x)) >= 0.0:
+            # In the case that everything fails...
+            median = min(x)
+            q2 = min(x)
+            q4 = max(x[PDF>0.0])
+        else:
+            median = optimize.brentq(interp_median,min(x),max(x))
+            q2 = optimize.brentq(interp_q2,min(x),max(x))
+            q4 = optimize.brentq(interp_q4,min(x),max(x))
+
+    return np.array([mean,median,std,q2,q4])
+
+def pdf_handler_to_stats(obj,pdf_obj,ifilt):
+    nwvar = pdf_obj.nwvars
+    stats_array = np.zeros((nwvar,7))
+    # Some fields have specific numerical flags at the end
+    # which do not interfere with the units. If that is 
+    # the case, get rid of that last 
+    varname = str(pdf_obj.varname.decode("utf-8")).rstrip()
+    scaletype = str(pdf_obj.scaletype.decode("utf-8")).rstrip() 
+    try:
+        numflag = int(varname.split('_')[-1])
+        numflag = True
+    except:
+        numflag = False
+    if numflag:
+        sfrstr = varname.split('_')[0] +'_'+ varname.split('_')[1]
+        code_units = get_code_units(sfrstr)
+    else:
+        code_units = get_code_units(varname)
+    for i in range(0, nwvar):
+        PDF = pdf_obj.heights[ifilt,i,:]
+        x = 0.5*(pdf_obj.bins[1:]+pdf_obj.bins[:-1])
+        print(varname,x,PDF,obj.array(np.array([pdf_obj.minv[ifilt],pdf_obj.maxv[ifilt]]),code_units))
+        stats_array[i,:5] = stats_from_pdf(x,PDF)
+        if scaletype == 'log_even':
+            # Propagation of errors from x to 10^x
+            orig_sigma = stats_array[i,2]
+            stats_array[i,:5] = 10**stats_array[i,:5]
+            new_sigma = np.log(10)*orig_sigma*stats_array[i,0]
+            stats_array[i,2] = new_sigma
+        stats_array[i,5:] = np.array([pdf_obj.minv[ifilt],pdf_obj.maxv[ifilt]])
+            
+    stats_array = obj.array(stats_array,code_units)
+    return stats_array
+    
+
+def symlog_bins(min_val, max_val, n_bins, zero_eps=0.1, padding=0):
+    """
+    Splits a data range into log-like bins but with 0 and negative values taken into account.
+    Can be used together with matplotlib 'symlog' axis sacale (i.e. ax.set_xscale('symlog'))
+    Feel free to contribute: https://gist.github.com/artoby/0bcf790cfebed5805fbbb6a9853fe5d5
+    """
+    a = min_val / (1 + padding)
+    b = max_val * (1 + padding)
+        
+    if a > b:
+        a, b = b, a
+        
+    neg_range_log = None
+    if a < -zero_eps:
+        neg_range_log = [np.log10(-a), np.log10(zero_eps)]
+    
+    # Add a value to zero bin edges in case a lies within [-zero_eps; zero_eps) - so an additional bin will be added before positive range
+    zero_bin_edges = []
+    if -zero_eps <= a < zero_eps:
+        zero_bin_edges = [a]
+            
+    pos_range_log = None
+    if b > zero_eps:
+        pos_range_log = [np.log10(max(a, zero_eps)), np.log10(b)]
+
+    nonzero_n_bin_edges = n_bins + 1 - len(zero_bin_edges)
+    
+    neg_range_log_size = (neg_range_log[0] - neg_range_log[1]) if neg_range_log is not None else 0
+    pos_range_log_size = (pos_range_log[1] - pos_range_log[0]) if pos_range_log is not None else 0
+    
+    range_log_size = neg_range_log_size + pos_range_log_size
+    pos_n_bin_edges_raw = int(round(nonzero_n_bin_edges * (pos_range_log_size/range_log_size))) if range_log_size > 0 else 0
+    # Ensure each range has at least 2 edges if it's not empty
+    neg_n_bin_edges = max(2, nonzero_n_bin_edges - pos_n_bin_edges_raw) if neg_range_log_size > 0 else 0
+    pos_n_bin_edges = max(2, nonzero_n_bin_edges - neg_n_bin_edges) if pos_range_log_size > 0 else 0
+    
+    neg_bin_edges = []
+    if neg_n_bin_edges > 0:
+        neg_bin_edges = list(-np.logspace(neg_range_log[0], neg_range_log[1], neg_n_bin_edges))
+        
+    pos_bin_edges = []
+    if pos_n_bin_edges > 0:
+        pos_bin_edges = list(np.logspace(pos_range_log[0], pos_range_log[1], pos_n_bin_edges))
+    
+    result = neg_bin_edges + zero_bin_edges + pos_bin_edges
+    return np.asarray(result)
+
+def get_code_bins(obj,varname,nbins=100,logscale=True):
+    """This function provides bins for RAMSES variables in 
+        code units, taking into account issues with variables
+        with negative values."""
+    from ozy.plot_settings import plotting_dictionary, \
+                                symlog_variables
+    from ozy.dict_variables import check_need_neighbours, common_variables, \
+                                    grid_variables, \
+                                    particle_variables, \
+                                    get_code_units,basic_conv
+    # Begin by checking the existence of the variable
+    var_type = varname.split('/')[0]
+    var_name = varname.split('/')[1]
+    ok_var = False
+    if var_type == 'gas':
+        if var_name in common_variables or var_name in grid_variables:
+                ok_var = True
+        else:
+            raise KeyError('This gas variable is not supported. Please check!: %s', varname)
+    elif var_type == 'star':
+        if var_name.split('_')[0] == 'sfr':
+            if len(var_name.split('_')) == 3:
+                sfr_name = var_name.split('_')[0] +'_'+var_name.split('_')[1]
+            else:
+                sfr_name = var_name.split('_')[0]
+            if sfr_name in particle_variables:
+                ok_var = True
+            else:
+                raise KeyError('This star variable is not supported. Please check!')
+        else:
+            if var_name in common_variables or var_name in particle_variables:
+                ok_var = True
+            else:
+                raise KeyError('This star variable is not supported. Please check!')
+    elif var_type == 'dm':
+        if var_name in common_variables or var_name in particle_variables:
+            ok_var = True
+        else:
+            raise KeyError('This DM variable is not supported. Please check!')
+    
+    if not ok_var:
+        print('Your variable is not found!')
+        exit
+
+    # If everything is fine, we go and compute the bin edges
+    if varname.split('/')[0] == 'star' or varname.split('/')[0] == 'dm':
+        plotting_def = plotting_dictionary[varname.split('/')[0]+'_'+varname.split('/')[1]]
+        stellar = True
+    else:
+        plotting_def = plotting_dictionary[varname.split('/')[1]]
+
+    # The quantities should be in code units, so we transform them
+    min_val = obj.quantity(plotting_def['bin_min'],plotting_def['units'])
+    max_val = obj.quantity(plotting_def['bin_max'],plotting_def['units'])
+    # Some fields have specific numerical flags at the end
+    # which do not interfere with the units. If that is 
+    # the case, get rid of that last bit
+    try:
+        numflag = int(varname.split('/')[1].split('_')[-1])
+        numflag = True
+    except:
+        numflag = False
+    if numflag:
+        sfrstr = varname.split('/')[1].split('_')[0] +'_'+ varname.split('/')[1].split('_')[1]
+        code_units = get_code_units(sfrstr)
+    else:
+        code_units = get_code_units(varname.split('/')[1])
+    min_val = min_val.to(code_units).d
+    max_val = max_val.to(code_units).d
+    if logscale:
+        if varname.split('/')[1] not in symlog_variables:
+            bin_edges = np.linspace(np.log10(min_val),np.log10(max_val),nbins+1)
+            scaletype = 'log_even'
+        else:
+            linthresh = obj.quantity(plotting_def['linthresh'],plotting_def['units'])
+            bin_edges = symlog_bins(min_val,max_val,nbins,zero_eps=linthresh.to(code_units).d)
+            scaletype = 'symlog'
+    else:
+        bin_edges = np.linspace(min_val,max_val,nbins+1)
+        scaletype = 'linear_even'
+        
+    return bin_edges,scaletype
 
     
 

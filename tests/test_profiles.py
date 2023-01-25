@@ -42,8 +42,6 @@ ax.tick_params(which='both',axis="both",direction="in")
 print(prof.ydata['hydro'][0].shape)
 
 new_x = 0.5*(prof.xdata[0][:-1]+prof.xdata[0][1:])
-new_x = np.concatenate(([0.5*prof.xdata[0][0]], new_x),axis=0)
-new_x = obj.array(new_x,'code_length')
 print(new_x.in_units('kpc'),prof.ydata['hydro'][0][:,1,0].in_units('g*cm**-3'))
 ax.plot(new_x.in_units('kpc'),prof.ydata['hydro'][0][:,1,0].in_units('g*cm**-3'), label='ozymandias')
 

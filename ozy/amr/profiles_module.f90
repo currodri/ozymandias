@@ -24,9 +24,10 @@ module amr_profiles
     use io_ramses
     use filtering
     use geometrical_regions
+    use stats_utils
 
     type profile_handler
-        logical :: logscale
+        character(128) :: scaletype
         logical :: cr_st=.false.,cr_heat=.false.
         integer :: profdim
         character(128) :: xvarname
@@ -85,141 +86,7 @@ module amr_profiles
         if (prof%cr_heat)sim%cr_heat = .true.
     end subroutine allocate_profile_handler_twod
 
-    subroutine makebins(reg,varname,nbins,bins,logscale)
-        use geometrical_regions
-
-        implicit none
-        type(region),intent(in) :: reg
-        character(128),intent(in) :: varname
-        integer,intent(in) :: nbins
-        real(dbl),dimension(0:nbins),intent(inout) :: bins
-        logical,intent(in) :: logscale
-        integer :: n
-        real(dbl) :: temp_convfac,pressure_convfac,velocity_convfac
-        real(dbl) :: rmin
-
-        temp_convfac = ((sim%unit_l/sim%unit_t)**2)/1.38d-16*1.66d-24
-        pressure_convfac = sim%unit_d*((sim%unit_l/sim%unit_t)**2)
-        velocity_convfac = sim%unit_l/sim%unit_t
-
-        select case (TRIM(varname))
-        case('r_sphere','r_cyl')
-            rmin = max(1D0/(2D0**(amr%nlevelmax-1)),1D-3*reg%rmax)
-            do n=0,nbins
-                if (logscale) then
-                    if (reg%rmin.eq.0D0) then
-                        bins(n) = dble(n)*(log10(reg%rmax)-log10(rmin))/dble(nbins) + log10(rmin)
-                    else
-                        bins(n) = dble(n)*(log10(reg%rmax)-log10(reg%rmin))/dble(nbins) + log10(reg%rmin)
-                    end if
-                else
-                    bins(n) = dble(n)*(reg%rmax-reg%rmin)/dble(nbins) + reg%rmin
-                endif
-            end do
-        case('z')
-            rmin = max(1D0/(2D0**(amr%nlevelmax-1)),1D-3*reg%zmax)
-            do n=0,nbins
-                if (logscale) then
-                    if (reg%zmin.eq.0D0) then
-                        bins(n) = dble(n)*(log10(reg%zmax)-log10(rmin))/dble(nbins) + log10(rmin)
-                    else
-                        bins(n) = dble(n)*(log10(reg%zmax)-log10(reg%zmin))/dble(nbins) + log10(reg%zmin)
-                    end if
-                else
-                    bins(n) = dble(n)*(reg%zmax-reg%zmin)/dble(nbins) + reg%zmin
-                endif
-            end do
-        case('density')
-            do n=0,nbins
-                if (logscale) then
-                    bins(n) = dble(n)*(log10(1D-20/sim%unit_d)-log10(1D-30/sim%unit_d))/dble(nbins) + log10(1D-30/sim%unit_d)
-                else
-                    bins(n) = dble(n)*(1D-20/sim%unit_d - 1D-30/sim%unit_d)/dble(nbins) + 1D-30/sim%unit_d
-                endif
-            end do
-        case('temperature')
-            do n=0,nbins
-                if (logscale) then
-                    bins(n) = dble(n)*(log10(1D8/temp_convfac)-log10(1D0/temp_convfac))/dble(nbins) + log10(1D0/temp_convfac)
-                else
-                    bins(n) = dble(n)*(1D8/temp_convfac - 1D0/temp_convfac)/dble(nbins) + 1D0/temp_convfac
-                endif
-            end do
-        case('total_coolingtime')
-            do n=0,nbins
-                if (logscale) then
-                    bins(n) = dble(n)*(log10(3.15D18/sim%unit_t)-log10(3.15D13/sim%unit_t))/dble(nbins) + log10(3.15D13/sim%unit_t)
-                else
-                    bins(n) = dble(n)*(3.15D18/sim%unit_t - 3.15D13/sim%unit_t)/dble(nbins) + 3.15D13/sim%unit_t
-                endif
-            end do
-        case('thermal_pressure')
-            do n=0,nbins
-                if (logscale) then
-                    bins(n) = dble(n)*(log10(1D-9/pressure_convfac)-log10(1D-16/pressure_convfac))/dble(nbins) + log10(1D-16/pressure_convfac)
-                else
-                    bins(n) = dble(n)*(1D-9/pressure_convfac - 1D-16/pressure_convfac)/dble(nbins) + 1D-16/pressure_convfac
-                endif
-            end do
-        case('v_sphere_r')
-            do n=0,nbins
-                if (logscale) then
-                    write(*,*)'You cannot use logscale for a velocity profile. Stopping!'
-                    stop
-                else
-                    bins(n) = dble(n)*(4D7/velocity_convfac + 4D7/velocity_convfac)/dble(nbins) - 4D7/velocity_convfac
-                endif
-            end do
-        case('theta_sphere')
-            do n=0,nbins
-                if (logscale) then
-                    bins(n) = dble(n)*(log10(pi))/dble(nbins)
-                else
-                    bins(n) = dble(n)*(pi + 0D0)/dble(nbins) - 0D0
-                endif
-            end do
-        !TODO: Add more cases
-        end select
-    end subroutine makebins
-
-    subroutine findbinpos(reg,distance,pos,cellvars,cellsons,cellsize,prof,ibin,trans_matrix,grav_var)
-        use vectors
-        use geometrical_regions
-        implicit none
-        type(region),intent(in) :: reg
-        real(dbl),dimension(1:3),intent(in) :: pos
-        real(dbl),intent(in) :: distance
-        real(dbl),dimension(0:amr%twondim,1:varIDs%nvar),intent(in) :: cellvars
-        integer,dimension(0:amr%twondim),intent(in) :: cellsons
-        real(dbl),intent(in) :: cellsize
-        type(profile_handler),intent(in) :: prof
-        integer,intent(inout) :: ibin
-        real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
-        real(dbl),dimension(0:amr%twondim,1:4),optional,intent(in) :: grav_var
-        real(dbl) :: value
-        type(vector) :: x
-
-        x = pos
-        if (prof%xvarname.eq.reg%criteria_name) then
-            value = distance
-        else
-            if (present(grav_var)) then
-                call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%xvarname,value,trans_matrix,grav_var)
-            else
-                call getvarvalue(reg,cellsize,x,cellvars,cellsons,prof%xvarname,value,trans_matrix)
-            end if
-        endif
-        if (prof%logscale) value = log10(value)
-
-        ibin = int(dble(prof%nbins)*(value-prof%xdata(0))/(prof%xdata(prof%nbins)-prof%xdata(0))) + 1
-        if (value .eq. prof%xdata(prof%nbins)) then
-            ibin = prof%nbins
-        else if (value<prof%xdata(0).or.value>prof%xdata(prof%nbins)) then
-            ibin = 0
-        end if
-    end subroutine findbinpos
-
-    subroutine findbinpos_twod(reg,distance,pos,cellvars,cellsons,cellsize,prof,logscale,ibinx,ibiny,trans_matrix,grav_var)
+    subroutine findbinpos_twod(reg,distance,pos,cellvars,cellsons,cellsize,prof,scaletype,ibinx,ibiny,trans_matrix,grav_var)
         use vectors
         use geometrical_regions
         implicit none
@@ -230,7 +97,7 @@ module amr_profiles
         integer,dimension(0:amr%twondim),intent(in) :: cellsons
         real(dbl),intent(in) :: cellsize
         type(profile_handler_twod),intent(in) :: prof
-        logical,intent(in) :: logscale
+        character(128),intent(in) :: scaletype
         integer,intent(inout) :: ibinx,ibiny
         real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
         real(dbl),dimension(0:amr%twondim,1:4),optional,intent(in) :: grav_var
@@ -248,7 +115,7 @@ module amr_profiles
             end if
         endif
         ! print*,value
-        if (logscale) then
+        if (trim(scaletype).eq.'log_even') then
             if (value.le.0D0) then
                 ibinx = 0
             else
@@ -270,7 +137,7 @@ module amr_profiles
             end if
         endif
         ! print*,value
-        if (logscale) then
+        if (trim(scaletype).eq.'log_even') then
             if (value.le.0D0) then
                     ibiny = 0
             else
@@ -447,7 +314,7 @@ module amr_profiles
         integer :: roterr
         character(5) :: nchar,ncharcpu
         character(128) :: nomfich
-        real(dbl) :: distance,dx
+        real(dbl) :: distance,dx,ytemp
         type(vector) :: xtemp,vtemp,gtemp
         integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
         real(dbl),dimension(:),allocatable :: xxg,son_dens
@@ -805,10 +672,17 @@ module amr_profiles
                             if (ok_cell) then
                                 binpos = 0
                                 if (read_gravity) then
-                                    call findbinpos(reg,distance,x(i,:),tempvar,tempson,dx,prof_data,binpos,trans_matrix,tempgrav_var)
+                                    call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                    & dx,binpos,ytemp,trans_matrix,&
+                                                    & prof_data%scaletype,prof_data%nbins,&
+                                                    & prof_data%xdata,prof_data%xvarname,&
+                                                    & tempgrav_var)
                                     if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,trans_matrix,tempgrav_var)
                                 else
-                                    call findbinpos(reg,distance,x(i,:),tempvar,tempson,dx,prof_data,binpos,trans_matrix)
+                                    call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                    & dx,binpos,ytemp,trans_matrix,&
+                                                    & prof_data%scaletype,prof_data%nbins,&
+                                                    & prof_data%xdata,prof_data%xvarname)
                                     if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,trans_matrix)
                                 end if
                             endif
@@ -827,7 +701,7 @@ module amr_profiles
         end do cpuloop
     end subroutine get_cells_onedprofile
 
-    subroutine onedprofile(repository,reg,filt,prof_data,lmax,logscale)
+    subroutine onedprofile(repository,reg,filt,prof_data,lmax,scaletype)
         use geometrical_regions
         implicit none
         character(128),intent(in) :: repository
@@ -835,7 +709,7 @@ module amr_profiles
         type(filter),intent(in) :: filt
         type(profile_handler),intent(inout) :: prof_data
         integer,intent(in) :: lmax
-        logical,intent(in) :: logscale
+        character(128),intent(in) :: scaletype
 
         call read_hydrofile_descriptor(repository)
 
@@ -844,8 +718,8 @@ module amr_profiles
         if (lmax.eq.0) amr%lmax = amr%nlevelmax
         prof_data%xdata = 0D0
         prof_data%ydata = 0D0
-        prof_data%logscale = logscale
-        call makebins(reg,prof_data%xvarname,prof_data%nbins,prof_data%xdata,logscale)
+        prof_data%scaletype = scaletype
+        prof_data%xdata = makebins(reg,prof_data%xvarname,prof_data%nbins,scaletype)
         
         call get_cpu_map(reg)
         write(*,*)'ncpu_read:',amr%ncpu_read
@@ -853,11 +727,11 @@ module amr_profiles
 
         call renormalise_bins(prof_data)
 
-        if (logscale) prof_data%xdata = 10.**(prof_data%xdata)
+        if (trim(scaletype).eq.'log_even') prof_data%xdata = 10.**(prof_data%xdata)
 
     end subroutine onedprofile
 
-    subroutine twodprofile(repository,reg,filt,prof_data,lmax,logscale)
+    subroutine twodprofile(repository,reg,filt,prof_data,lmax,scaletype)
         use geometrical_regions
         implicit none
         character(128),intent(in) :: repository
@@ -865,7 +739,7 @@ module amr_profiles
         type(filter),intent(in) :: filt
         type(profile_handler_twod),intent(inout) :: prof_data
         integer,intent(in) :: lmax
-        logical,intent(in) :: logscale
+        character(128),intent(in) :: scaletype
 
         call read_hydrofile_descriptor(repository)
         call init_amr_read(repository)
@@ -876,17 +750,17 @@ module amr_profiles
         prof_data%ydata = 0D0
         prof_data%zdata = 0D0
 
-        call makebins(reg,prof_data%xvarname,prof_data%nbins(1),prof_data%xdata,logscale)
-        call makebins(reg,prof_data%yvarname,prof_data%nbins(2),prof_data%ydata,logscale)
+        prof_data%xdata = makebins(reg,prof_data%xvarname,prof_data%nbins(1),scaletype)
+        prof_data%ydata = makebins(reg,prof_data%yvarname,prof_data%nbins(2),scaletype)
         write(*,*)'lmax: ',amr%lmax
         call get_cpu_map(reg)
         write(*,*)'ncpu_read:',amr%ncpu_read
-        call get_cells_twodprofile(repository,reg,filt,prof_data,logscale)
+        call get_cells_twodprofile(repository,reg,filt,prof_data,scaletype)
         call renormalise_bins_twod(prof_data)
 
     end subroutine twodprofile
 
-    subroutine get_cells_twodprofile(repository,reg,filt,prof_data,logscale)
+    subroutine get_cells_twodprofile(repository,reg,filt,prof_data,scaletype)
         use vectors
         use coordinate_systems
         use geometrical_regions
@@ -895,7 +769,7 @@ module amr_profiles
         type(region), intent(in)  :: reg
         type(filter),intent(in) :: filt
         type(profile_handler_twod),intent(inout) :: prof_data
-        logical,intent(in) :: logscale
+        character(128),intent(in) :: scaletype
         integer :: xbinpos,ybinpos
         logical :: ok_cell,ok_filter,read_gravity
         integer :: i,j,k
@@ -1243,7 +1117,7 @@ module amr_profiles
                                 total_ncell = total_ncell + 1
                                 if (read_gravity) then
                                     call findbinpos_twod(reg,distance,x(i,:),tempvar,tempson,&
-                                                        &dx,prof_data,logscale,xbinpos,ybinpos,&
+                                                        &dx,prof_data,scaletype,xbinpos,ybinpos,&
                                                         &trans_matrix,tempgrav_var)
                                     if (xbinpos.ne.0.and.ybinpos.ne.0) call bindata_twod(reg,x(i,:),&
                                                                             &tempvar,tempson,dx,prof_data,&
@@ -1251,7 +1125,7 @@ module amr_profiles
                                                                             &trans_matrix,tempgrav_var)
                                 else
                                     call findbinpos_twod(reg,distance,x(i,:),tempvar,tempson,&
-                                                    &dx,prof_data,logscale,xbinpos,ybinpos,trans_matrix)
+                                                    &dx,prof_data,scaletype,xbinpos,ybinpos,trans_matrix)
                                     if (xbinpos.ne.0.and.ybinpos.ne.0) call bindata_twod(reg,x(i,:),&
                                                                             &tempvar,tempson,dx,prof_data,&
                                                                             &xbinpos,ybinpos,trans_matrix)

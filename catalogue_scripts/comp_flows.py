@@ -14,6 +14,7 @@ from scipy import stats
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
+from matplotlib.gridspec import GridSpec
 sns.set(style="white")
 # plt.rc('text', usetex=True)
 # plt.rc('font', family='serif')
@@ -30,7 +31,8 @@ names = {'cosmoNUThd':'HD',
         'cosmoNUTcrmhd':'CRMHD',
         'cosmoNUTcrmhd\_nost':'nsCRMHD',
         'cosmoNUTcrmhd\_noheat':'nhCRMHD',
-        'cosmoNUTrticrmhd':'RTCRiMHD'
+        'cosmoNUTrticrmhd':'RTCRiMHD',
+        'cosmoNUTcrmhd\_3e29':'3e29CRMHD'
         }
 
 if __name__ == '__main__':
@@ -586,7 +588,7 @@ if __name__ == '__main__':
         axes = np.asarray(axes)
 
         phase_labels = {'hot':'Hot','warm_ionised':'Warm ionised','warm_neutral':'Warm neutral','cold':'Cold'}
-        phase_colours = {'hot':'r','warm_ionised':'orange','warm_neutral':'yellow','cold':'b'}
+        phase_colours = {'hot':'r','warm_ionised':'orange','warm_neutral':'gold','cold':'b'}
         line_dict = {'cosmoNUThd':'royalblue','cosmoNUTmhd':'m','cosmoNUTcrmhd':'g','cosmoNUTcrmhd\_nost':'olive','cosmoNUTcrmhd\_noheat':'darkgoldenrod'}
         # Get data
         plt_setting = plotting_dictionary[args.var]
@@ -773,8 +775,10 @@ if __name__ == '__main__':
         axes = np.asarray(axes)
 
         phase_labels = {'hot':'Hot','warm_ionised':'Warm ionised','warm_neutral':'Warm neutral','cold':'Cold'}
-        phase_colours = {'hot':'r','warm_ionised':'orange','warm_neutral':'yellow','cold':'b'}
-        line_dict = {'cosmoNUThd':'royalblue','cosmoNUTmhd':'m','cosmoNUTcrmhd':'g','cosmoNUTcrmhd\_nost':'olive','cosmoNUTcrmhd\_noheat':'darkgoldenrod'}
+        phase_colours = {'hot':'r','warm_ionised':'orange','warm_neutral':'gold','cold':'b'}
+        line_dict = {'cosmoNUThd':'royalblue','cosmoNUTmhd':'m','cosmoNUTcrmhd':'g',
+                    'cosmoNUTcrmhd\_nost':'olive','cosmoNUTcrmhd\_noheat':'darkgoldenrod',
+                    'cosmoNUTcrmhd\_3e29':'olivedrab'}
         # Get data
         plt_setting = plotting_dictionary[args.var]
         for i in range(0, len(args.model)):
@@ -815,6 +819,7 @@ if __name__ == '__main__':
                 sim = ozy.load(os.path.join(groupspath, ozyfile))
                 # Initialise simulation parameters
                 redshift = sim.simulation.redshift
+                print(args.model[i],redshift,ozyfile)
                 if redshift <= args.maxz:
                     try:
                         progind = sim.galaxies[progind].progen_galaxy_star
@@ -866,6 +871,7 @@ if __name__ == '__main__':
                     raise KeyError('This variable is not present in this GalacticFlow object: '+str(gf.data[args.var+'_'+d_key+'rvir']))
                 
                 # And now get the SFR
+                print(args.model[i],flow_values['hot'][-1],flow_values['warm_ionised'][-1],flow_values['warm_neutral'][-1],flow_values['cold'][-1])
                 sfr.append(gal.sfr[args.sfr].in_units('Msun/yr'))
             
             # Convert to numpy arrays
@@ -886,7 +892,7 @@ if __name__ == '__main__':
             warm_neutral = 100*((flow_values['hot'][::-1]+flow_values['warm_ionised'][::-1]+flow_values['warm_neutral'][::-1])/flow_values['all'][::-1])
             cold = 100*((flow_values['hot'][::-1]+flow_values['warm_ionised'][::-1]+flow_values['warm_neutral'][::-1]+flow_values['cold'][::-1])/flow_values['all'][::-1])
             
-            print(args.model[i], cold[0],warm_neutral[0],warm_ionised[0],hot[0])
+            
             axes[2+i].plot(galaxy_time[::-1],cold,marker='o', markersize=2, label=phase_labels['cold'],color=phase_colours['cold'])
             axes[2+i].fill_between(galaxy_time[::-1],cold,color=phase_colours['cold'],alpha=0.2)
             
@@ -960,7 +966,10 @@ if __name__ == '__main__':
         if args.NUT:
             args.ind = 'NUT'
         fig.subplots_adjust(top=0.95,bottom=0.05,left=0.1,right=0.98)
-        fig.savefig(os.getcwd()+'/instantaneous_sfr_'+args.flowtype+'_'+args.var+'_'+str(args.ind)+'_'+d_key+'rvir.png', format='png', dpi=200)
+        if args.rm_subs:
+            fig.savefig(os.getcwd()+'/instantaneous_sfr_'+args.flowtype+'_'+args.var+'_'+str(args.ind)+'_'+d_key+'rvir_rmsubs.png', format='png', dpi=200)
+        else:
+            fig.savefig(os.getcwd()+'/instantaneous_sfr_'+args.flowtype+'_'+args.var+'_'+str(args.ind)+'_'+d_key+'rvir.png', format='png', dpi=200)
     elif args.type == 'instantaneous_phases_ratio':
         nrow = int(2 + len(args.model))
         height_ratios = []
@@ -978,7 +987,7 @@ if __name__ == '__main__':
         axes = np.asarray(axes)
 
         phase_labels = {'hot':'Hot','warm_ionised':'Warm ionised','warm_neutral':'Warm neutral','cold':'Cold'}
-        phase_colours = {'hot':'r','warm_ionised':'orange','warm_neutral':'yellow','cold':'b'}
+        phase_colours = {'hot':'r','warm_ionised':'orange','warm_neutral':'gold','cold':'b'}
         line_dict = {'cosmoNUThd':'royalblue','cosmoNUTmhd':'m','cosmoNUTcrmhd':'g','cosmoNUTcrmhd\_nost':'olive','cosmoNUTcrmhd\_noheat':'darkgoldenrod'}
         flow_arrays = {}
 
@@ -1191,9 +1200,10 @@ if __name__ == '__main__':
         axes = np.asarray(axes)
 
         phase_labels = {'hot':'Hot','warm_ionised':'Warm ionised','warm_neutral':'Warm neutral','cold':'Cold'}
-        phase_colours = {'hot':'r','warm_ionised':'orange','warm_neutral':'yellow','cold':'b'}
+        phase_colours = {'hot':'r','warm_ionised':'orange','warm_neutral':'gold','cold':'b'}
         line_dict = {'cosmoNUThd':'royalblue','cosmoNUTmhd':'m','cosmoNUTcrmhd':'g','cosmoNUTcrmhd\_nost':'olive','cosmoNUTcrmhd\_noheat':'darkgoldenrod'}
-        support_vars = {'grav_therpfrsphere':'r','grav_crpfrsphere':'forestgreen'}
+        support_vars = {'grav_therpfrsphere':'r','grav_magpfrsphere':'m','grav_crpfrsphere':'forestgreen','grav_totpfrsphere':'black'}
+        support_lstyle = {'grav_therpfrsphere':'-','grav_magpfrsphere':'-','grav_crpfrsphere':'-','grav_totpfrsphere':':'}
         # Get data
         plt_setting = plotting_dictionary['v_sphere_r']
         for i in range(0, len(args.model)):
@@ -1219,11 +1229,11 @@ if __name__ == '__main__':
             galaxy_time = []
             galaxy_masses = []
             flow_values = {'all':[],'hot':[],'warm_ionised':[],'warm_neutral':[],'cold':[]}
-            support_values = {'all':{'grav_therpfrsphere':[],'grav_crpfrsphere':[]},
-                                'hot':{'grav_therpfrsphere':[],'grav_crpfrsphere':[]},
-                                'warm_ionised':{'grav_therpfrsphere':[],'grav_crpfrsphere':[]},
-                                'warm_neutral':{'grav_therpfrsphere':[],'grav_crpfrsphere':[]},
-                                'cold':{'grav_therpfrsphere':[],'grav_crpfrsphere':[]}}
+            support_values = {'all':{'grav_therpfrsphere':[],'grav_magpfrsphere':[],'grav_crpfrsphere':[],'grav_totpfrsphere':[]},
+                                'hot':{'grav_therpfrsphere':[],'grav_magpfrsphere':[],'grav_crpfrsphere':[],'grav_totpfrsphere':[]},
+                                'warm_ionised':{'grav_therpfrsphere':[],'grav_magpfrsphere':[],'grav_crpfrsphere':[],'grav_totpfrsphere':[]},
+                                'warm_neutral':{'grav_therpfrsphere':[],'grav_magpfrsphere':[],'grav_crpfrsphere':[],'grav_totpfrsphere':[]},
+                                'cold':{'grav_therpfrsphere':[],'grav_magpfrsphere':[],'grav_crpfrsphere':[],'grav_totpfrsphere':[]}}
             v_escape = []
 
             progind = args.ind
@@ -1287,11 +1297,11 @@ if __name__ == '__main__':
                         d = gf.data['v_sphere_r_'+d_key+'rvir_'+ftype].in_units(plt_setting['units'])
                         if args.flowtype == 'inflow':
                             d = -d
-                        flow_values[ftype].append(d)
+                        flow_values[ftype].append(d[2])
                         for sv in support_vars.keys():
                             try:
                                 d = gf.data[sv+'_'+d_key+'rvir_'+ftype]
-                                support_values[ftype][sv].append(d.d)
+                                support_values[ftype][sv].append(d[2])
                             except:
                                 pass
                 except:
@@ -1308,13 +1318,11 @@ if __name__ == '__main__':
                 flow_values[k] = np.asarray(flow_values[k])
                 for s in support_vars.keys():
                     support_values[k][s] = np.asarray(support_values[k][s])
-                    print(support_values[k][s])
 
             # Add total to first axes
-            axes[0].step(galaxy_time[::-1],flow_values['all'][::-1], where='mid',alpha=0.4,color=line_dict[args.model[i]])
-            all_median = medfilt(flow_values['all'][::-1],5)
-            axes[0].plot(galaxy_time[::-1],all_median,marker='o', markersize=4, label=names[args.model[i]],color=line_dict[args.model[i]])
-
+            axes[0].plot(galaxy_time[::-1],flow_values[args.var][::-1,1],marker='o', markersize=4, label=names[args.model[i]],color=line_dict[args.model[i]])
+            axes[0].fill_between(galaxy_time[::-1],flow_values[args.var][::-1,3],flow_values[args.var][::-1,4],alpha=0.4,color=line_dict[args.model[i]])
+            
             # Add escape velocity to first axes
             axes[0].plot(galaxy_time[::-1],v_escape[::-1],linestyle='--',color=line_dict[args.model[i]])
 
@@ -1322,8 +1330,8 @@ if __name__ == '__main__':
             for sv in support_vars.keys():
                 plot_settings = plotting_dictionary[sv]
                 try:
-                    axes[1+i].plot(galaxy_time[::-1],support_values[args.var][sv],marker='o', markersize=2, 
-                                    label=plot_settings['label'],color=support_vars[sv])
+                    axes[1+i].plot(galaxy_time[::-1],support_values[args.var][sv][::-1,0],marker='o', markersize=2, 
+                                    label=plot_settings['label'],color=support_vars[sv],linestyle=support_lstyle[sv])
                 except:
                     pass
             axes[1+i].text(0.65, 0.3, names[args.model[i]],
@@ -1334,6 +1342,13 @@ if __name__ == '__main__':
             axes[1+i].yaxis.set_ticks_position('both')
             axes[1+i].minorticks_on()
             axes[1+i].tick_params(which='both',axis="both",direction="in",labelbottom='off')
+            axes[1+i].set_yscale('symlog')
+            axes[1+i].set_ylim([-1e3,4e2])
+
+            # Add equilibrium line for pressure support
+            maxt = cosmo.age(args.maxz).value
+            mint = cosmo.age(13.0).value
+            axes[1+i].fill_between([mint,maxt],[-1,-1],[1,1],alpha=0.4,color='b')
 
         # Add legends to axes
         ax = axes[0]
@@ -1350,8 +1365,8 @@ if __name__ == '__main__':
                         transform=ax.transAxes, fontsize=16,verticalalignment='top',
                         color='black')
 
-        ax = axes[1]
-        ax.legend(loc='upper left',fontsize=16,frameon=False,ncol=2)
+        ax = axes[-1]
+        ax.legend(loc='upper left',fontsize=16,frameon=False,ncol=4)
 
         # Add top ticks for redshift
         ax = axes[0]
@@ -1380,8 +1395,829 @@ if __name__ == '__main__':
         if args.NUT:
             args.ind = 'NUT'
         fig.subplots_adjust(top=0.95,bottom=0.05,left=0.1,right=0.98)
-        fig.savefig(os.getcwd()+'/outflow_escape_'+args.flowtype+'_'+args.var+'_'+str(args.ind)+'_'+d_key+'rvir.png', format='png', dpi=200)
+        if args.rm_subs:
+            fig.savefig(os.getcwd()+'/outflow_escape_'+args.flowtype+'_'+args.var+'_'+str(args.ind)+'_'+d_key+'rvir_rmsubs.png', format='png', dpi=200)
+        else:
+            fig.savefig(os.getcwd()+'/outflow_escape_'+args.flowtype+'_'+args.var+'_'+str(args.ind)+'_'+d_key+'rvir.png', format='png', dpi=200)
     
+    elif args.type == 'outflow_escape_phases':
+        from unyt import G
+        fig, axes = plt.subplots(2,2, figsize=(13,8),dpi=100,facecolor='w',edgecolor='k',sharex=True,sharey=True)
+
+        phase_labels = {'hot':'Hot','warm_ionised':'Warm ionised','warm_neutral':'Warm neutral','cold':'Cold'}
+        phase_colours = {'hot':'r','warm_ionised':'orange','warm_neutral':'gold','cold':'b'}
+        line_dict = {'cosmoNUThd':'royalblue','cosmoNUTmhd':'m','cosmoNUTcrmhd':'g',
+                     'cosmoNUTcrmhd\_nost':'olive','cosmoNUTcrmhd\_noheat':'darkgoldenrod',
+                     'cosmoNUTcrmhd\_3e29':'olivedrab'}
+        # Get data
+        plt_setting = plotting_dictionary['v_sphere_r']
+        for i in range(0, len(args.model)):
+            if args.model[i][0] != '/':
+                simfolder = os.path.join(os.getcwd(), args.model[i])
+                args.model[i] = args.model[i].replace('_','\_')
+            else:
+                simfolder = args.model[i]
+                args.model[i] = args.model[i].split('/')[-1]
+                args.model[i] = args.model[i].replace('_','\_')
+            if not os.path.exists(simfolder):
+                raise Exception('The given simulation name is not found in this directory!')
+            
+            groupspath = os.path.join(simfolder, 'Groups')
+            files = os.listdir(groupspath)
+            ozyfiles = []
+
+            for f in files:
+                if f.startswith('ozy_') and args.start < int(f[4:-5]) < args.end:
+                    ozyfiles.append(f)
+            
+            ozyfiles = sorted(ozyfiles, key=lambda x:x[4:-5], reverse=True)
+            galaxy_time = []
+            galaxy_masses = []
+            flow_values = {'hot':[],'warm_ionised':[],'warm_neutral':[],'cold':[]}
+            v_escape = []
+
+            progind = args.ind
+            if args.NUT:
+                sim = ozy.load(os.path.join(groupspath, ozyfiles[0]))
+                virial_mass = [i.virial_quantities['mass'] for i in sim.galaxies]
+                progind = np.argmax(virial_mass)
+            
+            for ozyfile in ozyfiles:
+                if progind == -1:
+                    continue
+                # Load OZY file
+                try:
+                    sim = ozy.load(os.path.join(groupspath, ozyfile))
+                except:
+                    continue
+                # Initialise simulation parameters
+                redshift = sim.simulation.redshift
+                if redshift <= args.maxz:
+                    try:
+                        progind = sim.galaxies[progind].progen_galaxy_star
+                    except:
+                        progind = -1
+                    continue
+                h = sim.simulation.hubble_constant
+                cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
+                Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
+
+                # Age of Universe at this redshift
+                thubble = cosmo.age(redshift).value
+
+                galaxy_time.append(thubble)
+
+                gal = sim.galaxies[progind]
+                m = sim.galaxies[progind].mass['stellar']
+                galaxy_masses.append(m)
+                bad_mass = False
+                if len(galaxy_time) >= 2:
+                    if (galaxy_masses[-1]-galaxy_masses[-2])/galaxy_masses[-2] > 0.8:
+                        bad_mass = True
+                    else:
+                        bad_mass = False
+                
+                if bad_mass == True:
+                    print('Deleting')
+                    try:
+                        flow_values[-2] = flow_values[-1]
+                    except:
+                        pass
+                try:
+                    progind = sim.galaxies[progind].progen_galaxy_star
+                except:
+                    progind = -1
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
+                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute,
+                                    remove_subs=args.rm_subs)
+                
+                d_key = str(int(100*args.r))
+                try:
+                    for ftype in flow_values.keys():
+                        d = gf.data['v_sphere_r_'+d_key+'rvir_'+ftype].in_units(plt_setting['units'])
+                        if args.flowtype == 'inflow':
+                            d = -d
+                        flow_values[ftype].append(d[2])
+                except:
+                    raise KeyError('This variable is not present in this GalacticFlow object: '+str(gf.data['v_sphere_r_'+d_key+'rvir']))
+
+                # Add escape velocity
+                ves = 2*G*gal.mass['total']/(0.2*gal.halo.virial_quantities['radius'])
+                ves = np.sqrt(ves).to('km/s').d
+                print('V escape: ',ves, 0.2*gal.halo.virial_quantities['radius'].to('kpc'),args.model[i],redshift)
+                v_escape.append(ves)
+            
+            # Convert to numpy arrays
+            for k in flow_values.keys():
+                flow_values[k] = np.asarray(flow_values[k])
+
+            for k,key in enumerate(flow_values.keys()):
+                ax = axes[int(k/2),k%2]
+
+                # Add gas velocity to each phase axes
+                ax.plot(galaxy_time[::-1],flow_values[key][::-1,1],marker='o', markersize=4, label=names[args.model[i]],color=line_dict[args.model[i]])
+                ax.fill_between(galaxy_time[::-1],flow_values[key][::-1,3],flow_values[key][::-1,4],alpha=0.4,color=line_dict[args.model[i]])
+                
+                # Add escape velocity to each phase axes
+                ax.plot(galaxy_time[::-1],v_escape[::-1],linestyle='--',color=line_dict[args.model[i]])
+
+
+        # Add legend of simulation types
+        ax = axes[0,0]
+        first_legend = ax.legend(loc='lower right', fontsize=14,frameon=False,ncol=len(args.model))
+        ax.add_artist(first_legend)
+        # Add legend of velocity type (escape and gas outflow)
+        ax = axes[0,1]
+        dummy_lines = []
+
+        dummy_lines.append(ax.plot([],[], color="black", ls = '-',marker='o',label = r'$v_{\rm out}$')[0])
+        dummy_lines.append(ax.plot([],[], color="black", ls = '--',label = r'$v_{\rm esc}$')[0])
+        second_legend = ax.legend(handles=dummy_lines, loc='lower left', frameon=False, fontsize=14,ncol=2)         
+        ax.add_artist(second_legend)
+
+        p = 0
+        for i in range(0,2):
+            for j in range(0,2):
+                ax = axes[i,j]
+                ax.tick_params(labelsize=14)
+                ax.xaxis.set_ticks_position('both')
+                ax.yaxis.set_ticks_position('both')
+                ax.minorticks_on()
+                ax.tick_params(which='both',axis="both",direction="in")
+                ax.set_yscale('log')
+                phase = list(flow_values.keys())[p]
+                ax.text(0.02, 0.95, phase_labels[phase],
+                        transform=ax.transAxes, fontsize=16,verticalalignment='top',
+                        color=phase_colours[phase])
+                ax.set_ylim([10,450])
+                p += 1
+
+        axes[0,0].set_ylabel(plt_setting['label'], fontsize=18)
+        axes[1,0].set_ylabel(plt_setting['label'], fontsize=18)
+        
+        axes[0,1].text(0.75, 0.95, r'$r= %.1f R_{\rm vir,DM}$'%(float(args.r)),
+                        transform=axes[0,1].transAxes, fontsize=16,verticalalignment='top',
+                        color='black')
+
+        # Add top ticks for redshift
+        for i in range(0,2):
+            ax = axes[0,i]
+            axR = ax.twiny()
+            maxt = cosmo.age(args.maxz).value
+            mint = cosmo.age(13.0).value
+            ax.set_xlim(mint, maxt)
+            axR.set_xlim(mint, maxt)
+            topticks1 = np.array([1.5, 2.0, 3.0, 4.0, 6.0, 8.0, 13.0])
+            topticks1 = topticks1[topticks1 >= args.maxz]
+            topticks2 = cosmo.age(topticks1).value
+            axR.set_xticklabels(topticks1)
+            axR.set_xticks(topticks2)
+            axR.xaxis.set_ticks_position('top') # set the position of the second x-axis to top
+            axR.xaxis.set_label_position('top') # set the position of the second x-axis to top
+            axR.set_xlabel(r'$z$', fontsize=18)
+            axR.tick_params(labelsize=14)
+
+        # Add label for rest of axes
+        for i in range(0,2):
+            ax = axes[1,i]
+            ax.set_xlabel(r'$t$ [Gyr]', fontsize=18)
+            ax.tick_params(which='both',axis="both",direction="in",bottom=True)
+
+        if args.NUT:
+            args.ind = 'NUT'
+        fig.subplots_adjust(top=0.92,bottom=0.1,left=0.06,right=0.98,hspace=0,wspace=0)
+        if args.rm_subs:
+            fig.savefig(os.getcwd()+'/outflow_escape_phases_'+args.flowtype+'_'+str(args.ind)+'_'+d_key+'rvir_rmsubs.png', format='png', dpi=300)
+        else:
+            fig.savefig(os.getcwd()+'/outflow_escape_phases_'+args.flowtype+'_'+str(args.ind)+'_'+d_key+'rvir.png', format='png', dpi=300)
+    elif args.type == 'outflow_support_phases':
+        from unyt import G
+        fig, axes = plt.subplots(3,2, figsize=(13,10),dpi=100,facecolor='w',edgecolor='k',sharex=True,sharey=True)
+
+        phase_labels = {'hot':'Hot','warm_ionised':'Warm ionised','warm_neutral':'Warm neutral','cold':'Cold'}
+        phase_colours = {'hot':'r','warm_ionised':'orange','warm_neutral':'gold','cold':'b'}
+        line_dict = {'cosmoNUThd':'royalblue','cosmoNUTmhd':'m','cosmoNUTcrmhd':'g','cosmoNUTcrmhd\_nost':'olive','cosmoNUTcrmhd\_noheat':'darkgoldenrod'}
+        support_vars = {'grav_therpfrsphere':'r','grav_magpfrsphere':'m','grav_crpfrsphere':'forestgreen','grav_totpfrsphere':'black'}
+        support_lstyle = {'grav_therpfrsphere':'--','grav_magpfrsphere':'-.','grav_crpfrsphere':'-','grav_totpfrsphere':':'}
+        # Get data
+        plt_setting = plotting_dictionary['v_sphere_r']
+        for i in range(0, len(args.model)):
+            if args.model[i][0] != '/':
+                simfolder = os.path.join(os.getcwd(), args.model[i])
+                args.model[i] = args.model[i].replace('_','\_')
+            else:
+                simfolder = args.model[i]
+                args.model[i] = args.model[i].split('/')[-1]
+                args.model[i] = args.model[i].replace('_','\_')
+            if not os.path.exists(simfolder):
+                raise Exception('The given simulation name is not found in this directory!')
+            
+            groupspath = os.path.join(simfolder, 'Groups')
+            files = os.listdir(groupspath)
+            ozyfiles = []
+
+            for f in files:
+                if f.startswith('ozy_') and args.start < int(f[4:-5]) < args.end:
+                    ozyfiles.append(f)
+            
+            ozyfiles = sorted(ozyfiles, key=lambda x:x[4:-5], reverse=True)
+            galaxy_time = []
+            galaxy_masses = []
+            flow_values = {'hot':[],'warm_ionised':[],'warm_neutral':[],'cold':[]}
+            support_values = {'hot':{'grav_therpfrsphere':[],'grav_magpfrsphere':[],'grav_crpfrsphere':[],'grav_totpfrsphere':[]},
+                                'warm_ionised':{'grav_therpfrsphere':[],'grav_magpfrsphere':[],'grav_crpfrsphere':[],'grav_totpfrsphere':[]},
+                                'warm_neutral':{'grav_therpfrsphere':[],'grav_magpfrsphere':[],'grav_crpfrsphere':[],'grav_totpfrsphere':[]},
+                                'cold':{'grav_therpfrsphere':[],'grav_magpfrsphere':[],'grav_crpfrsphere':[],'grav_totpfrsphere':[]}}
+
+            progind = args.ind
+            if args.NUT:
+                sim = ozy.load(os.path.join(groupspath, ozyfiles[0]))
+                virial_mass = [i.virial_quantities['mass'] for i in sim.galaxies]
+                progind = np.argmax(virial_mass)
+            
+            for ozyfile in ozyfiles:
+                if progind == -1:
+                    continue
+                # Load OZY file
+                try:
+                    sim = ozy.load(os.path.join(groupspath, ozyfile))
+                except:
+                    continue
+                # Initialise simulation parameters
+                redshift = sim.simulation.redshift
+                if redshift <= args.maxz:
+                    try:
+                        progind = sim.galaxies[progind].progen_galaxy_star
+                    except:
+                        progind = -1
+                    continue
+                h = sim.simulation.hubble_constant
+                cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
+                Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
+
+                # Age of Universe at this redshift
+                thubble = cosmo.age(redshift).value
+
+                galaxy_time.append(thubble)
+
+                gal = sim.galaxies[progind]
+                m = sim.galaxies[progind].mass['stellar']
+                galaxy_masses.append(m)
+                bad_mass = False
+                if len(galaxy_time) >= 2:
+                    if (galaxy_masses[-1]-galaxy_masses[-2])/galaxy_masses[-2] > 0.8:
+                        bad_mass = True
+                    else:
+                        bad_mass = False
+                
+                if bad_mass == True:
+                    print('Deleting')
+                    try:
+                        flow_values[-2] = flow_values[-1]
+                    except:
+                        pass
+                try:
+                    progind = sim.galaxies[progind].progen_galaxy_star
+                except:
+                    progind = -1
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
+                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute,
+                                    remove_subs=args.rm_subs)
+                
+                d_key = str(int(100*args.r))
+                try:
+                    for ftype in flow_values.keys():
+                        for sv in support_vars.keys():
+                            try:
+                                d = gf.data[sv+'_'+d_key+'rvir_'+ftype]
+                                support_values[ftype][sv].append(d[2])
+                            except:
+                                pass
+                except:
+                    raise KeyError('This variable is not present in this GalacticFlow object: '+str(gf.data['v_sphere_r_'+d_key+'rvir']))
+
+            
+            # Convert to numpy arrays
+            for k in flow_values.keys():
+                for s in support_vars.keys():
+                    support_values[k][s] = np.asarray(support_values[k][s])
+
+            for k,key in enumerate(flow_values.keys()):
+
+                if k == 0:
+                    ax = axes[i,0]
+                else:
+                    ax = axes[k-1,1]
+                    
+                # Now add support for each pressure
+                for sv in support_vars.keys():
+                    plot_settings = plotting_dictionary[sv]
+                    try:
+                        ax.plot(galaxy_time[::-1],support_values[key][sv][::-1,0],marker='o', markersize=4, 
+                                        color=line_dict[args.model[i]],linestyle=support_lstyle[sv],
+                                        markerfacecolor=support_vars[sv])
+                    except:
+                        pass
+
+
+        # Add legend of simulation types
+        ax = axes[0,0]
+        dummy_lines = []
+        for m in args.model:
+            dummy_lines.append(ax.plot([],[], color=line_dict[m], ls = '-',marker='o',label=names[m])[0])
+        first_legend = ax.legend(handles=dummy_lines, loc='lower left', frameon=False, fontsize=14,ncol=len(args.model)) 
+        ax.add_artist(first_legend)
+
+        # Add legend of support type
+        ax = axes[0,1]
+        dummy_lines = []
+        for sv in support_vars.keys():
+            plot_settings = plotting_dictionary[sv]
+            dummy_lines.append(ax.plot([],[], color='black', ls = support_lstyle[sv],marker='o',label=plot_settings['label'],markerfacecolor=support_vars[sv])[0])
+        second_legend = ax.legend(handles=dummy_lines, loc='lower right', frameon=False, fontsize=14,ncol=2)     
+        ax.add_artist(second_legend)
+
+        for i in range(0,3):
+            for j in range(0,2):
+                ax = axes[i,j]
+                ax.tick_params(labelsize=14)
+                ax.xaxis.set_ticks_position('both')
+                ax.yaxis.set_ticks_position('both')
+                ax.minorticks_on()
+                ax.tick_params(which='both',axis="both",direction="in")
+                ax.set_yscale('symlog')
+                if j == 1:
+                    p = i + 1
+                    phase = list(flow_values.keys())[p]
+                    ax.text(0.02, 0.95, phase_labels[phase],
+                        transform=ax.transAxes, fontsize=16,verticalalignment='top',
+                        color=phase_colours[phase])
+                # Add equilibrium line for pressure support
+                maxt = cosmo.age(args.maxz).value
+                mint = cosmo.age(13.0).value
+                ax.fill_between([mint,maxt],[-1,-1],[1,1],alpha=0.4,color='grey')
+
+        axes[0,0].text(0.02, 0.95, phase_labels['hot'],
+                        transform=axes[0,0].transAxes, fontsize=16,verticalalignment='top',
+                        color=phase_colours['hot'])
+        axes[1,0].set_ylabel(r'Radial pressure support', fontsize=18)
+        axes[1,0].text(0.02, 0.95, phase_labels['hot'],
+                        transform=axes[1,0].transAxes, fontsize=16,verticalalignment='top',
+                        color=phase_colours['hot'])
+        axes[2,0].text(0.02, 0.95, phase_labels['hot'],
+                        transform=axes[2,0].transAxes, fontsize=16,verticalalignment='top',
+                        color=phase_colours['hot'])
+
+        ax.text(0.02, 0.95, phase_labels[phase],
+                        transform=ax.transAxes, fontsize=16,verticalalignment='top',
+                        color=phase_colours[phase])
+        
+        axes[0,1].text(0.75, 0.95, r'$r= %.1f R_{\rm vir,DM}$'%(float(args.r)),
+                        transform=axes[0,1].transAxes, fontsize=16,verticalalignment='top',
+                        color='black')
+
+        # Add top ticks for redshift
+        for i in range(0,2):
+            ax = axes[0,i]
+            axR = ax.twiny()
+            maxt = cosmo.age(args.maxz).value
+            mint = cosmo.age(13.0).value
+            ax.set_xlim(mint, maxt)
+            axR.set_xlim(mint, maxt)
+            topticks1 = np.array([1.5, 2.0, 3.0, 4.0, 6.0, 8.0, 13.0])
+            topticks1 = topticks1[topticks1 >= args.maxz]
+            topticks2 = cosmo.age(topticks1).value
+            axR.set_xticklabels(topticks1)
+            axR.set_xticks(topticks2)
+            axR.xaxis.set_ticks_position('top') # set the position of the second x-axis to top
+            axR.xaxis.set_label_position('top') # set the position of the second x-axis to top
+            axR.set_xlabel(r'$z$', fontsize=18)
+            axR.tick_params(labelsize=14)
+
+        # Add label for rest of axes
+        for i in range(0,2):
+            ax = axes[1,i]
+            ax.set_xlabel(r'$t$ [Gyr]', fontsize=18)
+            ax.tick_params(which='both',axis="both",direction="in",bottom=True)
+
+        if args.NUT:
+            args.ind = 'NUT'
+        fig.subplots_adjust(top=0.92,bottom=0.07,left=0.07,right=0.98,hspace=0,wspace=0)
+        if args.rm_subs:
+            fig.savefig(os.getcwd()+'/outflow_support_phases_'+args.flowtype+'_'+str(args.ind)+'_'+d_key+'rvir_rmsubs.png', format='png', dpi=300)
+        else:
+            fig.savefig(os.getcwd()+'/outflow_support_phases_'+args.flowtype+'_'+str(args.ind)+'_'+d_key+'rvir.png', format='png', dpi=300)
+    elif args.type == 'outflow_support_pos_phases':
+        from unyt import G
+        fig, axes = plt.subplots(3,2, figsize=(13,10),dpi=100,facecolor='w',edgecolor='k',sharex=True,sharey=True)
+
+        phase_labels = {'hot':'Hot','warm_ionised':'Warm ionised','warm_neutral':'Warm neutral','cold':'Cold'}
+        phase_colours = {'hot':'r','warm_ionised':'orange','warm_neutral':'gold','cold':'b'}
+        line_dict = {'cosmoNUThd':'royalblue','cosmoNUTmhd':'m','cosmoNUTcrmhd':'g','cosmoNUTcrmhd\_nost':'olive','cosmoNUTcrmhd\_noheat':'darkgoldenrod'}
+        support_vars = {'grav_therpfrspherepos':'r','grav_magpfrspherepos':'m','grav_crpfrspherepos':'forestgreen','grav_totpfrspherepos':'black'}
+        support_lstyle = {'grav_therpfrspherepos':'--','grav_magpfrspherepos':'-.','grav_crpfrspherepos':'-','grav_totpfrspherepos':':'}
+        # Get data
+        plt_setting = plotting_dictionary['v_sphere_r']
+        for i in range(0, len(args.model)):
+            if args.model[i][0] != '/':
+                simfolder = os.path.join(os.getcwd(), args.model[i])
+                args.model[i] = args.model[i].replace('_','\_')
+            else:
+                simfolder = args.model[i]
+                args.model[i] = args.model[i].split('/')[-1]
+                args.model[i] = args.model[i].replace('_','\_')
+            if not os.path.exists(simfolder):
+                raise Exception('The given simulation name is not found in this directory!')
+            
+            groupspath = os.path.join(simfolder, 'Groups')
+            files = os.listdir(groupspath)
+            ozyfiles = []
+
+            for f in files:
+                if f.startswith('ozy_') and args.start < int(f[4:-5]) < args.end:
+                    ozyfiles.append(f)
+            
+            ozyfiles = sorted(ozyfiles, key=lambda x:x[4:-5], reverse=True)
+            galaxy_time = []
+            galaxy_masses = []
+            flow_values = {'hot':[],'warm_ionised':[],'warm_neutral':[],'cold':[]}
+            support_values = {'hot':{'grav_therpfrspherepos':[],'grav_magpfrspherepos':[],'grav_crpfrspherepos':[],'grav_totpfrspherepos':[]},
+                                'warm_ionised':{'grav_therpfrspherepos':[],'grav_magpfrspherepos':[],'grav_crpfrspherepos':[],'grav_totpfrspherepos':[]},
+                                'warm_neutral':{'grav_therpfrspherepos':[],'grav_magpfrspherepos':[],'grav_crpfrspherepos':[],'grav_totpfrspherepos':[]},
+                                'cold':{'grav_therpfrspherepos':[],'grav_magpfrspherepos':[],'grav_crpfrspherepos':[],'grav_totpfrspherepos':[]}}
+
+            progind = args.ind
+            if args.NUT:
+                sim = ozy.load(os.path.join(groupspath, ozyfiles[0]))
+                virial_mass = [i.virial_quantities['mass'] for i in sim.galaxies]
+                progind = np.argmax(virial_mass)
+            
+            for ozyfile in ozyfiles:
+                if progind == -1:
+                    continue
+                # Load OZY file
+                try:
+                    sim = ozy.load(os.path.join(groupspath, ozyfile))
+                except:
+                    continue
+                # Initialise simulation parameters
+                redshift = sim.simulation.redshift
+                if redshift <= args.maxz:
+                    try:
+                        progind = sim.galaxies[progind].progen_galaxy_star
+                    except:
+                        progind = -1
+                    continue
+                h = sim.simulation.hubble_constant
+                cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
+                Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
+
+                # Age of Universe at this redshift
+                thubble = cosmo.age(redshift).value
+
+                galaxy_time.append(thubble)
+
+                gal = sim.galaxies[progind]
+                m = sim.galaxies[progind].mass['stellar']
+                galaxy_masses.append(m)
+                bad_mass = False
+                if len(galaxy_time) >= 2:
+                    if (galaxy_masses[-1]-galaxy_masses[-2])/galaxy_masses[-2] > 0.8:
+                        bad_mass = True
+                    else:
+                        bad_mass = False
+                
+                if bad_mass == True:
+                    print('Deleting')
+                    try:
+                        flow_values[-2] = flow_values[-1]
+                    except:
+                        pass
+                try:
+                    progind = sim.galaxies[progind].progen_galaxy_star
+                except:
+                    progind = -1
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
+                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute,
+                                    remove_subs=args.rm_subs)
+                
+                d_key = str(int(100*args.r))
+                try:
+                    for ftype in flow_values.keys():
+                        for sv in support_vars.keys():
+                            try:
+                                d = gf.data[sv+'_'+d_key+'rvir_'+ftype]
+                                if d[2][0] == d[2][1] and d[2][2] == 0:
+                                    support_values[ftype][sv].append(np.zeros(7))
+                                else:
+                                    support_values[ftype][sv].append(d[2])
+                            except:
+                                print('Failed in: ',ftype,sv,args.model[i],ozyfile)
+                                pass
+                except:
+                    raise KeyError('This variable is not present in this GalacticFlow object: '+str(gf.data['v_sphere_r_'+d_key+'rvir']))
+
+            
+            # Convert to numpy arrays
+            for k in flow_values.keys():
+                for s in support_vars.keys():
+                    support_values[k][s] = np.asarray(support_values[k][s])
+
+            for k,key in enumerate(flow_values.keys()):
+
+                if k == 0:
+                    ax = axes[i,0]
+                else:
+                    ax = axes[k-1,1]
+                    
+                # Now add support for each pressure
+                for sv in support_vars.keys():
+                    plot_settings = plotting_dictionary[sv]
+                    ax.plot(galaxy_time[::-1],support_values[key][sv][::-1,1],marker='o', markersize=4, 
+                                        color=line_dict[args.model[i]],linestyle=support_lstyle[sv],
+                                        markerfacecolor=support_vars[sv])
+                    print(support_values[key][sv][::-1,1])
+                    # try:
+                    #     ax.plot(galaxy_time[::-1],support_values[key][sv][::-1,1],marker='o', markersize=4, 
+                    #                     color=line_dict[args.model[i]],linestyle=support_lstyle[sv],
+                    #                     markerfacecolor=support_vars[sv])
+                    #     print(support_values[key][sv][::-1,1])
+                    # except:
+                    #     pass
+
+
+        # Add legend of simulation types
+        ax = axes[0,0]
+        dummy_lines = []
+        for m in args.model:
+            dummy_lines.append(ax.plot([],[], color=line_dict[m], ls = '-',marker='o',label=names[m])[0])
+        first_legend = ax.legend(handles=dummy_lines, loc='upper right', frameon=False, fontsize=14,ncol=len(args.model)) 
+        ax.add_artist(first_legend)
+
+        # Add legend of support type
+        ax = axes[0,1]
+        dummy_lines = []
+        for sv in support_vars.keys():
+            plot_settings = plotting_dictionary[sv]
+            dummy_lines.append(ax.plot([],[], color='black', ls = support_lstyle[sv],marker='o',label=plot_settings['label'],markerfacecolor=support_vars[sv])[0])
+        second_legend = ax.legend(handles=dummy_lines, loc='center right', frameon=False, fontsize=14,ncol=2)     
+        ax.add_artist(second_legend)
+
+        for i in range(0,3):
+            for j in range(0,2):
+                ax = axes[i,j]
+                ax.tick_params(labelsize=14)
+                ax.xaxis.set_ticks_position('both')
+                ax.yaxis.set_ticks_position('both')
+                ax.minorticks_on()
+                ax.tick_params(which='both',axis="both",direction="in")
+                ax.set_yscale('symlog')
+                if j == 1:
+                    p = i + 1
+                    phase = list(flow_values.keys())[p]
+                    ax.text(0.02, 0.95, phase_labels[phase],
+                        transform=ax.transAxes, fontsize=16,verticalalignment='top',
+                        color=phase_colours[phase])
+                # Add equilibrium line for pressure support
+                maxt = cosmo.age(args.maxz).value
+                mint = cosmo.age(13.0).value
+                ax.fill_between([mint,maxt],[0,0],[1,1],alpha=0.4,color='grey')
+
+        axes[0,0].text(0.02, 0.95, phase_labels['hot'],
+                        transform=axes[0,0].transAxes, fontsize=16,verticalalignment='top',
+                        color=phase_colours['hot'])
+        axes[1,0].set_ylabel(r'Radial pressure support', fontsize=18)
+        axes[1,0].text(0.02, 0.95, phase_labels['hot'],
+                        transform=axes[1,0].transAxes, fontsize=16,verticalalignment='top',
+                        color=phase_colours['hot'])
+        axes[2,0].text(0.02, 0.95, phase_labels['hot'],
+                        transform=axes[2,0].transAxes, fontsize=16,verticalalignment='top',
+                        color=phase_colours['hot'])
+
+        ax.text(0.02, 0.95, phase_labels[phase],
+                        transform=ax.transAxes, fontsize=16,verticalalignment='top',
+                        color=phase_colours[phase])
+        
+        axes[0,1].text(0.75, 0.95, r'$r= %.1f R_{\rm vir,DM}$'%(float(args.r)),
+                        transform=axes[0,1].transAxes, fontsize=16,verticalalignment='top',
+                        color='black')
+
+        # Add top ticks for redshift
+        for i in range(0,2):
+            ax = axes[0,i]
+            axR = ax.twiny()
+            maxt = cosmo.age(args.maxz).value
+            mint = cosmo.age(13.0).value
+            ax.set_xlim(mint, maxt)
+            axR.set_xlim(mint, maxt)
+            topticks1 = np.array([1.5, 2.0, 3.0, 4.0, 6.0, 8.0, 13.0])
+            topticks1 = topticks1[topticks1 >= args.maxz]
+            topticks2 = cosmo.age(topticks1).value
+            axR.set_xticklabels(topticks1)
+            axR.set_xticks(topticks2)
+            axR.xaxis.set_ticks_position('top') # set the position of the second x-axis to top
+            axR.xaxis.set_label_position('top') # set the position of the second x-axis to top
+            axR.set_xlabel(r'$z$', fontsize=18)
+            axR.tick_params(labelsize=14)
+
+        # Add label for rest of axes
+        for i in range(0,2):
+            ax = axes[1,i]
+            ax.set_xlabel(r'$t$ [Gyr]', fontsize=18)
+            ax.tick_params(which='both',axis="both",direction="in",bottom=True)
+
+        if args.NUT:
+            args.ind = 'NUT'
+        fig.subplots_adjust(top=0.92,bottom=0.07,left=0.07,right=0.98,hspace=0,wspace=0)
+        if args.rm_subs:
+            fig.savefig(os.getcwd()+'/outflow_support_pos_phases_'+args.flowtype+'_'+str(args.ind)+'_'+d_key+'rvir_rmsubs.png', format='png', dpi=300)
+        else:
+            fig.savefig(os.getcwd()+'/outflow_support_pos_phases_'+args.flowtype+'_'+str(args.ind)+'_'+d_key+'rvir.png', format='png', dpi=300)
+    elif args.type == 'instantaneous_vr':
+        nrow = 3
+        fig = plt.figure(figsize=(9,8), facecolor='w', edgecolor='k')
+        plot_grid = fig.add_gridspec(nrow, 1, wspace=0, hspace=0)
+        axes = []
+        axes.append(fig.add_subplot(plot_grid[0]))
+        for i in range(1,nrow):
+            axes.append(fig.add_subplot(plot_grid[i],sharex=axes[0]))
+        axes = np.asarray(axes)
+
+        line_dict = {'cosmoNUThd':'royalblue','cosmoNUTmhd':'m','cosmoNUTcrmhd':'g','cosmoNUTcrmhd\_nost':'olive','cosmoNUTcrmhd\_noheat':'darkgoldenrod'}
+        # Get data
+        for i in range(0, len(args.model)):
+            if args.model[i][0] != '/':
+                simfolder = os.path.join(os.getcwd(), args.model[i])
+                args.model[i] = args.model[i].replace('_','\_')
+            else:
+                simfolder = args.model[i]
+                args.model[i] = args.model[i].split('/')[-1]
+                args.model[i] = args.model[i].replace('_','\_')
+            if not os.path.exists(simfolder):
+                raise Exception('The given simulation name is not found in this directory!')
+            
+            groupspath = os.path.join(simfolder, 'Groups')
+            files = os.listdir(groupspath)
+            ozyfiles = []
+
+            for f in files:
+                if f.startswith('ozy_') and args.start < int(f[4:-5]) < args.end:
+                    ozyfiles.append(f)
+            
+            ozyfiles = sorted(ozyfiles, key=lambda x:x[4:-5], reverse=True)
+            galaxy_time = []
+            galaxy_masses = []
+            flow_values = []
+            vr = []
+            metallicity = []
+
+            progind = args.ind
+            if args.NUT:
+                sim = ozy.load(os.path.join(groupspath, ozyfiles[0]))
+                virial_mass = [i.virial_quantities['mass'] for i in sim.galaxies]
+                progind = np.argmax(virial_mass)
+            
+            for ozyfile in ozyfiles:
+                if progind == -1:
+                    continue
+                # Load OZY file
+                sim = ozy.load(os.path.join(groupspath, ozyfile))
+                # Initialise simulation parameters
+                redshift = sim.simulation.redshift
+                print(args.model[i],redshift,ozyfile)
+                if redshift <= args.maxz:
+                    try:
+                        progind = sim.galaxies[progind].progen_galaxy_star
+                    except:
+                        progind = -1
+                    continue
+                h = sim.simulation.hubble_constant
+                cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
+                Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
+
+                # Age of Universe at this redshift
+                thubble = cosmo.age(redshift).value
+
+                galaxy_time.append(thubble)
+
+                gal = sim.galaxies[progind]
+                m = sim.galaxies[progind].mass['stellar']
+                galaxy_masses.append(m)
+                bad_mass = False
+                if len(galaxy_time) >= 2:
+                    if (galaxy_masses[-1]-galaxy_masses[-2])/galaxy_masses[-2] > 0.8:
+                        bad_mass = True
+                    else:
+                        bad_mass = False
+                
+                if bad_mass == True:
+                    print('Deleting')
+                    try:
+                        flow_values[-2] = flow_values[-1]
+                    except:
+                        pass
+                try:
+                    progind = sim.galaxies[progind].progen_galaxy_star
+                except:
+                    progind = -1
+                
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
+                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute,
+                                    remove_subs=args.rm_subs)
+                
+                d_key = str(int(100*args.r))
+                mrate = gf.data['massflow_rate_'+d_key+'rvir_all'].in_units('Msun/yr')
+                vspeed = gf.data['v_sphere_r_'+d_key+'rvir_all'].in_units('km/s')
+                metal = gf.data['metallicity_'+d_key+'rvir_all']
+                if args.flowtype == 'inflow':
+                    mrate = -mrate
+                    vspeed = -vspeed
+                flow_values.append(mrate)
+                # We only take the outflow rate weighted value
+                vr.append(vspeed[2])
+                print(metal)
+                metallicity.append(metal[2])
+            
+            # Convert to numpy arrays
+            flow_values = np.asarray(flow_values)
+            vr = np.asarray(vr)
+            metallicity = np.asarray(metallicity)
+            
+            # Add total to first axes
+            axes[0].step(galaxy_time[::-1],flow_values[::-1], where='mid',alpha=0.4,color=line_dict[args.model[i]])
+            all_median = medfilt(flow_values[::-1],5)
+            axes[0].plot(galaxy_time[::-1],all_median,marker='o', markersize=4, label=names[args.model[i]],color=line_dict[args.model[i]])
+            
+            # Add gas velocity
+            axes[1].plot(galaxy_time[::-1],vr[::-1,1],marker='o', markersize=4, label=names[args.model[i]],color=line_dict[args.model[i]])
+            axes[1].fill_between(galaxy_time[::-1],vr[::-1,3],vr[::-1,4],alpha=0.4,color=line_dict[args.model[i]])
+            
+            # Add gas metallicity
+            axes[2].plot(galaxy_time[::-1],metallicity[::-1,1],marker='o', markersize=4, label=names[args.model[i]],color=line_dict[args.model[i]])
+            axes[2].fill_between(galaxy_time[::-1],metallicity[::-1,3],metallicity[::-1,4],alpha=0.4,color=line_dict[args.model[i]])
+
+
+        # Add legends to axes
+        ax = axes[0]
+        ax.set_ylim([1,50])
+        ax.set_ylabel(r'$\dot{M}_{\rm %s}$ [$M_{\odot}$/yr]'%args.flowtype, fontsize=16)
+        ax.tick_params(labelsize=14)
+        ax.xaxis.set_ticks_position('both')
+        ax.yaxis.set_ticks_position('both')
+        ax.minorticks_on()
+        ax.tick_params(which='both',axis="both",direction="in")
+        ax.set_yscale('log')
+        ax.legend(loc='best',fontsize=16,frameon=False, ncol=len(args.model))
+        ax.text(0.77, 0.95, r'$r= %.1f R_{\rm vir,DM}$'%(float(args.r)),
+                        transform=ax.transAxes, fontsize=16,verticalalignment='top',
+                        color='black')
+        ax = axes[1]
+        ax.set_ylabel(r'$v_{r}$ [km/s]', fontsize=16)
+        ax.tick_params(labelsize=14)
+        ax.xaxis.set_ticks_position('both')
+        ax.yaxis.set_ticks_position('both')
+        ax.minorticks_on()
+        ax.tick_params(which='both',axis="both",direction="in")
+        ax.set_yscale('log')
+        
+        ax = axes[2]
+        ax.set_ylabel(r'$Z$ [$Z_{\odot}$]', fontsize=16)
+        ax.tick_params(labelsize=14)
+        ax.xaxis.set_ticks_position('both')
+        ax.yaxis.set_ticks_position('both')
+        ax.minorticks_on()
+        ax.tick_params(which='both',axis="both",direction="in")
+        ax.set_yscale('log')
+
+        # Add top ticks for redshift
+        ax = axes[0]
+        axR = ax.twiny()
+        maxt = cosmo.age(args.maxz).value
+        mint = cosmo.age(13.0).value
+        ax.set_xlim(mint, maxt)
+        axR.set_xlim(mint, maxt)
+        topticks1 = np.array([1.5, 2.0, 3.0, 4.0, 6.0, 8.0, 13.0])
+        topticks1 = topticks1[topticks1 >= args.maxz]
+        topticks2 = cosmo.age(topticks1).value
+        axR.set_xticklabels(topticks1)
+        axR.set_xticks(topticks2)
+        axR.xaxis.set_ticks_position('top') # set the position of the second x-axis to top
+        axR.xaxis.set_label_position('top') # set the position of the second x-axis to top
+        axR.set_xlabel(r'$z$', fontsize=18)
+        axR.tick_params(labelsize=14)
+
+        # Add label for rest of axes
+        ax = axes[-1]
+        ax.set_xlabel(r'$t$ [Gyr]', fontsize=18)
+        ax.tick_params(which='both',axis="both",direction="in",bottom=True)
+
+        if args.NUT:
+            args.ind = 'NUT'
+        fig.subplots_adjust(top=0.93,bottom=0.09,left=0.1,right=0.98)
+        if args.rm_subs:
+            fig.savefig(os.getcwd()+'/instantaneous_vr_'+args.flowtype+'_'+str(args.ind)+'_'+d_key+'rvir_rmsubs.png', format='png', dpi=200)
+        else:
+            fig.savefig(os.getcwd()+'/instantaneous_vr_'+args.flowtype+'_'+str(args.ind)+'_'+d_key+'rvir.png', format='png', dpi=200)
     else:
         # Now add all to a single plot
         fig, ax = plt.subplots(1,1, figsize=(7,5),dpi=100,facecolor='w',edgecolor='k')

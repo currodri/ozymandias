@@ -71,7 +71,7 @@ def run_progen(snapdirs, snapname, snapindexes, prefix='ozy_', extension='hdf5',
         progen_build(obj_current, obj_progens, ozy_filename(snap_current, prefix, extension), snap_dir = snapdirs[0], **kwargs)
 
 def progen_build(obj_current, obj_target, ozy_file, snap_dir=None, data_type='galaxy', part_type='star', recompute=False, 
-                    save=True, n_most=1, min_in_common=0.1, nproc=1):
+                    save=True, n_most=1, min_in_common=0.1, nproc=1, **kwargs):
     """Function to find the most massive progenitor of each Ozy group in obj_current in the previous snapshot.
     """
 
@@ -120,7 +120,7 @@ def find_progens(pid_current, pid_target, gid_current, gid_target, pid_hash, n_m
         prog_index2 = np.zeros(ngroups_curr,dtype=int)
         for ig in range(ngroups_curr):
             prog_index[ig],prog_index2[ig] = _find_target_group(pid_current[pid_hash[ig]:pid_hash[ig+1]],pid_target,gid_target,min_in_common)
-    
+    print(prog_index,prog_index2)
     if n_most == 1:
         return prog_index
     elif n_most == 2:

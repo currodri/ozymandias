@@ -47,9 +47,11 @@ module io_ramses
 
     type sim_info
         logical :: cosmo=.true.,family=.false.
-        logical :: dm=.false.,hydro=.false.,mhd=.false.,cr=.false.,rt=.false.,bh=.false.
+        logical :: dm=.false.,hydro=.false.,mhd=.false.
+        logical :: cr=.false.,rt=.false.,bh=.false.
         logical :: cr_st=.false.,cr_heat=.false.,dust=.false.
-        real(dbl) :: h0,t,aexp,unit_l,unit_d,unit_t,unit_m,unit_v,boxlen,omega_m,omega_l,omega_k,omega_b
+        real(dbl) :: h0,t,aexp,unit_l,unit_d,unit_t,unit_m,unit_v,unit_p
+        real(dbl) :: boxlen,omega_m,omega_l,omega_k,omega_b
         real(dbl) :: time_tot,time_simu,redshift,T2,nH
         integer :: n_frw
         real(dbl),dimension(:),allocatable :: aexp_frw,hexp_frw,tau_frw,t_frw
@@ -580,13 +582,17 @@ module io_ramses
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:amr%twondim,1:4),optional,intent(in) :: grav_var
         real(dbl),dimension(0:amr%twondim,1:varIDs%nvar) :: tempvar
+        real(dbl),dimension(0:amr%twondim) :: totP
+        integer :: i
         type(vector) :: v,L,B,vst
         type(basis) :: temp_basis
-        real(dbl) :: T,rho,cV,lambda,lambda_prime,ne,ecr,nH
+        real(dbl) :: T,rho,cV,lambda,lambda_prime,ne,ecr,nH,Tmin
         real(dbl) :: dxleft,dxright
         real(dbl) :: bsign
         real(dbl) :: lambda_co, lambda_st, lambda_cr
         character(128) :: star_maker
+
+        Tmin = 15d0 / sim%T2
 
         select case (TRIM(varname))
         case ('d_euclid')
@@ -698,40 +704,46 @@ module io_ramses
             ! Gas temperature
             value = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) !/ 1.38d-16*1.66d-24
             if (value < 0d0) then
-                value = 15d0/sim%T2
+                value = Tmin
             endif
         case ('thermal_pressure')
             ! Thermal pressure
-            value = var(0,varIDs%thermal_pressure)
+            value = max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density))
         case ('grad_thermalpressure')
             ! Magnitude of thermal pressure gradient
             dxright = dx; dxleft = dx
             if (son(1) .ne. 0) dxright = dxright * 1.5D0
             if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
-            v%x = (var(1,varIDs%thermal_pressure) - var(2,varIDs%thermal_pressure)) / (dxright + dxleft)
+            v%x = (max(var(1,varIDs%thermal_pressure), Tmin*var(1,varIDs%density)) - &
+                    & max(var(2,varIDs%thermal_pressure),Tmin*var(2,varIDs%density))) / (dxright + dxleft)
             dxright = dx; dxleft = dx
             if (son(3) .ne. 0) dxright = dxright * 1.5D0
             if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
-            v%y = (var(3,varIDs%thermal_pressure) - var(4,varIDs%thermal_pressure)) / (dxright + dxleft)
+            v%y = (max(var(3,varIDs%thermal_pressure), Tmin*var(3,varIDs%density)) - &
+                    & max(var(4,varIDs%thermal_pressure),Tmin*var(4,varIDs%density))) / (dxright + dxleft)
             dxright = dx; dxleft = dx
             if (son(5) .ne. 0) dxright = dxright * 1.5D0
             if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
-            v%z = (var(5,varIDs%thermal_pressure) - var(6,varIDs%thermal_pressure)) / (dxright + dxleft)
+            v%z = (max(var(5,varIDs%thermal_pressure), Tmin*var(5,varIDs%density)) - &
+                    & max(var(6,varIDs%thermal_pressure),Tmin*var(6,varIDs%density))) / (dxright + dxleft)
             value = magnitude(v)
         case ('grad_therprsphere')
             ! Thermal pressure gradient in the radial direction
             dxright = dx; dxleft = dx
             if (son(1) .ne. 0) dxright = dxright * 1.5D0
             if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
-            v%x = (var(1,varIDs%thermal_pressure) - var(2,varIDs%thermal_pressure)) / (dxright + dxleft)
+            v%x = (max(var(1,varIDs%thermal_pressure), Tmin*var(1,varIDs%density)) - &
+                    & max(var(2,varIDs%thermal_pressure),Tmin*var(2,varIDs%density))) / (dxright + dxleft)
             dxright = dx; dxleft = dx
             if (son(3) .ne. 0) dxright = dxright * 1.5D0
             if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
-            v%y = (var(3,varIDs%thermal_pressure) - var(4,varIDs%thermal_pressure)) / (dxright + dxleft)
+            v%y = (max(var(3,varIDs%thermal_pressure), Tmin*var(3,varIDs%density)) - &
+                    & max(var(4,varIDs%thermal_pressure),Tmin*var(4,varIDs%density))) / (dxright + dxleft)
             dxright = dx; dxleft = dx
             if (son(5) .ne. 0) dxright = dxright * 1.5D0
             if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
-            v%z = (var(5,varIDs%thermal_pressure) - var(6,varIDs%thermal_pressure)) / (dxright + dxleft)
+            v%z = (max(var(5,varIDs%thermal_pressure), Tmin*var(5,varIDs%density)) - &
+                    & max(var(6,varIDs%thermal_pressure),Tmin*var(6,varIDs%density))) / (dxright + dxleft)
             call rotate_vector(v,trans_matrix)
             call spherical_basis_from_cartesian(x,temp_basis)
             value = v.DOT.temp_basis%u(1)
@@ -740,38 +752,43 @@ module io_ramses
             dxright = dx; dxleft = dx
             if (son(1) .ne. 0) dxright = dxright * 1.5D0
             if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
-            v%x = (var(1,varIDs%thermal_pressure) - var(2,varIDs%thermal_pressure)) / (dxright + dxleft)
+            v%x = (max(var(1,varIDs%thermal_pressure), Tmin*var(1,varIDs%density)) - &
+                    & max(var(2,varIDs%thermal_pressure),Tmin*var(2,varIDs%density))) / (dxright + dxleft)
             dxright = dx; dxleft = dx
             if (son(3) .ne. 0) dxright = dxright * 1.5D0
             if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
-            v%y = (var(3,varIDs%thermal_pressure) - var(4,varIDs%thermal_pressure)) / (dxright + dxleft)
+            v%y = (max(var(3,varIDs%thermal_pressure), Tmin*var(3,varIDs%density)) - &
+                    & max(var(4,varIDs%thermal_pressure),Tmin*var(4,varIDs%density))) / (dxright + dxleft)
             dxright = dx; dxleft = dx
             if (son(5) .ne. 0) dxright = dxright * 1.5D0
             if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
-            v%z = (var(5,varIDs%thermal_pressure) - var(6,varIDs%thermal_pressure)) / (dxright + dxleft)
+            v%z = (max(var(5,varIDs%thermal_pressure), Tmin*var(5,varIDs%density)) - &
+                    & max(var(6,varIDs%thermal_pressure),Tmin*var(6,varIDs%density))) / (dxright + dxleft)
             call rotate_vector(v,trans_matrix)
             value = v%z
         case ('thermal_energy')
             ! Thermal energy, computed as thermal_pressure*volume/(gamma - 1)
-            value = ((var(0,varIDs%thermal_pressure) / (5D0/3d0 - 1d0)) * (dx * dx)) * dx
+            value = ((max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density)) / (5D0/3d0 - 1d0)) * (dx * dx)) * dx
         case ('thermal_energy_specific')
             ! Specific thermal energy as E_ther/cell mass
-            value = (var(0,varIDs%thermal_pressure) / (5D0/3d0 - 1d0)) / var(0,varIDs%density)
+            value = (max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density)) / (5D0/3d0 - 1d0)) / var(0,varIDs%density)
         case ('thermal_energy_density')
             ! Thermal energy density  as E_ther/cell volume
-            value = var(0,varIDs%thermal_pressure) / (5D0/3d0 - 1d0)
+            value = max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density)) / (5D0/3d0 - 1d0)
         case ('entropy_specific')
             ! Specific entropy, following Gent 2012 equation
             cV = 0.76 * cVHydrogen * mHydrogen / kBoltzmann
             T = (var(0,varIDs%thermal_pressure)*((sim%unit_l/sim%unit_t)**2) / var(0,varIDs%density) / kBoltzmann * mHydrogen)
+            !TODO: This is a fix to the low temperature in CRMHD
+            if (T<15) T = 15
             rho = (var(0,varIDs%density) * sim%unit_d / mHydrogen )
             value = cV * (log(T) - (2D0/3D0) * log(rho))
         case ('sound_speed')
             ! Thermal sound speed, ideal gas
-            value = sqrt(5D0/3d0 * (var(0,varIDs%thermal_pressure) / var(0,varIDs%density)))
+            value = sqrt(5D0/3d0 * (max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density)) / var(0,varIDs%density)))
         case ('rms_speed')
             ! RMS speed, ideal gas (Maxwellian distribution)
-            value = sqrt(3d0 * (var(0,varIDs%thermal_pressure) / var(0,varIDs%density)))
+            value = sqrt(3d0 * (max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density)) / var(0,varIDs%density)))
         case ('kinetic_energy')
             ! Kinetic energy, computed as 1/2*density*volume*magnitude(velocity)
             value = (0.5 * (var(0,varIDs%density) * (dx*dx)) * dx) * sqrt(var(0,varIDs%vx)**2 + var(0,varIDs%vy)**2 + var(0,varIDs%vz)**2)
@@ -868,6 +885,25 @@ module io_ramses
             call rotate_vector(v,trans_matrix)
             call spherical_basis_from_cartesian(x,temp_basis)
             value = (v.DOT.temp_basis%u(1))
+        case ('gradscale_crprsphere')
+            ! CR pressure gradient scale in the radial direction
+            ! This is defined as Pcr/grad(Pcr)
+            dxright = dx; dxleft = dx
+            if (son(1) .ne. 0) dxright = dxright * 1.5D0
+            if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
+            v%x = (var(1,varIDs%cr_pressure) - var(2,varIDs%cr_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .ne. 0) dxright = dxright * 1.5D0
+            if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
+            v%y = (var(3,varIDs%cr_pressure) - var(4,varIDs%cr_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .ne. 0) dxright = dxright * 1.5D0
+            if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
+            v%z = (var(5,varIDs%cr_pressure) - var(6,varIDs%cr_pressure)) / (dxright + dxleft)
+            call rotate_vector(v,trans_matrix)
+            call spherical_basis_from_cartesian(x,temp_basis)
+            value = (v.DOT.temp_basis%u(1))
+            value = abs(var(0,varIDs%cr_pressure)/value)
         case ('grad_crpx')
             ! Gradient of CR pressure in the x direction
             dxright = dx; dxleft = dx
@@ -940,6 +976,7 @@ module io_ramses
             !TODO: Check units!
             ! Net cooling rate taken from the cooling table in RAMSES output
             T = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * sim%T2
+            if (T<15) T = 15
             nH = var(0,varIDs%density) * sim%nH
             call solve_cooling(nH,T,var(0,varIDs%metallicity)/2D-2,lambda,lambda_prime)
             lambda_co = ((lambda * nH) * nH) * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
@@ -981,8 +1018,13 @@ module io_ramses
                 lambda_cr = 0D0
             end if
 
-            ! Thermal energy, computed as thermal_pressure*volume/(gamma - 1)
-            value = var(0,varIDs%thermal_pressure) / (5D0/3d0 - 1d0)
+            ! Thermal energy, computed as thermal_pressure*volume/(gamma - 1
+            ! TODO: This a fix only for some messed up CRMHD simulations!
+            if (T<15) then
+                value = (Tmin * var(0,varIDs%density)) / (5D0/3d0 - 1d0)
+            else
+                value = var(0,varIDs%thermal_pressure) / (5D0/3d0 - 1d0)
+            end if
 
             value = value / (lambda_co - lambda_st - lambda_cr)
             if (T.le.0D0) value = 0D0
@@ -1018,6 +1060,15 @@ module io_ramses
             v = (/var(0,varIDs%vx),var(0,varIDs%vy),var(0,varIDs%vz)/)
             call spherical_basis_from_cartesian(x,temp_basis)
             value = (var(0,varIDs%density) * (dx*dx)) * dx * (v .DOT. temp_basis%u(1))
+        case ('absmomentum_sphere_r')
+            ! Linear momentum in the spherical radial direction (absolute value)
+            ! 1. Dot product of velocity vector with spherical r
+            !    unit vector
+            ! 2. Multiply by mass of cell
+            v = (/var(0,varIDs%vx),var(0,varIDs%vy),var(0,varIDs%vz)/)
+            call spherical_basis_from_cartesian(x,temp_basis)
+            value = (var(0,varIDs%density) * (dx*dx)) * dx * (v .DOT. temp_basis%u(1))
+            value = abs(value)
         case ('momentum_cyl_z')
             ! Linear momentum in the cylindrical z direction
             ! 1. Dot product of velocity vector with cylindrical z
@@ -1122,15 +1173,18 @@ module io_ramses
             dxright = dx; dxleft = dx
             if (son(1) .ne. 0) dxright = dxright * 1.5D0
             if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
-            v%x = (var(1,varIDs%thermal_pressure) - var(2,varIDs%thermal_pressure)) / (dxright + dxleft)
+            v%x = (max(var(1,varIDs%thermal_pressure), Tmin*var(1,varIDs%density)) - &
+                    & max(var(2,varIDs%thermal_pressure),Tmin*var(2,varIDs%density))) / (dxright + dxleft)
             dxright = dx; dxleft = dx
             if (son(3) .ne. 0) dxright = dxright * 1.5D0
             if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
-            v%y = (var(3,varIDs%thermal_pressure) - var(4,varIDs%thermal_pressure)) / (dxright + dxleft)
+            v%y = (max(var(3,varIDs%thermal_pressure), Tmin*var(3,varIDs%density)) - &
+                    & max(var(4,varIDs%thermal_pressure),Tmin*var(4,varIDs%density))) / (dxright + dxleft)
             dxright = dx; dxleft = dx
             if (son(5) .ne. 0) dxright = dxright * 1.5D0
             if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
-            v%z = (var(5,varIDs%thermal_pressure) - var(6,varIDs%thermal_pressure)) / (dxright + dxleft)
+            v%z = (max(var(5,varIDs%thermal_pressure), Tmin*var(5,varIDs%density)) - &
+                    & max(var(6,varIDs%thermal_pressure),Tmin*var(6,varIDs%density))) / (dxright + dxleft)
             call rotate_vector(v,trans_matrix)
             value = -v%z / (var(0,varIDs%density) * grav_var(0,4))
         case ('grav_therpfrsphere')
@@ -1139,19 +1193,74 @@ module io_ramses
             dxright = dx; dxleft = dx
             if (son(1) .ne. 0) dxright = dxright * 1.5D0
             if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
-            v%x = (var(1,varIDs%thermal_pressure) - var(2,varIDs%thermal_pressure)) / (dxright + dxleft)
+            v%x = (max(var(1,varIDs%thermal_pressure), Tmin*var(1,varIDs%density)) - &
+                    & max(var(2,varIDs%thermal_pressure),Tmin*var(2,varIDs%density))) / (dxright + dxleft)
             dxright = dx; dxleft = dx
             if (son(3) .ne. 0) dxright = dxright * 1.5D0
             if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
-            v%y = (var(3,varIDs%thermal_pressure) - var(4,varIDs%thermal_pressure)) / (dxright + dxleft)
+            v%y = (max(var(3,varIDs%thermal_pressure), Tmin*var(3,varIDs%density)) - &
+                    & max(var(4,varIDs%thermal_pressure),Tmin*var(4,varIDs%density))) / (dxright + dxleft)
             dxright = dx; dxleft = dx
             if (son(5) .ne. 0) dxright = dxright * 1.5D0
             if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
-            v%z = (var(5,varIDs%thermal_pressure) - var(6,varIDs%thermal_pressure)) / (dxright + dxleft)
+            v%z = (max(var(5,varIDs%thermal_pressure), Tmin*var(5,varIDs%density)) - &
+                    & max(var(6,varIDs%thermal_pressure),Tmin*var(6,varIDs%density))) / (dxright + dxleft)
             call rotate_vector(v,trans_matrix)
             B = grav_var(0,2:4)
             call spherical_basis_from_cartesian(x,temp_basis)
             value = -(v.DOT.temp_basis%u(1)) / (var(0,varIDs%density) * (B .DOT. temp_basis%u(1)))
+        case ('grav_therpfrspherepos')
+            ! Ratio of thermal pressure gradient and gravitational acceleration
+            ! in the spherical r direction
+            ! ONLY POSITIVE
+            dxright = dx; dxleft = dx
+            if (son(1) .ne. 0) dxright = dxright * 1.5D0
+            if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
+            v%x = (max(var(1,varIDs%thermal_pressure), Tmin*var(1,varIDs%density)) - &
+                    & max(var(2,varIDs%thermal_pressure),Tmin*var(2,varIDs%density))) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .ne. 0) dxright = dxright * 1.5D0
+            if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
+            v%y = (max(var(3,varIDs%thermal_pressure), Tmin*var(3,varIDs%density)) - &
+                    & max(var(4,varIDs%thermal_pressure),Tmin*var(4,varIDs%density))) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .ne. 0) dxright = dxright * 1.5D0
+            if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
+            v%z = (max(var(5,varIDs%thermal_pressure), Tmin*var(5,varIDs%density)) - &
+                    & max(var(6,varIDs%thermal_pressure),Tmin*var(6,varIDs%density))) / (dxright + dxleft)
+            call rotate_vector(v,trans_matrix)
+            B = grav_var(0,2:4)
+            call spherical_basis_from_cartesian(x,temp_basis)
+            value = -(v.DOT.temp_basis%u(1)) / (var(0,varIDs%density) * (B .DOT. temp_basis%u(1)))
+            if (value < 0) value = 0d0
+        case ('grav_therpfrsphereneg')
+            ! Ratio of thermal pressure gradient and gravitational acceleration
+            ! in the spherical r direction
+            ! ONLY NEGATIVE
+            dxright = dx; dxleft = dx
+            if (son(1) .ne. 0) dxright = dxright * 1.5D0
+            if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
+            v%x = (max(var(1,varIDs%thermal_pressure), Tmin*var(1,varIDs%density)) - &
+                    & max(var(2,varIDs%thermal_pressure),Tmin*var(2,varIDs%density))) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .ne. 0) dxright = dxright * 1.5D0
+            if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
+            v%y = (max(var(3,varIDs%thermal_pressure), Tmin*var(3,varIDs%density)) - &
+                    & max(var(4,varIDs%thermal_pressure),Tmin*var(4,varIDs%density))) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .ne. 0) dxright = dxright * 1.5D0
+            if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
+            v%z = (max(var(5,varIDs%thermal_pressure), Tmin*var(5,varIDs%density)) - &
+                    & max(var(6,varIDs%thermal_pressure),Tmin*var(6,varIDs%density))) / (dxright + dxleft)
+            call rotate_vector(v,trans_matrix)
+            B = grav_var(0,2:4)
+            call spherical_basis_from_cartesian(x,temp_basis)
+            value = -(v.DOT.temp_basis%u(1)) / (var(0,varIDs%density) * (B .DOT. temp_basis%u(1)))
+            if (value > 0) then
+                value = 0d0
+            else
+                value = - value
+            end if
         case ('grav_crpfrsphere')
             ! Ratio of CR pressure gradient and gravitational acceleration
             ! in the spherical r direction
@@ -1171,6 +1280,239 @@ module io_ramses
             B = grav_var(0,2:4)
             call spherical_basis_from_cartesian(x,temp_basis)
             value = -(v.DOT.temp_basis%u(1)) / (var(0,varIDs%density) * (B .DOT. temp_basis%u(1)))
+        case ('grav_crpfrspherepos')
+            ! Ratio of CR pressure gradient and gravitational acceleration
+            ! in the spherical r direction
+            ! ONLY POSITIVE
+            dxright = dx; dxleft = dx
+            if (son(1) .ne. 0) dxright = dxright * 1.5D0
+            if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
+            v%x = (var(1,varIDs%cr_pressure) - var(2,varIDs%cr_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .ne. 0) dxright = dxright * 1.5D0
+            if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
+            v%y = (var(3,varIDs%cr_pressure) - var(4,varIDs%cr_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .ne. 0) dxright = dxright * 1.5D0
+            if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
+            v%z = (var(5,varIDs%cr_pressure) - var(6,varIDs%cr_pressure)) / (dxright + dxleft)
+            call rotate_vector(v,trans_matrix)
+            B = grav_var(0,2:4)
+            call spherical_basis_from_cartesian(x,temp_basis)
+            value = -(v.DOT.temp_basis%u(1)) / (var(0,varIDs%density) * (B .DOT. temp_basis%u(1)))
+            if (value < 0) value = 0d0
+        case ('grav_crpfrsphereneg')
+            ! Ratio of CR pressure gradient and gravitational acceleration
+            ! in the spherical r direction
+            ! ONLY NEGATIVE
+            dxright = dx; dxleft = dx
+            if (son(1) .ne. 0) dxright = dxright * 1.5D0
+            if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
+            v%x = (var(1,varIDs%cr_pressure) - var(2,varIDs%cr_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .ne. 0) dxright = dxright * 1.5D0
+            if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
+            v%y = (var(3,varIDs%cr_pressure) - var(4,varIDs%cr_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .ne. 0) dxright = dxright * 1.5D0
+            if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
+            v%z = (var(5,varIDs%cr_pressure) - var(6,varIDs%cr_pressure)) / (dxright + dxleft)
+            call rotate_vector(v,trans_matrix)
+            B = grav_var(0,2:4)
+            call spherical_basis_from_cartesian(x,temp_basis)
+            value = -(v.DOT.temp_basis%u(1)) / (var(0,varIDs%density) * (B .DOT. temp_basis%u(1)))
+            if (value > 0) then
+                value = 0d0
+            else
+                value = - value
+            end if
+        case ('grav_magpfrsphere')
+            ! Ratio of magnetic pressure gradient and gravitational acceleration
+            ! in the spherical r direction
+            totP(:) = 0d0
+            do i=1,amr%twondim
+                B = 0.5 *(/(var(i,varIDs%Blx)+var(i,varIDs%Brx)),&
+                    & (var(i,varIDs%Bly)+var(i,varIDs%Bry)),&
+                    & (var(i,varIDs%Blz)+var(i,varIDs%Brz))/)
+                value = 0.5 * (B.DOT.B)
+                totP(i) = value
+            end do
+            dxright = dx; dxleft = dx
+            if (son(1) .ne. 0) dxright = dxright * 1.5D0
+            if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
+            v%x = (totP(1) - totP(2)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .ne. 0) dxright = dxright * 1.5D0
+            if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
+            v%y = (totP(3) - totP(4)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .ne. 0) dxright = dxright * 1.5D0
+            if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
+            v%z = (totP(5) - totP(6)) / (dxright + dxleft)
+            call rotate_vector(v,trans_matrix)
+            B = grav_var(0,2:4)
+            call spherical_basis_from_cartesian(x,temp_basis)
+            value = -(v.DOT.temp_basis%u(1)) / (var(0,varIDs%density) * (B .DOT. temp_basis%u(1)))
+        case ('grav_magpfrspherepos')
+            ! Ratio of magnetic pressure gradient and gravitational acceleration
+            ! in the spherical r direction
+            ! ONLY POSITIVE
+            totP(:) = 0d0
+            do i=1,amr%twondim
+                B = 0.5 *(/(var(i,varIDs%Blx)+var(i,varIDs%Brx)),&
+                    & (var(i,varIDs%Bly)+var(i,varIDs%Bry)),&
+                    & (var(i,varIDs%Blz)+var(i,varIDs%Brz))/)
+                value = 0.5 * (B.DOT.B)
+                totP(i) = value
+            end do
+            dxright = dx; dxleft = dx
+            if (son(1) .ne. 0) dxright = dxright * 1.5D0
+            if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
+            v%x = (totP(1) - totP(2)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .ne. 0) dxright = dxright * 1.5D0
+            if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
+            v%y = (totP(3) - totP(4)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .ne. 0) dxright = dxright * 1.5D0
+            if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
+            v%z = (totP(5) - totP(6)) / (dxright + dxleft)
+            call rotate_vector(v,trans_matrix)
+            B = grav_var(0,2:4)
+            call spherical_basis_from_cartesian(x,temp_basis)
+            value = -(v.DOT.temp_basis%u(1)) / (var(0,varIDs%density) * (B .DOT. temp_basis%u(1)))
+            if (value < 0) value = 0d0
+        case ('grav_magpfrsphereneg')
+            ! Ratio of magnetic pressure gradient and gravitational acceleration
+            ! in the spherical r direction
+            ! ONLY NEGATIVE
+            totP(:) = 0d0
+            do i=1,amr%twondim
+                B = 0.5 *(/(var(i,varIDs%Blx)+var(i,varIDs%Brx)),&
+                    & (var(i,varIDs%Bly)+var(i,varIDs%Bry)),&
+                    & (var(i,varIDs%Blz)+var(i,varIDs%Brz))/)
+                value = 0.5 * (B.DOT.B)
+                totP(i) = value
+            end do
+            dxright = dx; dxleft = dx
+            if (son(1) .ne. 0) dxright = dxright * 1.5D0
+            if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
+            v%x = (totP(1) - totP(2)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .ne. 0) dxright = dxright * 1.5D0
+            if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
+            v%y = (totP(3) - totP(4)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .ne. 0) dxright = dxright * 1.5D0
+            if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
+            v%z = (totP(5) - totP(6)) / (dxright + dxleft)
+            call rotate_vector(v,trans_matrix)
+            B = grav_var(0,2:4)
+            call spherical_basis_from_cartesian(x,temp_basis)
+            value = -(v.DOT.temp_basis%u(1)) / (var(0,varIDs%density) * (B .DOT. temp_basis%u(1)))
+            if (value > 0) then
+                value = 0d0
+            else
+                value = - value
+            end if
+        case ('grav_totpfrsphere')
+            ! Ratio of total pressure gradient and gravitational acceleration
+            ! in the spherical r direction
+            totP(:) = 0d0
+            do i=1,amr%twondim
+                if (sim%hydro) totP(i) = var(i,varIDs%thermal_pressure)
+                if (sim%mhd) then
+                    B = 0.5 *(/(var(i,varIDs%Blx)+var(i,varIDs%Brx)),&
+                        & (var(i,varIDs%Bly)+var(i,varIDs%Bry)),&
+                        & (var(i,varIDs%Blz)+var(i,varIDs%Brz))/)
+                    totP(i) = totP(i) + 0.5 * (B.DOT.B)
+                end if
+                if (sim%cr) totP(i) = totP(i) + var(i,varIDs%cr_pressure)
+            end do
+            dxright = dx; dxleft = dx
+            if (son(1) .ne. 0) dxright = dxright * 1.5D0
+            if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
+            v%x = (totP(1) - totP(2)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .ne. 0) dxright = dxright * 1.5D0
+            if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
+            v%y = (totP(3) - totP(4)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .ne. 0) dxright = dxright * 1.5D0
+            if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
+            v%z = (totP(5) - totP(6)) / (dxright + dxleft)
+            call rotate_vector(v,trans_matrix)
+            B = grav_var(0,2:4)
+            call spherical_basis_from_cartesian(x,temp_basis)
+            value = -(v.DOT.temp_basis%u(1)) / (var(0,varIDs%density) * (B .DOT. temp_basis%u(1)))
+        case ('grav_totpfrspherepos')
+            ! Ratio of total pressure gradient and gravitational acceleration
+            ! in the spherical r direction
+            ! ONLY POSITIVE
+            totP(:) = 0d0
+            do i=1,amr%twondim
+                if (sim%hydro) totP(i) = var(i,varIDs%thermal_pressure)
+                if (sim%mhd) then
+                    B = 0.5 *(/(var(i,varIDs%Blx)+var(i,varIDs%Brx)),&
+                        & (var(i,varIDs%Bly)+var(i,varIDs%Bry)),&
+                        & (var(i,varIDs%Blz)+var(i,varIDs%Brz))/)
+                    totP(i) = totP(i) + 0.5 * (B.DOT.B)
+                end if
+                if (sim%cr) totP(i) = totP(i) + var(i,varIDs%cr_pressure)
+            end do
+            dxright = dx; dxleft = dx
+            if (son(1) .ne. 0) dxright = dxright * 1.5D0
+            if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
+            v%x = (totP(1) - totP(2)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .ne. 0) dxright = dxright * 1.5D0
+            if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
+            v%y = (totP(3) - totP(4)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .ne. 0) dxright = dxright * 1.5D0
+            if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
+            v%z = (totP(5) - totP(6)) / (dxright + dxleft)
+            call rotate_vector(v,trans_matrix)
+            B = grav_var(0,2:4)
+            call spherical_basis_from_cartesian(x,temp_basis)
+            value = -(v.DOT.temp_basis%u(1)) / (var(0,varIDs%density) * (B .DOT. temp_basis%u(1)))
+            if (value < 0) value = 0d0
+        case ('grav_totpfrsphereneg')
+            ! Ratio of total pressure gradient and gravitational acceleration
+            ! in the spherical r direction
+            ! ONLY NEGATIVE
+            totP(:) = 0d0
+            do i=1,amr%twondim
+                if (sim%hydro) totP(i) = var(i,varIDs%thermal_pressure)
+                if (sim%mhd) then
+                    B = 0.5 *(/(var(i,varIDs%Blx)+var(i,varIDs%Brx)),&
+                        & (var(i,varIDs%Bly)+var(i,varIDs%Bry)),&
+                        & (var(i,varIDs%Blz)+var(i,varIDs%Brz))/)
+                    totP(i) = totP(i) + 0.5 * (B.DOT.B)
+                end if
+                if (sim%cr) totP(i) = totP(i) + var(i,varIDs%cr_pressure)
+            end do
+            dxright = dx; dxleft = dx
+            if (son(1) .ne. 0) dxright = dxright * 1.5D0
+            if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
+            v%x = (totP(1) - totP(2)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .ne. 0) dxright = dxright * 1.5D0
+            if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
+            v%y = (totP(3) - totP(4)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .ne. 0) dxright = dxright * 1.5D0
+            if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
+            v%z = (totP(5) - totP(6)) / (dxright + dxleft)
+            call rotate_vector(v,trans_matrix)
+            B = grav_var(0,2:4)
+            call spherical_basis_from_cartesian(x,temp_basis)
+            value = -(v.DOT.temp_basis%u(1)) / (var(0,varIDs%density) * (B .DOT. temp_basis%u(1)))
+            if (value > 0) then
+                value = 0d0
+            else
+                value = - value
+            end if
         case ('eff_FKmag')
             ! Enforce turbulence criterion + efficiency following Federrath & Klessen 2012
             star_maker = 'FKmag'
@@ -1182,7 +1524,21 @@ module io_ramses
             call rotate_vector(v,transpose(trans_matrix))
             v = v + reg%bulk_velocity
             tempvar(0,varIDs%vx:varIDs%vz) = v
-            value  = sf_eff(reg,dx,x,tempvar,star_maker)
+            value  = sf_eff(reg,dx,x,tempvar,star_maker,.true.)
+        case ('eff_FKmagnocr')
+            ! Enforce turbulence criterion + efficiency following Federrath & Klessen 2012
+            ! In this case the contribution of CR pressure is ignore in the computation
+            ! of the effective sound speed
+            star_maker = 'FKmag'
+            ! Go back to box coordinates for the central cell, which is transformed usually
+            ! before sent to read_amr
+            ! Converging flow check
+            tempvar(:,:) = var(:,:)
+            v = tempvar(0,varIDs%vx:varIDs%vz)
+            call rotate_vector(v,transpose(trans_matrix))
+            v = v + reg%bulk_velocity
+            tempvar(0,varIDs%vx:varIDs%vz) = v
+            value  = sf_eff(reg,dx,x,tempvar,star_maker,.false.)
         case ('eff_FK2')
             ! Enforce turbulence criterion + efficiency following Federrath & Klessen 2012
             star_maker = 'FK2'
@@ -1194,7 +1550,7 @@ module io_ramses
             call rotate_vector(v,transpose(trans_matrix))
             v = v + reg%bulk_velocity
             tempvar(0,varIDs%vx:varIDs%vz) = v
-            value  = sf_eff(reg,dx,x,tempvar,star_maker)
+            value  = sf_eff(reg,dx,x,tempvar,star_maker,.false.)
         case ('neighbour_accuracy')
             ! This variable is used as a debugging method to check
             ! whether the nearest neighbour implementation is able to 
@@ -1472,7 +1828,7 @@ module io_ramses
     !             sfr_ff(i) = (eps_star*phi_t/2.0)*exp(3.0/8.0*sigs)*(2.0-erfc((sigs-scrit)/sqrt(2.0*sigs)))
         
     ! end function sf_eff
-    function sf_eff(reg,dx,x,var,star_maker)
+    function sf_eff(reg,dx,x,var,star_maker,use_crs)
         use vectors
         use basis_representations
         use geometrical_regions
@@ -1483,6 +1839,7 @@ module io_ramses
         type(vector),intent(in)        :: x
         real(dbl),dimension(0:amr%twondim,1:varIDs%nvar),intent(in) :: var
         character(128),intent(in)                 :: star_maker
+        logical,intent(in)  :: use_crs
         real(dbl) :: sf_eff
         ! SF variables
         logical :: isConvergent
@@ -1668,7 +2025,7 @@ module io_ramses
             ! Now compute sound speed squared
             temp = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * gamma_gas
             ! TODO: This should be change to add also radiation pressure
-            if (sim%cr) then
+            if (sim%cr.and.use_crs) then
                 temp = temp + var(0,varIDs%cr_pressure) / var(0,varIDs%density) * gamma_crs
             end if
             temp = max(temp,smallc**2)
@@ -1993,6 +2350,7 @@ module io_ramses
         sim%T2 = mHydrogen / kBoltzmann * ((sim%unit_l/sim%unit_t)**2) ! Temperature conversion factor
         sim%nH = XH / mHydrogen * sim%unit_d                           ! nH conversion factor
         sim%unit_v = (sim%unit_l/sim%unit_t)                           ! Velocity unit
+        sim%unit_p = sim%unit_d*((sim%unit_l/sim%unit_t)**2)           ! Pressure unit
 
         if (sim%hydro) then
             ! Also initialise the cooling table

@@ -78,7 +78,7 @@ class PhaseDiagram(object):
                 self.filter['conditions'].append(cond_str)
 
 def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins=[100,100],region_type='sphere',
-                            filter_conds='none',filter_name='none',logscale=True,recompute=False,save=False,
+                            filter_conds='none',filter_name='none',scaletype='log_even',recompute=False,save=False,
                             rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(0.0,'rvir'), zmax=(0.2,'rvir'),
                             cr_st=False,cr_heat=False):
     """Function which computes a phase diagram (2D profile) for a given group object."""
@@ -192,7 +192,7 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins
     
     # And now, compute hydro data phase diagrams!
     if hydro_data.nzvar > 0 and hydro_data.nwvar > 0:
-        amrprofmod.twodprofile(group.obj.simulation.fullpath,selected_reg,filt,hydro_data,lmax,logscale)
+        amrprofmod.twodprofile(group.obj.simulation.fullpath,selected_reg,filt,hydro_data,lmax,scaletype)
     
     code_units = get_code_units(pd.xvar)
     copy_data = np.copy(hydro_data.xdata)
@@ -344,10 +344,10 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
     ax.set_xscale('log')
     ax.set_yscale('log')
     code_units_x = get_code_units(pd.xvar)
-    x = pd.obj.array(10**(pd.xdata[0].d),code_units_x)
+    x = pd.obj.array(10**pd.xdata[0].d,code_units_x)
     x = x.in_units(plotting_x['units'])
     code_units_y = get_code_units(pd.yvar)
-    y = pd.obj.array(10**(pd.ydata[0].d),code_units_y)
+    y = pd.obj.array(10**pd.ydata[0].d,code_units_y)
     y = y.in_units(plotting_y['units'])
     code_units_z = get_code_units(field)
     z = np.array(pd.zdata['hydro'][field_index][:,:,weight_index].d,order='F')
@@ -773,10 +773,10 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
                 else:
                     temp_pd = pd[w]
                     temp_weight = pd_weight[w]
-                x = temp_pd.obj.array(10**(temp_pd.xdata[0].d),code_units_x)
+                x = temp_pd.obj.array(10**temp_pd.xdata[0].d,code_units_x)
                 x = x.in_units(plotting_x['units'])
                 code_units_y = get_code_units(temp_pd.yvar)
-                y = temp_pd.obj.array(10**(temp_pd.ydata[0].d),code_units_y)
+                y = temp_pd.obj.array(10**temp_pd.ydata[0].d,code_units_y)
                 y = y.in_units(plotting_y['units'])
                 code_units_z = get_code_units(field)
                 ztemp = np.array(temp_pd.zdata['hydro'][field_indexes[i]][:,:,weight_indexes[i],0].d,order='F')

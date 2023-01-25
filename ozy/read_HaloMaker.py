@@ -188,11 +188,11 @@ def auto_cleanHM(sim_folder, haloM_folder):
     from __init__ import OZYPATH
 
     clean_up_done = False
-    if (os.path.isfile(OZYPATH+"HaloExtractor.out")):        
+    if (os.path.isfile(OZYPATH+"/HalosExtractor.out")):        
         print("I am trying to clean the halos in the received folder to accelerate")
         print("execution. This is done once per simulation and really worth not   ")
         print("having to read the particles")
-        os.system(OZYPATH+"./HaloExtractor.out "+str(sim_folder+haloM_folder))
+        os.system(OZYPATH+"/./HalosExtractor.out "+str(sim_folder+haloM_folder))
         clean_up_done = True
     else:
         print("I have tried to clean your halo files for faster execution but")

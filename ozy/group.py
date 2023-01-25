@@ -3,7 +3,7 @@ from pprint import pprint
 from amr2 import vectors
 from amr2 import geometrical_regions as geo
 from amr2 import filtering
-from amr2 import amr_integrator
+from amr2 import amr_integrator,stats_utils
 from part2 import part_integrator
 
 from ozy.utils import init_region,init_filter
@@ -34,11 +34,11 @@ class Group(object):
         self.nextsub  = -1
         self.npart    = 0
         self.units    = 'code'
-        self.position = np.array([-1, -1, -1])
+        self.position = np.array([-1.0, -1.0, -1.0])
         self.radius   = {}
         self.shape = {}
         self.mass     = {}
-        self.velocity = np.array([0, 0, 0])
+        self.velocity = np.array([0.0, 0.0, 0.0])
         self.angular_mom = {}
         self.virial_quantities = {}
         self.energies = {}
@@ -78,19 +78,13 @@ class Galaxy(Group):
         self.central = False
         self.halo    = None
         self.gas_density = {}
-        self.gas_density_cold = {}
-        self.gas_density_warm = {}
-        self.gas_density_hot = {}
         self.sfr     = {}
         self.energies = {}
         self.metallicity = {}
         self.temperature = {}
-        self.temperature_cold = {}
-        self.temperature_warm = {}
-        self.temperature_hot = {}
         self.radiation = {}
-        self.outflows = {}
-        self.inflows = {}
+        self.sf_efficiency = obj.array([0,0,0],'dimensionless')
+        self.pressure_support = {}
     def _process_galaxy(self):
         """Process each galaxy after creation. This means
         calculating the total mass, and then calculate the rest of masses,
@@ -98,7 +92,8 @@ class Galaxy(Group):
         """
         self._calculate_stardm_quantities()
         self._calculate_velocity_dispersions()
-        self._calculate_gas_quantities()
+        self._calculate_galaxy_gas_quantities()
+        self._calculate_halo_gas_quantities()
         if 'tidal_method' in self.obj._kwargs:
             tidal_method  = self.obj._kwargs['tidal_method']
         else:
@@ -128,108 +123,93 @@ class Galaxy(Group):
         self.sfr['100Myr'] = self.obj.quantity(0.0,'Msun/yr')
         self.metallicity['stellar'] = 0 # Mass-weighted average!
 
-        if self.obj.simulation.physics['hydro']:
-            self.mass['gas'] = self.obj.quantity(0, 'code_mass')
-            self.mass['gas_cold'] = self.obj.quantity(0, 'code_mass')
-            self.mass['gas_warm'] = self.obj.quantity(0, 'code_mass')
-            self.mass['gas_hot'] = self.obj.quantity(0, 'code_mass')
-            self.gas_density['mass_weighted'] = self.obj.quantity(0, 'code_density')
-            self.gas_density['volume_weighted'] = self.obj.quantity(0, 'code_density')
-            self.temperature['mass_weighted'] = self.obj.quantity(0, 'code_temperature')
-            self.temperature['volume_weighted'] = self.obj.quantity(0, 'code_temperature')
-            self.gas_density_cold['mass_weighted'] = self.obj.quantity(0, 'code_density')
-            self.gas_density_cold['volume_weighted'] = self.obj.quantity(0, 'code_density')
-            self.temperature_cold['mass_weighted'] = self.obj.quantity(0, 'code_temperature')
-            self.temperature_cold['volume_weighted'] = self.obj.quantity(0, 'code_temperature')
-            self.gas_density_warm['mass_weighted'] = self.obj.quantity(0, 'code_density')
-            self.gas_density_warm['volume_weighted'] = self.obj.quantity(0, 'code_density')
-            self.temperature_warm['mass_weighted'] = self.obj.quantity(0, 'code_temperature')
-            self.temperature_warm['volume_weighted'] = self.obj.quantity(0, 'code_temperature')
-            self.gas_density_hot['mass_weighted'] = self.obj.quantity(0, 'code_density')
-            self.gas_density_hot['volume_weighted'] = self.obj.quantity(0, 'code_density')
-            self.temperature_hot['mass_weighted'] = self.obj.quantity(0, 'code_temperature')
-            self.temperature_hot['volume_weighted'] = self.obj.quantity(0, 'code_temperature')
-            self.angular_mom['gas'] = self.obj.array(np.array([0,0,0]),
-                                                             'code_mass*code_length*code_velocity')
-            self.angular_mom['gas_cold'] = self.obj.array(np.array([0,0,0]),
-                                                             'code_mass*code_length*code_velocity')
-            self.angular_mom['gas_warm'] = self.obj.array(np.array([0,0,0]),
-                                                             'code_mass*code_length*code_velocity')
-            self.angular_mom['gas_hot'] = self.obj.array(np.array([0,0,0]),
-                                                             'code_mass*code_length*code_velocity')
-            self.energies['thermal_energy'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
-            self.energies['thermal_energy_specific'] = self.obj.quantity(0, 'code_specific_energy')
-            self.energies['thermal_energy_cold'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
-            self.energies['thermal_energy_specific_cold'] = self.obj.quantity(0, 'code_specific_energy')
-            self.energies['thermal_energy_warm'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
-            self.energies['thermal_energy_specific_warm'] = self.obj.quantity(0, 'code_specific_energy')
-            self.energies['thermal_energy_hot'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
-            self.energies['thermal_energy_specific_hot'] = self.obj.quantity(0, 'code_specific_energy')
+        phase_names = ['cold','warm','hot']
 
+        empty_array = np.zeros((3,7)).astype(np.float64)
+
+        if self.obj.simulation.physics['hydro']:
+            self.mass['gas'] = self.obj.quantity(0.0, 'code_mass')
+            self.gas_density['galaxy_gas'] = self.obj.array(empty_array, 'code_density')
+            self.temperature['galaxy_gas'] = self.obj.array(empty_array, 'code_temperature')
+            self.angular_mom['gas'] = self.obj.array(np.array([0.0,0.0,0.0]).astype(np.float64),
+                                                             'code_mass*code_length*code_velocity')
+            self.energies['thermal_energy'] = self.obj.quantity(0.0, 'code_mass * code_velocity**2')
+            self.energies['thermal_energy_specific'] = self.obj.array(empty_array, 'code_specific_energy')
+            self.pressure_support['grav_therpfrsphere'] = self.obj.array(empty_array, 'dimensionless')
+            if not self.obj.simulation.physics['magnetic'] and not self.obj.simulation.physics['cr']:
+                self.sf_efficiency = self.obj.array(empty_array, 'dimensionless')
             if self.obj.simulation.physics['metals']:
-                self.metallicity['gas'] = 0 # Mass-weighted average!
-                self.metallicity['gas_cold'] = 0 # Mass-weighted average!
-                self.metallicity['gas_warm'] = 0# Mass-weighted average!
-                self.metallicity['gas_hot'] = 0 # Mass-weighted average!
+                self.metallicity['galaxy_gas'] = empty_array # Mass-weighted average!
+            for i in range(0, len(phase_names)):
+                self.mass['gas_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass')
+                self.gas_density[phase_names[i]] = self.obj.array(empty_array, 'code_density')
+                self.temperature[phase_names[i]] = self.obj.array(empty_array, 'code_temperature')
+                self.angular_mom['gas_'+phase_names[i]] = self.obj.array(np.array([0.0,0.0,0.0]).astype(np.float64),
+                                                                        'code_mass*code_length*code_velocity')
+                self.energies['thermal_energy_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass * code_velocity**2')
+                self.energies['thermal_energy_specific_'+phase_names[i]] = self.obj.array(empty_array, 'code_specific_energy')
+                self.pressure_support['grav_therpfrsphere_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+                if self.obj.simulation.physics['metals']:
+                    self.metallicity['gas_'+phase_names[i]] = empty_array # Mass-weighted average!
         else:
             self.mass['gas'] = self.obj.quantity(0.0, 'code_mass')
         
         if self.obj.simulation.physics['magnetic']:
-            print('Computing magnetic energies')
-            if self.obj.simulation.physics['metals']:
-                self.energies['magnetic_energy'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific'] = self.obj.quantity(0, 'code_specific_energy')
-                self.energies['magnetic_energy_cold'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific_cold'] = self.obj.quantity(0, 'code_specific_energy')
-                self.energies['magnetic_energy_warm'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific_warm'] = self.obj.quantity(0, 'code_specific_energy')
-                self.energies['magnetic_energy_hot'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific_hot'] = self.obj.quantity(0, 'code_specific_energy')
-            else:
-                self.energies['magnetic_energy'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific'] = self.obj.quantity(0, 'code_specific_energy')
-                self.energies['magnetic_energy_cold'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific_cold'] = self.obj.quantity(0, 'code_specific_energy')
-                self.energies['magnetic_energy_warm'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific_warm'] = self.obj.quantity(0, 'code_specific_energy')
-                self.energies['magnetic_energy_hot'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific_hot'] = self.obj.quantity(0, 'code_specific_energy')
-
+            self.energies['magnetic_energy'] = self.obj.quantity(0.0, 'code_mass * code_velocity**2')
+            self.energies['magnetic_energy_specific'] = self.obj.array(empty_array, 'code_specific_energy')
+            if not self.obj.simulation.physics['magnetic'] and not self.obj.simulation.physics['cr']:
+                self.sf_efficiency = self.obj.array(empty_array, 'dimensionless')
+            for i in range(1,len(phase_names)):
+                self.energies['magnetic_energy_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass * code_velocity**2')
+                self.energies['magnetic_energy_specific_'+phase_names[i]] = self.obj.array(empty_array, 'code_specific_energy')
+        
         if self.obj.simulation.physics['cr']:
-            print('Computing CR energies')
+            self.energies['cr_energy'] = self.obj.quantity(0.0, 'code_mass * code_velocity**2')
+            self.energies['cr_energy_specific'] = self.obj.array(empty_array, 'code_specific_energy')
+            self.pressure_support['grav_crpfrsphere'] = self.obj.array(empty_array, 'dimensionless')
+            self.sf_efficiency = self.obj.array(empty_array, 'dimensionless')
+            for i in range(1, len(phase_names)):
+                self.energies['cr_energy_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass * code_velocity**2')
+                self.energies['cr_energy_specific_'+phase_names[i]] = self.obj.array(empty_array, 'code_specific_energy')
+                self.pressure_support['grav_crpfrsphere_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+        if self.obj.simulation.physics['rt']:
+            self.radiation['xHII'] = empty_array
+            self.radiation['xHeII'] = empty_array
+            self.radiation['xHeIII'] = empty_array
+            for i in range(1, len(phase_names)):
+                self.radiation['xHII_'+phase_names[i]] = empty_array
+                self.radiation['xHeII_'+phase_names[i]] = empty_array
+                self.radiation['xHeIII_'+phase_names[i]] = empty_array
+
+        # Assign results to galaxy object
+        if self.obj.simulation.physics['hydro']:
+            self.mass['halo_gas'] = self.obj.quantity(0.0, 'code_mass')
+            self.gas_density['halo_gas'] = self.obj.array(empty_array, 'code_density')
+            self.temperature['halo_gas'] = self.obj.array(empty_array, 'code_temperature')
+            self.angular_mom['halo_gas'] = self.obj.array(np.array([0.0,0.0,0.0]).astype(np.float64),
+                                                             'code_mass*code_length*code_velocity')
+            self.energies['halo_thermal_energy'] = self.obj.quantity(0.0, 'code_mass * code_velocity**2')
+            self.energies['halo_thermal_energy_specific'] = self.obj.array(empty_array, 'code_specific_energy')
+            self.pressure_support['halo_grav_therpfrsphere'] = self.obj.array(empty_array, 'dimensionless')
             if self.obj.simulation.physics['metals']:
-                self.energies['cr_energy'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific'] = self.obj.quantity(0, 'code_specific_energy')
-                self.energies['cr_energy_cold'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific_cold'] = self.obj.quantity(0, 'code_specific_energy')
-                self.energies['cr_energy_warm'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific_warm'] = self.obj.quantity(0, 'code_specific_energy')
-                self.energies['cr_energy_hot'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific_hot'] = self.obj.quantity(0, 'code_specific_energy')
-            else:
-                self.energies['cr_energy'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific'] = self.obj.quantity(0, 'code_specific_energy')
-                self.energies['cr_energy_cold'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific_cold'] = self.obj.quantity(0, 'code_specific_energy')
-                self.energies['cr_energy_warm'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific_warm'] = self.obj.quantity(0, 'code_specific_energy')
-                self.energies['cr_energy_hot'] = self.obj.quantity(0, 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific_hot'] = self.obj.quantity(0, 'code_specific_energy')
+                self.metallicity['galaxy_gas'] = empty_array # Mass-weighted average!
+        else:
+            self.mass['halo_gas'] = self.obj.quantity(0.0, 'code_mass')
+        
+        if self.obj.simulation.physics['magnetic']:
+            self.energies['halo_magnetic_energy'] = self.obj.quantity(0.0, 'code_mass * code_velocity**2')
+            self.energies['halo_magnetic_energy_specific'] = self.obj.array(empty_array, 'code_specific_energy')
+        
+        if self.obj.simulation.physics['cr']:
+            self.energies['halo_cr_energy'] = self.obj.quantity(0.0, 'code_mass * code_velocity**2')
+            self.energies['halo_cr_energy_specific'] = self.obj.array(empty_array, 'code_specific_energy')
+            self.pressure_support['grav_crpfrsphere'] = self.obj.array(empty_array, 'dimensionless')
 
         if self.obj.simulation.physics['rt']:
             print('Computing ionisation fractions')
-            self.radiation['xHII'] = 0
-            self.radiation['xHeII'] = 0
-            self.radiation['xHeIII'] = 0
-            self.radiation['xHII_cold'] = 0
-            self.radiation['xHeII_cold'] = 0
-            self.radiation['xHeIII_cold'] = 0
-            self.radiation['xHII_warm'] = 0
-            self.radiation['xHeII_warm'] = 0
-            self.radiation['xHeIII_warm'] = 0
-            self.radiation['xHII_hot'] = 0
-            self.radiation['xHeII_hot'] = 0
-            self.radiation['xHeIII_hot'] = 0
+            self.radiation['halo_xHII'] = empty_array
+            self.radiation['halo_xHeII'] = empty_array
+            self.radiation['halo_xHeIII'] = empty_array
 
 
     def _calculate_stardm_quantities(self):
@@ -296,12 +276,13 @@ class Galaxy(Group):
                                                              'code_mass*code_length*code_velocity')
 
 
-    def _calculate_gas_quantities(self):
+    def _calculate_galaxy_gas_quantities(self):
+        from ozy.utils import get_code_bins, pdf_handler_to_stats
         """Compute gas quantities: Metallicity, Temperature..."""
         output_path = self.obj.simulation.fullpath
 
         # Initialise region
-        selected_reg = init_region(self,'sphere')
+        selected_reg = init_region(self,'sphere',rmin=(0.0,'rvir'),rmax=(0.2,'rvir'))
 
         # We do not want any particular filter, just simple integration will do
         all_filt = filtering.filter()
@@ -309,29 +290,51 @@ class Galaxy(Group):
         cold_filt = init_filter(cond_strs=['entropy_specific/</4.4e+8/erg*K**-1*g**-1'],name='cold',group=self)
         warm_filt = init_filter(cond_strs=['entropy_specific/>=/4.4e+8/erg*K**-1*g**-1','entropy_specific/<=/23.2e+8/erg*K**-1*g**-1'],name='warm',group=self)
         hot_filt  = init_filter(cond_strs=['entropy_specific/>/23.2e+8/erg*K**-1*g**-1'],name='hot',group=self)
+        filt = [all_filt,hot_filt,warm_filt,cold_filt]
 
         # Since the number of global quanties that can be computed
         # from the gas data depends on the specific configuration
         # of a simulation, this needs to be determined at the start
         # See: ozy/sim_attributes.py/assign_attributes
 
-        nvar = 0
+        nvar_metals,nvar_magnetic,nvar_crs,nvar_rt = 0,0,0,0
         quantity_names = []
+        do_binning = []
         weight_names = ['cumulative','mass','volume']
         if self.obj.simulation.physics['hydro']:
             quantity_names += ['mass','density','temperature',
                                 'ang_momentum_x','ang_momentum_y',
-                                'ang_momentum_z','thermal_energy','thermal_energy_specific']
+                                'ang_momentum_z','thermal_energy',
+                                'thermal_energy_specific',
+                                'grav_therpfrsphere']
+            do_binning += [False,True,True,
+                            False,False,False,
+                            False,True,True]
+            if not self.obj.simulation.physics['magnetic'] and not \
+                self.obj.simulation.physics['cr']:
+                quantity_names += ['eff_FK2']
+                do_binning += [True]
+        nvar_metals = len(quantity_names)
         if self.obj.simulation.physics['metals']:
             quantity_names += ['metallicity']
+            do_binning += [True]
+        nvar_magnetic = len(quantity_names)
         if self.obj.simulation.physics['magnetic']:
             quantity_names += ['magnetic_energy','magnetic_energy_specific']
+            do_binning += [False,True]
+            if not self.obj.simulation.physics['cr']:
+                quantity_names += ['eff_FKmag']
+                do_binning += [True]
+        nvar_crs = len(quantity_names)
         if self.obj.simulation.physics['cr']:
-            quantity_names += ['cr_energy','cr_energy_specific']
-            
-        nvar = len(quantity_names)
+            quantity_names += ['cr_energy','cr_energy_specific',
+                                'grav_crpfrsphere',
+                                'eff_FKmag','eff_FKmagnocr']
+            do_binning += [False,True,True,True,True]
+        nvar_rt = len(quantity_names)
         if self.obj.simulation.physics['rt']:
             quantity_names += ['xHII','xHeII','xHeIII']
+            do_binning += [False,False,False]
                 
         # Initialise Fortran derived type with attributes
         # This object hold the following attributes:
@@ -341,6 +344,7 @@ class Galaxy(Group):
         # - wvarnames:  names of variables for weighting
         # - data: organised in numpy array of shape (nvars,nwvars,4)
         #           each of those 4 values are (final, min, max, sum of weights)
+        pdf_bins = 100
         glob_attrs = amr_integrator.amr_region_attrs()
         glob_attrs.nvars = len(quantity_names)
         glob_attrs.nwvars = len(weight_names)
@@ -348,127 +352,134 @@ class Galaxy(Group):
         amr_integrator.allocate_amr_regions_attrs(glob_attrs)
         for i in range(0, len(quantity_names)):
             glob_attrs.varnames.T.view('S128')[i] = quantity_names[i].ljust(128)
-        for i in range(0, len(weight_names)):
-            glob_attrs.wvarnames.T.view('S128')[i] = weight_names[i].ljust(128)
+            glob_attrs.result[i].nbins = pdf_bins
+            glob_attrs.result[i].nfilter = len(filt)
+            glob_attrs.result[i].nwvars = len(weight_names)
+            glob_attrs.result[i].varname = quantity_names[i]
+            mybins = get_code_bins(self.obj,'gas/'+quantity_names[i],pdf_bins)
+            glob_attrs.result[i].scaletype = mybins[1]
+            stats_utils.allocate_pdf(glob_attrs.result[i])
+            glob_attrs.result[i].bins = mybins[0]
+            glob_attrs.result[i].do_binning = do_binning[i]
+            for j in range(0, len(weight_names)):
+                glob_attrs.result[i].wvarnames.T.view('S128')[j] = weight_names[j].ljust(128)
         
-        glob_attrs.filters[0] = all_filt
-        glob_attrs.filters[1] = cold_filt
-        glob_attrs.filters[2] = warm_filt
-        glob_attrs.filters[3] = hot_filt
+        for i in range(0, glob_attrs.nfilter):
+            glob_attrs.filters[i] = filt[i]
 
         # Begin integration
-        amr_integrator.integrate_region(output_path,selected_reg,False,glob_attrs)
+        use_neigh = True
+        amr_integrator.integrate_region(output_path,selected_reg,use_neigh,glob_attrs)
 
         # Assign results to galaxy object
         if self.obj.simulation.physics['hydro']:
-            self.mass['gas'] = self.obj.quantity(glob_attrs.data[0,0,0,0], 'code_mass')
-            self.gas_density['mass_weighted'] = self.obj.quantity(glob_attrs.data[0,1,1,0], 'code_density')
-            self.gas_density['volume_weighted'] = self.obj.quantity(glob_attrs.data[0,1,2,0], 'code_density')
-            self.temperature['mass_weighted'] = self.obj.quantity(glob_attrs.data[0,2,1,0], 'code_temperature')
-            self.temperature['volume_weighted'] = self.obj.quantity(glob_attrs.data[0,2,2,0], 'code_temperature')
-            self.angular_mom['gas'] = self.obj.array(np.array([glob_attrs.data[0,3,0,0],glob_attrs.data[0,4,0,0],glob_attrs.data[0,5,0,0]]),
+            self.mass['gas'] = self.obj.quantity(glob_attrs.result[0].total[0,0,0], 'code_mass')
+            self.gas_density['gas'] = pdf_handler_to_stats(self.obj,glob_attrs.result[1],0)
+            self.temperature['gas'] = pdf_handler_to_stats(self.obj,glob_attrs.result[2],0)
+            self.angular_mom['gas'] = self.obj.array(np.array([glob_attrs.result[3].total[0,0,0],glob_attrs.result[4].total[0,0,0],glob_attrs.result[5].total[0,0,0]]),
                                                              'code_mass*code_length*code_velocity')
-            self.energies['thermal_energy'] = self.obj.quantity(glob_attrs.data[0,6,0,0], 'code_mass * code_velocity**2')
-            self.energies['thermal_energy_specific'] = self.obj.quantity(glob_attrs.data[0,7,2,0], 'code_specific_energy')
+            self.energies['thermal_energy'] = self.obj.quantity(glob_attrs.result[6].total[0,0,0], 'code_mass * code_velocity**2')
+            self.energies['thermal_energy_specific'] = pdf_handler_to_stats(self.obj,glob_attrs.result[7],0)
+            self.pressure_support['grav_therpfrsphere'] = pdf_handler_to_stats(self.obj,glob_attrs.result[8],0)
+            if not self.obj.simulation.physics['magnetic'] and not self.obj.simulation.physics['cr']:
+                self.sf_efficiency = pdf_handler_to_stats(self.obj,glob_attrs.result[9],0)
             if self.obj.simulation.physics['metals']:
-                self.metallicity['gas'] = glob_attrs.data[0,8,1,0] # Mass-weighted average!
+                self.metallicity['gas'] = pdf_handler_to_stats(self.obj,glob_attrs.result[10],0)
             for i in range(0, len(phase_names)):
-                self.mass['gas_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,0,0,0], 'code_mass')
+                self.mass['gas_'+phase_names[i]] = self.obj.quantity(glob_attrs.result[0].total[i+1,0,0], 'code_mass')
                 print('Mass in %s gas is %.5f'%(phase_names[i],self.mass['gas_'+phase_names[i]].to('Msun')))
-                self.gas_density['mass_weighted_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,1,1,0], 'code_density')
-                self.gas_density['volume_weighted_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,1,2,0], 'code_density')
-                self.temperature['mass_weighted_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,2,1,0], 'code_temperature')
-                self.temperature['volume_weighted_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,2,2,0], 'code_temperature')
-                self.angular_mom['gas_'+phase_names[i]] = self.obj.array(np.array([glob_attrs.data[i+1,3,0,0],glob_attrs.data[i+1,4,0,0],glob_attrs.data[i+1,5,0,0]]),
+                self.gas_density[phase_names[i]] = pdf_handler_to_stats(self.obj,glob_attrs.result[1],i+1)
+                self.temperature[phase_names[i]] = pdf_handler_to_stats(self.obj,glob_attrs.result[2],i+1)
+                self.angular_mom['gas_'+phase_names[i]] = self.obj.array(np.array([glob_attrs.result[3].total[i+1,0,0],
+                                                                                    glob_attrs.result[4].total[i+1,0,0],
+                                                                                    glob_attrs.result[5].total[i+1,0,0]]),
                                                                         'code_mass*code_length*code_velocity')
-                self.energies['thermal_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,6,0,0], 'code_mass * code_velocity**2')
-                self.energies['thermal_energy_specific_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,7,2,0], 'code_specific_energy')
+                self.energies['thermal_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.result[6].total[i+1,0,0], 'code_mass * code_velocity**2')
+                self.energies['thermal_energy_specific_'+phase_names[i]] = pdf_handler_to_stats(self.obj,glob_attrs.result[7],i+1)
+                self.pressure_support['grav_therpfrsphere_'+phase_names[i]] = pdf_handler_to_stats(self.obj,glob_attrs.result[8],i+1)
                 if self.obj.simulation.physics['metals']:
-                    self.metallicity['gas_'+phase_names[i]] = glob_attrs.data[i+1,8,1,0] # Mass-weighted average!
+                    self.metallicity['gas_'+phase_names[i]] = pdf_handler_to_stats(self.obj,glob_attrs.result[10],i+1)
         else:
             self.mass['gas'] = self.obj.quantity(0.0, 'code_mass')
         
         if self.obj.simulation.physics['magnetic']:
             print('Computing magnetic energies')
-            if self.obj.simulation.physics['metals']:
-                self.energies['magnetic_energy'] = self.obj.quantity(glob_attrs.data[0,9,0,0], 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific'] = self.obj.quantity(glob_attrs.data[0,10,1,0], 'code_specific_energy')
-                for i in range(1,len(phase_names)):
-                    self.energies['magnetic_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,9,0,0], 'code_mass * code_velocity**2')
-                    self.energies['magnetic_energy_specific_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,10,1,0], 'code_specific_energy')
-            else:
-                self.energies['magnetic_energy'] = self.obj.quantity(glob_attrs.data[0,8,0,0], 'code_mass * code_velocity**2')
-                self.energies['magnetic_energy_specific'] = self.obj.quantity(glob_attrs.data[0,9,1,0], 'code_specific_energy')
-                for i in range(1,len(phase_names)):
-                    self.energies['magnetic_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,8,0,0], 'code_mass * code_velocity**2')
-                    self.energies['magnetic_energy_specific_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,9,1,0], 'code_specific_energy')
-
-
+            self.energies['magnetic_energy'] = self.obj.quantity(glob_attrs.result[nvar_magnetic].total[0,0,0], 'code_mass * code_velocity**2')
+            self.energies['magnetic_energy_specific'] = pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_magnetic+1],0)
+            if not self.obj.simulation.physics['magnetic'] and not self.obj.simulation.physics['cr']:
+                self.sf_efficiency = pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_magnetic+2],0)
+            for i in range(1,len(phase_names)):
+                self.energies['magnetic_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.result[nvar_magnetic].total[i+1,0,0], 'code_mass * code_velocity**2')
+                self.energies['magnetic_energy_specific_'+phase_names[i]] = pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_magnetic+1],i+1)
+        
         if self.obj.simulation.physics['cr']:
             print('Computing CR energies')
-            if self.obj.simulation.physics['metals']:
-                self.energies['cr_energy'] = self.obj.quantity(glob_attrs.data[0,11,0,0], 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific'] = self.obj.quantity(glob_attrs.data[0,12,1,0], 'code_specific_energy')
-                for i in range(1, len(phase_names)):
-                    self.energies['cr_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,11,0,0], 'code_mass * code_velocity**2')
-                    self.energies['cr_energy_specific_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,12,1,0], 'code_specific_energy')
-
-            else:
-                self.energies['cr_energy'] = self.obj.quantity(glob_attrs.data[0,10,0,0], 'code_mass * code_velocity**2')
-                self.energies['cr_energy_specific'] = self.obj.quantity(glob_attrs.data[0,11,1,0], 'code_specific_energy')
-                for i in range(1, len(phase_names)):
-                    self.energies['cr_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,10,0,0], 'code_mass * code_velocity**2')
-                    self.energies['cr_energy_specific_'+phase_names[i]] = self.obj.quantity(glob_attrs.data[i+1,11,1,0], 'code_specific_energy')
-
-        if self.obj.simulation.physics['rt']:
-            print('Computing ionisation fractions')
-            self.radiation['xHII'] = glob_attrs.data[0,nvar,2,0]
-            self.radiation['xHeII'] = glob_attrs.data[0,nvar+1,2,0]
-            self.radiation['xHeIII'] = glob_attrs.data[0,nvar+2,2,0]
+            self.energies['cr_energy'] = self.obj.quantity(glob_attrs.result[nvar_crs].total[0,0,0], 'code_mass * code_velocity**2')
+            self.energies['cr_energy_specific'] = pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+1],0)
+            self.pressure_support['grav_crpfrsphere'] = pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+2],0)
+            self.sf_efficiency = pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+3],0)
             for i in range(1, len(phase_names)):
-                self.radiation['xHII_'+phase_names[i]] = glob_attrs.data[i+1,nvar,2,0]
-                self.radiation['xHeII_'+phase_names[i]] = glob_attrs.data[i+1,nvar+1,2,0]
-                self.radiation['xHeIII_'+phase_names[i]] = glob_attrs.data[i+1,nvar+2,2,0]
+                self.energies['cr_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.result[nvar_crs].total[i+1,0,0], 'code_mass * code_velocity**2')
+                self.energies['cr_energy_specific_'+phase_names[i]] = pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+1],i+1)
+                self.pressure_support['grav_crpfrsphere_'+phase_names[i]] = pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+3],0)
+        if self.obj.simulation.physics['rt']:
+            #TODO: This is not really correct, need to update for the format of AMR integrations
+            print('Computing ionisation fractions')
+            self.radiation['xHII'] = glob_attrs.data[0,nvar_rt,1:,:-1]
+            self.radiation['xHeII'] = glob_attrs.data[0,nvar_rt+1,1:,:-1]
+            self.radiation['xHeIII'] = glob_attrs.data[0,nvar_rt+2,1:,:-1]
+            for i in range(1, len(phase_names)):
+                self.radiation['xHII_'+phase_names[i]] = glob_attrs.data[i+1,nvar_rt,1:,:-1]
+                self.radiation['xHeII_'+phase_names[i]] = glob_attrs.data[i+1,nvar_rt+1,1:,:-1]
+                self.radiation['xHeIII_'+phase_names[i]] = glob_attrs.data[i+1,nvar_rt+2,1:,:-1]
 
-
-    def _calculate_outflow_inflow(self):
-        """Compute details of outflows and inflows, by measuring quantities on a thin shell."""
+    def _calculate_halo_gas_quantities(self):
+        from ozy.utils import get_code_bins, pdf_handler_to_stats
+        """Compute gas quantities: Metallicity, Temperature..."""
         output_path = self.obj.simulation.fullpath
 
-        # Define shell regions at different radii with width of 0.02*r_vir
-        shell_width = 0.02*self.obj.halos[self.parent_halo_index].virial_quantities['radius'].d
-        shell_02 = init_region(self, 'sphere',rmin=0.19,rmax=0.21)
-        shell_05 = init_region(self, 'sphere',rmin=0.49,rmax=0.51)
-        shell_10 = init_region(self, 'sphere',rmin=0.99,rmax=1.01)
+        # Initialise region
+        selected_reg = init_region(self,'sphere',rmin=(0.2,'rvir'),rmax=(1.0,'rvir'))
 
-        # Initialise filter for inflow and outflow gas
-        out_filter = init_filter(cond_strs='v_sphere_r/>/0/km*s**-1',name='outflows',group=self)
-        in_filter = init_filter(cond_strs='v_sphere_r/<=/0/km*s**-1',name='inflows',group=self)
+        # We do not want any particular filter, just simple integration will do
+        all_filt = filtering.filter()
 
         # Since the number of global quanties that can be computed
         # from the gas data depends on the specific configuration
         # of a simulation, this needs to be determined at the start
         # See: ozy/sim_attributes.py/assign_attributes
 
-        nvar = 0
+        nvar_metals,nvar_magnetic,nvar_crs,nvar_rt = 0,0,0,0
         quantity_names = []
-        weight_names = ['cumulative','massflux_rate_sphere_r']
-
+        do_binning = []
+        weight_names = ['cumulative','mass','volume']
         if self.obj.simulation.physics['hydro']:
-            quantity_names += ['density','temperature',
-                                'momentum_sphere_r','v_sphere_r',
-                                'thermal_energy','thermal_energy_specific']
+            quantity_names += ['mass','density','temperature',
+                                'ang_momentum_x','ang_momentum_y',
+                                'ang_momentum_z','thermal_energy',
+                                'thermal_energy_specific',
+                                'grav_therpfrsphere']
+            do_binning += [False,True,True,
+                            False,False,False,
+                            False,True,True]
+        nvar_metals = len(quantity_names)
         if self.obj.simulation.physics['metals']:
             quantity_names += ['metallicity']
+            do_binning += [True]
+        nvar_magnetic = len(quantity_names)
         if self.obj.simulation.physics['magnetic']:
             quantity_names += ['magnetic_energy','magnetic_energy_specific']
+            do_binning += [False,True]
+        nvar_crs = len(quantity_names)
         if self.obj.simulation.physics['cr']:
-            quantity_names += ['cr_energy','cr_energy_specific']
-
-        nvar = len(quantity_names)
+            quantity_names += ['cr_energy','cr_energy_specific',
+                                'grav_crpfrsphere']
+            do_binning += [False,True,True]
+        nvar_rt = len(quantity_names)
         if self.obj.simulation.physics['rt']:
             quantity_names += ['xHII','xHeII','xHeIII']
-
+            do_binning += [False,False,False]
+                
         # Initialise Fortran derived type with attributes
         # This object hold the following attributes:
         # - nvars: number of variables
@@ -477,277 +488,65 @@ class Galaxy(Group):
         # - wvarnames:  names of variables for weighting
         # - data: organised in numpy array of shape (nvars,nwvars,4)
         #           each of those 4 values are (final, min, max, sum of weights)
+        pdf_bins = 100
         glob_attrs = amr_integrator.amr_region_attrs()
         glob_attrs.nvars = len(quantity_names)
         glob_attrs.nwvars = len(weight_names)
+        glob_attrs.nfilter = 1
         amr_integrator.allocate_amr_regions_attrs(glob_attrs)
         for i in range(0, len(quantity_names)):
             glob_attrs.varnames.T.view('S128')[i] = quantity_names[i].ljust(128)
-        for i in range(0, len(weight_names)):
-            glob_attrs.wvarnames.T.view('S128')[i] = weight_names[i].ljust(128)
+            glob_attrs.result[i].nbins = pdf_bins
+            glob_attrs.result[i].nfilter = 1
+            glob_attrs.result[i].nwvars = len(weight_names)
+            glob_attrs.result[i].varname = quantity_names[i]
+            mybins = get_code_bins(self.obj,'gas/'+quantity_names[i],pdf_bins)
+            glob_attrs.result[i].scaletype = mybins[1]
+            stats_utils.allocate_pdf(glob_attrs.result[i])
+            glob_attrs.result[i].bins = mybins[0]
+            glob_attrs.result[i].do_binning = do_binning[i]
+            for j in range(0, len(weight_names)):
+                glob_attrs.result[i].wvarnames.T.view('S128')[j] = weight_names[j].ljust(128)
         
+        
+        glob_attrs.filters[0] = all_filt
+
         # Begin integration
+        use_neigh = True
+        amr_integrator.integrate_region(output_path,selected_reg,use_neigh,glob_attrs)
 
-        # First shell
-        print('Performing first shell integration')
-        # a) Outflows
-        amr_integrator.integrate_region(output_path,shell_02,out_filter,glob_attrs)
-
-        # Assign results to galaxy object
-        if self.obj.simulation.physics['hydro']:
-            print('Computing gas flow quantities')
-            self.outflows['density_20rvir'] = self.obj.quantity(glob_attrs.data[0,1,0], 'code_density')
-            self.outflows['temperature_20rvir'] = self.obj.quantity(glob_attrs.data[1,1,0], 'code_temperature')
-            self.outflows['massflow_rate_20rvir'] = self.obj.quantity(glob_attrs.data[2,0,0]/shell_width, 'code_mass*code_velocity/code_length')
-            self.outflows['v_20rvir'] = self.obj.quantity(glob_attrs.data[3,1,0], 'code_velocity')
-            self.outflows['thermal_energy_20rvir'] = self.obj.quantity(glob_attrs.data[4,0,0], 'code_mass * code_velocity**2')
-            self.outflows['thermal_energy_specific_20rvir'] = self.obj.quantity(glob_attrs.data[5,1,0], 'code_specific_energy')
-            print(self.outflows)
-            if self.obj.simulation.physics['metals']:
-                self.outflows['metallicity_20rvir'] = glob_attrs.data[6,1,0]
-        else:
-            self.outflows['massflow_rate_20rvir'] = self.obj.quantity(0.0, 'code_mass*code_velocity/code_length')
-        
-        if self.obj.simulation.physics['magnetic']:
-            print('Computing magnetic energies')
-            if self.obj.simulation.physics['metals']:
-                self.outflows['magnetic_energy_20rvir'] = self.obj.quantity(glob_attrs.data[7,0,0], 'code_mass * code_velocity**2')
-                self.outflows['magnetic_energy_specific_20rvir'] = self.obj.quantity(glob_attrs.data[8,1,0], 'code_specific_energy')
-            else:
-                self.outflows['magnetic_energy_20rvir'] = self.obj.quantity(glob_attrs.data[6,0,0], 'code_mass * code_velocity**2')
-                self.outflows['magnetic_energy_specific_20rvir'] = self.obj.quantity(glob_attrs.data[7,1,0], 'code_specific_energy')
-
-        if self.obj.simulation.physics['cr']:
-            print('Computing CR energies')
-            if self.obj.simulation.physics['metals']:
-                self.outflows['cr_energy_20rvir'] = self.obj.quantity(glob_attrs.data[9,0,0], 'code_mass * code_velocity**2')
-                self.outflows['cr_energy_specific_20rvir'] = self.obj.quantity(glob_attrs.data[10,1,0], 'code_specific_energy')
-            else:
-                self.outflows['cr_energy_20rvir'] = self.obj.quantity(glob_attrs.data[8,0,0], 'code_mass * code_velocity**2')
-                self.outflows['cr_energy_specific_20rvir'] = self.obj.quantity(glob_attrs.data[9,1,0], 'code_specific_energy')
-
-        if self.obj.simulation.physics['rt']:
-            print('Computing ionisation fractions')
-            self.outflows['xHII_20rvir'] = glob_attrs.data[nvar,2,0]
-            self.outflows['xHeII_20rvir'] = glob_attrs.data[nvar+1,2,0]
-            self.outflows['xHeIII_20rvir'] = glob_attrs.data[nvar+2,2,0]
-
-        # b) Inflows
-        amr_integrator.integrate_region(output_path,shell_02,in_filter,glob_attrs)
+        print('Integrating gas quantities for the halo region...')
 
         # Assign results to galaxy object
         if self.obj.simulation.physics['hydro']:
-            print('Computing gas flow quantities')
-            self.inflows['density_20rvir'] = self.obj.quantity(glob_attrs.data[0,1,0], 'code_density')
-            self.inflows['temperature_20rvir'] = self.obj.quantity(glob_attrs.data[1,1,0], 'code_temperature')
-            self.inflows['massflow_rate_20rvir'] = self.obj.quantity(glob_attrs.data[2,0,0]/shell_width, 'code_mass*code_velocity/code_length')
-            self.inflows['v_20rvir'] = self.obj.quantity(glob_attrs.data[3,1,0], 'code_velocity')
-            self.inflows['thermal_energy_20rvir'] = self.obj.quantity(glob_attrs.data[4,0,0], 'code_mass * code_velocity**2')
-            self.inflows['thermal_energy_specific_20rvir'] = self.obj.quantity(glob_attrs.data[5,1,0], 'code_specific_energy')
-
+            self.mass['halo_gas'] = self.obj.quantity(glob_attrs.result[0].total[0,0,0], 'code_mass')
+            self.gas_density['halo_gas'] = pdf_handler_to_stats(self.obj,glob_attrs.result[1],0)
+            self.temperature['halo_gas'] = pdf_handler_to_stats(self.obj,glob_attrs.result[2],0)
+            self.angular_mom['halo_gas'] = self.obj.array(np.array([glob_attrs.result[3].total[0,0,0],glob_attrs.result[4].total[0,0,0],glob_attrs.result[5].total[0,0,0]]),
+                                                             'code_mass*code_length*code_velocity')
+            self.energies['halo_thermal_energy'] = self.obj.quantity(glob_attrs.result[6].total[0,0,0], 'code_mass * code_velocity**2')
+            self.energies['halo_thermal_energy_specific'] = pdf_handler_to_stats(self.obj,glob_attrs.result[7],0)
+            self.pressure_support['halo_grav_therpfrsphere'] = pdf_handler_to_stats(self.obj,glob_attrs.result[8],0)
             if self.obj.simulation.physics['metals']:
-                self.outflows['metallicity_20rvir'] = glob_attrs.data[6,1,0]
+                self.metallicity['galaxy_gas'] = pdf_handler_to_stats(self.obj,glob_attrs.result[9],0)
         else:
-            self.inflows['massflow_rate_20rvir'] = self.obj.quantity(0.0, 'code_mass*code_velocity/code_length')
+            self.mass['halo_gas'] = self.obj.quantity(np.zeros((3,7)), 'code_mass')
         
         if self.obj.simulation.physics['magnetic']:
-            print('Computing magnetic energies')
-            if self.obj.simulation.physics['metals']:
-                self.inflows['magnetic_energy_20rvir'] = self.obj.quantity(glob_attrs.data[7,0,0], 'code_mass * code_velocity**2')
-                self.inflows['magnetic_energy_specific_20rvir'] = self.obj.quantity(glob_attrs.data[8,1,0], 'code_specific_energy')
-            else:
-                self.inflows['magnetic_energy_20rvir'] = self.obj.quantity(glob_attrs.data[6,0,0], 'code_mass * code_velocity**2')
-                self.inflows['magnetic_energy_specific_20rvir'] = self.obj.quantity(glob_attrs.data[7,1,0], 'code_specific_energy')
-
+            self.energies['halo_magnetic_energy'] = self.obj.quantity(glob_attrs.result[nvar_magnetic].total[0,0,0], 'code_mass * code_velocity**2')
+            self.energies['halo_magnetic_energy_specific'] = pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_magnetic+1],0)
+        
         if self.obj.simulation.physics['cr']:
-            print('Computing CR energies')
-            if self.obj.simulation.physics['metals']:
-                self.inflows['cr_energy_20rvir'] = self.obj.quantity(glob_attrs.data[9,0,0], 'code_mass * code_velocity**2')
-                self.inflows['cr_energy_specific_20rvir'] = self.obj.quantity(glob_attrs.data[10,1,0], 'code_specific_energy')
-            else:
-                self.inflows['cr_energy_20rvir'] = self.obj.quantity(glob_attrs.data[8,0,0], 'code_mass * code_velocity**2')
-                self.inflows['cr_energy_specific_20rvir'] = self.obj.quantity(glob_attrs.data[9,1,0], 'code_specific_energy')
+            self.energies['halo_cr_energy'] = self.obj.quantity(glob_attrs.result[nvar_crs].total[0,0,0], 'code_mass * code_velocity**2')
+            self.energies['halo_cr_energy_specific'] = pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+1],0)
+            self.pressure_support['grav_crpfrsphere'] = pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+2],0)
 
         if self.obj.simulation.physics['rt']:
+            #TODO: This is not really correct, need to update for the format of AMR integrations
             print('Computing ionisation fractions')
-            self.inflows['xHII_20rvir'] = glob_attrs.data[nvar,2,0]
-            self.inflows['xHeII_20rvir'] = glob_attrs.data[nvar+1,2,0]
-            self.inflows['xHeIII_20rvir'] = glob_attrs.data[nvar+2,2,0]
-
-        # Second shell
-        print('Performing second shell integration')
-        # a) Outflows
-        amr_integrator.integrate_region(output_path,shell_05,out_filter,glob_attrs)
-
-        # Assign results to galaxy object
-        if self.obj.simulation.physics['hydro']:
-            print('Computing gas flow quantities')
-            self.outflows['density_50rvir'] = self.obj.quantity(glob_attrs.data[0,1,0], 'code_density')
-            self.outflows['temperature_50rvir'] = self.obj.quantity(glob_attrs.data[1,1,0], 'code_temperature')
-            self.outflows['massflow_rate_50rvir'] = self.obj.quantity(glob_attrs.data[2,0,0]/shell_width, 'code_mass*code_velocity/code_length')
-            self.outflows['v_50rvir'] = self.obj.quantity(glob_attrs.data[3,1,0], 'code_velocity')
-            self.outflows['thermal_energy_50rvir'] = self.obj.quantity(glob_attrs.data[4,0,0], 'code_mass * code_velocity**2')
-            self.outflows['thermal_energy_specific_50rvir'] = self.obj.quantity(glob_attrs.data[5,1,0], 'code_specific_energy')
-
-            if self.obj.simulation.physics['metals']:
-                self.outflows['metallicity_50rvir'] = glob_attrs.data[6,1,0]
-        else:
-            self.outflows['massflow_rate_50rvir'] = self.obj.quantity(0.0, 'code_mass*code_velocity/code_length')
-        
-        if self.obj.simulation.physics['magnetic']:
-            print('Computing magnetic energies')
-            if self.obj.simulation.physics['metals']:
-                self.outflows['magnetic_energy_50rvir'] = self.obj.quantity(glob_attrs.data[7,0,0], 'code_mass * code_velocity**2')
-                self.outflows['magnetic_energy_specific_50rvir'] = self.obj.quantity(glob_attrs.data[8,1,0], 'code_specific_energy')
-            else:
-                self.outflows['magnetic_energy_50rvir'] = self.obj.quantity(glob_attrs.data[6,0,0], 'code_mass * code_velocity**2')
-                self.outflows['magnetic_energy_specific_50rvir'] = self.obj.quantity(glob_attrs.data[7,1,0], 'code_specific_energy')
-
-        if self.obj.simulation.physics['cr']:
-            print('Computing CR energies')
-            if self.obj.simulation.physics['metals']:
-                self.outflows['cr_energy_50rvir'] = self.obj.quantity(glob_attrs.data[9,0,0], 'code_mass * code_velocity**2')
-                self.outflows['cr_energy_specific_50rvir'] = self.obj.quantity(glob_attrs.data[10,1,0], 'code_specific_energy')
-            else:
-                self.outflows['cr_energy_50rvir'] = self.obj.quantity(glob_attrs.data[8,0,0], 'code_mass * code_velocity**2')
-                self.outflows['cr_energy_specific_50rvir'] = self.obj.quantity(glob_attrs.data[9,1,0], 'code_specific_energy')
-
-        if self.obj.simulation.physics['rt']:
-            print('Computing ionisation fractions')
-            self.outflows['xHII_50rvir'] = glob_attrs.data[nvar,2,0]
-            self.outflows['xHeII_50rvir'] = glob_attrs.data[nvar+1,2,0]
-            self.outflows['xHeIII_50rvir'] = glob_attrs.data[nvar+2,2,0]
-
-        # b) Inflows
-        amr_integrator.integrate_region(output_path,shell_05,in_filter,glob_attrs)
-
-        # Assign results to galaxy object
-        if self.obj.simulation.physics['hydro']:
-            print('Computing gas flow quantities')
-            self.inflows['density_50rvir'] = self.obj.quantity(glob_attrs.data[0,1,0], 'code_density')
-            self.inflows['temperature_50rvir'] = self.obj.quantity(glob_attrs.data[1,1,0], 'code_temperature')
-            self.inflows['massflow_rate_50rvir'] = self.obj.quantity(glob_attrs.data[2,0,0]/shell_width, 'code_mass*code_velocity/code_length')
-            self.inflows['v_50rvir'] = self.obj.quantity(glob_attrs.data[3,1,0], 'code_velocity')
-            self.inflows['thermal_energy_50rvir'] = self.obj.quantity(glob_attrs.data[4,0,0], 'code_mass * code_velocity**2')
-            self.inflows['thermal_energy_specific_50rvir'] = self.obj.quantity(glob_attrs.data[5,1,0], 'code_specific_energy')
-
-            if self.obj.simulation.physics['metals']:
-                self.outflows['metallicity_50rvir'] = glob_attrs.data[6,1,0]
-        else:
-            self.inflows['massflow_rate_50rvir'] = self.obj.quantity(0.0, 'code_mass*code_velocity/code_length')
-        
-        if self.obj.simulation.physics['magnetic']:
-            print('Computing magnetic energies')
-            if self.obj.simulation.physics['metals']:
-                self.inflows['magnetic_energy_50rvir'] = self.obj.quantity(glob_attrs.data[7,0,0], 'code_mass * code_velocity**2')
-                self.inflows['magnetic_energy_specific_50rvir'] = self.obj.quantity(glob_attrs.data[8,1,0], 'code_specific_energy')
-            else:
-                self.inflows['magnetic_energy_50rvir'] = self.obj.quantity(glob_attrs.data[6,0,0], 'code_mass * code_velocity**2')
-                self.inflows['magnetic_energy_specific_50rvir'] = self.obj.quantity(glob_attrs.data[7,1,0], 'code_specific_energy')
-
-        if self.obj.simulation.physics['cr']:
-            print('Computing CR energies')
-            if self.obj.simulation.physics['metals']:
-                self.inflows['cr_energy_50rvir'] = self.obj.quantity(glob_attrs.data[9,0,0], 'code_mass * code_velocity**2')
-                self.inflows['cr_energy_specific_50rvir'] = self.obj.quantity(glob_attrs.data[10,1,0], 'code_specific_energy')
-            else:
-                self.inflows['cr_energy_50rvir'] = self.obj.quantity(glob_attrs.data[8,0,0], 'code_mass * code_velocity**2')
-                self.inflows['cr_energy_specific_50rvir'] = self.obj.quantity(glob_attrs.data[9,1,0], 'code_specific_energy')
-
-        if self.obj.simulation.physics['rt']:
-            print('Computing ionisation fractions')
-            self.inflows['xHII_50rvir'] = glob_attrs.data[nvar,2,0]
-            self.inflows['xHeII_50rvir'] = glob_attrs.data[nvar+1,2,0]
-            self.inflows['xHeIII_50rvir'] = glob_attrs.data[nvar+2,2,0]
-
-        # Third shell
-        print('Performing third shell integration')
-        # a) Outflows
-        amr_integrator.integrate_region(output_path,shell_10,out_filter,glob_attrs)
-
-        # Assign results to galaxy object
-        if self.obj.simulation.physics['hydro']:
-            print('Computing gas flow quantities')
-            self.outflows['density_100rvir'] = self.obj.quantity(glob_attrs.data[0,1,0], 'code_density')
-            self.outflows['temperature_100rvir'] = self.obj.quantity(glob_attrs.data[1,1,0], 'code_temperature')
-            self.outflows['massflow_rate_100rvir'] = self.obj.quantity(glob_attrs.data[2,0,0]/shell_width, 'code_mass*code_velocity/code_length')
-            self.outflows['v_100rvir'] = self.obj.quantity(glob_attrs.data[3,1,0], 'code_velocity')
-            self.outflows['thermal_energy_100rvir'] = self.obj.quantity(glob_attrs.data[4,0,0], 'code_mass * code_velocity**2')
-            self.outflows['thermal_energy_specific_100rvir'] = self.obj.quantity(glob_attrs.data[5,1,0], 'code_specific_energy')
-
-            if self.obj.simulation.physics['metals']:
-                self.outflows['metallicity_100rvir'] = glob_attrs.data[6,1,0]
-        else:
-            self.outflows['massflow_rate_100rvir'] = self.obj.quantity(0.0, 'code_mass*code_velocity/code_length')
-        
-        if self.obj.simulation.physics['magnetic']:
-            print('Computing magnetic energies')
-            if self.obj.simulation.physics['metals']:
-                self.outflows['magnetic_energy_100rvir'] = self.obj.quantity(glob_attrs.data[7,0,0], 'code_mass * code_velocity**2')
-                self.outflows['magnetic_energy_specific_100rvir'] = self.obj.quantity(glob_attrs.data[8,1,0], 'code_specific_energy')
-            else:
-                self.outflows['magnetic_energy_100rvir'] = self.obj.quantity(glob_attrs.data[6,0,0], 'code_mass * code_velocity**2')
-                self.outflows['magnetic_energy_specific_100rvir'] = self.obj.quantity(glob_attrs.data[7,1,0], 'code_specific_energy')
-
-        if self.obj.simulation.physics['cr']:
-            print('Computing CR energies')
-            if self.obj.simulation.physics['metals']:
-                self.outflows['cr_energy_100rvir'] = self.obj.quantity(glob_attrs.data[9,0,0], 'code_mass * code_velocity**2')
-                self.outflows['cr_energy_specific_100rvir'] = self.obj.quantity(glob_attrs.data[10,1,0], 'code_specific_energy')
-            else:
-                self.outflows['cr_energy_100rvir'] = self.obj.quantity(glob_attrs.data[8,0,0], 'code_mass * code_velocity**2')
-                self.outflows['cr_energy_specific_100rvir'] = self.obj.quantity(glob_attrs.data[9,1,0], 'code_specific_energy')
-
-        if self.obj.simulation.physics['rt']:
-            print('Computing ionisation fractions')
-            self.outflows['xHII_100rvir'] = glob_attrs.data[nvar,2,0]
-            self.outflows['xHeII_100rvir'] = glob_attrs.data[nvar+1,2,0]
-            self.outflows['xHeIII_100rvir'] = glob_attrs.data[nvar+2,2,0]
-
-        # b) Inflows
-        amr_integrator.integrate_region(output_path,shell_10,in_filter,glob_attrs)
-
-        # Assign results to galaxy object
-        if self.obj.simulation.physics['hydro']:
-            print('Computing gas flow quantities')
-            self.inflows['density_100rvir'] = self.obj.quantity(glob_attrs.data[0,1,0], 'code_density')
-            self.inflows['temperature_100rvir'] = self.obj.quantity(glob_attrs.data[1,1,0], 'code_temperature')
-            self.inflows['massflow_rate_100rvir'] = self.obj.quantity(glob_attrs.data[2,0,0]/shell_width, 'code_mass*code_velocity/code_length')
-            self.inflows['v_100rvir'] = self.obj.quantity(glob_attrs.data[3,1,0], 'code_velocity')
-            self.inflows['thermal_energy_100rvir'] = self.obj.quantity(glob_attrs.data[4,0,0], 'code_mass * code_velocity**2')
-            self.inflows['thermal_energy_specific_100rvir'] = self.obj.quantity(glob_attrs.data[5,1,0], 'code_specific_energy')
-
-            if self.obj.simulation.physics['metals']:
-                self.outflows['metallicity_100rvir'] = glob_attrs.data[6,1,0]
-        else:
-            self.inflows['massflow_rate_100rvir'] = self.obj.quantity(0.0, 'code_mass*code_velocity/code_length')
-        
-        if self.obj.simulation.physics['magnetic']:
-            print('Computing magnetic energies')
-            if self.obj.simulation.physics['metals']:
-                self.inflows['magnetic_energy_100rvir'] = self.obj.quantity(glob_attrs.data[7,0,0], 'code_mass * code_velocity**2')
-                self.inflows['magnetic_energy_specific_100rvir'] = self.obj.quantity(glob_attrs.data[8,1,0], 'code_specific_energy')
-            else:
-                self.inflows['magnetic_energy_100rvir'] = self.obj.quantity(glob_attrs.data[6,0,0], 'code_mass * code_velocity**2')
-                self.inflows['magnetic_energy_specific_100rvir'] = self.obj.quantity(glob_attrs.data[7,1,0], 'code_specific_energy')
-
-        if self.obj.simulation.physics['cr']:
-            print('Computing CR energies')
-            if self.obj.simulation.physics['metals']:
-                self.inflows['cr_energy_100rvir'] = self.obj.quantity(glob_attrs.data[9,0,0], 'code_mass * code_velocity**2')
-                self.inflows['cr_energy_specific_100rvir'] = self.obj.quantity(glob_attrs.data[10,1,0], 'code_specific_energy')
-            else:
-                self.inflows['cr_energy_100rvir'] = self.obj.quantity(glob_attrs.data[8,0,0], 'code_mass * code_velocity**2')
-                self.inflows['cr_energy_specific_100rvir'] = self.obj.quantity(glob_attrs.data[9,1,0], 'code_specific_energy')
-
-        if self.obj.simulation.physics['rt']:
-            print('Computing ionisation fractions')
-            self.inflows['xHII_100rvir'] = glob_attrs.data[nvar,2,0]
-            self.inflows['xHeII_100rvir'] = glob_attrs.data[nvar+1,2,0]
-            self.inflows['xHeIII_100rvir'] = glob_attrs.data[nvar+2,2,0]
-        
-        print('Outflow/inflow analysis finished!')
-        return
+            self.radiation['halo_xHII'] = glob_attrs.data[0,nvar_rt,1:,:-1]
+            self.radiation['halo_xHeII'] = glob_attrs.data[0,nvar_rt+1,1:,:-1]
+            self.radiation['halo_xHeIII'] = glob_attrs.data[0,nvar_rt+2,1:,:-1]
 
     def _calculate_velocity_dispersions(self):
         """Calculate velocity dispersions for the various components."""
@@ -801,9 +600,12 @@ class Halo(Group):
         haloIDs = [i.ID for i in self.obj.halos]
         nexti = self.nextsub
         while nexti != -1:
-            nextindex = np.where(nexti == haloIDs)[0][0]
-            subs.append(self.obj.halos[nextindex])
-            nexti = self.obj.halos[nextindex].nextsub
+            if len(np.where(nexti == haloIDs)[0]) != 0:
+                nextindex = np.where(nexti == haloIDs)[0][0]
+                subs.append(self.obj.halos[nextindex])
+                nexti = self.obj.halos[nextindex].nextsub
+            else:
+                break
         return subs
         
     def _compute_subs(self,tidal_method):

@@ -166,46 +166,64 @@ class Projection(object):
             os.remove(name)
         cols = []
         first = True
-        counter = 0
-        for datatype, varlist in self.vars.items():
-            fields = []
-            if len(varlist)>0:
-                imap = self.data_maps[counter]
-                for f in varlist:
-                    fields.append(datatype+'/'+f)
-                for i,field in enumerate(fields):
-                    # Some fields have specific numerical flags at the end
-                    # which do not interfere with the units. If that is 
-                    # the case, get rid of that last bit
-                    try:
-                        numflag = int(field.split('/')[1].split('_')[-1])
-                        numflag = True
-                    except:
-                        numflag = False
-                    if numflag:
-                        sfrstr = field.split('/')[1].split('_')[0] +'_'+ field.split('/')[1].split('_')[1]
-                        code_units = get_code_units(sfrstr)
-                    else:
-                        code_units = get_code_units(field.split('/')[1])
-                    temp_map = self.group.obj.array(imap[i][0],code_units)
-                    first_unit = True
-                    for u in code_units.split('*'):
-                        if first_unit:
-                            units = unit_system[u]
-                            first_unit = False
-                            units_check = u
+        nfilter = len(self.filters)
+        for nf in range(0, nfilter):
+            filter_name = self.filters[nf]['name']
+            counter = 0
+            for datatype, varlist in self.vars.items():
+                fields = []
+                if len(varlist)>0:
+                    imap = self.data_maps[counter][nf]
+                    if not isinstance(imap,list) and not isinstance(imap,np.ndarray):
+                        imap = [imap]
+                    for f in varlist:
+                        fields.append(datatype+'/'+f)
+                    for i,field in enumerate(fields):
+                        # Some fields have specific numerical flags at the end
+                        # which do not interfere with the units. If that is 
+                        # the case, get rid of that last bit
+                        try:
+                            numflag = int(field.split('/')[1].split('_')[-1])
+                            numflag = True
+                        except:
+                            numflag = False
+                        if numflag:
+                            sfrstr = field.split('/')[1].split('_')[0] +'_'+ field.split('/')[1].split('_')[1]
+                            code_units = get_code_units(sfrstr)
                         else:
-                            units += '*'+unit_system[u]
-                            units_check +='_'+u
-                    if units_check in unit_system:
-                        units = unit_system[units_check]
-                    mm = np.array(temp_map.in_units(units))
-                    ft = self.getformat(mm[0])
-                    cols.append(
-                        fits.Column(name=field, format="%s" % ft, 
-                                    array=mm, unit=re.sub('()', '', units))
-                    )
-            counter += 1
+                            code_units = get_code_units(field.split('/')[1])
+                        temp_map = self.group.obj.array(imap[i][0],code_units)
+                        make_div = False
+                        first_unit = True
+                        if len(code_units.split('/')) != 1:
+                            make_div = True
+                            code_units = code_units.replace('/','*')
+                        for u in code_units.split('*'):
+                            if first_unit:
+                                units = unit_system[u]
+                                first_unit = False
+                                units_check = u
+                            else:
+                                if make_div:
+                                    units += '/'+unit_system[u]
+                                else:
+                                    units += '*'+unit_system[u]
+                                units_check +='_'+u
+                        if units_check in unit_system:
+                            units = unit_system[units_check]
+                        mm = np.array(temp_map.in_units(units))
+                        ft = self.getformat(mm[0])
+                        if filter_name != 'none':
+                            cols.append(
+                                fits.Column(name=field+'/'+filter_name, format="%s" % ft, 
+                                            array=mm, unit=re.sub('()', '', units))
+                            )
+                        else:
+                            cols.append(
+                                fits.Column(name=field, format="%s" % ft, 
+                                            array=mm, unit=re.sub('()', '', units))
+                            )
+                counter += 1
         tbhdu = fits.BinTableHDU.from_columns(cols)
         # Add needed keywords
         tbhdu.header["PIXTYPE"] = ("HEALPIX", "HEALPIX pixelisation")
@@ -214,8 +232,16 @@ class Projection(object):
         tbhdu.header["NSIDE"] = (self.nside, "Resolution parameter of HEALPIX")
         tbhdu.header["COORDSYS"] = ('C',"Ecliptic, Galactic or Celestial (equatorial)")
         tbhdu.header["REDSHIFT"] = (self.group.obj.simulation.redshift, "Snapshot redshift")
-
-        #TODO: Add further information such that the FITS file is a standalone.
+        tbhdu.header["los_x"] = self.los_axis[0]
+        tbhdu.header["los_y"] = self.los_axis[1]
+        tbhdu.header["los_z"] = self.los_axis[2]
+        tbhdu.header["up_x"] = self.up_vector[0]
+        tbhdu.header["up_y"] = self.up_vector[1]
+        tbhdu.header["up_z"] = self.up_vector[2]
+        tbhdu.header["centre_x"] = float(self.centre[0].in_units(unit_system['code_length']).d)
+        tbhdu.header["centre_y"] = float(self.centre[1].in_units(unit_system['code_length']).d)
+        tbhdu.header["centre_z"] = float(self.centre[2].in_units(unit_system['code_length']).d)
+        self._save_filterinfo(tbhdu,self.filters[nf])
 
         # Now, just save to disk
         tbhdu.writeto(name)
@@ -339,8 +365,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     for var in vars:
         var_type = var.split('/')[0]
         var_name = var.split('/')[1]
-        use_neigh = check_need_neighbours(var_name) or use_neigh
         if var_type == 'gas':
+            use_neigh = check_need_neighbours(var_name) or use_neigh
             if var_name in common_variables or var_name in grid_variables:
                 proj.vars['gas'].append(var_name)
             else:
@@ -369,8 +395,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     for w in weight:
         weight_type = w.split('/')[0]
         weight_name = w.split('/')[1]
-        use_neigh = check_need_neighbours(weight_name) or use_neigh
         if weight_type == 'gas':
+            use_neigh = check_need_neighbours(weight_name) or use_neigh
             if weight_name in common_variables or weight_name in grid_variables:
                 proj.weight[0] = weight_name
             else:
@@ -531,7 +557,10 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     # Do it for hydro first
     filts = []
     for i in range(0,nfilter):
-        cond_var = filter_conds[i].split('/')[0]
+        if isinstance(filter_conds[i],list):
+            cond_var = filter_conds[i][0].split('/')[0]
+        else:
+            cond_var = filter_conds[i].split('/')[0]
         if cond_var in common_variables or cond_var in grid_variables:
             f = init_filter(filter_conds[i],filter_name[i],group)
         else:
@@ -548,7 +577,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     else:
         nsubs = 0
     
-    cam = obs_instruments.init_camera(centre,axis,up_vector,region_size,region_axis,distance,
+    cam = obs_instruments.init_camera(centre,axis,up_vector,region_size,region_axis,bulk,distance,
                                       far_cut_depth,map_max_size-1,nfilter,nsubs)
 
     # Now give filters to camera Fortran type
@@ -583,9 +612,9 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     if len(proj.vars['gas']) != 0:
         print('Performing hydro projection for '+str(len(proj.vars['gas']))+' variables')
         if lmax != 0 or lmin != 0:
-            maps.projection_hydro(group.obj.simulation.fullpath,cam,bulk,use_neigh,hydro_handler,int(lmax),int(lmin))
+            maps.projection_hydro(group.obj.simulation.fullpath,cam,use_neigh,hydro_handler,int(lmax),int(lmin))
         else:
-            maps.projection_hydro(group.obj.simulation.fullpath,cam,bulk,use_neigh,hydro_handler)
+            maps.projection_hydro(group.obj.simulation.fullpath,cam,use_neigh,hydro_handler)
         # TODO: Weird issue when the direct toto array is given.
         data = np.copy(hydro_handler.toto)
         proj.data_maps.append(data)
@@ -596,7 +625,10 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     # we do not include filters inexistent in particle data
     filts = []
     for i in range(0,nfilter):
-        cond_var = filter_conds[i].split('/')[0]
+        if isinstance(filter_conds[i],list):
+            cond_var = filter_conds[i][0].split('/')[0]
+        else:
+            cond_var = filter_conds[i].split('/')[0]
         corrected_var = '_'.join(cond_var.split('_')[1:])
         if corrected_var in common_variables or corrected_var in particle_variables:
             f = init_filter(filter_conds[i],filter_name[i],group)
@@ -605,9 +637,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
             # or the particle_variables dictionaries just ignore it and set it to blank
             f = init_filter('none','none',group)
         filts.append(f)
-    
     # Now give filters to camera Fortran type - updating the previous from hydro
-    cam = obs_instruments.init_camera(centre,axis,up_vector,region_size,region_axis,distance,
+    cam = obs_instruments.init_camera(centre,axis,up_vector,region_size,region_axis,bulk,distance,
                                       far_cut_depth,map_max_size,nfilter,nsubs)
     for i in range(0,nfilter):
         cam.filters[i] = filts[i]
@@ -635,9 +666,9 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         print('Performing particle projection for '+str(len(proj.vars['star'])+len(proj.vars['dm']))+' variables')
         if tag_file != None:
             print('Using the tag file for particles: ',tag_file)
-            maps.projection_parts(group.obj.simulation.fullpath,cam,bulk,parts_handler,tag_file,inverse_tag)
+            maps.projection_parts(group.obj.simulation.fullpath,cam,parts_handler,tag_file,inverse_tag)
         else:
-            maps.projection_parts(group.obj.simulation.fullpath,cam,bulk,parts_handler)
+            maps.projection_parts(group.obj.simulation.fullpath,cam,parts_handler)
         # TODO: Weird issue when the direct toto array is given.
         data = np.copy(parts_handler.toto)
         if len(proj.vars['star']) == 0:
@@ -739,11 +770,11 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
     width_x =  hdul[0].header['CDELT1']*hdul[0].header['NAXIS1'] * length_unit
     width_y =  hdul[0].header['CDELT2']*hdul[0].header['NAXIS2'] * length_unit
     ex = [-0.5*width_x,0.5*width_x,-0.5*width_y,0.5*width_y]
-    los_axis,up_axis,centre = vectors.vector(),vectors.vector(),vectors.vector()
+    los_axis,up_axis,centre,velocity = vectors.vector(),vectors.vector(),vectors.vector(),vectors.vector()
     los_axis.x,los_axis.y,los_axis.z = hdul[0].header['LOS_X'],hdul[0].header['LOS_Y'],hdul[0].header['LOS_Z']
     up_axis.x,up_axis.y,up_axis.z = hdul[0].header['UP_X'],hdul[0].header['UP_Y'],hdul[0].header['UP_Z']
     centre.x,centre.y,centre.z = hdul[0].header['CENTRE_X'],hdul[0].header['CENTRE_Y'],hdul[0].header['CENTRE_Z']
-    cam = obs_instruments.init_camera(centre,los_axis,up_axis,width_x.d,los_axis,
+    cam = obs_instruments.init_camera(centre,los_axis,up_axis,width_x.d,los_axis,velocity,
                                       width_x.d,width_x.d,hdul[0].header['NAXIS1'],
                                       1,len(centers))
 
@@ -770,8 +801,15 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
                 plotting_def = plotting_dictionary[fields[ivar].split('/')[1]]
             print(fields[ivar],np.nanmin(hdul[h].data.T),np.nanmax(hdul[h].data.T))
             if smooth:
-                sigma=3
-                cImage = sp.ndimage.filters.gaussian_filter(hdul[h].data.T, sigma, mode='constant')
+                # We smooth with a Gaussian kernel with x_stddev=1 (and y_stddev=1)
+                # It is a 9x9 array
+                from astropy.convolution import Gaussian2DKernel, convolve
+                kernel = Gaussian2DKernel(x_stddev=0.8)
+                # astropy's convolution replaces the NaN pixels with a kernel-weighted
+                # interpolation from their neighbors
+                cImage = convolve(hdul[h].data.T, kernel)
+                # sigma=3
+                # cImage = sp.ndimage.filters.gaussian_filter(hdul[h].data.T, sigma, mode='constant')
             else:
                 cImage = hdul[h].data.T
             if logscale and fields[ivar].split('/')[1] not in symlog_variables:
@@ -960,7 +998,7 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=True,reds
                 plotting_def = plotting_dictionary['density']
                 if i%2 == 0:
                     plot = ax[i,j].imshow(np.log10(hdul['gas/density'].data.T), cmap=plotting_def['cmap'],
-                                origin='upper',vmin=np.log10(plotting_def['vmin_galaxy']),
+                                origin='lower',vmin=np.log10(plotting_def['vmin_galaxy']),
                                 vmax=np.log10(plotting_def['vmax_galaxy']),extent=ex,
                                 interpolation='nearest')
                 else:
@@ -981,22 +1019,22 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=True,reds
                     rgbArray[:,:,2] = inflow*255*0.8
                     plot = ax[i,j].imshow(np.zeros((nx,ny,3), 'uint8'), cmap='gray',
                                     vmin=plotting_def['vmin_galaxy'],vmax=plotting_def['vmax_galaxy'])
-                    ax[i,j].imshow(v_sphere,origin='upper',extent=ex,interpolation='lanczos')
+                    ax[i,j].imshow(v_sphere,origin='lower',extent=ex,interpolation='lanczos')
                 
             elif logscale and fields[ivar].split('/')[1] != 'v_sphere_r':
                 plot = ax[i,j].imshow(np.log10(hdul[h].data.T), cmap=plotting_def['cmap'],
-                                origin='upper',vmin=np.log10(plotting_def['vmin_galaxy']),
+                                origin='lower',vmin=np.log10(plotting_def['vmin_galaxy']),
                                 vmax=np.log10(plotting_def['vmax_galaxy']),extent=ex,
                                 interpolation='nearest')
             elif logscale and fields[ivar].split('/')[1] == 'v_sphere_r':
                 plot = ax[i,j].imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
-                                origin='upper',norm=SymLogNorm(linthresh=10, linscale=1,vmin=plotting_def['vmin'], vmax=plotting_def['vmax']),
+                                origin='lower',norm=SymLogNorm(linthresh=10, linscale=1,vmin=plotting_def['vmin'], vmax=plotting_def['vmax']),
                                 extent=ex,
                                 interpolation='nearest')
             
             else:
                 plot = ax[i,j].imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
-                                origin='upper',extent=ex,interpolation='nearest',
+                                origin='lower',extent=ex,interpolation='nearest',
                                 vmin=plotting_def['vmin'],vmax=plotting_def['vmax'])
             if i%2 == 0:
                 cbaxes = inset_axes(ax[i,j], width="80%", height="5%", loc='lower center')
@@ -1042,7 +1080,8 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=True,reds
 
 
 def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redshift=True,colorbar=True,
-                                colormap=None, type_scale='',centers=[],radii=[],names=[]):
+                                colormap=None, type_scale='',centers=[],radii=[],names=[],filter_name='none',
+                                smooth=False):
     """This function uses the projection information in a FITS file following the 
         OZY format and plots it following the OZY standards."""
     
@@ -1055,6 +1094,7 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
     from matplotlib.colors import LogNorm,SymLogNorm
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
     import seaborn as sns
+    from astropy.convolution import Gaussian2DKernel, convolve
     import scipy as sp   
     sns.set(style="dark")
     plt.rcParams["axes.axisbelow"] = False
@@ -1074,6 +1114,13 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
     # Load FITS file
     hdul = fits.open(proj_FITS)
     hdul_fields = [h.header['btype'] for h in hdul]
+
+    # Add filter identification to the field
+    hdul_filtername = ['COND_0' in h.header for h in hdul]
+    if any(hdul_filtername):
+            field = field + '/' + filter_name
+    else:
+        print('WARNING: This FITS file does not have filter information, so anything you added will be ignored!')
 
     # Check that the required fields for plotting are in this FITS
     if field not in hdul_fields:
@@ -1104,23 +1151,45 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
         plotting_def = plotting_dictionary[field.split('/')[1]]
     if colormap == None:
         colormap = plotting_def['cmap']
-    sigma=1
-    if logscale and field.split('/')[1] != 'v_sphere_r':
-        cImage = np.log10(hdul[h].data.T)#sp.ndimage.filters.gaussian_filter(np.log10(hdul[h].data.T), sigma, mode='constant')
-        plot = ax.imshow(cImage, cmap=colormap,
-                        origin='upper',vmin=np.log10(plotting_def['vmin'+type_scale]),
+    if smooth:
+        # We smooth with a Gaussian kernel with x_stddev=1 (and y_stddev=1)
+        # It is a 9x9 array
+        kernel = Gaussian2DKernel(x_stddev=0.8)
+        # astropy's convolution replaces the NaN pixels with a kernel-weighted
+        # interpolation from their neighbors
+        cImage = convolve(hdul[h].data.T, kernel)
+        # sigma=3
+        # cImage = sp.ndimage.filters.gaussian_filter(hdul[h].data.T, sigma, mode='constant')
+    else:
+        cImage = hdul[h].data.T
+    if logscale and field.split('/')[1] not in symlog_variables:
+        plot = ax.imshow(np.log10(cImage), cmap=colormap,
+                        origin='lower',vmin=np.log10(plotting_def['vmin'+type_scale]),
                         vmax=np.log10(plotting_def['vmax'+type_scale]),extent=ex,
                         interpolation='nearest')
-    elif logscale and field.split('/')[1] == 'v_sphere_r':
-        cImage = sp.ndimage.filters.gaussian_filter(hdul[h].data.T, sigma, mode='constant')
-        plot = ax.imshow(cImage, cmap=colormap,
-                        origin='upper',norm=SymLogNorm(linthresh=10, linscale=1,vmin=plotting_def['vmin'+type_scale], vmax=plotting_def['vmax'+type_scale]),
-                        extent=ex,
-                        interpolation='nearest')
+    elif logscale and field.split('/')[1] in symlog_variables:
+        if (filter_name != 'outflow' and filter_name != 'inflow'):
+            plot = ax.imshow(cImage, cmap=colormap,
+                            origin='lower',norm=SymLogNorm(linthresh=0.1, linscale=1,
+                            vmin=plotting_def['vmin'+type_scale], vmax=plotting_def['vmax'+type_scale]),
+                            extent=ex,
+                            interpolation='nearest')
+        elif field.split('/')[1] == 'v_sphere_r':
+            if filter_name == 'inflow' and smooth:                                                                                                                                                                                          
+                cImage = sp.ndimage.filters.gaussian_filter(-hdul[h].data.T, sigma, mode='constant')
+            plot = ax.imshow(np.log10(cImage), cmap=plotting_def['cmap_'+filter_name],
+                            origin='lower',vmin=np.log10(plotting_def['vmin_'+filter_name]),
+                            vmax=np.log10(plotting_def['vmax_'+filter_name]),extent=ex,
+                            interpolation='nearest')
+        else:
+            plot = ax.imshow(cImage, cmap=colormap,
+                            origin='lower',norm=SymLogNorm(linthresh=0.1, linscale=1,
+                            vmin=plotting_def['vmin'+type_scale], vmax=plotting_def['vmax'+type_scale]),
+                            extent=ex,
+                            interpolation='nearest')
     else:
-        cImage = sp.ndimage.filters.gaussian_filter(hdul[h].data.T, sigma, mode='constant')
-        plot = ax.imshow(cImage, cmap=colormap,
-                        origin='upper',extent=ex,interpolation='nearest',
+        plot = ax.imshow(hdul[h].data.T, cmap=colormap,
+                        origin='lower',extent=ex,interpolation='nearest',
                         vmin=plotting_def['vmin'+type_scale],vmax=plotting_def['vmax'+type_scale])
     if colorbar:
         cbaxes = inset_axes(ax, width="80%", height="5%", loc='lower center')
@@ -1170,7 +1239,11 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
 
     fig.subplots_adjust(hspace=0,wspace=0,left=0,right=1, bottom=0, top=1)
 
-    fig.savefig(proj_FITS.split('.fits')[0]+'_'+field.split('/')[1]+'.png',format='png',dpi=330)
+    if filter_name != 'none':
+        fig.savefig(proj_FITS.split('.fits')[0]+'_'+field.split('/')[1]+'_'+filter_name+'.png',format='png',dpi=330)
+    else:
+        fig.savefig(proj_FITS.split('.fits')[0]+'_'+field.split('/')[1]+'.png',format='png',dpi=330)
+    plt.close(fig)
 
 def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=True,redshift=True, type_scale='galaxy'):
     """This function uses the projection information in a FITS file following the 
@@ -1252,13 +1325,13 @@ def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=True,redshi
     
     rgb_default = make_lupton_rgb(images[0], images[1], images[2],Q=10, stretch=0.5)
 
-    ax.imshow(rgb_default,origin='upper',extent=ex,interpolation='nearest')
+    ax.imshow(rgb_default,origin='lower',extent=ex,interpolation='nearest')
 
     if stars:
         h = [k for k in range(0,len(hdul)) if hdul[k].header['btype']=='star/mass'][0]
         stars = np.log10(hdul[h].data.T)
         plotting_def = plotting_dictionary['star_mass']
-        ax.imshow(stars,origin='upper',cmap=plotting_def['cmap'],
+        ax.imshow(stars,origin='lower',cmap=plotting_def['cmap'],
                     extent=ex,interpolation='nearest',
                     vmin=np.log10(plotting_def['vmin']),
                     vmax=np.log10(plotting_def['vmax']),alpha=0.4)
@@ -1284,7 +1357,9 @@ def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=True,redshi
     fig.savefig(proj_FITS.split('.')[0]+'_rgb.png',format='png',dpi=300)
 
 
-def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,pov='edgeon',r=(1.0,'rvir'),dr=(1./150.,'rvir')):
+def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,pov='edgeon',
+                          r=(1.0,'rvir'),dr=(1./150.,'rvir'),lmax=100,lmin=1,remove_subs=False,
+                          filter_conds=['none'],filter_name=['none'],use_neigh=False):
     """Function which computes a 2D spherical projection of particular object using the HEALPix
         pixelisation scheme."""
     
@@ -1334,22 +1409,23 @@ def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,
             else:
                 raise KeyError('This DM variable is not supported. Please check!')
 
-    # Setup region details
+    # Setup camera details for the requested POV (Point of View)
+    centre = vectors.vector()
+    centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+    bulk = vectors.vector()
+    velocity = group.velocity.in_units('code_velocity')
+    bulk.x, bulk.y, bulk.z = velocity.d[0], velocity.d[1], velocity.d[2]
+    region_axis = vectors.vector()
+    norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
+    region_axis.x,region_axis.y,region_axis.z = norm_L[0], norm_L[1], norm_L[2]
+    
     if pov == 'edgeon':
-        reg = geometrical_regions.region()
-        reg.name = 'sphere'
-        centre = vectors.vector()
-        pos = group.position.in_units('code_length').d
-        centre.x, centre.y, centre.z = pos[0], pos[1], pos[2]
-        reg.centre = centre
-        bulk = vectors.vector()
-        velocity = group.velocity.in_units('code_velocity')
-        bulk.x, bulk.y, bulk.z = velocity.d[0], velocity.d[1], velocity.d[2]
-        reg.bulk_velocity = bulk
-        norm_L = group.angular_mom['gas'].d/np.linalg.norm(group.angular_mom['gas'].d)
+        los = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
+        los /= np.linalg.norm(los)
         axis = vectors.vector()
-        axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
-        reg.axis = axis
+        axis.x,axis.y,axis.z = los[0], los[1], los[2]
+        up_vector = vectors.vector()
+        up_vector.x,up_vector.y,up_vector.z = norm_L[0], norm_L[1], norm_L[2]
         if r[1] == 'rvir':
             rmax = r[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
         else:
@@ -1359,9 +1435,9 @@ def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,
             dr = dr[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
         else:
             dr = group.obj.quantity(dr[0],dr[1]).in_units('code_length').d
-        reg.rmin = rmax - 0.5*dr
-        reg.rmax = rmax + 0.5*dr
-        print(reg.rmin,reg.rmax,reg.centre,reg.axis)
+        distance = rmax - 0.5*dr
+        far_cut_depth = rmax + 0.5*dr
+        region_size = np.array([2.0*far_cut_depth,2.0*far_cut_depth],order='F',dtype=np.float64)
 
         # Update projection details with the ones used for the region
         proj.up_vector = norm_L
@@ -1371,6 +1447,47 @@ def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,
         print('This POV for a HEALPix projection is not supported...')
         print('Please check!')
         exit
+        
+    # Now create filters if any conditions have been given...
+    nfilter = len(filter_conds)
+    for i in range(0,nfilter):
+        f = init_filter(filter_conds[i],filter_name[i],group)
+        proj._get_python_filter(f)
+        
+    # Do it for hydro first
+    filts = []
+    for i in range(0,nfilter):
+        if isinstance(filter_conds[i],list):
+            cond_var = filter_conds[i][0].split('/')[0]
+        else:
+            cond_var = filter_conds[i].split('/')[0]
+        if cond_var in common_variables or cond_var in grid_variables:
+            f = init_filter(filter_conds[i],filter_name[i],group)
+        else:
+            # When a filter asks for a variable not existent in the common_variables
+            # or the grid_variables dictionaries just ignore it and set it to blank
+            f = init_filter('none','none',group)
+        filts.append(f)
+        
+    # Construct substructure regions if we want them out of the projection
+    if remove_subs:
+        subs = structure_regions(group, add_substructure=True, add_neighbours=False,
+                                    tidal_method='BT87_simple')
+        nsubs = len(subs)
+    else:
+        nsubs = 0
+        
+    cam = obs_instruments.init_camera(centre,axis,up_vector,region_size,region_axis,bulk,distance,
+                                      far_cut_depth,1024,nfilter,nsubs)
+    
+    # Now give filters to camera Fortran type
+    for i in range(0,nfilter):
+        cam.filters[i] = filts[i]
+        
+    if remove_subs and nsubs>0:
+        for i in range(0,nsubs):
+            cam.subs[i] = subs[i]
+
     
     # Create projection_handler Fortran derived type for the results of the hydro data projection
     hydro_handler = maps.projection_handler()
@@ -1382,11 +1499,13 @@ def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,
         hydro_handler.varnames.T.view('S128')[i] = proj.vars['gas'][i].ljust(128)
     
     # COMPUTE HYDRO PROJECTION
-    maps.healpix_hydro(group.obj.simulation.fullpath,reg,nside,hydro_handler)
+    if lmax != 0 or lmin != 0:
+        maps.healpix_hydro(group.obj.simulation.fullpath,cam,use_neigh,hydro_handler,nside,int(lmax),int(lmin))
+    else:
+        maps.healpix_hydro(group.obj.simulation.fullpath,cam,use_neigh,hydro_handler,nside)
     # TODO: Weird issue when the direct toto array is given.
     data = np.copy(hydro_handler.toto)
     proj.data_maps.append(data)
-
     # TODO: Add particle projections
 
     return proj
@@ -1455,14 +1574,15 @@ def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False):
     from astropy.wcs import WCS
     from astropy.visualization.wcsaxes.frame import EllipticalFrame
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-    sns.set(style="white")
-    plt.rc('text', usetex=True)
-    plt.rc('font', family='serif')
-    hfont = {'fontname':'Helvetica'}
-    matplotlib.rc('text', usetex = True)
-    matplotlib.rc('font', **{'family' : "serif"})
-    params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
-    matplotlib.rcParams.update(params)
+    sns.set(style="dark")
+    plt.rcParams["axes.axisbelow"] = False
+    # plt.rc('text', usetex=True)
+    # plt.rc('font', family='serif')
+    # hfont = {'fontname':'Helvetica'}
+    # matplotlib.rc('text', usetex = True)
+    # matplotlib.rc('font', **{'family' : "serif"})
+    # params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
+    # matplotlib.rcParams.update(params)
 
     # First, check that the FITS file actually exists
     if not os.path.exists(proj_FITS):
@@ -1486,7 +1606,7 @@ def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False):
     # Since everything is fine, we begin plotting…
     nside = hdul.header["NSIDE"]
     ncolumns = int(len(fields)/2)
-    figsize = plt.figaspect(float(7 * 2) / float(11 * ncolumns))
+    figsize = plt.figaspect(float(8 * 2) / float(9 * ncolumns))
     fig = plt.figure(figsize=figsize)
     plot_grid = fig.add_gridspec(2, ncolumns)
     axes = []
@@ -1511,7 +1631,7 @@ def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False):
             data = hdul.data[fields[ivar]]
             invalid_index = np.argwhere(np.isnan(data))
             theta,phi = hp.pix2ang(nside,invalid_index)
-            data[invalid_index] = np.nanmin(data)
+            data[invalid_index] = data[invalid_index-1]
             array, footprint = reproject_from_healpix((data, 'C'),
                                                         target_header,nested=False)
             print(fields[ivar],np.nanmin(array),np.nanmax(array))
@@ -1522,35 +1642,17 @@ def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False):
             else:
                 plotting_def = plotting_dictionary[fields[ivar].split('/')[1]]
             if logscale:
-                if fields[ivar].split('/')[1].split('_')[0] != 'v':
-                    if fields[ivar].split('/')[1] == 'density':
-                        vmin = plotting_def['vmin']/100
-                        vmax = plotting_def['vmax']/100
-                    elif fields[ivar].split('/')[1] == 'temperature':
-                        vmin = plotting_def['vmin']*100
-                        vmax = plotting_def['vmax']*10
-                    elif fields[ivar].split('/')[1] == 'xHII':
-                        vmin = plotting_def['vmin']*100
-                        vmax = plotting_def['vmax']
-                    # elif fields[ivar].split('/')[1] == 'magnetic_energy_density':
-                    #     vmin = plotting_def['vmin']/1e12
-                    #     vmax = plotting_def['vmax']*10
-                    else:
-                        vmin = plotting_def['vmin']
-                        vmax = plotting_def['vmax']
+                if fields[ivar].split('/')[1] not in symlog_variables:
                     plot = ax.imshow(array, cmap=plotting_def['cmap'],
-                                    norm=LogNorm(vmin=vmin,
-                                    vmax=vmax),
-                                    interpolation='nearest')
+                                    norm=LogNorm(vmin=plotting_def['vmin_cgm'],
+                                    vmax=plotting_def['vmax_cgm']))
                 else:
                     plot = ax.imshow(array, cmap=plotting_def['cmap'],
-                                    vmin=plotting_def['vmin'],
-                                    vmax=plotting_def['vmax'],
-                                    interpolation='nearest')
+                                    vmin=plotting_def['vmin_cgm'],
+                                    vmax=plotting_def['vmax_cgm'])
             else:
                 plot = ax.imshow(array, cmap=plotting_def['cmap'],
-                                interpolation='nearest',
-                                vmin=plotting_def['vmin'],vmax=plotting_def['vmax'])
+                                vmin=plotting_def['vmin_cgm'],vmax=plotting_def['vmax_cgm'])
             ax.coords.grid(color=plotting_def['text_over'],linewidth=0.8,alpha=0.4,linestyle=':')
             # ax.coords['ra'].set_ticklabel(color=plotting_def['text_over'])
             ax.coords['ra'].set_ticklabel_visible(False)
@@ -1616,9 +1718,7 @@ def structure_overplotting(group, add_substructure=True, add_neighbours=False,
             d = group.obj.quantity(np.linalg.norm(distance.to('kpc').d),'kpc')
             if s.npart >= 1000 and d.to('kpc')<=rmax.to('kpc'):
                 centers.append(s.position)
-                #radii.append(s.radius[tidal_method])
-                #radii.append(tidal_radius(myhalo,s,method=tidal_method))
-                radii.append(s.virial_quantities['radius'])
+                radii.append(s.radius[tidal_method])
                 plot_dicts.append(circle_dictionary['tidal_'+tidal_method])
     
     # If asked for neighbours (so inside the virial radius) obtain them
