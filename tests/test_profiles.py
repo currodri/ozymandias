@@ -76,20 +76,20 @@ ax.plot(new_x.in_units('kpc'),prof.ydata['hydro'][0][:,1,0].in_units('g*cm**-3')
 # ax.plot(new_x.in_units('kpc'),prof.ydata['hydro'][0][:,1,0].in_units('g*cm**-3'), label='ozymandias 4.0',alpha=0.4)
 
 # # Doing it with yt
-ds = yt.load('/mnt/extraspace/currodri/NUT/cosmoNUTcrmhd/output_00035/info_00035.txt')
-sphere = ds.sphere(center=(gal.position[0].d, gal.position[1].d, gal.position[2].d), radius=(4.0, "kpc"))
-rp0 = yt.create_profile(
-    sphere,
-    ("index", "radius"),
-    ("gas", "density"),
-    weight_field=("index", "cell_volume"),
-    n_bins=80
-)
-print(rp0.x.in_units('kpc'))
-ax.plot(rp0.x.in_units('kpc'),rp0['gas','density'].in_units('g*cm**-3'), label='yT')
+# ds = yt.load('/mnt/extraspace/currodri/NUT/cosmoNUTcrmhd/output_00035/info_00035.txt')
+# sphere = ds.sphere(center=(gal.position[0].d, gal.position[1].d, gal.position[2].d), radius=(4.0, "kpc"))
+# rp0 = yt.create_profile(
+#     sphere,
+#     ("index", "radius"),
+#     ("gas", "density"),
+#     weight_field=("index", "cell_volume"),
+#     n_bins=80
+# )
+# print(rp0.x.in_units('kpc'))
+# ax.plot(rp0.x.in_units('kpc'),rp0['gas','density'].in_units('g*cm**-3'), label='yT')
 
-ax.legend(loc='best')
-fig.savefig('NUT_00035_radial_density.png',dpi=200,format='png')
+# ax.legend(loc='best')
+# fig.savefig('NUT_00035_radial_density.png',dpi=200,format='png')
 
 # Initialise region
 # selected_reg = init_region(gal,'sphere',rmin=(0.0,'kpc'),rmax=(10.0,'kpc'))

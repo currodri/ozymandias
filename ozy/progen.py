@@ -120,7 +120,6 @@ def find_progens(pid_current, pid_target, gid_current, gid_target, pid_hash, n_m
         prog_index2 = np.zeros(ngroups_curr,dtype=int)
         for ig in range(ngroups_curr):
             prog_index[ig],prog_index2[ig] = _find_target_group(pid_current[pid_hash[ig]:pid_hash[ig+1]],pid_target,gid_target,min_in_common)
-    print(prog_index,prog_index2)
     if n_most == 1:
         return prog_index
     elif n_most == 2:

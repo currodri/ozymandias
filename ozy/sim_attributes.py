@@ -23,7 +23,7 @@ class SimulationAttributes(object):
         # TODO: Read this from simulation file. Right now for NUT:
         self.zoom = True
         
-        H0 = obj.quantity(self.hubble_constant * 100. * 3.24077929e-20, '1/s')
+        H0 = obj.quantity(self.hubble_constant * 3.24077929e-20, '1/s')
         Om_0 = obj._info['omega_m']
         Ol_0 = obj._info['omega_l']
         Ok_0 = obj._info['omega_k']

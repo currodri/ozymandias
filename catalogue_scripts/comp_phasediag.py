@@ -121,6 +121,8 @@ if __name__ == '__main__':
                     rmin, rmax = (0.2, 'rvir'),(1.0, 'rvir')
                 elif args.region == 'shell_rvir':
                     rmin, rmax = (0.99, 'rvir'),(1.1, 'rvir')
+                elif args.region == 'shell_galaxy':
+                    rmin, rmax = (0.19, 'rvir'),(0.21, 'rvir')
                 print('scale type: ',args.scaletype)
                 if args.doflows:
                     # Escape velocity at 0.2 Rvir of the halo

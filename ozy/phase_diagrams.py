@@ -401,7 +401,7 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
     fig.subplots_adjust(top=0.97,bottom=0.1,left=0.1,right=0.99)
     fig.savefig(name+'.png',format='png',dpi=300)
 
-def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=True,redshift=True,stats='none',extra_labels='none',gent=False,powell=False,doflows=False):
+def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',scaletype='log_even',redshift=True,stats='none',extra_labels='none',gent=False,powell=False,doflows=False):
 
     # Make required imports
     import matplotlib
@@ -470,8 +470,8 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=Tr
     
     # With everything fine, we begin plotting…
     nrow = int(len(pds)/2)
-    figsize = plt.figaspect(float((5.0 * nrow) / (5.0 * 2)))
-    fig = plt.figure(figsize=2*figsize, facecolor='w',edgecolor='k')
+    figsize = plt.figaspect(float((12.0 * nrow) / (11.0 * 2)))
+    fig = plt.figure(figsize=figsize, facecolor='w',edgecolor='k')
     plot_grid = fig.add_gridspec(nrow, 2, wspace=0, hspace=0)#,  hspace=0,left=0,right=1, bottom=0, top=1)
     ax = []
     for i in range(0,nrow):
@@ -494,9 +494,9 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=Tr
             plotting_x = plotting_dictionary[pd.xvar]
             plotting_y = plotting_dictionary[pd.yvar]
             plotting_z = plotting_dictionary[field]
-            ax[i,j].set_xlabel(plotting_x['label'],fontsize=18)
+            ax[i,j].set_xlabel(plotting_x['label'],fontsize=20)
             if ipd%2 == 0:
-                ax[i,j].set_ylabel(plotting_y['label'],fontsize=18)
+                ax[i,j].set_ylabel(plotting_y['label'],fontsize=20)
             else:
                 ax[i,j].axes.yaxis.set_visible(False)
 
@@ -507,7 +507,7 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=Tr
             ax[i,j].tick_params(which='major',axis="both",direction="in")
             
             code_units_x = get_code_units(pd.xvar)
-            if logscale:
+            if scaletype=='log_even':
                 ax[i,j].set_xscale('log')
                 ax[i,j].set_yscale('log')
                 x = pd.obj.array(10**(pd.xdata[0].d),code_units_x)
@@ -516,7 +516,7 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=Tr
             x = x.in_units(plotting_x['units'])
             code_units_y = get_code_units(pd.yvar)
             
-            if logscale:
+            if scaletype=='log_even':
                 y = pd.obj.array(10**(pd.ydata[0].d),code_units_y)
             else:
                 y = pd.obj.array(pd.ydata[0].d,code_units_y)
@@ -628,11 +628,11 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',logscale=Tr
                 ax[i,j].contour(x, y, zescape.T, t_contours, colors='darkred', linewidths=2)
             
         
-        fig.subplots_adjust(top=0.92,bottom=0.05,left=0.1,right=0.95)
+        fig.subplots_adjust(top=0.85,bottom=0.15,left=0.1,right=0.95)
         fig.savefig(name+'.png',format='png',dpi=300)
 
 def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
-                            logscale=True,redshift=True,stats='none',
+                            scaletype='log_even',redshift=True,stats='none',
                             extra_labels='none',gent=False,powell=False,
                             doflows=False,do_sf=False,layout='compact'):
 
@@ -788,7 +788,7 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
             XX,YY = np.meshgrid(x,y)
             delta_z = sim_z.max() - sim_z.min()
             sim_z = np.mean(sim_z)
-            if logscale:
+            if scaletype=='log_even':
                 plot = ax[i,j].pcolormesh(x,y,
                                     z.T,
                                     shading='auto',

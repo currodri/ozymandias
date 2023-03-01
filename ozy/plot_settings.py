@@ -26,7 +26,8 @@ plotting_dictionary = dict(
     density = {'cmap': sns.color_palette("mako", as_cmap=True),
                 'text_over':'white',
                 'label':r'$\rho$ [g/cm$^{-3}$]',
-                'label_log':r'$\log\left(\frac{\rho}{{\rm g cm}^{-3}}\right)$',
+                #'label_log':r'$\log\left(\frac{\rho}{{\rm g cm}^{-3}}\right)$',
+                'label_log':r'$\log\left(\frac{\rm density}{{{\rm baby elephant} {\rm corgi}}^{-3}}\right)$',
                 'units':'g*cm**-3',
                 'vmin':8e-31,
                 'vmax':7e-22,
@@ -34,8 +35,10 @@ plotting_dictionary = dict(
                 'bin_max':7e-22,
                 'vmin_galaxy':8e-28,
                 'vmax_galaxy':5e-22,
-                'vmin_cgm':8e-28,
-                'vmax_cgm':7e-25
+                'vmin_cgm':5e-29,
+                'vmax_cgm':8e-26,
+                'vmin_cluster':8e-31,
+                'vmax_cluster':7e-22,
     },
     mass = {'cmap':sns.color_palette("mako", as_cmap=True),
             'text_over':'white',
@@ -127,7 +130,7 @@ plotting_dictionary = dict(
                         'vmin_galaxy':8e+7,
                         'vmax_galaxy':2e+9
     },
-    metallicity = {'cmap':'swift.nineteen_eighty_nine',
+    metallicity = {'cmap':'swift.red_tv',
                     'text_over':'black',
                     'label':r'$Z$ [$Z_{\odot}$]',
                     'label_log':r'$\log\left(Z/Z_{\odot}\right)$',
@@ -137,7 +140,7 @@ plotting_dictionary = dict(
                     'bin_min':2e-4,
                     'bin_max':2.0,
                     'vmin_galaxy':5e-3,
-                    'vmax_galaxy':1.5,
+                    'vmax_galaxy':3,
                     'vmin_cgm':5e-3,
                     'vmax_cgm':1.5
     },
@@ -189,7 +192,9 @@ plotting_dictionary = dict(
                                 'bin_min':4e-12,
                                 'bin_max':5e-5,
                                 'vmin_galaxy':4e-10,
-                                'vmax_galaxy':5e-5
+                                'vmax_galaxy':5e-5,
+                                'vmin_cgm':4e-10,
+                                'vmax_cgm':5e-7
 
     },
     alfven_speed = {'cmap':'swift.red',
@@ -323,8 +328,8 @@ plotting_dictionary = dict(
                                 'vmax':7e+14,
                                 'bin_min':1e+9,
                                 'bin_max':7e+12,
-                                'vmin_galaxy':5e+10,
-                                'vmax_galaxy':7e+15,
+                                'vmin_galaxy':5e+15,
+                                'vmax_galaxy':7e+16,
                                 'vmin_cgm':5e+12,
                                 'vmax_cgm':7e+14
 
@@ -365,7 +370,8 @@ plotting_dictionary = dict(
                         'bin_min':-100,
                         'bin_max':+100,
                         'vmin_galaxy':-5,
-                        'vmax_galaxy':+5
+                        'vmax_galaxy':+5,
+                        'linthresh':1e-2
 
     },
     grav_therpfz = {'cmap':sns.color_palette("vlag", as_cmap=True),
@@ -378,7 +384,8 @@ plotting_dictionary = dict(
                         'bin_min':-100,
                         'bin_max':+100,
                         'vmin_galaxy':-5,
-                        'vmax_galaxy':+5
+                        'vmax_galaxy':+5,
+                        'linthresh':1e-2
 
     },
     grav_crpfrsphere = {'cmap':'RdBu',
@@ -646,7 +653,7 @@ plotting_dictionary = dict(
                     'vmax_inflow':20,
                     'vmin_cgm':-180,
                     'vmax_cgm':+210,
-                    'linthresh':1e-3
+                    'linthresh':10
     },
     v_cyl_z = {'cmap':sns.color_palette("vlag", as_cmap=True),
                     'text_over':'black',
@@ -658,7 +665,8 @@ plotting_dictionary = dict(
                     'bin_min':-90,
                     'bin_max':+90,
                     'vmin_galaxy':-90,
-                    'vmax_galaxy':+90
+                    'vmax_galaxy':+90,
+                    'linthresh':10
     },
     momentum_sphere_r = {'cmap':sns.color_palette("vlag", as_cmap=True),
                     'text_over':'black',
@@ -708,13 +716,27 @@ plotting_dictionary = dict(
                                 'bin_max':100
     },
     massflow_rate_sphere_r = {'cmap': sns.color_palette("icefire", as_cmap=True),
-                                'text_over':'black',
+                                'text_over':'white',
                                 'label':r'$dM/dt$ [M$_{\odot}$ yr$^{-1}$]',
                                 'units':'Msun*yr**-1',
                                 'bin_min':-100,
                                 'bin_max':100,
                                 'vmin_cgm':-5e-3,
-                                'vmax_cgm':5e-3
+                                'vmax_cgm':5e-3,
+                                'linthresh':1e-3
+    },
+    sigma = {'cmap':'swift.red',
+                        'text_over':'white',
+                        'label':r'$\sigma_{\rm turb}$ [km s$^{-1}$]',
+                        'label_log':r'$\log(\frac{\sigma_{\rm turb}}{{\rm km s}^{-1}})$',
+                        'units':'km/s',
+                        'vmin':1e-1,
+                        'vmax':200,
+                        'bin_min':1e-2,
+                        'bin_max':1e3,
+                        'vmin_galaxy':8,
+                        'vmax_galaxy':150
+
     },
     star_mass = {'cmap':'gray',
                 'text_over':'white',
@@ -733,8 +755,10 @@ plotting_dictionary = dict(
                         'units':'Msun/(kpc**2)',
                         'vmin':3e+4,
                         'vmax':5e+9,
-                        'vmin_galaxy':3e+4,
-                        'vmax_galaxy':5e+9
+                        'vmin_galaxy':3e+3,
+                        'vmax_galaxy':5e+9,
+                        'vmin_cgm':3e+1,
+                        'vmax_cgm':5e+3,
 
     },
     dm_sdensity = {'cmap':'cividis',
@@ -744,10 +768,12 @@ plotting_dictionary = dict(
                         'units':'Msun/(kpc**2)',
                         'vmin':4e+7,
                         'vmax':3e+9,
-                        'vmin_galaxy':4e+7,
-                        'vmax_galaxy':3e+9,
+                        'vmin_galaxy':8e+6,
+                        'vmax_galaxy':7e+8,
                         'vmin_cluster':4e+5,
-                        'vmax_cluster':3e+8
+                        'vmax_cluster':3e+8,
+                        'vmin_cgm':4e+3,
+                        'vmax_cgm':3e+6
 
     },
     dm_mass = {'cmap':'cividis',
@@ -815,8 +841,8 @@ plotting_dictionary = dict(
                 'vmax':0.01,
                 'vmin_galaxy':1e-4,
                 'vmax_galaxy':0.01,
-                'bin_min':1e-6,
-                'bin_max':5
+                'bin_min':1e-5,
+                'bin_max':10
     },
     eff_FKmagnocr = {'cmap':'magma',
                 'text_over':'white',
@@ -827,8 +853,8 @@ plotting_dictionary = dict(
                 'vmax':0.01,
                 'vmin_galaxy':1e-4,
                 'vmax_galaxy':0.01,
-                'bin_min':1e-6,
-                'bin_max':5
+                'bin_min':1e-5,
+                'bin_max':10
     },
     eff_FK2 = {'cmap':'magma',
                 'text_over':'white',
@@ -839,8 +865,8 @@ plotting_dictionary = dict(
                 'vmax':0.01,
                 'vmin_galaxy':1e-4,
                 'vmax_galaxy':0.01,
-                'bin_min':1e-6,
-                'bin_max':5
+                'bin_min':1e-5,
+                'bin_max':10
     },
     neighbour_accuracy = {'cmap':'magma',
                 'text_over':'white',

@@ -103,7 +103,8 @@ grid_variables = dict(
     eff_FKmag = {'unit':'dimensionless','neighbour':True},
     eff_FKmagnocr = {'unit':'dimensionless','neighbour':True},
     eff_FK2 = {'unit':'dimensionless','neighbour':True},
-    neighbour_accuracy = {'unit':'dimensionless','neighbour':True}
+    neighbour_accuracy = {'unit':'dimensionless','neighbour':True},
+    sigma = {'unit':'code_velocity','neighbour':True}
 )
 particle_variables = dict(
     age = {'unit':'Gyr','neighbour':False},

@@ -6,6 +6,8 @@ __pycache__/
 */__pycache__/
 *.py[cod]
 *$py.class
+*.pyc
+*.cpython-38.pyc
 
 # C extensions
 *.so
@@ -156,3 +158,28 @@ kext_albedo_WD_MW_3.1_60.txt
 filters.dat
 chab03.dat
 sunset_selfcontained.f90
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# F90wrap files
+f90wrap_*.f90
+*fpp
+*.a
+*.c
+*o.d
+*.h
+.f2py_f2cmap
+ozy/part/*_pkg
+ozy/amr/*_pkg
+ozy/visualisation/*_pkg
+ozy/amr/amr2.py
+ozy/part/part2.py
+ozy/visualisation/vis.py

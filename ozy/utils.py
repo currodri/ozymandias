@@ -412,8 +412,10 @@ def tidal_radius(central, satellite, method='BT87_simple'):
     
     return r
 
-def structure_regions(group, add_substructure=True, add_neighbours=False,
-                            tidal_method='BT87_simple',rmax=(1e10,'kpc')):
+def structure_regions(group, position=None, radius=None,
+                      add_substructure=True, add_neighbours=False,
+                      add_all=False, add_intersections = False,
+                      tidal_method='BT87_simple',rmax=(1e10,'kpc')):
     """
     This routine returns the regions of substructures so they can be used
     by the Ozymandias Fortran routines
@@ -444,7 +446,33 @@ def structure_regions(group, add_substructure=True, add_neighbours=False,
                     tr = tidal_radius(myhalo,s,method=tidal_method)
                 mysubs.append(init_region(s,'sphere',rmax=(tr.to('kpc'),'kpc'),
                             rmin=(0,'kpc')))
-    
+                
+    # If asked for every structure in the halo finder, just add all
+    if add_all:
+        halos = group.obj.halos
+        for h in halos:
+            if h.npart >= 1000:
+                r = h.virial_quantities['radius']
+                mysubs.append(init_region(h,'sphere',rmax=(r.to('kpc'),'kpc'),
+                            rmin=(0,'kpc')))
+                
+    # This looks for what virial spheres of other halos intersect with the
+    # one provided. If position and radius are given, they're computed for
+    # that instead of the group center and virial radius
+    if add_intersections:
+        if position == None and radius == None:
+            position = group.position
+            radius = rmax
+        halos = group.obj.halos
+        for h in halos:
+            distance = position - h.position
+            d = group.obj.quantity(np.linalg.norm(distance.to('kpc').d),'kpc')
+            rsum = radius + h.virial_quantities['radius']
+            if h.npart >= 1000 and rsum.to('kpc') >= d.to('kpc') and h.ID != myhalo.ID:
+                r = h.virial_quantities['radius']
+                mysubs.append(init_region(h,'sphere',rmax=(r.to('kpc'),'kpc'),
+                            rmin=(0,'kpc')))
+            
     # If asked for neighbours (so inside the virial radius) obtain them
     if add_neighbours:
         # TODO: This needs to be updated with the actual class procedure
@@ -453,7 +481,9 @@ def structure_regions(group, add_substructure=True, add_neighbours=False,
     return mysubs
 
 def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(0.0,'rvir'), xmax=(0.2,'rvir'),
-                ymin=(0.0,'rvir'), ymax=(0.2,'rvir'),zmin=(0.0,'rvir'), zmax=(0.2,'rvir')):
+                ymin=(0.0,'rvir'), ymax=(0.2,'rvir'),zmin=(0.0,'rvir'), zmax=(0.2,'rvir'),
+                mycentre=([0.5,0.5,0.5],'rvir'), myaxis=np.array([1.,0.,0.]),
+                return_enclosing_sphere=False):
     """Initialise region Fortran derived type with details of group."""
     from amr2 import vectors
     from amr2 import geometrical_regions as geo
@@ -484,9 +514,12 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
         else:
             reg.rmin = group.obj.quantity(rmin[0],str(rmin[1])).in_units('code_length')
         if rmax[1] == 'rvir':
-            reg.rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
         else:
-            reg.rmax = group.obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')
+            rmax = group.obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')
+        reg.rmax = rmax
+        enclosing_sphere_p = group.position
+        enclosing_sphere_r = rmax
 
     elif region_type == 'basic_sphere':
         reg.name = 'sphere'
@@ -506,9 +539,12 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
         else:
             reg.rmin = group.obj.quantity(rmin[0],str(rmin[1])).in_units('code_length')
         if rmax[1] == 'rvir':
-            reg.rmax = rmax[0]*group.virial_quantities['radius'].d
+            rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
         else:
-            reg.rmax = group.obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')
+            rmax = group.obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')
+        reg.rmax = rmax
+        enclosing_sphere_p = group.position
+        enclosing_sphere_r = rmax
     elif region_type == 'basic_cube':
         reg.name = 'cube'
         centre = vectors.vector()
@@ -527,7 +563,44 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
         reg.ymax = group.obj.quantity(ymax[0],str(ymax[1])).in_units('code_length')
         reg.zmin = group.obj.quantity(zmin[0],str(zmin[1])).in_units('code_length')
         reg.zmax = group.obj.quantity(zmax[0],str(zmax[1])).in_units('code_length')
-
+        enclosing_sphere_p = group.position
+        corner = np.array([reg.xmax-centre.x,reg.ymax-centre.y,reg.zmax-centre.z])
+        enclosing_sphere_r = np.linalg.norm(corner)
+        
+    elif region_type == 'custom_cylinder':
+        reg.name = 'cylinder'
+        centre = vectors.vector()
+        mycentre = group.obj.array(mycentre[0],str(mycentre[1])).in_units('code_length')
+        centre.x, centre.y, centre.z = mycentre[0],mycentre[1],mycentre[2]
+        reg.centre = centre
+        axis = vectors.vector()
+        norm_L = myaxis/np.linalg.norm(myaxis)
+        axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
+        reg.axis = axis
+        bulk = vectors.vector()
+        velocity = group.velocity.in_units('code_velocity')
+        bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
+        reg.bulk_velocity = bulk
+        
+        if rmin[1] == 'rvir':
+            reg.rmin = rmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        else:
+            reg.rmin = group.obj.quantity(rmin[0],str(rmin[1])).in_units('code_length')
+        if rmax[1] == 'rvir':
+            reg.rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        else:
+            reg.rmax = group.obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')
+        
+        if zmin[1] == 'rvir':
+            reg.zmin = zmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        else:
+            reg.zmin = group.obj.quantity(zmin[0],str(zmin[1])).in_units('code_length')
+        if zmax[1] == 'rvir':
+            reg.zmax = zmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        else:
+            reg.zmax = group.obj.quantity(zmax[0],str(zmax[1])).in_units('code_length')
+        enclosing_sphere_p = mycentre + norm_L * max(rmax,0.5*(reg.zmax-reg.zmin))
+        enclosing_sphere_r = np.sqrt(max(abs(reg.zmax),abs(reg.zmin))**2 + 2*reg.rmax**2)
     elif region_type == 'cylinder':
         reg.name = 'cylinder'
         centre = vectors.vector()
@@ -559,6 +632,8 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
             reg.zmax = zmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
         else:
             reg.zmax = group.obj.quantity(zmax[0],str(zmax[1])).in_units('code_length')
+        enclosing_sphere_p = group.position + norm_L * max(rmax,0.5*(reg.zmax-reg.zmin))
+        enclosing_sphere_r = np.sqrt(max(abs(reg.zmax),abs(reg.zmin))**2 + 2*reg.rmax**2)
     elif region_type == 'top_midplane_cylinder':
         reg.name = 'cylinder'
         axis = vectors.vector()
@@ -590,6 +665,8 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
         velocity = group.velocity.in_units('code_velocity')
         bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
         reg.bulk_velocity = bulk
+        enclosing_sphere_p = im_centre
+        enclosing_sphere_r = np.sqrt(max(abs(reg.zmax),abs(reg.zmin))**2 + 2*reg.rmax**2)
     elif region_type == 'bottom_midplane_cylinder':
         reg.name = 'cylinder'
         axis = vectors.vector()
@@ -622,9 +699,14 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
         velocity = group.velocity.in_units('code_velocity')
         bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
         reg.bulk_velocity = bulk
+        enclosing_sphere_p = im_centre
+        enclosing_sphere_r = np.sqrt(max(abs(reg.zmax),abs(reg.zmin))**2 + 2*reg.rmax**2)
     else:
         raise KeyError('Region type not supported. Please check!')
-    return reg
+    if return_enclosing_sphere:
+        return reg, enclosing_sphere_p, enclosing_sphere_r
+    else:
+        return reg
 
 def init_filter(cond_strs, name, group):
     """Initialise filter Fortran derived type with the condition strings provided."""
@@ -1002,6 +1084,10 @@ def stats_from_pdf(x,PDF):
     if any(PDF<0):
         print('This PDF has negative values, so will be ignored!')
         return np.zeros(5)
+    if len(PDF!=0):
+        print('This PDF is composed of a single bin, so everything will be set to that value!')
+        mean = x[PDF!=0][0]
+        return np.array([mean,mean,0.0,mean,mean])
 
     CDF = np.cumsum(PDF)
     if CDF[-1] > 1.1 or CDF[-1]<0.9:
@@ -1054,6 +1140,8 @@ def stats_from_pdf(x,PDF):
     return np.array([mean,median,std,q2,q4])
 
 def pdf_handler_to_stats(obj,pdf_obj,ifilt):
+    # This returns:
+    # mean,median,std,q2,q4,minvalue,max_value
     nwvar = pdf_obj.nwvars
     stats_array = np.zeros((nwvar,7))
     # Some fields have specific numerical flags at the end
@@ -1074,15 +1162,17 @@ def pdf_handler_to_stats(obj,pdf_obj,ifilt):
     for i in range(0, nwvar):
         PDF = pdf_obj.heights[ifilt,i,:]
         x = 0.5*(pdf_obj.bins[1:]+pdf_obj.bins[:-1])
-        print(varname,x,PDF,obj.array(np.array([pdf_obj.minv[ifilt],pdf_obj.maxv[ifilt]]),code_units))
+        # print(varname,x,PDF,obj.array(np.array([pdf_obj.minv[ifilt],pdf_obj.maxv[ifilt]]),code_units))
         stats_array[i,:5] = stats_from_pdf(x,PDF)
-        if scaletype == 'log_even':
-            # Propagation of errors from x to 10^x
-            orig_sigma = stats_array[i,2]
-            stats_array[i,:5] = 10**stats_array[i,:5]
-            new_sigma = np.log(10)*orig_sigma*stats_array[i,0]
-            stats_array[i,2] = new_sigma
-        stats_array[i,5:] = np.array([pdf_obj.minv[ifilt],pdf_obj.maxv[ifilt]])
+        if not all(stats_array[i,:5]==0.0):
+            # Just make sure no empty PDF
+            if scaletype == 'log_even':
+                # Propagation of errors from x to 10^x
+                orig_sigma = stats_array[i,2]
+                stats_array[i,:5] = 10**stats_array[i,:5]
+                new_sigma = np.log(10)*orig_sigma*stats_array[i,0]
+                stats_array[i,2] = new_sigma
+            stats_array[i,5:] = np.array([pdf_obj.minv[ifilt],pdf_obj.maxv[ifilt]])
             
     stats_array = obj.array(stats_array,code_units)
     return stats_array

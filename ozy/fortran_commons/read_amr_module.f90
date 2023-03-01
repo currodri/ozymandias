@@ -1571,6 +1571,16 @@ module io_ramses
             B = grav_var(0,2:4)
             call rotate_vector(B,transpose(trans_matrix))
             value = B.DOT.v/(magnitude(v)*magnitude(B))
+        case ('sigma')
+            ! Go back to box coordinates for the central cell, which is transformed usually
+            ! before sent to read_amr
+            ! Converging flow check
+            tempvar(:,:) = var(:,:)
+            v = tempvar(0,varIDs%vx:varIDs%vz)
+            call rotate_vector(v,transpose(trans_matrix))
+            v = v + reg%bulk_velocity
+            tempvar(0,varIDs%vx:varIDs%vz) = v
+            call cmp_sigma_turb(tempvar,value)
         case default
             write(*,*)'Variable not supported: ',TRIM(varname)
             write(*,*)'Aborting!'
@@ -1622,7 +1632,170 @@ module io_ramses
         end if
 
     end subroutine get_eta_sn
+    !---------------------------------------------------------------
+    ! Function: CMP SIGMA TURB
+    !
+    ! This function obtains the local dispersion velocity of the gas
+    ! in the same way it is used for the MTT models of star formation
+    !----------------------------------------------------------------
+    subroutine cmp_sigma_turb(var,sigma)
+        use vectors
+        use basis_representations
+        use geometrical_regions
+        use coordinate_systems
 
+        implicit none
+        real(dbl),dimension(0:amr%twondim,1:varIDs%nvar),intent(in) :: var
+        real(dbl),intent(out)           :: sigma
+
+        logical :: isConvergent
+        real(dbl) :: d
+        real(dbl),dimension(0:amr%twondim) ::darr,uarr,varr,warr
+        real(dbl) :: divv,uavg,vavg,wavg,dtot
+        real(dbl) :: px_div,py_div,pz_div,Jx,Jy,Jz,rho_local
+        real(dbl) :: trgv,ul,ur
+
+        ! We need to estimate the norm of the gradient of the velocity field in the cell (tensor of 2nd rank)
+        ! i.e. || A ||^2 = trace( A A^T) where A = grad vec(v) is the tensor. 
+        ! So construct values of velocity field on the 6 faces of the cell using simple linear interpolation 
+        ! from neighbouring cell values and differentiate. 
+        ! Get neighbor cells if they exist, otherwise use straight injection from local cell
+
+        d = var(0,varIDs%density)
+        darr = var(:,varIDs%density)
+
+        uarr = var(:,varIDs%vx)
+        varr = var(:,varIDs%vy)
+        warr = var(:,varIDs%vz)
+        divv  = (uarr(2)*darr(2)-uarr(1)*darr(1)) &
+            & + (varr(4)*darr(4)-varr(3)*darr(3)) & 
+            & + (warr(6)*darr(6)-warr(5)*darr(5))
+        
+        ! Average velocity
+        dtot  = sum(darr)
+        uavg  = sum(darr*uarr)/dtot
+        vavg  = sum(darr*varr)/dtot
+        wavg  = sum(darr*warr)/dtot
+        ! Subtract the mean velocity field
+        uarr(:) = uarr(:) - uavg
+        varr(:) = varr(:) - vavg
+        warr(:) = warr(:) - wavg
+        ! Subtract the symmetric divergence field                    
+        ! ex)  (---->,<--): only subtract (-->,<--): result (-->,0) 
+        ! ex)  (<----,-->): only subtract (<--,-->): result (<--,0)
+        px_div = min( abs(darr(1)*uarr(1)),abs(darr(2)*uarr(2)))
+        py_div = min( abs(darr(3)*varr(3)),abs(darr(4)*varr(4)))
+        pz_div = min( abs(darr(5)*warr(5)),abs(darr(6)*warr(6)))
+
+        isConvergent = darr(2)*uarr(2) - darr(1)*uarr(1) < 0 
+        if (isConvergent) then
+            uarr(1) = uarr(1) - px_div/darr(1)
+            uarr(2) = uarr(2) + px_div/darr(2)
+        else ! comment out if you do not want to subtract outflows
+            uarr(1) = uarr(1) + px_div/darr(1)
+            uarr(2) = uarr(2) - px_div/darr(2)
+        end if 
+
+        isConvergent = darr(4)*varr(4) - darr(3)*varr(3) < 0
+        if (isConvergent) then
+            varr(3) = varr(3) - py_div/darr(3)
+            varr(4) = varr(4) + py_div/darr(4)
+        else ! comment out if you do not want to subtract outflows
+            varr(3) = varr(3) + py_div/darr(3)
+            varr(4) = varr(4) - py_div/darr(4)
+        end if
+
+        isConvergent = darr(6)*warr(6) - darr(5)*warr(5) < 0
+        if (isConvergent) then 
+            warr(5) = warr(5) - pz_div/darr(5)
+            warr(6) = warr(6) + pz_div/darr(6)
+        else ! comment out if you do not want to subtract outflows
+            warr(5) = warr(5) + pz_div/darr(5)
+            warr(6) = warr(6) - pz_div/darr(6)
+        end if
+
+        ! subtract the rotational velocity field (x-y) plane
+        ! ^y       <-        |4|        |-u|
+        ! |       |  |     |1| |2|   |-v|  |+v|
+        ! --->x    ->        |3|        |+u|
+        Jz  = - varr(1)*darr(1) + varr(2)*darr(2) &
+            &   + uarr(3)*darr(3) - uarr(4)*darr(4)
+        Jz  = Jz / 4.0
+
+        varr(1) = varr(1) + Jz/darr(1) 
+        varr(2) = varr(2) - Jz/darr(2) 
+        uarr(3) = uarr(3) - Jz/darr(3)
+        uarr(4) = uarr(4) + Jz/darr(4)
+
+        ! subtract the rotational velocity field (y-z) plane
+        ! ^z       <-        |6|        |-v|  
+        ! |       |  |     |3| |4|   |-w|  |+w|
+        ! --->y    ->        |5|        |+v|
+        Jx  = - warr(3)*darr(3) + warr(4)*darr(4) &
+            &   + varr(5)*darr(5) - varr(6)*darr(6)
+        Jx  = Jx / 4.0
+
+        warr(3) = warr(3) + Jx/darr(3) 
+        warr(4) = warr(4) - Jx/darr(4) 
+        varr(5) = varr(5) - Jx/darr(5)
+        varr(6) = varr(6) + Jx/darr(6)
+
+        ! subtract the rotational velocity field (x-z) plane
+        ! ^z       ->        |6|        |+u|  
+        ! |       |  |     |1| |2|   |+w|  |-w|
+        ! --->x    <-        |5|        |-u|
+        Jy  = + warr(1)*darr(1) - warr(2)*darr(2) &
+            &   - uarr(5)*darr(5) + uarr(6)*darr(6)
+        Jy  = Jy / 4.0
+
+        warr(1) = warr(1) - Jy/darr(1) 
+        warr(2) = warr(2) + Jy/darr(2) 
+        uarr(5) = uarr(5) + Jy/darr(5)
+        uarr(6) = uarr(6) - Jy/darr(6)
+
+        ! From this point, uarr,varr,warr is just the turbulent velocity
+        trgv  = 0.0
+
+        !x-direc
+        ul    = (darr(2)*uarr(2) + d*uarr(0))/(darr(2)+d)
+        ur    = (darr(1)*uarr(1) + d*uarr(0))/(darr(1)+d)
+        trgv  = trgv + (ur-ul)**2
+        !y-direc
+        ul    = (darr(4)*varr(4) + d*varr(0))/(darr(4)+d)
+        ur    = (darr(3)*varr(3) + d*varr(0))/(darr(3)+d)
+        trgv  = trgv + (ur-ul)**2
+        !z-direc
+        ul    = (darr(6)*warr(6) + d*warr(0))/(darr(6)+d)
+        ur    = (darr(5)*warr(5) + d*warr(0))/(darr(5)+d)
+        trgv  = trgv + (ur-ul)**2
+        !z-direc; tangential component - y
+        ul    = (darr(6)*varr(6) + d*varr(0))/(darr(6)+d)
+        ur    = (darr(5)*varr(5) + d*varr(0))/(darr(5)+d)
+        trgv  = trgv + (ur-ul)**2
+        !y-direc; tangential component - z
+        ul    = (darr(4)*warr(4) + d*warr(0))/(darr(4)+d)
+        ur    = (darr(3)*warr(3) + d*warr(0))/(darr(3)+d)
+        trgv  = trgv + (ur-ul)**2
+        !z-direc; tangential component - x
+        ul    = (darr(6)*uarr(6) + d*uarr(0))/(darr(6)+d)
+        ur    = (darr(5)*uarr(5) + d*uarr(0))/(darr(5)+d)
+        trgv  = trgv + (ur-ul)**2
+        !x-direc; tangential component - z
+        ul    = (darr(2)*warr(2) + d*warr(0))/(darr(2)+d)
+        ur    = (darr(1)*warr(1) + d*warr(0))/(darr(1)+d)
+        trgv  = trgv + (ur-ul)**2
+        !y-direc; tangential component - x
+        ul    = (darr(4)*uarr(4) + d*uarr(0))/(darr(4)+d)
+        ur    = (darr(3)*uarr(3) + d*uarr(0))/(darr(3)+d)
+        trgv  = trgv + (ur-ul)**2
+        !x-direc; tangential component - y
+        ul    = (darr(2)*varr(2) + d*varr(0))/(darr(2)+d)
+        ur    = (darr(1)*varr(1) + d*varr(0))/(darr(1)+d)
+        trgv  = trgv + (ur-ul)**2
+        
+        ! we want the square root of this
+        sigma = sqrt(trgv)
+    end subroutine
     !---------------------------------------------------------------
     ! Function: SF EFF
     !
@@ -1631,203 +1804,7 @@ module io_ramses
     ! efficiency, so this routines obtains the actual value in the
     ! same way it is obtained in the RAMSES version from
     ! S. Martin-Alvarez
-    !---------------------------------------------------------------
-    ! function sf_eff(reg,dx,x,var,son,grav_var,sf_model)
-    !     use vectors
-    !     use basis_representations
-    !     use geometrical_regions
-    !     use coordinate_systems
-    !     implicit none
-    !     type(region),intent(in)                       :: reg
-    !     real(dbl),intent(in)                       :: dx
-    !     type(vector),intent(in)        :: x
-    !     real(dbl),dimension(0:amr%twondim,1:varIDs%nvar),intent(in) :: var
-    !     integer,dimension(0:amr%twondim),intent(in) :: son
-    !     real(dbl),dimension(0:amr%twondim,1:4),intent(in) :: grav_var
-    !     integer,intent(in)                 :: sf_model
-    !     real(dbl) :: sf_eff
-    !     ! SF variables
-    !     real(dbl) :: T2_star,g_star,n_star,nISM
-    !     real(dbl) :: nCOM,factG,del_star
-    !     real(dbl) :: d,T2,T_poly,cs2,cs2_poly
-    !     real(dbl) :: d1,d2,d3,d4,d5,d6
-    !     real(dbl) :: ul,ur,fl,fr,flong,trgv,divv
-    !     real(dbl) :: curlv1,curlv2,curlv3,curlv
-    !     real(dbl) :: sigma2
-    !     real(dbl) :: d0,alpha0,pcomp,zeta,b_turb
-    !     real(dbl) :: phi_t,phi_x,A,B,C,emag,beta
-    !     real(dbl) :: sigs,scrit,eps_star
-    !     real(dbl) :: lapld,t_dyn,ftot
-
-    !     ! TODO: These parameters should not be hardcoded
-    !     T2_star = 15d0  ! Typical interstellar medium polytropic EOS parameters
-    !     g_star = 1D0
-    !     n_star = 10D0   ! Typical interstellar medium density/comoving density, used as star formation threshold
-    !     del_star=200D0  ! EOS density scale
-
-    !     sf_eff = 0D0
-
-    !     ! ISM density threshold from H/cc to code units
-    !     nISM = n_star
-    !     if (sim%cosmo) then
-    !         nCOM = del_star * sim%omega_b * rhoc * (sim%h0/100)**2/sim%aexp**3*XH/mHydrogen
-    !         nISM = max(nCOM,nISM)
-    !     end if
-    !     d0 = nISM/sim%nH
-    !     factG = 1d0
-    !     if (sim%cosmo) factG = 3d0/4d0/twopi*sim%omega_m*sim%aexp
-
-    !     ! 1. TURBULENCE ESTIMATION
-
-    !     d = var(0,varIDs%density)
-    !     ! If below density condition just leave!
-    !     if (d<=d0) return
-    !     ! Compute temperature in K/mu
-    !     T2 = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * sim%T2
-    !     ! Correct for polytrope
-    !     T_poly = T2_star * (var(0,varIDs%density)*sim%nH/nISM)**(g_star-1.0)
-    !     T2 = T2 - T_poly
-    !     ! Compute sound speed squared
-    !     cs2 = gamma_gas * (var(0,varIDs%thermal_pressure) / var(0,varIDs%density))
-    !     cs2 = max(cs2,smallc**2)
-    !     ! Correct from polytrope
-    !     cs2_poly = (T2_star/sim%T2)*(var(0,varIDs%density)*sim%nH/nISM)**(g_star-1.0)
-    !     cs2 = cs2 - cs2_poly
-    !     ! We need to estimate the norm of the gradient of the velocity field in the cell (tensor of 2nd rank)
-    !     ! i.e. || A ||^2 = trace( A A^T) where A = grad vec(v) is the tensor. 
-    !     ! So construct values of velocity field on the 6 faces of the cell using simple linear interpolation 
-    !     ! from neighbouring cell values and differentiate. 
-
-    !     ! Get neighbor cells if they exist, otherwise use straight injection from local cell
-    !     d1 = var(1,varIDs%density) ; d4 = var(4,varIDs%density)
-    !     d2 = var(2,varIDs%density) ; d5 = var(5,varIDs%density)
-    !     d3 = var(3,varIDs%density) ; d6 = var(6,varIDs%density)
-
-    !     ! Divergence terms
-    !     ul = (d2*var(2,varIDs%vx) + d*var(0,varIDs%vx)) / (d2+d)
-    !     ur = (d1*var(1,varIDs%vx) + d*var(0,varIDs%vx)) / (d1+d)
-    !     if(sf_model.le.2) then
-    !         fl     = (d2*grav_var(2,2)    + d*grav_var(0,2))/(d2+d)
-    !         fr     = (d1*grav_var(1,2)    + d*grav_var(0,2))/(d1+d)
-    !         flong  = max((d2+d)/2*ul*fl-(d1+d)/2*ur*fr,0d0)
-    !     endif
-    !     trgv      = (ur-ul)**2
-    !     divv      = (ur-ul)
-    !     ul        = (d4*var(4,varIDs%vy) + d*var(0,varIDs%vy))/(d4+d)
-    !     ur        = (d3*var(3,varIDs%vy) + d*var(0,varIDs%vy))/(d3+d)
-    !     if(sf_model.le.2) then
-    !         fl     = (d4*grav_var(4,3)    + d*grav_var(0,3))/(d4+d)
-    !         fr     = (d3*grav_var(3,3)    + d*grav_var(0,3))/(d3+d)
-    !         flong  = flong+max((d4+d)/2*ul*fl-(d3+d)/2*ur*fr,0d0)
-    !     endif
-    !     trgv      = trgv + (ur-ul)**2
-    !     divv      = divv + (ur-ul)
-    !     ul        = (d6*var(6,varIDs%vz) + d*var(0,varIDs%vz))/(d6+d)
-    !     ur        = (d5*var(5,varIDs%vz) + d*var(0,varIDs%vz))/(d5+d)
-    !     if(sf_model.le.2) then
-    !         fl     = (d6*grav_var(6,4)    + d*grav_var(0,4))/(d6+d)
-    !         fr     = (d5*grav_var(5,4)    + d*grav_var(0,4))/(d5+d)
-    !         flong  = flong+max((d6+d)/2*ul*fl+(d5+d)/2*ur*fr,0d0)
-    !         ftot   = flong
-    !     endif
-    !     trgv      = trgv + (ur-ul)**2
-    !     divv      = trgv + (ur-ul)
-    !     divv      = (divv/dx)**2
-
-    !     ! Curl terms
-    !     ul        = (d6*var(6,varIDs%vy) + d*var(0,varIDs%vy))/(d6+d)
-    !     ur        = (d5*var(5,varIDs%vy) + d*var(0,varIDs%vy))/(d5+d)
-    !     if(sf_model.le.2) then
-    !         fl     = (d6*grav_var(6,3)    + d*grav_var(0,3))/(d6+d)
-    !         fr     = (d5*grav_var(5,3)    + d*grav_var(0,3))/(d5+d)
-    !         ftot   = ftot+abs((d6+d)/2*ul*fl-(d5+d)/2*ur*fr)
-    !     endif
-    !     trgv      = trgv + (ur-ul)**2
-    !     curlv1    = -(ur-ul)
-    !     ul        = (d4*var(4,varIDs%vz) + d*var(0,varIDs%vz))/(d4+d)
-    !     ur        = (d3*var(3,varIDs%vz) + d*var(0,varIDs%vz))/(d3+d)
-    !     if(sf_model.le.2) then
-    !         fl     = (d4*grav_var(4,4)    + d*grav_var(0,4))/(d4+d)
-    !         fr     = (d3*grav_var(3,4)    + d*grav_var(0,4))/(d3+d)
-    !         ftot   = ftot+abs((d4+d)/2*ul*fl-(d3+d)/2*ur*fr)
-    !     endif
-    !     trgv      = trgv + (ur-ul)**2
-    !     curlv1    = (curlv1 + (ur-ul))
-    !     ul        = (d6*var(6,varIDs%vx) + d*var(0,varIDs%vx))/(d6+d)
-    !     ur        = (d5*var(5,varIDs%vx) + d*var(0,varIDs%vx))/(d5+d)
-    !     if(sf_model.le.2) then
-    !         fl     = (d6*grav_var(6,2)    + d*grav_var(0,2))/(d6+d)
-    !         fr     = (d5*grav_var(5,2)    + d*grav_var(0,2))/(d5+d)
-    !         ftot   = ftot+abs((d6+d)/2*ul*fl-(d5+d)/2*ur*fr)
-    !     endif
-    !     trgv      = trgv + (ur-ul)**2
-    !     curlv2    = (ur-ul)
-    !     ul        = (d2*var(2,varIDs%vz) + d*var(0,varIDs%vz))/(d2+d)
-    !     ur        = (d1*var(1,varIDs%vz) + d*var(0,varIDs%vz))/(d1+d)
-    !     if(sf_model.le.2) then
-    !         fl     = (d2*grav_var(2,4)    + d*grav_var(0,4))/(d2+d)
-    !         fr     = (d1*grav_var(1,4)    + d*grav_var(0,4))/(d1+d)
-    !         ftot   = ftot+abs((d2+d)/2*ul*fl-(d1+d)/2*ur*fr)
-    !     endif
-    !     trgv      = trgv + (ur-ul)**2
-    !     curlv2    = (curlv2 - (ur-ul))
-    !     ul        = (d4*var(4,varIDs%vx) + d*var(0,varIDs%vx))/(d4+d)
-    !     ur        = (d3*var(3,varIDs%vx) + d*var(0,varIDs%vx))/(d3+d)
-    !     if(sf_model.le.2) then
-    !         fl     = (d4*grav_var(4,2)    + d*grav_var(0,2))/(d4+d)
-    !         fr     = (d3*grav_var(3,2)    + d*grav_var(0,2))/(d3+d)
-    !         ftot   = ftot+abs((d4+d)/2*ul*fl-(d3+d)/2*ur*fr)
-    !     endif
-    !     trgv      = trgv + (ur-ul)**2
-    !     curlv3    = -(ur-ul)
-    !     ul        = (d2*var(2,varIDs%vy) + d*var(0,varIDs%vy))/(d2+d)
-    !     ur        = (d1*var(1,varIDs%vy) + d*var(0,varIDs%vy))/(d1+d)
-    !     if(sf_model.le.2) then
-    !         fl     = (d2*grav_var(2,3)    + d*grav_var(0,3))/(d2+d)
-    !         fr     = (d1*grav_var(1,3)    + d*grav_var(0,3))/(d1+d)
-    !         ftot   = ftot+abs((d2+d)/2*ul*fl-(d1+d)/2*ur*fr)
-    !         pcomp  = flong/ftot
-    !     endif
-    !     trgv      = trgv + (ur-ul)**2
-    !     sigma2    = trgv
-    !     trgv      = trgv/dx**2
-    !     curlv3    = (curlv3 + (ur-ul))
-    !     curlv     = (curlv1**2+curlv2**2+curlv3**2)/dx**2
-
-    !     ! 2. SELECT SF MODEL
-    !     select case (sf_model)
-    !         case (1)
-    !             ! Multi-ff KM model
-    !             ! Virial parameter
-    !             alpha0    = (5.0*(sigma2+cs2))/(pi*factG*d*dx**2)
-    !             ! Turbulent forcing parameter (Federrath 2008 & 2010)
-    !             if(pcomp*amr%ndim-1.0.eq.0d0) then
-    !                 zeta   = 0.5
-    !             else
-    !                 zeta   = ((pcomp-1.0)+sqrt((pcomp**2-pcomp)*(1.0-amr%ndim)))/(pcomp*amr%ndim-1.0)
-    !             endif
-    !             b_turb    = 1.0+(1.0/amr%ndim-1.0)*zeta
-    !             if (sim%mhd) then
-    !                 ! Best fit values to the Multi-ff KM model (MHD)
-    !                 phi_t     = 0.46
-    !                 phi_x     = 0.17
-    !                 A         = 0.5*(var(0,varIDs%Blx)+var(0,varIDs%Brx))
-    !                 B         = 0.5*(var(0,varIDs%Bly)+var(0,varIDs%Bry))
-    !                 C         = 0.5*(var(0,varIDs%Blz)+var(0,varIDs%Brz))
-    !                 emag      = 0.5*(A**2+B**2+C**2)
-    !                 beta      = var(0,varIDs%thermal_pressure)/max(emag,smallc**2*smallr)
-    !                 sigs      = log(1.0+(b_turb**2)*(sigma2/cs2)*beta/(beta+1.0))
-    !                 scrit     = log(((pi**2)/5)*(phi_x**2)*alpha0*(sigma2/cs2)/(1.0+1.0/beta))
-    !             else
-    !                 ! Best fit values to the Multi-ff KM model (Hydro)
-    !                 phi_t     = 0.49
-    !                 phi_x     = 0.19
-    !                 sigs      = log(1.0+(b_turb**2)*(sigma2/cs2))
-    !                 scrit     = log(((pi**2)/5)*(phi_x**2)*alpha0*(sigma2/cs2))
-    !             end if
-    !             sfr_ff(i) = (eps_star*phi_t/2.0)*exp(3.0/8.0*sigs)*(2.0-erfc((sigs-scrit)/sqrt(2.0*sigs)))
-        
-    ! end function sf_eff
+    !----------------------------------------------------------------
     function sf_eff(reg,dx,x,var,star_maker,use_crs)
         use vectors
         use basis_representations
@@ -1841,6 +1818,7 @@ module io_ramses
         character(128),intent(in)                 :: star_maker
         logical,intent(in)  :: use_crs
         real(dbl) :: sf_eff
+        real(dbl) :: Tmin
         ! SF variables
         logical :: isConvergent
         real(dbl) :: n_gmc,n_dc,nCOM,d_gmc,d_dc
@@ -1864,6 +1842,7 @@ module io_ramses
         t_star = 0.632456 ! Star formation time scale (in Gyr) at the density threshold. Def: 0.632456
         del_star=200.     ! EOS density scale
         sf_lam = 1D0
+        Tmin = 15d0/sim%T2
 
         ! 1. VARIABLE INITIALISATION
         sf_eff = 0D0
@@ -2024,6 +2003,8 @@ module io_ramses
 
             ! Now compute sound speed squared
             temp = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * gamma_gas
+            ! TODO: This is a quick fix for negative T in CRMHD sims
+            if (temp<0d0) temp = Tmin * gamma_gas
             ! TODO: This should be change to add also radiation pressure
             if (sim%cr.and.use_crs) then
                 temp = temp + var(0,varIDs%cr_pressure) / var(0,varIDs%density) * gamma_crs

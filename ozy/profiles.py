@@ -78,8 +78,9 @@ class Profile(object):
 
 def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,
                     region_type='sphere',filter_conds='none',
-                    filter_name='none',recompute=False,save=False,logscale=False,
+                    filter_name='none',recompute=False,save=False,logscale='none',
                     rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(0.0,'rvir'), zmax=(0.2,'rvir'),
+                    mycentre=([0.5,0.5,0.5],'rvir'), myaxis=np.array([1.,0.,0.]),
                     remove_subs=False):
     """Function which computes a 1D profile for a given group object."""
     from ozy.utils import structure_regions
@@ -88,6 +89,10 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,
         exit
     prof = Profile(group)
     prof.nbins = nbins
+    remove_all = False
+    if remove_subs =='all':
+        remove_all = True
+        remove_subs = True
     prof.rm_subs = remove_subs
     prof.xvar = xvar
     prof.yvars = dict(hydro = [],star = [], dm = [])
@@ -141,8 +146,31 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,
     # Now create region
     if isinstance(region_type, geo.region):
         selected_reg = region_type
+        enclosing_sphere_r = rmax
+        enclosing_sphere_p = group.position
+        if not np.array_equal(mycentre,group.position):
+            enclosing_sphere_p = mycentre
     else:
-        selected_reg = init_region(group,region_type,rmin=rmin,rmax=rmax,zmin=zmin,zmax=zmax)
+        if not np.array_equal(mycentre, group.position) and not np.array_equal(myaxis,group.angular_mom['total']):
+            selected_reg,enclosing_sphere_p,enclosing_sphere_r = init_region(group,region_type,rmin=rmin,
+                                                                         rmax=rmax,zmin=zmin,zmax=zmax,
+                                                                         mycentre=mycentre,myaxis=myaxis,
+                                                                         return_enclosing_sphere=True)
+        elif not np.array_equal(mycentre,group.position):
+            selected_reg,enclosing_sphere_p,enclosing_sphere_r = init_region(group,region_type,rmin=rmin,
+                                                                         rmax=rmax,zmin=zmin,zmax=zmax,
+                                                                         mycentre=mycentre,
+                                                                         return_enclosing_sphere=True)
+        elif not np.array_equal(myaxis,group.angular_mom['total']):
+            selected_reg,enclosing_sphere_p,enclosing_sphere_r = init_region(group,region_type,rmin=rmin,
+                                                                         rmax=rmax,zmin=zmin,zmax=zmax,
+                                                                         myaxis=myaxis,
+                                                                         return_enclosing_sphere=True)
+        else:
+            selected_reg,enclosing_sphere_p,enclosing_sphere_r = init_region(group,region_type,rmin=rmin,
+                                                                         rmax=rmax,zmin=zmin,zmax=zmax,
+                                                                         return_enclosing_sphere=True)
+        
     
     # Save region details to profile object
     prof._get_python_region(selected_reg)
@@ -184,10 +212,18 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,
     f.close()
     
     # If substructre is removed, obtain regions
-    if remove_subs:
-        print('Removing substructure!')
+    remove_all = False
+    if remove_subs == 'all':
+        remove_all = True
+        remove_subs = True
+    if remove_all:
+        subs = structure_regions(group, add_substructure=False, add_neighbours=False,
+                                    add_intersections=True,position=enclosing_sphere_p,
+                                    radius=enclosing_sphere_r)
+        nsubs = len(subs)
+    elif remove_subs:
         subs = structure_regions(group, add_substructure=True, add_neighbours=False,
-                            tidal_method='BT87_simple')
+                                    tidal_method='BT87_simple')
         nsubs = len(subs)
     else:
         nsubs = 0

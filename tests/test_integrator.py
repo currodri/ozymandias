@@ -8,7 +8,7 @@ from ozy.utils import init_region,init_filter,\
                         pdf_handler_to_stats
 from ozy.dict_variables import get_code_units
 
-obj = ozy.load('test_00035.hdf5')
+obj = ozy.load('/mnt/extraspace/currodri/NUT/cosmoNUTcrmhd_3e29/Groups/ozy_00016.hdf5')#('test_00035.hdf5')
 virial_mass = [i.virial_quantities['mass'] for i in obj.galaxies]
 progind = np.argmax(virial_mass)
 
@@ -23,7 +23,7 @@ selected_reg = init_region(gal,'sphere',rmax=(0.2,'rvir'))
 # nsubs = len(subs)
 subs=[];nsubs=0
 
-quantity_names = ['mass','density','temperature']
+quantity_names = ['mass','density','temperature','eff_FKmag','eff_FKmagnocr']
 weight_names = ['cumulative','mass','volume']
         
 # Initialise Fortran derived type with attributes
@@ -49,6 +49,7 @@ for i in range(0, len(quantity_names)):
     glob_attrs.result[i].scaletype = mybins[1]
     stats_utils.allocate_pdf(glob_attrs.result[i])
     glob_attrs.result[i].bins = mybins[0]
+    glob_attrs.result[i].do_binning = True
     for j in range(0, len(weight_names)):
        glob_attrs.result[i].wvarnames.T.view('S128')[j] = weight_names[j].ljust(128)
        
@@ -61,7 +62,7 @@ glob_attrs.filters[2] = init_filter(cond_strs=['entropy_specific/>/23.2e+8/erg*K
 glob_attrs.filters[3] = init_filter(cond_strs=['none'],name='all',group=gal)
 # Begin integration
 
-amr_integrator.integrate_region(output_path,selected_reg,False,glob_attrs)
+amr_integrator.integrate_region(output_path,selected_reg,True,glob_attrs)
 mass_names = ['COLD','WARM','HOT']
 tot_mass = 0
 for i in range(0,3):
@@ -79,6 +80,10 @@ print('From Ozymandias: ',gal.mass['gas'].to('Msun'))
 print('Ratio filter: ',tot_mass.to('Msun')/gal.mass['gas'].to('Msun'))
 print('Ratio no filter: ',mass.to('Msun')/gal.mass['gas'].to('Msun'))
 print(pdf_handler_to_stats(obj,glob_attrs.result[0],3).to('Msun'))
+print(pdf_handler_to_stats(obj,glob_attrs.result[4],3))
+print(glob_attrs.result[4])
+print(pdf_handler_to_stats(obj,glob_attrs.result[3],3))
+print(glob_attrs.result[3])
 
 glob_attrs = part_integrator.part_region_attrs()
 glob_attrs.nvars = 11

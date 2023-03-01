@@ -293,7 +293,7 @@ module maps
         write(*,*)'ncpu: ',amr%ncpu_read
         call get_map_box(cam,bbox)
 
-        if (cam%nsubs>0)write(*,*)'Excluding substructure'
+        if (cam%nsubs>0)write(*,*)'Excluding substructure: ',cam%nsubs
 
         ! Perform projections
         if (use_neigh) then
@@ -648,7 +648,7 @@ module maps
                                                     else
                                                         call getvarvalue(bbox,dx,xtemp,tempvar,tempson,proj%weightvar,rho,trans_matrix)
                                                     end if
-                                                    weight = rho*dx*weight/(bbox%zmax-bbox%zmin)
+                                                    weight = MAX(rho*dx*weight/(bbox%zmax-bbox%zmin),0D0)
                                                 end if
                                                 grid(ilevel)%map(ifilt,ix,iy)=grid(ilevel)%map(ifilt,ix,iy)+weight
 
@@ -1262,7 +1262,7 @@ module maps
         bbox%criteria_name = 'd_euclid'
         call get_cpu_map(bbox)
         call get_map_box(cam,bbox)
-        if (cam%nsubs>0)write(*,*)'Excluding substructure'
+        if (cam%nsubs>0)write(*,*)'Excluding substructure: ',cam%nsubs
         if (present(tag_file)) then
             if (present(inverse_tag)) then
                 call project_particles(repository,bbox,cam,proj,tag_file,inverse_tag)
@@ -1626,7 +1626,7 @@ module maps
         call get_cpu_map(bsphere)
         write(*,*)'ncpu: ',amr%ncpu_read
 
-        if (cam%nsubs>0)write(*,*)'Excluding substructure'
+        if (cam%nsubs>0)write(*,*)'Excluding substructure: ',cam%nsubs
 
         ! Perform projections
         call project_cells_hpix
@@ -1648,7 +1648,7 @@ module maps
             character(5) :: nchar,ncharcpu
             character(128) :: nomfich
             real(dbl) :: distance,dx
-            type(vector) :: xtemp,vtemp,los,y_axis
+            type(vector) :: xtemp,vtemp,los,x_axis
             integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
             real(dbl),dimension(1:3) :: xvec
             real(dbl),dimension(1:8,1:3) :: xc
@@ -1669,7 +1669,7 @@ module maps
             
             type(basis) :: hpix_basis
 
-            y_axis = (/0D0,1D0,0D0/)
+            x_axis = (/1D0,0D0,0D0/)
 
             ncells = 0
 
@@ -1684,8 +1684,8 @@ module maps
             proj_rho = 0D0
             listpix = -1
 
-            ! Get transformation matrix. Default: Region axis is z axis, LOS is y axis
-            los = y_axis - (y_axis.DOT.bsphere%axis)*bsphere%axis
+            ! Get transformation matrix. Default: Region axis is z axis, LOS is x axis
+            los = x_axis - (x_axis.DOT.bsphere%axis)*bsphere%axis
             los = los / magnitude(los)
             hpix_basis%u(1) = los
             hpix_basis%u(2) = bsphere%axis * los
@@ -1693,11 +1693,9 @@ module maps
             hpix_basis%u(3) = bsphere%axis
             
             trans_matrix = 0D0
-            call new_z_coordinates(bsphere%axis,trans_matrix,roterr)
-            if (roterr.eq.1) then
-                write(*,*) 'Incorrect CS transformation!'
-                stop
-            endif
+            do i=1,3
+                trans_matrix(i,:) = hpix_basis%u(i)
+            end do
 
             allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
             allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
