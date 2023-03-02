@@ -25,7 +25,7 @@ print('NUT velocity: ', velocity)
 prof = compute_profile(gal,'test_00035.hdf5', 'r_sphere', ['gas/density'],
                         ['gas/cumulative','gas/volume','gas/density'],
                         region_type='sphere',save=True,recompute=True,nbins=80,rmax=(4.0,'kpc'),
-                        logscale=True)
+                        logscale='log_even')
 
 fig, ax = plt.subplots(1, 1, sharex=True, figsize=(6,4), dpi=100, facecolor='w', edgecolor='k')
         
@@ -44,6 +44,7 @@ print(prof.ydata['hydro'][0].shape)
 new_x = 0.5*(prof.xdata[0][:-1]+prof.xdata[0][1:])
 print(new_x.in_units('kpc'),prof.ydata['hydro'][0][:,1,0].in_units('g*cm**-3'))
 ax.plot(new_x.in_units('kpc'),prof.ydata['hydro'][0][:,1,0].in_units('g*cm**-3'), label='ozymandias')
+fig.savefig('NUT_00035_radial_density.png',dpi=200,format='png')
 
 # prof = compute_profile(gal,'test_00035.hdf5', 'r_sphere', ['gas/density'],
 #                         ['gas/cumulative','gas/volume','gas/density'],

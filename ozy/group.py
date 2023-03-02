@@ -142,7 +142,7 @@ class Galaxy(Group):
             if not self.obj.simulation.physics['magnetic'] and not self.obj.simulation.physics['cr']:
                 self.sf_efficiency['eff_FK2'] = self.obj.array(empty_array, 'dimensionless')
             if self.obj.simulation.physics['metals']:
-                self.metallicity['galaxy_gas'] = empty_array
+                self.metallicity['galaxy_gas'] = self.obj.array(empty_array, 'dimensionless')
             for i in range(0, len(phase_names)):
                 self.mass['gas_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass')
                 self.gas_density[phase_names[i]] = self.obj.array(empty_array, 'code_density')
@@ -154,7 +154,7 @@ class Galaxy(Group):
                 self.pressure_support['grav_therpfrsphere_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
                 self.velocity_dispersion['gas_turbulent_'+phase_names[i]] = self.obj.array(empty_array, 'code_velocity')
                 if self.obj.simulation.physics['metals']:
-                    self.metallicity['gas_'+phase_names[i]] = empty_array
+                    self.metallicity['gas_'+phase_names[i]] = self.obj.array(empty_array,'dimensionless')
         else:
             self.mass['gas'] = self.obj.quantity(0.0, 'code_mass')
         
@@ -200,7 +200,7 @@ class Galaxy(Group):
             self.pressure_support['halo_grav_therpfrsphere'] = self.obj.array(empty_array, 'dimensionless')
             self.velocity_dispersion['halo_gas_turbulent'] = self.obj.array(empty_array, 'code_velocity')
             if self.obj.simulation.physics['metals']:
-                self.metallicity['galaxy_gas'] = empty_array # Mass-weighted average!
+                self.metallicity['halo_gas'] = self.obj.array(empty_array,'dimensionless')
         else:
             self.mass['halo_gas'] = self.obj.quantity(0.0, 'code_mass')
         
@@ -394,9 +394,9 @@ class Galaxy(Group):
             self.pressure_support['grav_therpfrsphere'] = pdf_handler_to_stats(self.obj,glob_attrs.result[8],0)
             self.velocity_dispersion['gas_turbulent'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[9],0),'code_velocity')
             if not self.obj.simulation.physics['magnetic'] and not self.obj.simulation.physics['cr']:
-                self.sf_efficiency['eff_FK2'] = pdf_handler_to_stats(self.obj,glob_attrs.result[10],0)
+                self.sf_efficiency['eff_FK2'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[10],0),'dimensionless')
             if self.obj.simulation.physics['metals']:
-                self.metallicity['gas'] = pdf_handler_to_stats(self.obj,glob_attrs.result[11],0)
+                self.metallicity['gas'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[11],0),'dimensionless')
             for i in range(0, len(phase_names)):
                 self.mass['gas_'+phase_names[i]] = self.obj.quantity(glob_attrs.result[0].total[i+1,0,0], 'code_mass')
                 print('Mass in %s gas is %.5f'%(phase_names[i],self.mass['gas_'+phase_names[i]].to('Msun')))
@@ -411,7 +411,7 @@ class Galaxy(Group):
                 self.pressure_support['grav_therpfrsphere_'+phase_names[i]] = pdf_handler_to_stats(self.obj,glob_attrs.result[8],i+1)
                 self.velocity_dispersion['gas_turbulent_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[9],i+1),'code_velocity')
                 if self.obj.simulation.physics['metals']:
-                    self.metallicity['gas_'+phase_names[i]] = pdf_handler_to_stats(self.obj,glob_attrs.result[10],i+1)
+                    self.metallicity['gas_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[10],i+1),'dimensionless')
         else:
             self.mass['gas'] = self.obj.quantity(0.0, 'code_mass')
         
@@ -421,7 +421,7 @@ class Galaxy(Group):
             self.energies['magnetic_energy_specific'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_magnetic+1],0),'code_specific_energy')
             self.magnetism['magnetic_magnitude'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_magnetic+2],0),'code_magnetic')
             if not self.obj.simulation.physics['cr']:
-                self.sf_efficiency['eff_FKmag'] = pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_magnetic+2],0)
+                self.sf_efficiency['eff_FKmag'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_magnetic+3],0),'dimensionless')
             for i in range(0,len(phase_names)):
                 self.energies['magnetic_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.result[nvar_magnetic].total[i+1,0,0], 'code_mass * code_velocity**2')
                 self.energies['magnetic_energy_specific_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_magnetic+1],i+1),'code_specific_energy')
@@ -431,13 +431,13 @@ class Galaxy(Group):
             print('Computing CR energies')
             self.energies['cr_energy'] = self.obj.quantity(glob_attrs.result[nvar_crs].total[0,0,0], 'code_mass * code_velocity**2')
             self.energies['cr_energy_specific'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+1],0),'code_specific_energy')
-            self.pressure_support['grav_crpfrsphere'] = pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+2],0)
-            self.sf_efficiency['eff_FKmag'] = pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+3],0)
-            self.sf_efficiency['eff_FKmagnocr'] = pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+4],0)
+            self.pressure_support['grav_crpfrsphere'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+2],0),'dimensionless')
+            self.sf_efficiency['eff_FKmag'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+3],0),'dimensionless')
+            self.sf_efficiency['eff_FKmagnocr'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+4],0),'dimensionless')
             for i in range(0, len(phase_names)):
                 self.energies['cr_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.result[nvar_crs].total[i+1,0,0], 'code_mass * code_velocity**2')
                 self.energies['cr_energy_specific_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+1],i+1),'code_specific_energy')
-                self.pressure_support['grav_crpfrsphere_'+phase_names[i]] = pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+2],i+1)
+                self.pressure_support['grav_crpfrsphere_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+2],i+1), 'dimensionless')
         if self.obj.simulation.physics['rt']:
             #TODO: This is not really correct, need to update for the format of AMR integrations
             print('Computing ionisation fractions')
@@ -545,10 +545,10 @@ class Galaxy(Group):
                                                              'code_mass*code_length*code_velocity')
             self.energies['halo_thermal_energy'] = self.obj.quantity(glob_attrs.result[6].total[0,0,0], 'code_mass * code_velocity**2')
             self.energies['halo_thermal_energy_specific'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[7],0),'code_specific_energy')
-            self.pressure_support['halo_grav_therpfrsphere'] = pdf_handler_to_stats(self.obj,glob_attrs.result[8],0)
+            self.pressure_support['halo_grav_therpfrsphere'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[8],0),'dimensionless')
             self.velocity_dispersion['halo_gas_turbulent'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[9],0),'code_velocity')
             if self.obj.simulation.physics['metals']:
-                self.metallicity['galaxy_gas'] = pdf_handler_to_stats(self.obj,glob_attrs.result[10],0)
+                self.metallicity['halo_gas'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[10],0),'dimensionless')
         else:
             self.mass['halo_gas'] = self.obj.quantity(np.zeros((3,7)), 'code_mass')
         
@@ -560,7 +560,7 @@ class Galaxy(Group):
         if self.obj.simulation.physics['cr']:
             self.energies['halo_cr_energy'] = self.obj.quantity(glob_attrs.result[nvar_crs].total[0,0,0], 'code_mass * code_velocity**2')
             self.energies['halo_cr_energy_specific'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+1],0),'code_specific_energy')
-            self.pressure_support['grav_crpfrsphere'] = pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+2],0)
+            self.pressure_support['grav_crpfrsphere'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+2],0),'dimensionless')
 
         if self.obj.simulation.physics['rt']:
             #TODO: This is not really correct, need to update for the format of AMR integrations

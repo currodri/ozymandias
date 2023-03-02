@@ -8,7 +8,7 @@ from ozy.utils import init_region,init_filter,\
                         pdf_handler_to_stats
 from ozy.dict_variables import get_code_units
 
-obj = ozy.load('/mnt/extraspace/currodri/NUT/cosmoNUTcrmhd_3e29/Groups/ozy_00016.hdf5')#('test_00035.hdf5')
+obj = ozy.load('/mnt/extraspace/currodri/NUT/cosmoNUTmhd/Groups/ozy_00016.hdf5')#('test_00035.hdf5')
 virial_mass = [i.virial_quantities['mass'] for i in obj.galaxies]
 progind = np.argmax(virial_mass)
 
@@ -79,9 +79,9 @@ print('Total mass no filter: ',mass.to('Msun'))
 print('From Ozymandias: ',gal.mass['gas'].to('Msun'))
 print('Ratio filter: ',tot_mass.to('Msun')/gal.mass['gas'].to('Msun'))
 print('Ratio no filter: ',mass.to('Msun')/gal.mass['gas'].to('Msun'))
-print(pdf_handler_to_stats(obj,glob_attrs.result[0],3).to('Msun'))
-print(pdf_handler_to_stats(obj,glob_attrs.result[4],3))
-print(glob_attrs.result[4])
+#print(pdf_handler_to_stats(obj,glob_attrs.result[0],3).to('Msun'))
+#print(pdf_handler_to_stats(obj,glob_attrs.result[4],3))
+#print(glob_attrs.result[4])
 print(pdf_handler_to_stats(obj,glob_attrs.result[3],3))
 print(glob_attrs.result[3])
 

@@ -84,6 +84,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,
                     remove_subs=False):
     """Function which computes a 1D profile for a given group object."""
     from ozy.utils import structure_regions
+    from ozy.dict_variables import check_need_neighbours
     if not isinstance(xvar, str):
         print('Single x variable 1D profile supported!')
         exit
@@ -93,6 +94,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,
     if remove_subs =='all':
         remove_all = True
         remove_subs = True
+    use_neigh=False
     prof.rm_subs = remove_subs
     prof.xvar = xvar
     prof.yvars = dict(hydro = [],star = [], dm = [])
@@ -104,6 +106,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,
         var_type = var.split('/')[0]
         var_name = var.split('/')[1]
         if var_type == 'gas':
+            use_neigh = check_need_neighbours(var_name) or use_neigh
             if var_name in common_variables or var_name in grid_variables:
                 prof.yvars['hydro'].append(var_name)
             else:
@@ -122,6 +125,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,
         var_type = var.split('/')[0]
         var_name = var.split('/')[1]
         if var_type == 'gas':
+            use_neigh = check_need_neighbours(var_name) or use_neigh
             if var_name in common_variables or var_name in grid_variables:
                 prof.weightvars['hydro'].append(var_name)
             else:
@@ -136,6 +140,9 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,
                 prof.weightvars['dm'].append(var_name)
             else:
                 raise KeyError('This DM variable is not supported. Please check!')
+    
+    if use_neigh:
+        print('At least one variable needs neighbours!')
     
     # Check that we do not have any inconsistency...
     if xvar in grid_variables and len(prof.yvars['star'])>0 or xvar in grid_variables and len(prof.yvars['dm'])>0:
@@ -249,7 +256,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,
                 hydro_data.subs[i] = subs[i]
         # And now, compute hydro data profiles!
         if hydro_data.nyvar > 0 and hydro_data.nwvar > 0:
-            amrprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,hydro_data,lmax,logscale)
+            amrprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,filt,hydro_data,lmax,logscale,use_neigh)
     else:
         hydro_data = None
     
