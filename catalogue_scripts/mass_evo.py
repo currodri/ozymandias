@@ -286,7 +286,7 @@ if __name__ == '__main__':
         ax.set_ylabel(r'$M_{*}$ [$M_{\odot}$]', fontsize=16)
         ax.set_ylim([9e+7,1e+11])
         ax.set_yscale('log')
-        ax.tick_params(labelsize=12)
+        ax.tick_params(labelsize=15)
         ax.xaxis.set_ticks_position('both')
         ax.yaxis.set_ticks_position('both')
         ax.minorticks_on()
@@ -304,7 +304,7 @@ if __name__ == '__main__':
         axR.xaxis.set_ticks_position('top') # set the position of the second x-axis to top
         axR.xaxis.set_label_position('top') # set the position of the second x-axis to top
         axR.set_xlabel(r'$z$', fontsize=16)
-        axR.tick_params(labelsize=12)
+        axR.tick_params(labelsize=15)
 
         ax = axes[1]
         ax.set_xlabel(r'$t$ [Gyr]', fontsize=16)
@@ -333,7 +333,7 @@ if __name__ == '__main__':
         axR.tick_params(labelsize=15)
     
         ax.legend(loc='best', fontsize=14,frameon=False)
-        fig.subplots_adjust(top=0.91, bottom=0.1,right=0.93,left=0.065,hspace=0.0,wspace=0.0)
+        fig.subplots_adjust(top=0.90, bottom=0.1,right=0.93,left=0.08,hspace=0.0,wspace=0.0)
         if args.NUT:
             args.ind = 'NUT'
         fig.savefig(os.getcwd()+'/stellar+gas_evolution_'+str(args.ind)+'.png', format='png', dpi=200)

@@ -1296,6 +1296,7 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
         # cImage = sp.ndimage.filters.gaussian_filter(hdul[h].data.T, sigma, mode='constant')
     else:
         cImage = hdul[h].data.T
+    print(field,np.nanmin(cImage),np.nanmax(cImage))
     if logscale and field.split('/')[1] not in symlog_variables:
         plot = ax.imshow(np.log10(cImage), cmap=colormap,
                         origin='lower',vmin=np.log10(plotting_def['vmin'+type_scale]),

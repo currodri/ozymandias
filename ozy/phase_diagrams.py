@@ -80,7 +80,7 @@ class PhaseDiagram(object):
 def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins=[100,100],region_type='sphere',
                             filter_conds='none',filter_name='none',scaletype='log_even',recompute=False,save=False,
                             rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(0.0,'rvir'), zmax=(0.2,'rvir'),
-                            cr_st=False,cr_heat=False):
+                            cr_st=False,cr_heat=False,Dcr=0.0):
     """Function which computes a phase diagram (2D profile) for a given group object."""
 
     if not isinstance(xvar,str) or not isinstance(yvar,str):
@@ -183,6 +183,7 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins
     hydro_data.nbins = np.asarray(nbins,order='F')
     hydro_data.cr_st = cr_st
     hydro_data.cr_heat = cr_heat
+    hydro_data.Dcr = Dcr
 
     amrprofmod.allocate_profile_handler_twod(hydro_data)
     for i in range(0, len(pd.zvars['hydro'])):
@@ -206,7 +207,7 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins
     pd.zdata['hydro'] = []
     for i in range(0, len(pd.zvars['hydro'])):
         code_units = get_code_units(pd.zvars['hydro'][i])
-        copy_data = np.copy(hydro_data.zdata[:,:,i,::2])
+        copy_data = np.copy(hydro_data.zdata[:,:,i,:,::2])
         pd.zdata['hydro'].append(group.obj.array(copy_data, code_units))
 
     # TODO: Add phase diagram for particles
@@ -279,7 +280,7 @@ def write_phasediag(obj,ozy_file,hydro,star,dm,pd):
     if hydro != None:
         clean_hydro = hdpd.create_group('hydro')
         for v,var in enumerate(pd.zvars['hydro']):
-            clean_hydro.create_dataset(var, data=hydro.zdata[:,:,v,::2])
+            clean_hydro.create_dataset(var, data=hydro.zdata[:,:,v,:,::2])
             clean_hydro[var].attrs.create('units', get_code_units(pd.zvars['hydro'][v]))
         clean_hydro.create_dataset('weightvars', data=pd.weightvars['hydro'][:])
     # TODO: Save particle data
@@ -296,7 +297,7 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
     import matplotlib.font_manager as fm
     from mpl_toolkits.axes_grid1 import AxesGrid, make_axes_locatable
     from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
-    from matplotlib.colors import LogNorm
+    from matplotlib.colors import LogNorm,SymLogNorm
     import seaborn as sns
     from ozy.plot_settings import plotting_dictionary
     sns.set(style="white")
@@ -352,14 +353,24 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
     code_units_z = get_code_units(field)
     z = np.array(pd.zdata['hydro'][field_index][:,:,weight_index].d,order='F')
     z = pd.obj.array(z,code_units_z)
+    print(field,np.nanmin(z).in_units(plotting_z['units']),np.nanmax(z).in_units(plotting_z['units']))
     sim_z = pd.obj.simulation.redshift
     if logscale:
-        plot = ax.pcolormesh(x,y,
-                            z[:,:,0].in_units(plotting_z['units']).T,
-                            shading='auto',
-                            cmap=plotting_z['cmap'],
-                            norm=LogNorm(vmin=plotting_z['vmin'],
-                            vmax=plotting_z['vmax']))
+        if field not in symlog_variables:
+            plot = ax.pcolormesh(x,y,
+                                z[:,:,0].in_units(plotting_z['units']).T,
+                                shading='auto',
+                                cmap=plotting_z['cmap'],
+                                norm=LogNorm(vmin=plotting_z['vmin'],
+                                vmax=plotting_z['vmax']))
+        else:
+            plot = ax.pcolormesh(x,y,
+                                z[:,:,0].in_units(plotting_z['units']).T,
+                                shading='auto',
+                                cmap=plotting_z['cmap'],
+                                norm=SymLogNorm(vmin=plotting_z['vmin'],
+                                vmax=plotting_z['vmax'],linthresh=plotting_z['linthresh'],
+                                linscale=plotting_z['linscale'],))
     else:
         plot = ax.pcolormesh(x,y,
                             z[:,:,0].in_units(plotting_z['units']).T,
@@ -398,7 +409,7 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
 
 
 
-    fig.subplots_adjust(top=0.97,bottom=0.1,left=0.1,right=0.99)
+    fig.subplots_adjust(top=0.97,bottom=0.1,left=0.1,right=0.95)
     fig.savefig(name+'.png',format='png',dpi=300)
 
 def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',scaletype='log_even',redshift=True,stats='none',extra_labels='none',gent=False,powell=False,doflows=False):

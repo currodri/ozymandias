@@ -37,6 +37,7 @@ module amr_profiles
         integer :: nwvar
         integer :: nsubs=0
         character(128),dimension(:),allocatable :: wvarnames
+        real(dbl) :: Dcr = 3D28
         real(dbl),dimension(:),allocatable :: xdata
         real(dbl),dimension(:,:,:,:),allocatable :: ydata
         type(region),dimension(:),allocatable :: subs
@@ -52,6 +53,7 @@ module amr_profiles
         integer,dimension(1:2) :: nbins
         integer :: nwvar
         character(128),dimension(:),allocatable :: wvarnames
+        real(dbl) :: Dcr = 3D28
         real(dbl),dimension(:),allocatable :: xdata,ydata
         real(dbl),dimension(:,:,:,:,:),allocatable :: zdata ! dimension(nx,ny,nz,nw,4)
     end type profile_handler_twod

@@ -56,6 +56,7 @@ module io_ramses
         integer :: n_frw
         real(dbl),dimension(:),allocatable :: aexp_frw,hexp_frw,tau_frw,t_frw
         real(dbl) :: eta_sn=-1D0
+        real(dbl) :: Dcr=3D28
     end type sim_info
 
     type level
@@ -586,13 +587,14 @@ module io_ramses
         integer :: i
         type(vector) :: v,L,B,vst
         type(basis) :: temp_basis
-        real(dbl) :: T,rho,cV,lambda,lambda_prime,ne,ecr,nH,Tmin
+        real(dbl) :: T,rho,cV,lambda,lambda_prime,ne,ecr,nH,Tmin,Dcr,vA
         real(dbl) :: dxleft,dxright
         real(dbl) :: bsign
         real(dbl) :: lambda_co, lambda_st, lambda_cr
         character(128) :: star_maker
 
         Tmin = 15d0 / sim%T2
+        Dcr = sim%Dcr / (sim%unit_l**2 / sim%unit_t)
 
         select case (TRIM(varname))
         case ('d_euclid')
@@ -817,7 +819,7 @@ module io_ramses
             ! Cosmic rays hadronic and Coulomb heating from Guo&Ho(2008)
             ! (Assume fully ionised gas)
             ! TODO: Update for RT! 
-            lambda = 3D-16 * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
+            lambda = 2.63d-16 * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
             ne = var(0,varIDs%density) * sim%unit_d / mHydrogen 
             ecr = var(0,varIDs%cr_pressure) / (4D0/3d0 - 1d0)
             ecr = ecr * (sim%unit_d * ((sim%unit_l/sim%unit_t)**2))
@@ -825,10 +827,11 @@ module io_ramses
         case ('net_cooling')
             ! Net cooling rate taken from the cooling table in RAMSES output
             T = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * sim%T2
+            ! TODO: This a fix only for some messed up CRMHD simulations!
+            if (T<15d0) T = 15d0
             nH = var(0,varIDs%density) * sim%nH
             call solve_cooling(nH,T,var(0,varIDs%metallicity)/2D-2,lambda,lambda_prime)
             value = ((lambda * nH) * nH) * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
-            if (T.le.0D0) value = 0D0
         case ('B_left_x')
             value = var(0,varIDs%Blx)
         case ('B_left_y')
@@ -904,6 +907,61 @@ module io_ramses
             call spherical_basis_from_cartesian(x,temp_basis)
             value = (v.DOT.temp_basis%u(1))
             value = abs(var(0,varIDs%cr_pressure)/value)
+        case ('gradscale_crp')
+            ! CR pressure gradient scale
+            ! This is defined as Pcr/grad(Pcr)
+            dxright = dx; dxleft = dx
+            if (son(1) .ne. 0) dxright = dxright * 1.5D0
+            if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
+            v%x = (var(1,varIDs%cr_pressure) - var(2,varIDs%cr_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .ne. 0) dxright = dxright * 1.5D0
+            if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
+            v%y = (var(3,varIDs%cr_pressure) - var(4,varIDs%cr_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .ne. 0) dxright = dxright * 1.5D0
+            if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
+            v%z = (var(5,varIDs%cr_pressure) - var(6,varIDs%cr_pressure)) / (dxright + dxleft)
+            call rotate_vector(v,trans_matrix)
+            call spherical_basis_from_cartesian(x,temp_basis)
+            value = magnitude(v)
+            value = abs(var(0,varIDs%cr_pressure)/value)
+        case ('diffusion_speed')
+            ! CR diffusion speed
+            ! This is defined as Dcr/Lcr, with Lcr the CR pressure gradient scale
+            ! CR pressure gradient scale
+            ! This is defined as Pcr/grad(Pcr)
+            dxright = dx; dxleft = dx
+            if (son(1) .ne. 0) dxright = dxright * 1.5D0
+            if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
+            v%x = (var(1,varIDs%cr_pressure) - var(2,varIDs%cr_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .ne. 0) dxright = dxright * 1.5D0
+            if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
+            v%y = (var(3,varIDs%cr_pressure) - var(4,varIDs%cr_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .ne. 0) dxright = dxright * 1.5D0
+            if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
+            v%z = (var(5,varIDs%cr_pressure) - var(6,varIDs%cr_pressure)) / (dxright + dxleft)
+            value = Dcr / abs(var(0,varIDs%cr_pressure)/magnitude(v))
+        case ('alfvendiff_ratio')
+            ! Ratio of Alfven to diffusion speed
+            dxright = dx; dxleft = dx
+            if (son(1) .ne. 0) dxright = dxright * 1.5D0
+            if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
+            v%x = (var(1,varIDs%cr_pressure) - var(2,varIDs%cr_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .ne. 0) dxright = dxright * 1.5D0
+            if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
+            v%y = (var(3,varIDs%cr_pressure) - var(4,varIDs%cr_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .ne. 0) dxright = dxright * 1.5D0
+            if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
+            v%z = (var(5,varIDs%cr_pressure) - var(6,varIDs%cr_pressure)) / (dxright + dxleft)
+            value = Dcr / abs(var(0,varIDs%cr_pressure)/magnitude(v))
+            B = (/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+            vA = magnitude(B) / sqrt(var(0,varIDs%density))
+            value = vA / value
         case ('grad_crpx')
             ! Gradient of CR pressure in the x direction
             dxright = dx; dxleft = dx
@@ -966,12 +1024,35 @@ module io_ramses
             if (son(5) .ne. 0) dxright = dxright * 1.5D0
             if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
             v%z = (var(5,varIDs%cr_pressure) - var(6,varIDs%cr_pressure)) / (dxright + dxleft)
-
             B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
-            bsign = (B / magnitude(B)) .DOT. v
+            vst = (B / sqrt(var(0,varIDs%density)))
+            value = abs(vst .DOT. v)
+        case ('stheatcooling_ratio')
+            ! Ratio of streaming heating rate to gas cooling rate
+            dxright = dx; dxleft = dx
+            if (son(1) .ne. 0) dxright = dxright * 1.5D0
+            if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
+            v%x = (var(1,varIDs%cr_pressure) - var(2,varIDs%cr_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .ne. 0) dxright = dxright * 1.5D0
+            if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
+            v%y = (var(3,varIDs%cr_pressure) - var(4,varIDs%cr_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .ne. 0) dxright = dxright * 1.5D0
+            if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
+            v%z = (var(5,varIDs%cr_pressure) - var(6,varIDs%cr_pressure)) / (dxright + dxleft)
+            B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+            vst = (B / sqrt(var(0,varIDs%density)))
+            value = abs(vst .DOT. v)
 
-            vst = B * (bsign / sqrt(var(0,varIDs%density)))
-            value = (vst .DOT. v) / (4D0/3D0 - 1D0)
+            ! Net cooling rate taken from the cooling table in RAMSES output
+            T = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * sim%T2
+            ! TODO: This a fix only for some messed up CRMHD simulations!
+            if (T<15d0) T = 15d0
+            nH = var(0,varIDs%density) * sim%nH
+            call solve_cooling(nH,T,var(0,varIDs%metallicity)/2D-2,lambda,lambda_prime)
+            lambda_co = ((lambda * nH) * nH) * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
+            value = abs(value / lambda_co)
         case ('total_coolingtime')
             !TODO: Check units!
             ! Net cooling rate taken from the cooling table in RAMSES output
@@ -997,10 +1078,8 @@ module io_ramses
                 v%z = (var(5,varIDs%cr_pressure) - var(6,varIDs%cr_pressure)) / (dxright + dxleft)
 
                 B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
-                bsign = (B / magnitude(B)) .DOT. v
-
-                vst = B * (bsign / sqrt(var(0,varIDs%density)))
-                lambda_st = (vst .DOT. v) / (4D0/3D0 - 1D0)
+                vst = (B / sqrt(var(0,varIDs%density)))
+                lambda_st = abs(vst .DOT. v)
             else
                 lambda_st = 0D0
             end if
@@ -1009,7 +1088,7 @@ module io_ramses
                 ! Cosmic rays hadronic and Coulomb heating from Guo&Ho(2008)
                 ! (Assume fully ionised gas)
                 ! TODO: Update for RT! 
-                lambda = 3D-16 * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
+                lambda = 2.63d-16 * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
                 ne = var(0,varIDs%density) * sim%unit_d / mHydrogen 
                 ecr = var(0,varIDs%cr_pressure) / (4D0/3d0 - 1d0)
                 ecr = ecr * (sim%unit_d * ((sim%unit_l/sim%unit_t)**2))
@@ -1018,7 +1097,7 @@ module io_ramses
                 lambda_cr = 0D0
             end if
 
-            ! Thermal energy, computed as thermal_pressure*volume/(gamma - 1
+            ! Thermal energy, computed as thermal_pressure*volume/(gamma - 1)
             ! TODO: This a fix only for some messed up CRMHD simulations!
             if (T<15) then
                 value = (Tmin * var(0,varIDs%density)) / (5D0/3d0 - 1d0)

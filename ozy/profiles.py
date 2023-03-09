@@ -81,7 +81,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,
                     filter_name='none',recompute=False,save=False,logscale='none',
                     rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(0.0,'rvir'), zmax=(0.2,'rvir'),
                     mycentre=([0.5,0.5,0.5],'rvir'), myaxis=np.array([1.,0.,0.]),
-                    remove_subs=False):
+                    remove_subs=False,cr_st=False,cr_heat=False,Dcr=0.0):
     """Function which computes a 1D profile for a given group object."""
     from ozy.utils import structure_regions
     from ozy.dict_variables import check_need_neighbours
@@ -244,6 +244,9 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,
         hydro_data.nwvar = len(prof.weightvars['hydro'])
         hydro_data.nbins = nbins
         hydro_data.nsubs = nsubs
+        hydro_data.cr_st = cr_st
+        hydro_data.cr_heat = cr_heat
+        hydro_data.Dcr = Dcr
 
         amrprofmod.allocate_profile_handler(hydro_data)
         for i in range(0, len(prof.yvars['hydro'])):
