@@ -412,7 +412,11 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
     fig.subplots_adjust(top=0.97,bottom=0.1,left=0.1,right=0.95)
     fig.savefig(name+'.png',format='png',dpi=300)
 
-def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',scaletype='log_even',redshift=True,stats='none',extra_labels='none',gent=False,powell=False,doflows=False):
+def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
+                                scaletype='log_even',redshift=True,
+                                stats='none',extra_labels='none',
+                                gent=False,powell=False,doflows=False,
+                                do_sf=False,layout='compact'):
 
     # Make required imports
     import matplotlib
@@ -443,7 +447,7 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',scaletype='
     field_indexes = []
     weight_indexes = []
     for pd in pds:
-        if doflows:
+        if doflows or do_sf:
             if field not in pd[0].zvars['hydro']:
                 raise KeyError('The field %s is not included in this PhaseDiagram object. Aborting!'%field)
             else:
@@ -480,14 +484,26 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',scaletype='
         exit
     
     # With everything fine, we begin plotting…
-    nrow = int(len(pds)/2)
-    figsize = plt.figaspect(float((12.0 * nrow) / (11.0 * 2)))
-    fig = plt.figure(figsize=figsize, facecolor='w',edgecolor='k')
-    plot_grid = fig.add_gridspec(nrow, 2, wspace=0, hspace=0)#,  hspace=0,left=0,right=1, bottom=0, top=1)
+    if layout == 'compact':
+        ncol = 2
+        nrow = int(len(pds)/ncol)
+    elif layout == 'extended':
+        nrow = 1
+        ncol = len(pds)
+    else:
+        print('The layout asked is not allowed. Please check!')
+        exit
+    if layout == 'compact':
+        figsize = plt.figaspect(float((5.0 * nrow) / (5.0 * ncol)))
+        fig = plt.figure(figsize=2*figsize, facecolor='w',edgecolor='k')
+    elif layout == 'extended':
+        figsize = plt.figaspect(float((6.0 * nrow) / (5.0 * ncol)))
+        fig = plt.figure(figsize=figsize, facecolor='w',edgecolor='k')
+    plot_grid = fig.add_gridspec(nrow, ncol, wspace=0, hspace=0)#,  hspace=0,left=0,right=1, bottom=0, top=1)
     ax = []
     for i in range(0,nrow):
         ax.append([])
-        for j in range(0,2):
+        for j in range(0,ncol):
             ax[i].append(fig.add_subplot(plot_grid[i,j]))
     ax = np.asarray(ax)
     for i in range(0, ax.shape[0]):
@@ -498,7 +514,7 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',scaletype='
                 ax[i,j].get_xaxis().set_visible(False)
                 ax[i,j].get_yaxis().set_visible(False)
                 break
-            if doflows:
+            if doflows or do_sf:
                 pd = pds[ipd][0]
             else:
                 pd = pds[ipd]
@@ -506,16 +522,26 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',scaletype='
             plotting_y = plotting_dictionary[pd.yvar]
             plotting_z = plotting_dictionary[field]
             ax[i,j].set_xlabel(plotting_x['label'],fontsize=20)
-            if ipd%2 == 0:
-                ax[i,j].set_ylabel(plotting_y['label'],fontsize=20)
-            else:
+            # Get rid of the y-axis labels for the panels in the middle
+            # TODO: The ticks should not be only for density and temperature!
+            if ipd%2 == 0 and layout == 'compact':
+                ax[i,j].set_ylabel(plotting_y['label'],fontsize=18)
+            elif layout == 'compact':
                 ax[i,j].axes.yaxis.set_visible(False)
+                ax[i,j].set_xticks([1e-28,1e-26,1e-24,1e-22,1e-20])
+            elif ipd != 0 and layout == 'extended':
+                ax[i,j].axes.yaxis.set_visible(False)
+                ax[i,j].set_xticks([1e-28,1e-26,1e-24,1e-22,1e-20])
+            else:
+                ax[i,j].set_ylabel(plotting_y['label'],fontsize=18)
 
             ax[i,j].tick_params(labelsize=14,direction='in')
             ax[i,j].xaxis.set_ticks_position('both')
             ax[i,j].yaxis.set_ticks_position('both')
             ax[i,j].minorticks_on()
             ax[i,j].tick_params(which='major',axis="both",direction="in")
+            ax[i,j].set_xlim([1e-30,8e-20])
+            ax[i,j].set_ylim([15,1e+8])
             
             code_units_x = get_code_units(pd.xvar)
             if scaletype=='log_even':
@@ -560,7 +586,7 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',scaletype='
                             transform=ax[i,j].transAxes, fontsize=20,verticalalignment='top',
                             color='black')
             if isinstance(extra_labels,list):
-                ax[i,j].text(0.5, 0.9, extra_labels[ipd],
+                ax[i,j].text(0.65, 0.9, extra_labels[ipd],
                             transform=ax[i,j].transAxes, fontsize=14,verticalalignment='top',
                             color='black')
 
@@ -581,8 +607,18 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',scaletype='
                 ax[i,j].plot([1e-23,1e-23],[0,1e8],color='k',linewidth=1)
             
             if gent:
-                ax[i,j].plot([1e-30,1e-23],[2e5,2e5],color='k',linewidth=1)
-                ax[i,j].plot([1e-30,1e-23],[2e4,2e4],color='k',linewidth=1)
+                XX,YY = np.meshgrid(x,y)
+                z_cold = np.sum(z.T[XX>gent_curve('cold',YY)])
+                ax[i,j].plot([gent_curve('cold',2),gent_curve('cold',1e+8)], [2,1e+8],color='b')
+                z_warm = np.sum(z.T[(XX<gent_curve('cold',YY)) & (XX>gent_curve('hot',YY))])
+                ax[i,j].plot([gent_curve('hot',2),gent_curve('hot',1e+8)], [2,1e+8],color='r')
+                z_hot = np.sum(z.T[XX<gent_curve('hot',YY)])
+                z_tot = np.sum(z)
+                print(z_cold,z_warm,z_hot)
+                print('Distribution of masses in the Gent phases in %s:'%extra_labels[ipd])
+                print('Cold: %.3f, %.3e'%(100*z_cold/z_tot,z_cold))
+                print('Warm: %.3f, %.3e'%(100*z_warm/z_tot,z_warm))
+                print('Hot: %.3f, %.3e'%(100*z_hot/z_tot, z_hot))
 
             if stats == 'mean':
                 y_mean = np.zeros(len(x))
@@ -594,9 +630,15 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',scaletype='
                 ax[i,j].plot(x,y_mean,color='k',linewidth=2, linestyle='--')
             
             if ipd==0:
-                cbaxes = inset_axes(ax[i,j], width="200%", height="5%", loc='upper left',
-                                    bbox_to_anchor=(0.0, 0., 1.0, 1.05),
-                                    bbox_transform=ax[i,j].transAxes,borderpad=0)
+                if layout == 'compact':
+                    cbaxes = inset_axes(ax[i,j], width="200%", height="5%", loc='upper left',
+                                        bbox_to_anchor=(0.0, 0., 1.0, 1.05),
+                                        bbox_transform=ax[i,j].transAxes,borderpad=0)
+                elif layout == 'extended':
+                    width_ex = str(int(100*ncol))
+                    cbaxes = inset_axes(ax[i,j], width=width_ex+"%", height="5%", loc='upper left',
+                                        bbox_to_anchor=(0.0, 0., 1.0, 1.05),
+                                        bbox_transform=ax[i,j].transAxes,borderpad=0)
                 cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
                 cbar.set_label(plotting_z['label'],fontsize=20)
                 cbar.ax.tick_params(labelsize=10)
@@ -637,9 +679,27 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',scaletype='
                 f = interpolate.interp1d(integral, t)
                 t_contours = f(np.array([0.8*ztot]))
                 ax[i,j].contour(x, y, zescape.T, t_contours, colors='darkred', linewidths=2)
+            if do_sf:
+                from scipy import interpolate
+                n = 1000
+                expd_index = 1
+                if doflows:
+                    expd_index += 3
+                # Star forming
+                stf = pds[ipd][expd_index]
+                ztot_sf = np.sum(stf)
+                t = np.linspace(0, ztot_sf, n)
+                integral = ((stf >= t[:, None, None]) * stf).sum(axis=(1,2))
+                f = interpolate.interp1d(integral, t)
+                t_contours = f(np.array([0.8*ztot_sf]))
+                ax[i,j].contour(x, y, stf.T, t_contours, colors='black', linewidths=2)
+                print('Star forming: %.3f, %.3f'%(100*ztot_sf/z_tot, ztot_sf))
             
         
-        fig.subplots_adjust(top=0.85,bottom=0.15,left=0.1,right=0.95)
+        if layout == 'compact':
+            fig.subplots_adjust(top=0.92,bottom=0.05,left=0.1,right=0.95)
+        elif layout == 'extended':
+            fig.subplots_adjust(top=0.85,bottom=0.12,left=0.07,right=0.98)
         fig.savefig(name+'.png',format='png',dpi=300)
 
 def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
@@ -758,6 +818,7 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
             ax[i,j].set_xscale('log')
             ax[i,j].set_yscale('log')
             # Get rid of the y-axis labels for the panels in the middle
+            # TODO: The ticks should not be only for density and temperature!
             if ipd%2 == 0 and layout == 'compact':
                 ax[i,j].set_ylabel(plotting_y['label'],fontsize=18)
             elif layout == 'compact':
