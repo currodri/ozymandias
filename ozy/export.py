@@ -62,7 +62,8 @@ def unigrid_amr(obj, group=None, filter=None, lmax =0, n=[100,100,100], vars=['g
 
 def export2skirt(obj, group=None, filter=None, lmax =0, var='dust_density', xmin=(0,'code_length'), xmax=(1,'code_length'), ymin=(0,'code_length'),
                  ymax=(1,'code_length'), zmin=(0,'code_length'), zmax=(1,'code_length'),rmin=(0,'kpc'),rmax=(0.5,'code_length'), angmom = np.array([0,0,1]), 
-                 symlog=True, h=(30,'pc'), smoothmethod='constant',sedmethod='bruzual&charlot',recompute=False):
+                 symlog=True, h=(30,'pc'), smoothmethod='constant',sedmethod='bruzual&charlot',recompute=False,
+                 outpath='.'):
     
     import os
     import ozy
@@ -96,10 +97,12 @@ def export2skirt(obj, group=None, filter=None, lmax =0, var='dust_density', xmin
     
     # Create name for output files
     outid = output_path.split('/')[-1][-5:]
+    if not os.path.exists(outpath):
+        outpath = os.getcwd()
     if group == None:
-        outname = os.getcwd()+'/snap_'+outid+'_noneobj'
+        outname = outpath+'/snap_'+outid+'_noneobj'
     else:
-        outname = os.getcwd()+'/snap_'+outid+'_gal'+str(group.ID)
+        outname = outpath+'/snap_'+outid+'_gal'+str(group.ID)
 
     # Perform particle export
     partfile = outname + '_stars.txt'
@@ -114,6 +117,7 @@ def export2skirt(obj, group=None, filter=None, lmax =0, var='dust_density', xmin
         export_amr.amr2skirt(output_path,selected_reg,filt,var,gasfile)
     elif not os.path.exists(gasfile):
         export_amr.amr2skirt(output_path,selected_reg,filt,var,gasfile)
+    return partfile,gasfile
 
 def export2disperse(obj, group=None, filter=None, xmin=(0,'code_length'), xmax=(1,'code_length'), ymin=(0,'code_length'),
                     ymax=(1,'code_length'), zmin=(0,'code_length'), zmax=(1,'code_length'),rmin=(0,'kpc'),rmax=(0.5,'code_length'), 

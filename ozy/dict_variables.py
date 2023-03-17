@@ -103,6 +103,7 @@ grid_variables = dict(
     xHeII = {'unit':'dimensionless','neighbour':False},
     xHeIII = {'unit':'dimensionless','neighbour':False},
     dust_density = {'unit':'code_density','neighbour':False},
+    dust_mass = {'unit':'code_mass','neighbour':False},
     DTM = {'unit':'dimensionless','neighbour':False},
     eff_FKmag = {'unit':'dimensionless','neighbour':True},
     eff_FKmagnocr = {'unit':'dimensionless','neighbour':True},
