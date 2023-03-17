@@ -75,6 +75,7 @@ class Galaxy(Group):
     obj_type = 'galaxy'
     def __init__(self, obj):
         super(Galaxy, self).__init__(obj)
+        self.type    = 'galaxy'
         self.central = False
         self.halo    = None
         self.gas_density = {}
