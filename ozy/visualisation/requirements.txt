@@ -3,7 +3,6 @@ astropy-healpix==0.7
 asttokens==2.0.8
 backcall==0.2.0
 build==0.9.0
-certifi @ file:///croot/certifi_1665076670883/work/certifi
 cmyt==1.1.2
 colorspacious==1.1.2
 contourpy==1.0.5
