@@ -10,6 +10,7 @@ from ozy.dict_variables import check_need_neighbours, common_variables, \
                                 particle_variables, \
                                 get_code_units,basic_conv
 import re
+from unyt import unyt_quantity,unyt_array
 import healpy as hp
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -421,10 +422,12 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
 
     # Setup camera details for the requested POV (Point of View)
     if window[0] == 0.0 or window[1] == 'rvir':
-        if group.type == 'halo':
+        if group.type == 'galaxy':
+            rvir = group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        elif group.type == 'halo':
             rvir = group.virial_quantities['radius'].d
         else:
-            rvir = group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            rvir = group.virial_quantities['radius'].d
     if window[0] == 0.0:
         if group.type == 'halo':
             window = 1.2*rvir
@@ -773,14 +776,14 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     return proj
 
 
-def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,redshift=True,returnfig=False,
+def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kpc'),redshift=True,returnfig=False,
                                     pov='x',centers=[],radii=[],circle_keys=[],filter_name='none',smooth=False,
                                     type_scale='galaxy'):
     """This function uses the projection information in a FITS file following the 
         OZY format and plots it following the OZY standards."""
     
     # Make required imports
-    from ozy.utils import tidal_radius
+    from ozy.utils import tidal_radius,invert_tick_colours
     from ozy.plot_settings import circle_dictionary
     import matplotlib
     import matplotlib.pyplot as plt
@@ -875,8 +878,10 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
             if fields[ivar].split('/')[0] == 'star' or fields[ivar].split('/')[0] == 'dm':
                 plotting_def = plotting_dictionary[fields[ivar].split('/')[0]+'_'+fields[ivar].split('/')[1]]
                 stellar = True
+                full_varname = fields[ivar].split('/')[0]+'_'+fields[ivar].split('/')[1]
             else:
                 plotting_def = plotting_dictionary[fields[ivar].split('/')[1]]
+                full_varname = fields[ivar].split('/')[1]
             print(fields[ivar],np.nanmin(hdul[h].data.T),np.nanmax(hdul[h].data.T))
             if smooth:
                 # We smooth with a Gaussian kernel with x_stddev=1 (and y_stddev=1)
@@ -924,12 +929,14 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
             cbaxes = inset_axes(ax[i,j], width="80%", height="5%", loc='lower center')
             cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
             if logscale and fields[ivar].split('/')[1] not in symlog_variables:
-                cbar.set_label(plotting_def['label_log'],color=plotting_def['text_over'],fontsize=20,labelpad=-27, y=0.85,weight='bold')
+                cbar.set_label(plotting_def['label_log'],color=plotting_def['text_over'],fontsize=22,labelpad=-27, y=0.85,weight='bold')
             else:
-                cbar.set_label(plotting_def['label'],color=plotting_def['text_over'],fontsize=16,labelpad=-27, y=0.85)
+                cbar.set_label(plotting_def['label'],color=plotting_def['text_over'],fontsize=22,labelpad=-27, y=0.85)
             cbar.ax.xaxis.label.set_font_properties(matplotlib.font_manager.FontProperties(weight='bold',size=8))
             cbar.ax.tick_params(axis='x', pad=-7, labelsize=8,labelcolor=plotting_def['text_over'])
             cbar.ax.tick_params(length=0,width=0)
+            cbar.outline.set_linewidth(1)
+            invert_tick_colours(cbar.ax,full_varname,type_scale)
 
             if redshift and i==0 and j==0:
                 ax[i,j].text(0.05, 0.90, r'$z = ${z:.2f}'.format(z=hdul[h].header['redshift']), # Redshift
@@ -938,26 +945,18 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
                                     color=plotting_def['text_over'], fontsize=10,fontweight='bold')
 
             fontprops = fm.FontProperties(size=10,weight='bold')
-            if isinstance(scalebar,bool):
+            if scalebar != None:
                 if scalebar and i==0 and j==0:
-                    scalebar = AnchoredSizeBar(ax[i,j].transData,
-                                                1, '1 kpc', 'upper right', 
-                                                pad=0.1,
-                                                color=plotting_def['text_over'],
-                                                frameon=False,
-                                                size_vertical=0.1,
-                                                fontproperties=fontprops)
-                    ax[i,j].add_artist(scalebar)
-            else:
-                if i==0 and j==0:
-                    scalebar = AnchoredSizeBar(ax[i,j].transData,
-                                                scalebar, str(scalebar)+' kpc', 'upper right', 
-                                                pad=0.1,
-                                                color=plotting_def['text_over'],
-                                                frameon=False,
-                                                size_vertical=0.1,
-                                                fontproperties=fontprops)
-                    ax[i,j].add_artist(scalebar)
+                    sl = int(unyt_quantity(scalebar[0],scalebar[1]).in_units(hdul[0].header['CUNIT1']).d)
+                    slb = AnchoredSizeBar(ax[i,j].transData,
+                                            sl, '%s %s'%(str(int(sl)),hdul[0].header['CUNIT1']), 
+                                            'upper right', 
+                                            pad=0.1,
+                                            color=plotting_def['text_over'],
+                                            frameon=False,
+                                            size_vertical=0.1,
+                                            fontproperties=fontprops)
+                    ax[i,j].add_artist(slb)
 
             if len(centers) != 0 and len(radii) != 0 and len(circle_keys) != 0:
                 # This expects for each point:
@@ -973,9 +972,12 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
                         obs_instruments.project_points(cam,1,centrecircle)
                         r = radii[c].in_units(hdul[0].header['CUNIT1']).d
                         circle_settings = circle_keys[c]
-                        circle = plt.Circle(centrecircle,r,fill=False,edgecolor=circle_settings['edgecolor'],linestyle=circle_settings['linestyle'])
+                        circle = plt.Circle(centrecircle,r,fill=False,
+                                            edgecolor=circle_settings['edgecolor'],
+                                            linestyle=circle_settings['linestyle'],
+                                            linewidth=circle_settings['linewidth'])
                         ax[i,j].add_patch(circle)
-
+    hdul.close()
     fig.subplots_adjust(hspace=0,wspace=0,left=0,right=1, bottom=0, top=1)
     if returnfig:
         return fig
@@ -985,7 +987,7 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=True,r
         else:
             fig.savefig(proj_FITS.split('.')[0]+'.png',format='png',dpi=300)
 
-def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=True,
+def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=(3,'kpc'),
                  redshift=True,returnfig=False,pov='x',type_scale='galaxy',
                  skirt_images=None,
                  labels=[],centers=[],radii=[],circle_keys=[]):
@@ -993,7 +995,7 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=True,
         figure following the OZY standards."""
     
     # Make required imports
-    from ozy.utils import tidal_radius
+    from ozy.utils import tidal_radius,invert_tick_colours
     from ozy.plot_settings import circle_dictionary
     import matplotlib
     import matplotlib.pyplot as plt
@@ -1058,8 +1060,18 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=True,
             myfits = edgeon_fits[int(i/2)]
         hdul = fits.open(myfits)
         hdul_fields = [h.header['btype'] for h in hdul]
-        width_x =  hdul[0].header['CDELT1']*hdul[0].header['NAXIS1']
-        width_y =  hdul[0].header['CDELT2']*hdul[0].header['NAXIS2']
+        # Construct camera
+        length_unit = unyt_quantity(1.0,hdul[0].header['CUNIT1'])
+        width_x =  hdul[0].header['CDELT1']*hdul[0].header['NAXIS1'] * length_unit
+        width_y =  hdul[0].header['CDELT2']*hdul[0].header['NAXIS2'] * length_unit
+        ex = [-0.5*width_x,0.5*width_x,-0.5*width_y,0.5*width_y]
+        los_axis,up_axis,centre,velocity = vectors.vector(),vectors.vector(),vectors.vector(),vectors.vector()
+        los_axis.x,los_axis.y,los_axis.z = hdul[0].header['LOS_X'],hdul[0].header['LOS_Y'],hdul[0].header['LOS_Z']
+        up_axis.x,up_axis.y,up_axis.z = hdul[0].header['UP_X'],hdul[0].header['UP_Y'],hdul[0].header['UP_Z']
+        centre.x,centre.y,centre.z = hdul[0].header['CENTRE_X'],hdul[0].header['CENTRE_Y'],hdul[0].header['CENTRE_Z']
+        cam = obs_instruments.init_camera(centre,los_axis,up_axis,width_x.d,los_axis,velocity,
+                                        width_x.d,width_x.d,hdul[0].header['NAXIS1'],
+                                        1,len(centers))
         
         for j in range(0, ax.shape[1]):
             ivar = j
@@ -1092,10 +1104,13 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=True,
 
                 if fields[ivar].split('/')[0] == 'star' or fields[ivar].split('/')[0] == 'dm':
                     plotting_def = plotting_dictionary[fields[ivar].split('/')[0]+'_'+fields[ivar].split('/')[1]]
+                    full_varname = fields[ivar].split('/')[0]+'_'+fields[ivar].split('/')[1]
                 elif fields[ivar].split('/')[1] != 'densityandv_sphere_r':
                     plotting_def = plotting_dictionary[fields[ivar].split('/')[1]]
+                    full_varname = fields[ivar].split('/')[1]
                 if fields[ivar].split('/')[1] == 'densityandv_sphere_r':
                     plotting_def = plotting_dictionary['density']
+                    full_varname = 'density'
                     if i%2 == 0:
                         plot = ax[i,j].imshow(np.log10(hdul['gas/density'].data.T), cmap=plotting_def['cmap'],
                                     origin='lower',vmin=np.log10(plotting_def['vmin'+type_scale]),
@@ -1147,6 +1162,8 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=True,
                     cbar.ax.tick_params(axis='x', pad=-7, labelsize=8,labelcolor=plotting_def['text_over'])
                     cbar.ax.tick_params(length=0,width=0)
                     cbar.outline.set_linewidth(1)
+                    invert_tick_colours(cbar.ax.get_xticks(),cbar.ax.get_xticklabels(),
+                                        full_varname,type_scale)
 
                 if redshift and i%2==0 and j==0:
                     ax[i,j].text(0.05, 0.90, r'$z = ${z:.2f}'.format(z=hdul[0].header['redshift']), # Redshift
@@ -1155,15 +1172,18 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=True,
                                         color=plotting_def['text_over'], fontsize=10,fontweight='bold')
 
                 fontprops = fm.FontProperties(size=10,weight='bold')
-                if scalebar and i%2==0 and j==0:
-                    scalebar = AnchoredSizeBar(ax[i,j].transData,
-                                                1, '1 kpc', 'upper right', 
-                                                pad=0.1,
-                                                color=plotting_def['text_over'],
-                                                frameon=False,
-                                                size_vertical=0.1,
-                                                fontproperties=fontprops)
-                    ax[i,j].add_artist(scalebar)
+                if scalebar != None:
+                    if scalebar and i%2==0 and j==0:
+                        sl = int(unyt_quantity(scalebar[0],scalebar[1]).in_units(hdul[0].header['CUNIT1']).d)
+                        slb = AnchoredSizeBar(ax[i,j].transData,
+                                                    sl, '%s %s'%(str(int(sl)),hdul[0].header['CUNIT1']),
+                                                    'upper right',
+                                                    pad=0.1,
+                                                    color=plotting_def['text_over'],
+                                                    frameon=False,
+                                                    size_vertical=0.1,
+                                                    fontproperties=fontprops)
+                        ax[i,j].add_artist(slb)
                 if len(labels) !=0 and i%2==0 and j==ax.shape[1]-1:
                     l = labels[int(i/2)][0] + '\n' + labels[int(i/2)][1] + '\n' + labels[int(i/2)][2]
                     ax[i,j].text(0.15, 0.7, l,
@@ -1171,6 +1191,25 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=True,
                                     transform=ax[i,j].transAxes,
                                     color=plotting_def['text_over'], fontsize=10,fontweight='bold',
                                     bbox=dict(facecolor='none', edgecolor='white'))
+                if len(centers) != 0 and len(radii) != 0 and len(circle_keys) != 0 and i%2 == 0:
+                    # This expects for each point:
+                    # 1. a center given as a OZY.array
+                    # 2. a radius given as an OZY.quantity
+                    # 3. a dictionary of the plotting settings of the circle,
+                    #    including the "edgecolor" and the "linestyle"
+                    centrecircle = centers[int(i/2)].in_units(hdul[0].header['CUNIT1']).d
+                    dist = centrecircle - np.array([centre.x,centre.y,centre.z])
+                    dist = np.linalg.norm(dist) - radii[int(i/2)].in_units(hdul[0].header['CUNIT1']).d
+                    if dist <= (width_x/2):
+                        obs_instruments.project_points(cam,1,centrecircle)
+                        r = radii[int(i/2)].in_units(hdul[0].header['CUNIT1']).d
+                        circle_settings = circle_keys[int(i/2)]
+                        circle = plt.Circle(centrecircle,r,fill=False,
+                                            edgecolor=circle_settings['edgecolor'],
+                                            linestyle=circle_settings['linestyle'],
+                                            linewidth=circle_settings['linewidth'],
+                                            alpha=0.5)
+                        ax[i,j].add_patch(circle)
                     
             else:
                 if i%2 == 0:
@@ -1190,22 +1229,45 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=True,
                                         color='w', fontsize=10,fontweight='bold')
 
                 fontprops = fm.FontProperties(size=10,weight='bold')
-                if scalebar and i%2==0 and j==0:
-                    scalebar = AnchoredSizeBar(ax[i,j].transData,
-                                                1, '1 kpc', 'upper right', 
-                                                pad=0.1,
-                                                color='w',
-                                                frameon=False,
-                                                size_vertical=0.1,
-                                                fontproperties=fontprops)
-                    ax[i,j].add_artist(scalebar)
+                if scalebar != None:
+                    if scalebar and i%2==0:
+                        sl = int(unyt_quantity(scalebar[0],scalebar[1]).in_units(hdul[0].header['CUNIT1']).d)
+                        slb = AnchoredSizeBar(ax[i,j].transData,
+                                                    2*sl, '%s %s'%(str(int(sl)),hdul[0].header['CUNIT1']),
+                                                    'lower right',
+                                                    pad=0.1,
+                                                    color='white',
+                                                    frameon=False,
+                                                    size_vertical=0.1,
+                                                    fontproperties=fontprops)
+                        ax[i,j].add_artist(slb)
                 if len(labels) !=0 and i%2==0 and j==ax.shape[1]-1:
                     l = labels[int(i/2)][0] + '\n' + labels[int(i/2)][1] + '\n' + labels[int(i/2)][2]
                     ax[i,j].text(0.15, 0.7, l,
                                     verticalalignment='bottom', horizontalalignment='left',
                                     transform=ax[i,j].transAxes,
                                     color='w', fontsize=10,fontweight='bold')
+                if len(centers) != 0 and len(radii) != 0 and len(circle_keys) != 0 and i%2 == 0:
+                    # This expects for each point:
+                    # 1. a center given as a OZY.array
+                    # 2. a radius given as an OZY.quantity
+                    # 3. a dictionary of the plotting settings of the circle,
+                    #    including the "edgecolor" and the "linestyle"
+                    centrecircle = centers[int(i/2)].in_units(hdul[0].header['CUNIT1']).d
+                    dist = centrecircle - np.array([centre.x,centre.y,centre.z])
+                    dist = np.linalg.norm(dist) - 2*radii[int(i/2)].in_units(hdul[0].header['CUNIT1']).d
+                    if dist <= (width_x/2):
+                        obs_instruments.project_points(cam,1,centrecircle)
+                        r = radii[int(i/2)].in_units(hdul[0].header['CUNIT1']).d
+                        circle_settings = circle_keys[int(i/2)]
+                        circle = plt.Circle(centrecircle,r,fill=False,
+                                            edgecolor=circle_settings['edgecolor'],
+                                            linestyle=circle_settings['linestyle'],
+                                            linewidth=circle_settings['linewidth'],
+                                            alpha=0.5)
+                        ax[i,j].add_patch(circle)
 
+        hdul.close()
     fig.subplots_adjust(hspace=0,wspace=0,left=0,right=1, bottom=0, top=1)
     if returnfig:
         return fig
@@ -1213,13 +1275,14 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=True,
         fig.savefig('plot_comp_facevsedge.png',format='png',dpi=300)
 
 
-def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redshift=True,colorbar=True,
+def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=(3,'kpc'),redshift=True,colorbar=True,
                                 colormap=None, type_scale='',centers=[],radii=[],names=[],filter_name='none',
                                 smooth=False):
     """This function uses the projection information in a FITS file following the 
         OZY format and plots it following the OZY standards."""
     
     # Make required imports
+    from ozy.utils import invert_tick_colours
     import matplotlib
     import matplotlib.pyplot as plt
     import matplotlib.font_manager as fm
@@ -1281,8 +1344,10 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
     if field.split('/')[0] == 'star' or field.split('/')[0] == 'dm':
         plotting_def = plotting_dictionary[field.split('/')[0]+'_'+field.split('/')[1]]
         stellar = True
+        full_varname = field.split('/')[0]+'_'+field.split('/')[1]
     else:
         plotting_def = plotting_dictionary[field.split('/')[1]]
+        full_varname = field.split('/')[1]
     if colormap == None:
         colormap = plotting_def['cmap']
     if smooth:
@@ -1336,6 +1401,8 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
         cbar.ax.xaxis.label.set_font_properties(matplotlib.font_manager.FontProperties(weight='bold',size=15))
         cbar.ax.tick_params(axis='x', pad=-16, labelsize=13,labelcolor=plotting_def['text_over'])
         cbar.ax.tick_params(length=0,width=0)
+        invert_tick_colours(fig,cbar.ax.get_xticks(),cbar.ax.get_xticklabels(),
+                                        full_varname,type_scale)
 
     if redshift:
         ax.text(0.03, 0.95, r'$z = ${z:.2f}'.format(z=hdul[h].header['redshift']), # Redshift
@@ -1344,15 +1411,17 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
                             color=plotting_def['text_over'], fontsize=20,fontweight='bold')
 
     fontprops = fm.FontProperties(size=20,weight='bold')
-    if scalebar:
-        scalebar = AnchoredSizeBar(ax.transData,
-                                    10, '10 kpc', 'upper right', 
+    if scalebar != None:
+        sl = int(unyt_quantity(scalebar[0],scalebar[1]).in_units(hdul[0].header['CUNIT1']).d)
+        slb = AnchoredSizeBar(ax.transData,
+                                    sl, '%s %s'%(str(int(sl)),hdul[0].header['CUNIT1']), 
+                                    'upper right', 
                                     pad=0.1,
                                     color=plotting_def['text_over'],
                                     frameon=False,
-                                    size_vertical=0.2,
+                                    size_vertical=0.1,
                                     fontproperties=fontprops)
-        ax.add_artist(scalebar)
+        ax.add_artist(slb)
 
     if len(centers) != 0 and len(radii) != 0:
         for c in range(0, len(centers)):
@@ -1378,9 +1447,8 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=True,redsh
         fig.savefig(proj_FITS.split('.fits')[0]+'_'+field.split('/')[1]+'_'+filter_name+'.png',format='png',dpi=330)
     else:
         fig.savefig(proj_FITS.split('.fits')[0]+'_'+field.split('/')[1]+'.png',format='png',dpi=330)
-    plt.close(fig)
 
-def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=True,redshift=True, type_scale='galaxy'):
+def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=(3,'kpc'),redshift=True, type_scale='galaxy'):
     """This function uses the projection information in a FITS file following the 
         OZY format and combines three variables into an RGB image using the Lupton et al.
         (2004) method."""
@@ -1478,11 +1546,13 @@ def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=True,redshi
                     color='white', fontsize=16,fontweight='bold')
 
     fontprops = fm.FontProperties(size=16,weight='bold')
-    if scalebar:
+    if scalebar != None:
+        sl = unyt_quantity(scalebar[0],scalebar[1]).in_units(hdul[0].header['CUNIT1']).d
         scalebar = AnchoredSizeBar(ax.transData,
-                                    50, '50 kpc', 'upper right', 
+                                    sl, '%s %s'%(str(sl),hdul[0].header['CUNIT1']),
+                                    'upper right', 
                                     pad=0.1,
-                                    color='white',
+                                    color=plotting_def['text_over'],
                                     frameon=False,
                                     size_vertical=0.1,
                                     fontproperties=fontprops)
