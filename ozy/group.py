@@ -14,6 +14,7 @@ MINIMUM_DM_PER_HALO      = 0
 grouptypes = dict(
     halo='halos',
     galaxy='galaxies',
+    region='regions',
 )
 
 info_blacklist = [
@@ -637,6 +638,28 @@ class Halo(Group):
                 tr = tidal_radius(self,s,method=tidal_method)
                 s.radius[tidal_method] = tr
 
+class Region(Group):
+    """Region class - for regions of cosmological boxes or isolated test cases"""
+    obj_type = 'region'
+    def __init__(self, obj):
+        """Initialise basic properties of the group"""
+        self.obj = obj
+        self.type = 'region'
+        self.units = 'code'
+        self.position = np.array([0.5, 0.5, 0.5]) #Needs to be thought through
+        self.velocity = np.array([0., 0., 0.])
+        self.angular_mom = {}
+        self.virial_quantities = {}
+        self.energies = {}
+
+    def set_default_properties(self, obj):
+        """Short-cut to set default properties, as required by ozymandias"""
+        self.position = obj.array([0.5, 0.5, 0.5], 'code_length')
+        self.velocity = obj.array([0., 0., 0.], 'km/s')
+        self.virial_quantities['radius'] = obj.quantity(0.5, 'code_length') # Largest possible spherical radius
+        self.angular_mom['total'] = obj.array([0., 0., 1.], 'Msun * km * km / s')
+
+
 def create_new_group(obj, grouptype):
     """Simple function to create a new instance of a specified :class:`group.Group`.
     """
@@ -644,3 +667,5 @@ def create_new_group(obj, grouptype):
         return Halo(obj)
     elif grouptype == 'galaxy':
         return Galaxy(obj)
+    elif grouptype=='region':
+        return Region(obj)
