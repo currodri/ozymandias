@@ -1275,12 +1275,17 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=(3,'kpc')
         fig.savefig('plot_comp_facevsedge.png',format='png',dpi=300)
 
 
-def plot_quick_var_projection(prof, field, logscale=True, colorbar=True, colormap=None, smooth=False, type_scale='', 
-    centers=[], renormalise=False):
+def plot_quick_var_projection(proj, field, logscale=True, colorbar=True, colormap=None, smooth=False, type_scale='', 
+    centers=[], renormalise=False, folder_path=None, snapshot=True, time=False):
     """This function allows the user to directly plot data from the Projection class, bypassing the need for a FITS file
         NOTE: it is currently set-up for basic/derived HYDRO quantities, the plan is to use this in terms of code units
-        TODO: Extend this to include filters, redshift/snapshot, scalebar, add proper filename convention  as below
+        #TODO: Extend this to include filters, redshift/snapshot, scalebar, fixing auto vmin/vmax, as below
+
+        Nick's ideas: 
+        -add a method to remove 'automatic' vmin/vmax in cases of Region group
+        -add a module to correctly renormalise data based on specific code units used in sims (i.e. as per Ricarda's .nml)
     """
+
     # Make required imports
     from ozy.utils import invert_tick_colours
     import matplotlib
@@ -1307,6 +1312,7 @@ def plot_quick_var_projection(prof, field, logscale=True, colorbar=True, colorma
     fig = plt.figure(figsize=figsize, facecolor='k', edgecolor='k')
     fig, ax = plt.subplots(1, 1, figsize=(7,7), dpi=200, facecolor='k', edgecolor='k')
 
+    #TODO: Make sure these widths work, they're currently hacks which just seem to work
     width_x =  0.675*480
     width_y =  width_x
     ex = [-0.5*width_x,0.5*width_x,-0.5*width_y,0.5*width_y]
@@ -1315,9 +1321,8 @@ def plot_quick_var_projection(prof, field, logscale=True, colorbar=True, colorma
     ax.axes.xaxis.set_visible(False)
     ax.axes.yaxis.set_visible(False)
     ax.axis('off')
-    data = prof.data_maps[0][0][0]
-    
-    # TODO: Add a module to give everything the correct unit pre-factors for Ricarda's sims (e.g. below)
+    data = proj.data_maps[0][0][0]
+
     if renormalise:
         if field.split('/')[1] == 'density':
             data *= (2.7629828164946482e-24)
@@ -1350,13 +1355,14 @@ def plot_quick_var_projection(prof, field, logscale=True, colorbar=True, colorma
                         extent=ex) #TODO: Add vmin/vmax which actually work
     elif logscale and field.split('/')[1] in symlog_variables:
         plot = ax.imshow(cImage, cmap=colormap,
-                        origin='lower',norm=SymLogNorm(linthresh=0.1, linscale=1,
-                        vmin=plotting_def['vmin'+type_scale], vmax=plotting_def['vmax'+type_scale]),
+                        origin='lower',#norm=SymLogNorm(linthresh=0.1, linscale=1,
+                        #vmin=plotting_def['vmin'+type_scale], vmax=plotting_def['vmax'+type_scale]),
                         interpolation='nearest', extent=ex) 
     else:
         plot = ax.imshow(data.T, cmap=colormap,
                         origin='lower',interpolation='nearest',
-                        vmin=plotting_def['vmin'+type_scale],vmax=plotting_def['vmax'+type_scale], extent=ex)
+                        #vmin=plotting_def['vmin'+type_scale],vmax=plotting_def['vmax'+type_scale],
+                        extent=ex)
     if colorbar:
         cbaxes = inset_axes(ax, width="80%", height="5%", loc='lower center')
         cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
@@ -1367,11 +1373,23 @@ def plot_quick_var_projection(prof, field, logscale=True, colorbar=True, colorma
         cbar.ax.xaxis.label.set_font_properties(matplotlib.font_manager.FontProperties(weight='bold',size=15))
         cbar.ax.tick_params(axis='x', pad=-16, labelsize=13,labelcolor=plotting_def['text_over'])
         cbar.ax.tick_params(length=0,width=0)
-        invert_tick_colours(ax,#cbar.ax.get_xticks(),cbar.ax.get_xticklabels(),
-                                        full_varname,type_scale)
+        #invert_tick_colours(ax,#cbar.ax.get_xticks(),cbar.ax.get_xticklabels(),
+        #                                full_varname,type_scale)
 
 
     fontprops = fm.FontProperties(size=20,weight='bold')
+
+    if snapshot:
+        ax.text(0.03, 0.95, f'{proj.obj.simulation.fullpath[-5:]}', # Print snapshot
+                            verticalalignment='bottom', horizontalalignment='left',
+                            transform=ax.transAxes,
+                            color=plotting_def['text_over'], fontsize=20,fontweight='bold')
+
+    if time and not snapshot:
+        ax.text(0.03, 0.95, f'{proj.obj.simulation.time}', # Print sim time
+                            verticalalignment='bottom', horizontalalignment='left',
+                            transform=ax.transAxes,
+                            color=plotting_def['text_over'], fontsize=20,fontweight='bold')
 
     if len(centers) != 0 and len(radii) != 0:
         for c in range(0, len(centers)):
@@ -1393,8 +1411,12 @@ def plot_quick_var_projection(prof, field, logscale=True, colorbar=True, colorma
 
     fig.subplots_adjust(hspace=0,wspace=0,left=0,right=1, bottom=0, top=1)
 
-    fig.savefig('output_00060'+'_'+field.split('/')[1]+'.png',format='png',dpi=330)
+    filename = f'{proj.obj.simulation.fullpath[-5:]}'+'_'+field.split('/')[1]+f'_{proj.pov}'
+    if folder_path != None:
+        filname += folder_path
+    filename += '.png'
 
+    fig.savefig(filename,format='png',dpi=330)
 
 
 def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=(3,'kpc'),redshift=True,colorbar=True,
