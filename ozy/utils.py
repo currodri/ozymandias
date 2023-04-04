@@ -38,6 +38,71 @@ class RotationAwareAnnotation(mtext.Annotation):
 
     _rotation = property(_get_rotation, _set_rotation)
 
+def most_contrast_rgba(rgba):
+    """
+    Returns the most contrasting RGBA color for a given RGBA color.
+    """
+    # Extract the RGBA components
+    red, green, blue, alpha = rgba
+
+    # Calculate the luminance of the color
+    luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+
+    # Calculate the opposite color
+    opposite_red = 1 - red
+    opposite_green = 1 - green
+    opposite_blue = 1 - blue
+
+    # Calculate the opposite color's luminance
+    opposite_luminance = 0.2126 * opposite_red + 0.7152 * opposite_green + 0.0722 * opposite_blue
+
+    return (opposite_red, opposite_green, opposite_blue, alpha)
+    # # If the luminance of the opposite color is greater, return the opposite color
+    # if opposite_luminance > luminance:
+    #     return (opposite_red, opposite_green, opposite_blue, alpha)
+
+    # # Otherwise, return black or white depending on the luminance of the original color
+    # if luminance < 0.5:
+    #     return (0, 0, 0, alpha) # Black
+    # else:
+    #     return (1, 1, 1, alpha) # White
+
+
+def invert_tick_colours(ax,var,type_scale):
+    from plot_settings import plotting_dictionary, symlog_variables
+    from matplotlib.colors import LogNorm,SymLogNorm
+    from matplotlib import colormaps
+
+    fig = plt.gcf()
+    plotting_def = plotting_dictionary[var]
+    cmap = colormaps.get_cmap(plotting_def['cmap'])
+    ticks_pos = ax.get_xticks()
+    ticks_labels = ax.get_xticklabels()
+    if var not in symlog_variables:
+        norm = LogNorm(vmin=plotting_def['vmin'+type_scale],
+                         vmax=plotting_def['vmax'+type_scale],
+                         clip=True)
+        for tp,tl in zip(ticks_pos,ticks_labels):
+            print(var,norm(10**tp))
+            rgba = cmap(norm(10**tp))
+            new_rgba = most_contrast_rgba(rgba)
+            print(rgba,new_rgba)
+            tl.set_color(new_rgba)
+            fig.canvas.draw()
+    else:
+        norm = SymLogNorm(vmin=plotting_def['vmin'+type_scale],
+                         vmax=plotting_def['vmax'+type_scale],
+                         linthresh=plotting_def['linthresh'],
+                         linscale=plotting_def['linscale'],
+                         clip=True)
+        for tp,tl in zip(ticks_pos,ticks_labels):
+            print(var,norm(tp))
+            rgba = cmap(norm(tp))
+            new_rgba = most_contrast_rgba(rgba)
+            print(rgba,new_rgba)
+            tl.set_color(new_rgba)
+            fig.canvas.draw()
+        
 
 def as_si(x, ndp):
     s = '{x:0.{ndp:d}e}'.format(x=x, ndp=ndp)
@@ -152,17 +217,30 @@ def find_neigh_snaps(simfolder,orig_snap,trange,minsnaps=3,returnweight=False):
         cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
                                         Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
         thubble = cosmo.age(sim.simulation.redshift).value
+        try:
+            next_ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[i-1][-5:]))
+            next_sim = ozy.load('Groups/'+next_ozy_name)
+            next_cosmo = FlatLambdaCDM(H0=next_sim.simulation.hubble_constant, Om0=next_sim.simulation.omega_matter, 
+                                            Ob0=next_sim.simulation.omega_baryon,Tcmb0=2.73)
+            t_next = cosmo.age(next_sim.simulation.redshift).value
+        except:
+            t_next = t_orig - 0.5*trange
+        prev_ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[i+1][-5:]))
+        prev_sim = ozy.load('Groups/'+prev_ozy_name)
+        prev_cosmo = FlatLambdaCDM(H0=prev_sim.simulation.hubble_constant, Om0=prev_sim.simulation.omega_matter, 
+                                        Ob0=prev_sim.simulation.omega_baryon,Tcmb0=2.73)
+        t_prev = cosmo.age(prev_sim.simulation.redshift).value
         if t_orig - thubble <= 0.5*trange and t_orig > thubble:
             neigh_snaps.append(ozy_name)
-            tup = 0.5*(t_orig - thubble)
-            tdown = thubble - (t_orig - 0.5*trange)
-            weights.append(tup+tdown)
+            tup = 0.5*(t_prev - thubble)
+            tdown = 0.5*(thubble - t_next)
+            weights.append((tup+tdown)/abs(t_orig-thubble))
             times.append(thubble)
         elif t_orig - thubble > 0.5*trange:
             if len(neigh_snaps) == 0:
                 # In the case that we need to extend a bit further
                 neigh_snaps.append(ozy_name)
-                tup = 0.5*(t_orig - thubble)
+                tup = 0.5*(t_prev - thubble)
                 weights.append(tup)
                 times.append(thubble)
                 trange = 2*tup
@@ -170,7 +248,20 @@ def find_neigh_snaps(simfolder,orig_snap,trange,minsnaps=3,returnweight=False):
     
     # Add original snapshot
     neigh_snaps.append(ozy_orig)
-    weights.append(0.0)
+    next_ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[iorig-1][-5:]))
+    next_sim = ozy.load('Groups/'+next_ozy_name)
+    next_cosmo = FlatLambdaCDM(H0=next_sim.simulation.hubble_constant, Om0=next_sim.simulation.omega_matter, 
+                                    Ob0=next_sim.simulation.omega_baryon,Tcmb0=2.73)
+    t_next = cosmo.age(next_sim.simulation.redshift).value
+    prev_ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[iorig+1][-5:]))
+    prev_sim = ozy.load('Groups/'+prev_ozy_name)
+    prev_cosmo = FlatLambdaCDM(H0=prev_sim.simulation.hubble_constant, Om0=prev_sim.simulation.omega_matter, 
+                                    Ob0=prev_sim.simulation.omega_baryon,Tcmb0=2.73)
+    t_prev = cosmo.age(prev_sim.simulation.redshift).value
+    # And compute the weight of the original/middle snapshot
+    tup = 0.5*(t_prev - t_orig)
+    tdown = 0.5*(t_orig - t_next)
+    weights.append(tup+tdown)
     times.append(t_orig)
     indexorig = len(weights)
     # And do the same for just above the original one
@@ -180,24 +271,33 @@ def find_neigh_snaps(simfolder,orig_snap,trange,minsnaps=3,returnweight=False):
         cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
                                         Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
         thubble = cosmo.age(sim.simulation.redshift).value
+        try:
+            prev_ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[i+1][-5:]))
+            prev_sim = ozy.load('Groups/'+prev_ozy_name)
+            prev_cosmo = FlatLambdaCDM(H0=prev_sim.simulation.hubble_constant, Om0=prev_sim.simulation.omega_matter, 
+                                            Ob0=prev_sim.simulation.omega_baryon,Tcmb0=2.73)
+            t_prev = cosmo.age(prev_sim.simulation.redshift).value
+        except:
+            t_prev = t_orig + 0.5*trange
+        next_ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[i-1][-5:]))
+        next_sim = ozy.load('Groups/'+next_ozy_name)
+        next_cosmo = FlatLambdaCDM(H0=next_sim.simulation.hubble_constant, Om0=next_sim.simulation.omega_matter, 
+                                        Ob0=next_sim.simulation.omega_baryon,Tcmb0=2.73)
+        t_next = cosmo.age(next_sim.simulation.redshift).value
         if thubble - t_orig <= 0.5*trange and t_orig < thubble:
             neigh_snaps.append(ozy_name)
-            tdown = 0.5*(thubble - t_orig)
-            tup = (t_orig + 0.5*trange) - thubble
-            weights.append(tup+tdown)
+            tdown = 0.5*(thubble - t_next)
+            tup = 0.5*(t_prev - thubble)
+            weights.append((tup+tdown)/abs(t_orig-thubble))
             times.append(thubble)
         elif thubble - t_orig > 0.5*trange:
             if len(neigh_snaps) <= 2:
                 # In the case that we need to extend a bit further
                 neigh_snaps.append(ozy_name)
-                tup = 0.5*(thubble - t_orig)
+                tup = 0.5*(t_prev - thubble)
                 weights.append(tup)
                 times.append(thubble)
             break
-    # And compute the weight of the original/middle snapshot
-    tup = 0.5*(times[indexorig] - times[indexorig-1])
-    tdown = 0.5*(times[indexorig-1] - times[indexorig-2])
-    weights[indexorig-1] = tup+tdown
     
     # And just go back to original place
     os.chdir(presentpath)
@@ -1053,7 +1153,7 @@ def plot_cooling(cool_file):
     return cooling_data
 
 
-def gent_curve(limit,T):
+def gent_curve_rho(limit,T):
     from unyt import erg,g,K,cm
     s_hot = 23.2e+8 * erg / K / g
     s_cold = 4.4e+8 *  erg / K / g
@@ -1066,6 +1166,20 @@ def gent_curve(limit,T):
         rho = 1.673532784796145e-24 * (T/(np.exp(s_cold/cv)*K)) ** (1/(gamma-1)) * g/cm**3
     
     return rho
+
+def gent_curve_T(limit,rho):
+    from unyt import erg,g,K,cm
+    s_hot = 23.2e+8 * erg / K / g
+    s_cold = 4.4e+8 *  erg / K / g
+    cv = 1.4e+8 * erg / K / g
+    gamma = 5/3
+    T = 0.0
+    if limit == 'hot':
+        T = (np.exp(s_hot/cv)*K) * (rho / (1.673532784796145e-24 * g/cm**3)) ** (gamma-1)
+    elif limit == 'cold':
+        T = (np.exp(s_cold/cv)*K) * (rho / (1.673532784796145e-24 * g/cm**3)) ** (gamma-1)
+    
+    return T
 
 
 def stats_from_pdf(x,PDF):

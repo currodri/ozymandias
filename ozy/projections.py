@@ -1275,6 +1275,128 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=(3,'kpc')
         fig.savefig('plot_comp_facevsedge.png',format='png',dpi=300)
 
 
+def plot_quick_var_projection(prof, field, logscale=True, colorbar=True, colormap=None, smooth=False, type_scale='', 
+    centers=[], renormalise=False):
+    """This function allows the user to directly plot data from the Projection class, bypassing the need for a FITS file
+        NOTE: it is currently set-up for basic/derived HYDRO quantities, the plan is to use this in terms of code units
+        TODO: Extend this to include filters, redshift/snapshot, scalebar, add proper filename convention  as below
+    """
+    # Make required imports
+    from ozy.utils import invert_tick_colours
+    import matplotlib
+    import matplotlib.pyplot as plt
+    import matplotlib.font_manager as fm
+    from mpl_toolkits.axes_grid1 import AxesGrid, make_axes_locatable
+    from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+    from matplotlib.colors import LogNorm,SymLogNorm
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    import seaborn as sns
+    from astropy.convolution import Gaussian2DKernel, convolve
+    import scipy as sp   
+    sns.set(style="dark")
+    plt.rcParams["axes.axisbelow"] = False
+    # plt.rc('text', usetex=True)
+    # plt.rc('font', family='serif')
+    # hfont = {'fontname':'Helvetica'}
+    # matplotlib.rc('text', usetex = True)
+    # matplotlib.rc('font', **{'family' : "serif"})
+    # params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
+    # matplotlib.rcParams.update(params)
+
+    figsize = plt.figaspect(float(7) / float(7))
+    fig = plt.figure(figsize=figsize, facecolor='k', edgecolor='k')
+    fig, ax = plt.subplots(1, 1, figsize=(7,7), dpi=200, facecolor='k', edgecolor='k')
+
+    width_x =  0.675*480
+    width_y =  width_x
+    ex = [-0.5*width_x,0.5*width_x,-0.5*width_y,0.5*width_y]
+    ax.set_xlim([-0.5*width_x,0.5*width_y])
+    ax.set_ylim([-0.5*width_x,0.5*width_y])
+    ax.axes.xaxis.set_visible(False)
+    ax.axes.yaxis.set_visible(False)
+    ax.axis('off')
+    data = prof.data_maps[0][0][0]
+    
+    # TODO: Add a module to give everything the correct unit pre-factors for Ricarda's sims (e.g. below)
+    if renormalise:
+        if field.split('/')[1] == 'density':
+            data *= (2.7629828164946482e-24)
+
+    if field.split('/')[0] == 'star' or field.split('/')[0] == 'dm':
+        plotting_def = plotting_dictionary[field.split('/')[0]+'_'+field.split('/')[1]]
+        stellar = True
+        full_varname = field.split('/')[0]+'_'+field.split('/')[1]
+    else:
+        plotting_def = plotting_dictionary[field.split('/')[1]]
+        full_varname = field.split('/')[1]
+    if colormap == None:
+        colormap = plotting_def['cmap']
+    if smooth:
+        # We smooth with a Gaussian kernel with x_stddev=1 (and y_stddev=1)
+        # It is a 9x9 array
+        kernel = Gaussian2DKernel(x_stddev=0.8)
+        # astropy's convolution replaces the NaN pixels with a kernel-weighted
+        # interpolation from their neighbors
+        cImage = convolve(data.T, kernel)
+        # sigma=3
+        # cImage = sp.ndimage.filters.gaussian_filter(hdul[h].data.T, sigma, mode='constant')
+    else:
+        cImage = data.T
+    print(field,np.nanmin(cImage),np.nanmax(cImage))
+    
+    if logscale and field.split('/')[1] not in symlog_variables:
+        plot = ax.imshow(np.log10(cImage), cmap=colormap,
+                        origin='lower',interpolation='nearest',
+                        extent=ex) #TODO: Add vmin/vmax which actually work
+    elif logscale and field.split('/')[1] in symlog_variables:
+        plot = ax.imshow(cImage, cmap=colormap,
+                        origin='lower',norm=SymLogNorm(linthresh=0.1, linscale=1,
+                        vmin=plotting_def['vmin'+type_scale], vmax=plotting_def['vmax'+type_scale]),
+                        interpolation='nearest', extent=ex) 
+    else:
+        plot = ax.imshow(data.T, cmap=colormap,
+                        origin='lower',interpolation='nearest',
+                        vmin=plotting_def['vmin'+type_scale],vmax=plotting_def['vmax'+type_scale], extent=ex)
+    if colorbar:
+        cbaxes = inset_axes(ax, width="80%", height="5%", loc='lower center')
+        cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
+        if logscale and field.split('/')[1] != 'v_sphere_r':
+            cbar.set_label(plotting_def['label_log'],color=plotting_def['text_over'],fontsize=20,labelpad=-60, y=0.85,weight='bold')
+        else:
+            cbar.set_label(plotting_def['label'],color=plotting_def['text_over'],fontsize=20,labelpad=-10, y=1.25)
+        cbar.ax.xaxis.label.set_font_properties(matplotlib.font_manager.FontProperties(weight='bold',size=15))
+        cbar.ax.tick_params(axis='x', pad=-16, labelsize=13,labelcolor=plotting_def['text_over'])
+        cbar.ax.tick_params(length=0,width=0)
+        invert_tick_colours(ax,#cbar.ax.get_xticks(),cbar.ax.get_xticklabels(),
+                                        full_varname,type_scale)
+
+
+    fontprops = fm.FontProperties(size=20,weight='bold')
+
+    if len(centers) != 0 and len(radii) != 0:
+        for c in range(0, len(centers)):
+            centrecircle = (-centers[c][2]*1000,-centers[c][1]*1000)
+            r = radii[c] * 1000
+            circle = plt.Circle(centrecircle,r,fill=False,edgecolor='w',linestyle='--')
+            ax.add_patch(circle)
+            ax.text(centrecircle[0]+1.1*r, centrecircle[1]+1.1*r, names[c], # Name of object
+                            verticalalignment='bottom', horizontalalignment='left',
+                            color=plotting_def['text_over'], fontsize=10,fontweight='bold')
+        # centrecircle = (-centers[0][2]*1000,-centers[0][1]*1000)
+        # r = radii[0] * 1000
+        # circle = plt.Circle(centrecircle,r,fill=False,edgecolor='w',linestyle='--')
+        # ax.add_patch(circle)
+        # ax.text(centrecircle[0]+1.1*r, centrecircle[1]+1.1*r, names[0], # Name of object
+        #                 verticalalignment='bottom', horizontalalignment='left',
+        #                 color=plotting_def['text_over'], fontsize=10,fontweight='bold')
+        # ax.scatter(-centers[1:][2]*1000,-centers[1:][1]*1000)#,s=0.1,alpha=0.4,facecolor='r')
+
+    fig.subplots_adjust(hspace=0,wspace=0,left=0,right=1, bottom=0, top=1)
+
+    fig.savefig('output_00060'+'_'+field.split('/')[1]+'.png',format='png',dpi=330)
+
+
+
 def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=(3,'kpc'),redshift=True,colorbar=True,
                                 colormap=None, type_scale='',centers=[],radii=[],names=[],filter_name='none',
                                 smooth=False):
