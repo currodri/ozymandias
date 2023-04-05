@@ -1411,10 +1411,10 @@ def plot_quick_var_projection(proj, field, logscale=True, colorbar=True, colorma
 
     fig.subplots_adjust(hspace=0,wspace=0,left=0,right=1, bottom=0, top=1)
 
-    filename = f'{proj.obj.simulation.fullpath[-5:]}'+'_'+field.split('/')[1]+f'_{proj.pov}'
+    filename = f'{proj.obj.simulation.fullpath[-5:]}'+'_'+field.split('/')[1]+f'_{proj.pov}'+'.png'
     if folder_path != None:
-        filname += folder_path
-    filename += '.png'
+        filname = folder_path + filename
+
 
     fig.savefig(filename,format='png',dpi=330)
 

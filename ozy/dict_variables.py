@@ -96,6 +96,7 @@ grid_variables = dict(
     grav_magpfrsphere = {'unit':'dimensionless','neighbour':True},
     grav_magpfrspherepos = {'unit':'dimensionless','neighbour':True},
     grav_magpfrsphereneg = {'unit':'dimensionless','neighbour':True},
+    grav_potential = {'unit': 'code_specific_energy', 'neighbour': False },
     grav_gz = {'unit':'code_specific_energy/code_length','neighbour':False},
     grav_frsphere = {'unit':'code_pressure/code_length','neighbour':False},
     grav_fz = {'unit':'code_pressure/code_length','neighbour':False},
