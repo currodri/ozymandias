@@ -811,6 +811,29 @@ module io_ramses
         case ('magnetic_pressure')
             B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
             value = 0.5 * (B.DOT.B)
+        case ('magnetic_divergence')
+            ! Divergence of magnetic field
+            ! Given by |Div(B)| * dx / |B|
+            dxright = dx; dxleft = dx
+            if (son(1) .ne. 0) dxright = dxright * 1.5D0
+            if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
+            v%x = (var(1,varIDs%Brx) - var(2,varIDs%Blx)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .ne. 0) dxright = dxright * 1.5D0
+            if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
+            v%y = (var(3,varIDs%Bry) - var(4,varIDs%Bly)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .ne. 0) dxright = dxright * 1.5D0
+            if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
+            v%z = (var(5,varIDs%Brz) - var(6,varIDs%Blz)) / (dxright + dxleft)
+            value = v%x + v%y + v%z
+            if (value < 0) value = -value ! Taking the absolute value of
+            B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+            value = value * dx / magnitude(B)   
+        case ('beta')
+            ! Plasma beta as thermal_pressure/magnetic_pressure
+            B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+            value = max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density)) * 2 / (B.DOT.B)
         case ('alfven_speed')
             ! Alfven speed defined as B / sqrt(rho)
             B = (/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
@@ -844,6 +867,7 @@ module io_ramses
             value = var(0,varIDs%Bry)
         case ('B_right_z')
             value = var(0,varIDs%Brz)
+        
         case ('cr_energy')
             ! CR energy, computed as CR_energydensity*volume
             value = ((var(0,varIDs%cr_pressure) / (4D0/3d0 - 1d0)) * (dx*dx)) * dx
