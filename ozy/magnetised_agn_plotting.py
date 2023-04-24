@@ -10,7 +10,7 @@ from mpl_toolkits.axes_grid1 import AxesGrid, make_axes_locatable
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 
-def agn_plots(group, path=None, use_defaults=True, quantities=None, quantity_dicts=None, presentable=False):
+def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, quantity_dicts=None, presentable=False, global_pov='z'):
     """
     Module for quickly plotting all necessary observables for magnetised agn experiments
     NOTES: 
@@ -18,7 +18,7 @@ def agn_plots(group, path=None, use_defaults=True, quantities=None, quantity_dic
     -> These are not designed to be publication/ready, but presentable will make them look nice :)
     """
     
-    width = 3.31 # standard for MNRAS
+    width = 5 # standard for MNRAS
     if presentable:
         plt.rcParams['text.usetex'] = True
         plt.rcParams['lines.linewidth'] = 1
@@ -33,7 +33,6 @@ def agn_plots(group, path=None, use_defaults=True, quantities=None, quantity_dic
 
     obj = group.obj
     if use_defaults:
-        global_pov = 'y' #TODO: Make this a user-parameter
 
         quantity_dicts = {
             '0/0': {
@@ -43,7 +42,7 @@ def agn_plots(group, path=None, use_defaults=True, quantities=None, quantity_dic
                 'weight': ['gas/counts'],
                 'default_plot_dict': True,
                 'colormap': None,
-                'colorbar': False,
+                'colorbar': True,
                 'snapshot': True,
                 'axis_labels': True,  
                 'logscale': True,             
@@ -55,7 +54,7 @@ def agn_plots(group, path=None, use_defaults=True, quantities=None, quantity_dic
                 'weight': ['gas/counts'],
                 'default_plot_dict': True,
                 'colormap': None,
-                'colorbar': False,
+                'colorbar': True,
                 'snapshot': True,
                 'axis_labels': True,  
                 'logscale': True,             
@@ -66,8 +65,8 @@ def agn_plots(group, path=None, use_defaults=True, quantities=None, quantity_dic
                 'quantity': ['gas/magnetic_energy'],
                 'weight': ['gas/counts'],
                 'default_plot_dict': True,
-                'colormap': 'plasma',
-                'colorbar': False,
+                'colormap': None,
+                'colorbar': True,
                 'snapshot': True,
                 'axis_labels': True,  
                 'logscale': True,
@@ -80,7 +79,7 @@ def agn_plots(group, path=None, use_defaults=True, quantities=None, quantity_dic
                 'weight': ['gas/counts'],
                 'default_plot_dict': True,
                 'colormap': None,
-                'colorbar': False,
+                'colorbar': True,
                 'snapshot': True,
                 'axis_labels': True,  
                 'logscale': True,             
@@ -91,25 +90,23 @@ def agn_plots(group, path=None, use_defaults=True, quantities=None, quantity_dic
                 'quantity': ['gas/momentum_sphere_r'],
                 'weight': ['gas/counts'],
                 'default_plot_dict': True,
-                'colormap': 'icefire',
-                'colorbar': False,
+                'colormap': None,
+                'colorbar': True,
                 'snapshot': True,
                 'axis_labels': True,  
                 'logscale': False,
                 'text_color': 'w',             
             },
             '1/2': {
-                'type': 'projection',
+                'type': 'profile',
                 'pov': f'{global_pov}',
-                'quantity': ['gas/thermal_pressure'],
+                'x_var': 'r_sphere',
+                'quantity': [['gas/massflow_rate_sphere_r']],
                 'weight': ['gas/counts'],
-                'default_plot_dict': True,
-                'colormap': 'bone',
-                'colorbar': False,
-                'snapshot': True,
                 'axis_labels': True,  
-                'logscale': True,
-                'text_color': 'w',          
+                'y_log': True,
+                'x_log': False,  
+                'y_abs': True,        
             },
         }
 
@@ -156,24 +153,64 @@ def agn_plots(group, path=None, use_defaults=True, quantities=None, quantity_dic
                 cbaxes = inset_axes(ax[ax_key1, ax_key2], width="80%", height="5%", loc='lower center')
                 cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
                 if quantity_dicts[key]['logscale']:
-                    cbar.set_label(plotting_def['label_log'],color=plotting_def['text_over'],fontsize=10,labelpad=-60, y=0.85,weight='bold')
+                    #cbar.set_label(plotting_def['label_log'],color=plotting_def['text_over'],fontsize=10,labelpad=-20, y=0.85,weight='bold')
+                    plot_label = plotting_def['label_log']
                 else:
-                    cbar.set_label(plotting_def['label'],color=plotting_def['text_over'],fontsize=10,labelpad=-10, y=1.25)
+                    #cbar.set_label(plotting_def['label'],color=plotting_def['text_over'],fontsize=10,labelpad=-20, y=1.25)
+                    plot_label = plotting_def['label']
                 cbar.ax.xaxis.label.set_font_properties(fm.FontProperties(weight='bold',size=5))
-                cbar.ax.tick_params(axis='x', pad=-16, labelsize=13,labelcolor=plotting_def['text_over'])
+                cbar.ax.tick_params(axis='x', pad=-40,labelsize=10,labelcolor=plotting_def['text_over'])
                 cbar.ax.tick_params(length=0,width=0)
 
             fontprops = fm.FontProperties(size=20,weight='bold')
 
             
-            ax[ax_key1, ax_key2].text(0.03, 0.87, f'{full_varname}', # Print field name
+            ax[ax_key1, ax_key2].text(0.03, 0.87, plot_label,#f'{full_varname}', # Print field name
                                 verticalalignment='bottom', horizontalalignment='left',
                                 transform=ax[ax_key1, ax_key2].transAxes,
-                                color=text_color, fontsize=10,fontweight='bold')
+                                color=text_color, fontsize=15,fontweight='bold')
 
         elif  quantity_dicts[key]['type'] == 'profile':
-            print(quantity_dicts[key]['quantity'][0])
-            #compute_profile()
+            print(quantity_dicts[key]['quantity'][0][0])
+            width_x =  0.675*480
+            width_y =  0.675*480
+
+            for q in quantity_dicts[key]['quantity']:
+                prof = compute_profile(group, ozy_file, quantity_dicts[key]['x_var'], q, quantity_dicts[key]['weight'], region_type='sphere', recompute=True, save=False, nbins=100,rmin=(0., 'code_length'), rmax=(0.5, 'code_length'))
+
+                new_x = 0.5*(prof.xdata[0][:-1]+prof.xdata[0][1:])
+                
+                ax_key1 = int(key.split('/')[0]) # which row
+                ax_key2 = int(key.split('/')[1]) # which column
+                field = q[0]
+
+
+                if quantity_dicts[key]['y_abs']:
+                    ax[ax_key1, ax_key2].plot(new_x.in_units('kpc'), np.abs(prof.ydata['hydro'][0][:,0,0]), c='k', label=f"{field.split('/')[1]}")
+                else:
+                    ax[ax_key1, ax_key2].plot(new_x.in_units('kpc'), prof.ydata['hydro'][0][:,0,0], c='k', label=f"{field.split('/')[1]}")
+
+
+            if quantity_dicts[key]['y_log']:
+                ax[ax_key1, ax_key2].set_yscale('log')
+
+            if quantity_dicts[key]['x_log']:
+                ax[ax_key1, ax_key2].set_xscale('log')
+
+            if len(quantity_dicts[key]['quantity']) > 1:
+                ax[ax_key1, ax_key2].legend(frameon=False)
+            else: 
+                ax[ax_key1, ax_key2].set_ylabel(f"{quantity_dicts[key]['quantity'][0][0]}", rotation=270)
+
+            ax[ax_key1, ax_key2].set_xlabel(f"{quantity_dicts[key]['x_var']}")
+
+            ax[ax_key1, ax_key2].yaxis.set_label_position("right")
+            ax[ax_key1, ax_key2].yaxis.tick_right()
+
+        
+
+
+
 
 
     filename =  f'AGN_{obj.simulation.fullpath[-5:]}_{global_pov}'
@@ -182,5 +219,5 @@ def agn_plots(group, path=None, use_defaults=True, quantities=None, quantity_dic
 
     filename += '.png'
 
-    plt.subplots_adjust(wspace=0.)
+    plt.subplots_adjust(wspace=0., hspace=0.)
     plt.savefig(filename, format='png', dpi=330)
