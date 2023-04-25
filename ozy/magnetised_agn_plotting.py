@@ -10,7 +10,7 @@ from mpl_toolkits.axes_grid1 import AxesGrid, make_axes_locatable
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 
-def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, quantity_dicts=None, presentable=False, global_pov='z'):
+def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, quantity_dicts=None, presentable=False, global_pov='z', system_type='AGN', smooth=False):
     """
     Module for quickly plotting all necessary observables for magnetised agn experiments
     NOTES: 
@@ -75,7 +75,7 @@ def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, qu
             '1/1': {
                 'type': 'projection',
                 'pov': f'{global_pov}',
-                'quantity': ['gas/alfven_speed'],
+                'quantity': ['gas/magnetic_divergence'],
                 'weight': ['gas/counts'],
                 'default_plot_dict': True,
                 'colormap': None,
@@ -87,14 +87,14 @@ def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, qu
             '0/2': {
                 'type': 'projection',
                 'pov': f'{global_pov}',
-                'quantity': ['gas/momentum_sphere_r'],
+                'quantity': ['gas/beta'],
                 'weight': ['gas/counts'],
                 'default_plot_dict': True,
                 'colormap': None,
                 'colorbar': True,
                 'snapshot': True,
                 'axis_labels': True,  
-                'logscale': False,
+                'logscale': True,
                 'text_color': 'w',             
             },
             '1/2': {
@@ -114,7 +114,8 @@ def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, qu
         #Computing quantities
         if quantity_dicts[key]['type'] == 'projection':
             print(quantity_dicts[key]['quantity'][0])
-            proj = do_projection(group,quantity_dicts[key]['quantity'], weight=quantity_dicts[key]['weight'], pov=quantity_dicts[key]['pov'])
+            #proj = do_projection(group,quantity_dicts[key]['quantity'], weight=quantity_dicts[key]['weight'], pov=quantity_dicts[key]['pov'])
+            proj = do_projection(group,quantity_dicts[key]['quantity'], weight=quantity_dicts[key]['weight'], pov=quantity_dicts[key]['pov'], rmax=(2, 'kpc'))
 
             width_x =  0.675*480
             width_y =  0.675*480
@@ -128,7 +129,19 @@ def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, qu
             ax[ax_key1, ax_key2].axes.xaxis.set_visible(False)
             ax[ax_key1, ax_key2].axes.yaxis.set_visible(False)
             ax[ax_key1, ax_key2].axis('off')
-            data = (proj.data_maps[0][0][0]).T
+
+            if smooth:
+                # We smooth with a Gaussian kernel with x_stddev=1 (and y_stddev=1)
+                # It is a 9x9 array
+                from astropy.convolution import Gaussian2DKernel, convolve
+                kernel = Gaussian2DKernel(x_stddev=0.8)
+                # astropy's convolution replaces the NaN pixels with a kernel-weighted
+                # interpolation from their neighbors
+                data = convolve((proj.data_maps[0][0][0]).T, kernel)
+                # sigma=3
+                # cImage = sp.ndimage.filters.gaussian_filter(hdul[h].data.T, sigma, mode='constant')
+            else:
+                data = (proj.data_maps[0][0][0]).T
 
 
             
@@ -213,7 +226,7 @@ def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, qu
 
 
 
-    filename =  f'AGN_{obj.simulation.fullpath[-5:]}_{global_pov}'
+    filename =  f'{system_type}_{obj.simulation.fullpath[-5:]}_{global_pov}'
     if path != None:
         filename = path + filename
 

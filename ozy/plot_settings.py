@@ -215,10 +215,15 @@ plotting_dictionary = dict(
     },
     beta = {'cmap': sns.color_palette('light:b', as_cmap=True),
                 'text_over': 'black',
-                'label': r'$`beta$',
-                'label_log': r'$\log_{10}(\beta)$'
+                'label': r'$\beta$',
+                'label_log': r'$\log_{10}(\beta)$',
                 'units': 'dimensionless',
-
+    },
+    magnetic_divergence = {'cmap': 'inferno',
+                'text_over': 'white',
+                'label': r'$\Delta x/|\nabla \cdot B||B|$',
+                'label_log': r'$\log_{10}(\Delta x/|\nabla \cdot B||B|)$',
+                'units': 'dimensionless',
     },
 
     alfven_speed = {'cmap':'swift.red',
