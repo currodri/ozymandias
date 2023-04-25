@@ -24,16 +24,15 @@ symlog_variables = [
 ]
 
 plotting_dictionary = dict(
-    density = {'cmap': 'swift.midnights', #sns.color_palette("mako", as_cmap=True),
+    density = {'cmap': sns.color_palette("mako", as_cmap=True),
                 'text_over':'white',
-                'label':r'$\rho$ [g/cm$^{-3}$]',
-                #'label_log':r'$\log\left(\frac{\rho}{{\rm g cm}^{-3}}\right)$',
-                'label_log':r'$\log\left(\frac{\rm density}{{{\rm baby elephant} {\rm corgi}}^{-3}}\right)$',
+                'label':r'$\rho$ [g/cm$^{3}$]',
+                'label_log':r'$\log\left(\frac{\rho}{{\rm g\,cm}^{-3}}\right)$',
                 'units':'g*cm**-3',
                 'vmin':8e-31,
                 'vmax':7e-22,
-                'bin_min':8e-31,
-                'bin_max':7e-22,
+                'bin_min':1e-30,
+                'bin_max':8e-20,
                 'vmin_galaxy':8e-28,
                 'vmax_galaxy':5e-22,
                 'vmin_cgm':5e-29,
@@ -43,8 +42,8 @@ plotting_dictionary = dict(
     },
     mass = {'cmap':sns.color_palette("mako", as_cmap=True),
             'text_over':'white',
-            'label':r'Mass [M$_{\odot}$]',
-            'label_log':r'$\log$(\frac{Mass}{{\rmM}$_{\odot}$})',
+            'label':r'$M_{\rm gas}$ [M$_{\odot}$]',
+            'label_log':r'$\log$(\frac{M_{\rm gas}}{{\rm M}$_{\odot}$})',
             'units':'Msun',
             'vmin':1,
             'vmax':1e+8,
@@ -114,22 +113,26 @@ plotting_dictionary = dict(
                         'vmax':1e-21,
                         'bin_min':-1e-18,
                         'bin_max':1e-10,
-                        'vmin_galaxy':-1e-35,
-                        'vmax_galaxy':1e-23,
-                        'linthresh':1e-29,
+                        'vmin_galaxy':-1e-26,
+                        'vmax_galaxy':1e-21,
+                        'vmin_cgm':-1e-28,
+                        'vmax_cgm':1e-26,
+                        'linthresh':1e-30,
                         'linscale':1
     },
-    stheatcooling_ratio = {'cmap':'vlag',
+    stheatcooling_ratio = {'cmap':'Spectral',
                         'text_over':'black',
                         'label':r'$\vert \Lambda_{\rm st} / \Lambda_{\rm cool} \vert$',
-                        'label_log':r'$\log(\frac{}{})$',
+                        'label_log':r'$\log(\frac{\Lambda_{\rm st}}{\Lambda_{\rm cool}})$',
                         'units':'dimensionless',
                         'vmin':1e-6,
                         'vmax':1,
                         'bin_min':1e-10,
                         'bin_max':10,
                         'vmin_galaxy':1e-6,
-                        'vmax_galaxy':10
+                        'vmax_galaxy':10,
+                        'vmin_cgm':1e-6,
+                        'vmax_cgm':10
     },
     entropy_specific = {'cmap':'plasma',
                         'text_over':'white',
@@ -146,7 +149,7 @@ plotting_dictionary = dict(
     metallicity = {'cmap':'swift.red_tv',
                     'text_over':'black',
                     'label':r'$Z$ [$Z_{\odot}$]',
-                    'label_log':r'$\log\left(Z/Z_{\odot}\right)$',
+                    'label_log':r'$\log\left(\frac{Z}{Z_{\odot}}\right)$',
                     'units':'dimensionless',
                     'vmin':5e-3,
                     'vmax':1.5,
@@ -210,7 +213,15 @@ plotting_dictionary = dict(
                                 'vmax_cgm':5e-7
 
     },
-    alfven_speed = {'cmap':'swift.evermore',
+    beta = {'cmap': sns.color_palette('light:b', as_cmap=True),
+                'text_over': 'black',
+                'label': r'$`beta$',
+                'label_log': r'$\log_{10}(\beta)$'
+                'units': 'dimensionless',
+
+    },
+
+    alfven_speed = {'cmap':'swift.red',
                         'text_over':'white',
                         'label':r'$v_{\rm A}$ [km s$^{-1}$]',
                         'label_log':r'$\log(\frac{v_{\rm A}}{{\rm km s}^{-1}})$',
@@ -220,7 +231,9 @@ plotting_dictionary = dict(
                         'bin_min':3e-2,
                         'bin_max':5e0,
                         'vmin_galaxy':3,
-                        'vmax_galaxy':60
+                        'vmax_galaxy':60,
+                        'vmin_cgm':3e-2,
+                        'vmax_cgm':5e0,
 
     },
     diffusion_speed = {'cmap':'swift.red',
@@ -246,7 +259,9 @@ plotting_dictionary = dict(
                                 'bin_min':3e-2,
                                 'bin_max':5e0,
                                 'vmin_galaxy':3e-2,
-                                'vmax_galaxy':1
+                                'vmax_galaxy':1,
+                                'vmin_cgm':3e-3,
+                                'vmax_cgm':1e-1
 
     },
     cr_energy = {'cmap':sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),
@@ -273,7 +288,9 @@ plotting_dictionary = dict(
                         'bin_min':7e-18,
                         'bin_max':8e-12,
                         'vmin_galaxy':6e-13,
-                        'vmax_galaxy':8e-10
+                        'vmax_galaxy':8e-10,
+                        'vmin_cgm':7e-15,
+                        'vmax_cgm':3e-11,
 
     },
     cr_temperature_eff = {'cmap':'YlGnBu_r',#sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=False, as_cmap=True),
@@ -705,7 +722,8 @@ plotting_dictionary = dict(
                     'vmax_inflow':20,
                     'vmin_cgm':-180,
                     'vmax_cgm':+210,
-                    'linthresh':10
+                    'linthresh':10,
+                    'linscale':1
     },
     v_cyl_z = {'cmap':sns.color_palette("vlag", as_cmap=True),
                     'text_over':'black',
@@ -929,7 +947,19 @@ plotting_dictionary = dict(
                 'vmax':1,
                 'vmin_galaxy':0.9,
                 'vmax_galaxy':1
-    }
+    },
+    v_cyl_phi = {'cmap':'plasma',
+                'text_over':'white',
+                'label':r'$v_{\phi}^{\rm phi}$',
+                'label_log':r'$v_{\phi}^{\rm phi}$',
+                'units':'km/s',
+                #'vmin':1e-4,
+                #'vmax':0.01,
+                #'vmax_galaxy':0.01,
+                #'bin_min':1e-5,
+                #'vmin_galaxy':1e-4,
+                #'bin_max':10
+    },
 )
 
 circle_dictionary = dict(

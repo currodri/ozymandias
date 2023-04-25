@@ -345,6 +345,8 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,
 
 def check_if_same_profile(hd, profile):
     """This function checks if a profile for an object already exists with the same attributes."""
+    if [profile.group == 'region']:
+        return False, 'none'
     if profile.rm_subs:
         prof_key = '_data/profiles_nosubs/'
     else:
