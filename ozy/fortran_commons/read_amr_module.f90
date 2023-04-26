@@ -817,15 +817,15 @@ module io_ramses
             dxright = dx; dxleft = dx
             if (son(1) .ne. 0) dxright = dxright * 1.5D0
             if (son(2) .ne. 0) dxleft = dxleft * 1.5D0
-            v%x = (var(1,varIDs%Brx) - var(2,varIDs%Blx)) / (dxright + dxleft)
+            v%x = (var(0,varIDs%Brx) - var(0,varIDs%Blx)) / (dxright + dxleft)
             dxright = dx; dxleft = dx
             if (son(3) .ne. 0) dxright = dxright * 1.5D0
             if (son(4) .ne. 0) dxleft = dxleft * 1.5D0
-            v%y =  (var(3,varIDs%Bry) - var(4,varIDs%Bly)) / (dxright + dxleft)
+            v%y =  (var(0,varIDs%Bry) - var(0,varIDs%Bly)) / (dxright + dxleft)
             dxright = dx; dxleft = dx
             if (son(5) .ne. 0) dxright = dxright * 1.5D0
             if (son(6) .ne. 0) dxleft = dxleft * 1.5D0
-            v%z =  (var(5,varIDs%Brz) - var(6,varIDs%Blz)) / (dxright + dxleft)
+            v%z =  (var(0,varIDs%Brz) - var(0,varIDs%Blz)) / (dxright + dxleft)
             B = (/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
             value = abs(v%x + v%y + v%z) * dx / magnitude(B)   
         case ('beta')
@@ -2735,7 +2735,7 @@ module io_ramses
             case ('density')
                 ! Density
                 if (present(dx)) then
-                    value = part%m / (dx%x*dx%y+dx%z)
+                    value = part%m / (dx%x*dx%y*dx%z)
                 else
                     write(*,*)'Can not compute a particle density without cell size!'
                     stop
