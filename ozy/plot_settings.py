@@ -222,7 +222,7 @@ plotting_dictionary = dict(
     magnetic_divergence = {'cmap': 'inferno',
                 'text_over': 'white',
                 'label': r'$\Delta x/|\nabla \cdot B||B|$',
-                'label_log': r'$\log_{10}(\Delta x/|\nabla \cdot B||B|)$',
+                'label_log': r'$\log_{10}(\Delta x|\nabla \cdot B|/|B|)$',
                 'units': 'dimensionless',
     },
 

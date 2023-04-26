@@ -10,7 +10,7 @@ from mpl_toolkits.axes_grid1 import AxesGrid, make_axes_locatable
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 
-def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, quantity_dicts=None, presentable=False, global_pov='z', system_type='AGN', smooth=False):
+def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, quantity_dicts=None, presentable=False, global_pov='z', system_type='AGN', smooth=False, print_snapshot=False):
     """
     Module for quickly plotting all necessary observables for magnetised agn experiments
     NOTES: 
@@ -22,7 +22,7 @@ def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, qu
     if presentable:
         plt.rcParams['text.usetex'] = True
         plt.rcParams['lines.linewidth'] = 1
-        font = {'family' : 'sans', 'weight' : 'normal', 'size'   : 8}
+        font = {'family' : 'sans', 'weight' : 'normal', 'size'   : 12}
         plt.rcParams.update({"font.family": "serif", "pgf.rcfonts": False, "axes.unicode_minus": False})
         plt.rc('font', **font)
         plt.rcParams['axes.edgecolor'] = '0.0'  
@@ -158,7 +158,12 @@ def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, qu
                            
 
             if quantity_dicts[key]['logscale']:
-                data = np.log10(data)
+                if 'beta' in quantity_dicts[key]['quantity'][0]:
+                    data = np.log10(data) + np.log10(np.pi * 4e-7)
+                else:
+                    data = np.log10(data) 
+            
+            
             
             plot = ax[ax_key1, ax_key2].imshow(data, cmap=colormap, origin='lower', interpolation='nearest', extent=ex)
 
@@ -184,6 +189,9 @@ def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, qu
                                 color=text_color, fontsize=15,fontweight='bold')
 
         elif  quantity_dicts[key]['type'] == 'profile':
+
+            #TODO: Add an if/else statement allowing the time-dependent profile to be calculated from read_sink_particle.py 
+
             print(quantity_dicts[key]['quantity'][0][0])
             width_x =  0.675*480
             width_y =  0.675*480
@@ -213,7 +221,7 @@ def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, qu
             if len(quantity_dicts[key]['quantity']) > 1:
                 ax[ax_key1, ax_key2].legend(frameon=False)
             else: 
-                ax[ax_key1, ax_key2].set_ylabel(f"{quantity_dicts[key]['quantity'][0][0]}", rotation=270)
+                ax[ax_key1, ax_key2].set_ylabel(f"{quantity_dicts[key]['quantity'][0][0]}", rotation=270, labelpad= 15)
 
             ax[ax_key1, ax_key2].set_xlabel(f"{quantity_dicts[key]['x_var']}")
 
@@ -221,7 +229,15 @@ def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, qu
             ax[ax_key1, ax_key2].yaxis.tick_right()
 
         
-
+    if print_snapshot:
+        ax[0,0].text(0.03, 1.15, system_type + ' Snapshot: ' + str(group.obj.simulation.fullpath[-5:]),
+            verticalalignment='bottom', horizontalalignment='left',
+            transform=ax[0,0].transAxes,
+            color='k', fontsize=20,fontweight='bold')
+        ax[0,0].text(0.03, 1.05, 'Projection: ' + global_pov,
+            verticalalignment='bottom', horizontalalignment='left',
+            transform=ax[0,0].transAxes,
+            color='k', fontsize=20,fontweight='bold')
 
 
 
