@@ -50,29 +50,16 @@ def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, qu
             '1/0': {
                 'type': 'projection',
                 'pov': f'{global_pov}',
-                'quantity': ['gas/temperature'],
+                'quantity': ['gas/magnetic_magnitude'],
                 'weight': ['gas/counts'],
                 'default_plot_dict': True,
                 'colormap': None,
                 'colorbar': True,
                 'snapshot': True,
                 'axis_labels': True,  
-                'logscale': True,             
-            },
+                'logscale': True,  
+            },           
             '0/1': {
-                'type': 'projection',
-                'pov': f'{global_pov}',
-                'quantity': ['gas/magnetic_energy'],
-                'weight': ['gas/counts'],
-                'default_plot_dict': True,
-                'colormap': None,
-                'colorbar': True,
-                'snapshot': True,
-                'axis_labels': True,  
-                'logscale': True,
-                'text_color': 'w',             
-            },
-            '1/1': {
                 'type': 'projection',
                 'pov': f'{global_pov}',
                 'quantity': ['gas/magnetic_divergence'],
@@ -84,7 +71,7 @@ def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, qu
                 'axis_labels': True,  
                 'logscale': True,             
             },
-            '0/2': {
+            '1/1': {
                 'type': 'projection',
                 'pov': f'{global_pov}',
                 'quantity': ['gas/beta'],
@@ -97,12 +84,25 @@ def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, qu
                 'logscale': True,
                 'text_color': 'w',             
             },
+            '0/2': {
+                'type': 'time_series',
+                'pov': f'{global_pov}',
+                'x_var': 'snapshot',
+                'quantity': 'dMBHoverdt',
+                'snapshots': [98, 99],
+                'axis_labels': True,  
+                'y_log': True,
+                'x_log': False,  
+                'y_abs': True,        
+            },
             '1/2': {
                 'type': 'profile',
                 'pov': f'{global_pov}',
                 'x_var': 'r_sphere',
                 'quantity': [['gas/massflow_rate_sphere_r']],
                 'weight': ['gas/counts'],
+                'colormap': None,
+                'colorbar': True,
                 'axis_labels': True,  
                 'y_log': True,
                 'x_log': False,  
@@ -191,7 +191,7 @@ def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, qu
         elif  quantity_dicts[key]['type'] == 'profile':
 
             #TODO: Add an if/else statement allowing the time-dependent profile to be calculated from read_sink_particle.py 
-
+            #TODO: Add custom labels to plot
             print(quantity_dicts[key]['quantity'][0][0])
             width_x =  0.675*480
             width_y =  0.675*480
@@ -207,9 +207,9 @@ def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, qu
 
 
                 if quantity_dicts[key]['y_abs']:
-                    ax[ax_key1, ax_key2].plot(new_x.in_units('kpc'), np.abs(prof.ydata['hydro'][0][:,0,0]), c='k', label=f"{field.split('/')[1]}")
+                    ax[ax_key1, ax_key2].plot(new_x.in_units('kpc'), np.abs(prof.ydata['hydro'][0][:,0,0]), c='k', label=f"{field.split('/')[1]}", lw=3)
                 else:
-                    ax[ax_key1, ax_key2].plot(new_x.in_units('kpc'), prof.ydata['hydro'][0][:,0,0], c='k', label=f"{field.split('/')[1]}")
+                    ax[ax_key1, ax_key2].plot(new_x.in_units('kpc'), prof.ydata['hydro'][0][:,0,0], c='k', label=f"{field.split('/')[1]}", lw=3)
 
 
             if quantity_dicts[key]['y_log']:
@@ -225,9 +225,47 @@ def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, qu
 
             ax[ax_key1, ax_key2].set_xlabel(f"{quantity_dicts[key]['x_var']}")
 
-            ax[ax_key1, ax_key2].yaxis.set_label_position("right")
-            ax[ax_key1, ax_key2].yaxis.tick_right()
+            if key == '0/2':
+                ax[ax_key1, ax_key2].yaxis.set_label_position("right")
+                ax[ax_key1, ax_key2].yaxis.tick_right()
+                ax[ax_key1, ax_key2].xaxis.set_label_position("top")
+                ax[ax_key1, ax_key2].xaxis.tick_top()
+            elif key == '1/2':
+                ax[ax_key1, ax_key2].yaxis.set_label_position("right")
+                ax[ax_key1, ax_key2].yaxis.tick_right()
+            
 
+        elif  quantity_dicts[key]['type'] == 'time_series':
+
+            from ozy.read_particle import create_new_particle
+
+            sink = create_new_particle(group.obj, 'sink')
+            sink.read_sink_particle_data(snapshots=quantity_dicts[key]['snapshots'], substeps=False)
+
+            value = []
+            for sink_key in sink.mass:
+                if quantity_dicts[key]['quantity'] == 'dMBHoverdt':
+                    value.append(sink.dMBHoverdt[sink_key].v)
+
+            print(quantity_dicts[key]['quantity'])
+            width_x =  0.675*480
+            width_y =  0.675*480
+            ax_key1 = int(key.split('/')[0]) # which row
+            ax_key2 = int(key.split('/')[1]) # which column
+
+            ax[ax_key1, ax_key2].plot(np.array(quantity_dicts[key]['snapshots']), value, c='k', lw=3)
+
+            ax[ax_key1, ax_key2].set_xlabel(f"{quantity_dicts[key]['x_var']}")
+            ax[ax_key1, ax_key2].set_ylabel(f"{quantity_dicts[key]['quantity']}", rotation=270, labelpad= 15)
+
+            if key == '0/2':
+                ax[ax_key1, ax_key2].yaxis.set_label_position("right")
+                ax[ax_key1, ax_key2].yaxis.tick_right()
+                ax[ax_key1, ax_key2].xaxis.set_label_position("top")
+                ax[ax_key1, ax_key2].xaxis.tick_top()
+            elif key == '1/2':
+                ax[ax_key1, ax_key2].yaxis.set_label_position("right")
+                ax[ax_key1, ax_key2].yaxis.tick_right()
         
     if print_snapshot:
         ax[0,0].text(0.03, 1.15, system_type + ' Snapshot: ' + str(group.obj.simulation.fullpath[-5:]),
