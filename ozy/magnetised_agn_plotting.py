@@ -9,7 +9,9 @@ import matplotlib.font_manager as fm
 from mpl_toolkits.axes_grid1 import AxesGrid, make_axes_locatable
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
-
+snaplist = list(np.arange(3,95))
+snaplist.append(98)
+snaplist.append(99)
 def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, quantity_dicts=None, presentable=False, global_pov='z', system_type='AGN', smooth=False, print_snapshot=False):
     """
     Module for quickly plotting all necessary observables for magnetised agn experiments
@@ -89,7 +91,7 @@ def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, qu
                 'pov': f'{global_pov}',
                 'x_var': 'snapshot',
                 'quantity': 'dMBHoverdt',
-                'snapshots': [98, 99],
+                'snapshots': snaplist,
                 'axis_labels': True,  
                 'y_log': True,
                 'x_log': False,  
@@ -266,6 +268,12 @@ def agn_plots(group, ozy_file, path=None, use_defaults=True, quantities=None, qu
             elif key == '1/2':
                 ax[ax_key1, ax_key2].yaxis.set_label_position("right")
                 ax[ax_key1, ax_key2].yaxis.tick_right()
+
+            if quantity_dicts[key]['y_log']:
+                ax[ax_key1, ax_key2].set_yscale('log')
+
+            if quantity_dicts[key]['x_log']:
+                ax[ax_key1, ax_key2].set_xscale('log')
         
     if print_snapshot:
         ax[0,0].text(0.03, 1.15, system_type + ' Snapshot: ' + str(group.obj.simulation.fullpath[-5:]),
