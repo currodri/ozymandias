@@ -19,19 +19,10 @@
 !--------------------------------------------------------------------------
 module io_ramses
     use local
+    use dictionary_commons
     use constants
     use vectors
     use cooling_module
-
-    type hydroID
-        integer :: nvar
-        integer :: density=0,vx=0,vy=0,vz=0,thermal_pressure=0,metallicity=0
-        integer :: Blx=0,Bly=0,Blz=0,Brx=0,Bry=0,Brz=0
-        integer :: cr_pressure=0
-        integer :: xHII=0,xHeII=0,xHeIII=0
-        integer :: dust_density=0
-        integer :: sigma2=0
-    end type hydroID
 
     type amr_info
         integer :: ncpu,ndim,nlevelmax,nboundary,twotondim,ndom
@@ -53,7 +44,7 @@ module io_ramses
         real(dbl) :: h0,t,aexp,unit_l,unit_d,unit_t,unit_m,unit_v,unit_p
         real(dbl) :: boxlen,omega_m,omega_l,omega_k,omega_b
         real(dbl) :: time_tot,time_simu,redshift,T2,nH
-        integer :: n_frw
+        integer :: n_frw, nvar
         real(dbl),dimension(:),allocatable :: aexp_frw,hexp_frw,tau_frw,t_frw
         real(dbl) :: eta_sn=-1D0
         real(dbl) :: Dcr=3D28
@@ -96,7 +87,7 @@ module io_ramses
     ! Define global variables
     type(sim_info) :: sim
     type(amr_info) :: amr
-    type(hydroID)  :: varIDs
+    type(dictf90)  :: varIDs
 
     contains
 
@@ -104,7 +95,7 @@ module io_ramses
         implicit none
 
         character(128),intent(in) ::  repository
-        type(hydroID), intent(inout) :: myvars
+        type(dictf90), intent(inout) :: myvars
 
         call read_hydrofile_descriptor(repository)
         myvars = varIDs
@@ -315,6 +306,8 @@ module io_ramses
         character(3)::igr3
         integer            ::  newID,statn
 
+        if (varIDs%count.ne.0) return 
+
         nomfich=TRIM(repository)//'/hydro_file_descriptor.txt'
         inquire(file=nomfich, exist=ok) ! verify input file
         if ( ok ) then
@@ -332,13 +325,8 @@ module io_ramses
                 stop
             endif
         else
-            write(*,'(": ",A," not found. Initializing variables to default IDs.")') trim(nomfich)
-            varIDs%density = 1
-            varIDs%vx = 2; varIDs%vy  = 3; varIDs%vz  = 4
-            varIDs%Blx  = 5; varIDs%Bly = 6; varIDs%Blz = 7
-            varIDs%Brx  = 8; varIDs%Bry = 9; varIDs%Brz = 10
-            varIDs%thermal_pressure = 11; varIDs%metallicity = 12;
-            varIDs%xHII = 13; varIDs%xHeII = 14; varIDs%xHeIII = 15
+            write(*,'(": ",A," not found. Stopping!")') trim(nomfich)
+            stop
         end if
     end subroutine read_hydrofile_descriptor
 
@@ -364,157 +352,34 @@ module io_ramses
         character(2)::igr2
         character(3)::igr3
         integer            ::  newID,statn
+
         nomfich=TRIM(repository)//'/hydro_file_descriptor.txt'
-        inquire(file=nomfich, exist=ok) ! verify input file
-        if ( ok ) then
-            write(*,'(": Reading variables IDs from hydro_descriptor")')
-            open(unit=10,file=nomfich,status='old',form='formatted')
-            ! read(10,'("nvar        =",I11)')nvar
-            read(10,*) igr9,igr1,igr2
-            read(igr2,*,iostat=statn) nvhydro
-            write(*,*)'nvar=',nvhydro
-            varIDs%nvar = nvhydro
-            if (nvhydro > 9) then
-                nvloop = 9
-            else
-                nvloop = nvhydro
-            end if
-            do i=1,nvloop
-                read(10,*) igr9,igr1,igr1,newVar
-                read(igr1,*,iostat=statn) newID
-                call select_from_descriptor_IDs(newVar,newID)
-            end do
-            if (nvhydro > 10) then
-                do i=nvloop+1,nvhydro
-                    read(10,*) igr8,igr3,newVar
-                    igr3 = igr3(2:3);
-                    read(igr3,*,iostat=statn) newID
-                    call select_from_descriptor_IDs(newVar,newID)
-                end do
-            end if
-            
-            ! varIDs%nvar = nvar
-            ! do i=1,nvar
-            !     read(10,*) igr9,igr1,igr1,newVar
-            !     read(igr1,*,iostat=statn) newID
-            !     call select_from_descriptor_IDs(newVar,newID)
-            ! end do
-            close(10)
+        write(*,'(": Reading variables IDs from hydro_descriptor")')
+        open(unit=10,file=nomfich,status='old',form='formatted')
+        read(10,*) igr9,igr1,igr2
+        read(igr2,*,iostat=statn) nvhydro
+        write(*,*)'nvar=',nvhydro
+        sim%nvar = nvhydro
+        if (nvhydro > 9) then
+            nvloop = 9
         else
-            write(*,'(": ",A," not found. Initializing variables to default IDs.")') trim(nomfich)
-            varIDs%density = 1
-            varIDs%vx = 2; varIDs%vy  = 3; varIDs%vz  = 4
-            varIDs%Blx  = 5; varIDs%Bly = 6; varIDs%Blz = 7
-            varIDs%Brx  = 8; varIDs%Bry = 9; varIDs%Brz = 10
-            varIDs%thermal_pressure = 11; varIDs%metallicity = 12;
-            varIDs%xHII = 13; varIDs%xHeII = 14; varIDs%xHeIII = 15
+            nvloop = nvhydro
         end if
+        do i=1,nvloop
+            read(10,*) igr9,igr1,igr1,newVar
+            read(igr1,*,iostat=statn) newID
+            call varIDs%add(newVar,newID)
+        end do
+        if (nvhydro > 10) then
+            do i=nvloop+1,nvhydro
+                read(10,*) igr8,igr3,newVar
+                igr3 = igr3(2:3);
+                read(igr3,*,iostat=statn) newID
+                call varIDs%add(newVar,newID)
+            end do
+        end if
+        close(10)
     end subroutine read_hydrofile_descriptor_old
-
-
-    subroutine select_from_descriptor_IDs(newVar,newID)
-        implicit none
-        integer,intent(in)           :: newID
-        character(25),intent(in) :: newvar
-        select case (TRIM(newVar))
-        case ('density')
-            varIDs%density = newID
-        case ('velocity_x')
-            varIDs%vx = newID
-        case ('velocity_y')
-            varIDs%vy = newID
-        case ('velocity_z')
-            varIDs%vz = newID
-        case ('B_left_x')
-            varIDs%Blx = newID
-            sim%mhd = .true.
-        case ('B_left_y')
-            varIDs%Bly = newID
-            sim%mhd = .true.
-        case ('B_left_z')
-            varIDs%Blz = newID
-            sim%mhd = .true.
-        case ('B_right_x')
-            varIDs%Brx = newID
-            sim%mhd = .true.
-        case ('B_right_y')
-            varIDs%Bry = newID
-            sim%mhd = .true.
-        case ('B_right_z')
-            varIDs%Brz = newID
-            sim%mhd = .true.
-        case ('B_x_left')
-            varIDs%Blx = newID
-            sim%mhd = .true.
-        case ('B_y_left')
-            varIDs%Bly = newID
-            sim%mhd = .true.
-        case ('B_z_left')
-            varIDs%Blz = newID
-            sim%mhd = .true.
-        case ('B_x_right')
-            varIDs%Brx = newID
-            sim%mhd = .true.
-        case ('B_y_right')
-            varIDs%Bry = newID
-            sim%mhd = .true.
-        case ('B_z_right')
-            varIDs%Brz = newID
-            sim%mhd = .true.
-        case ('thermal_pressure')
-            varIDs%thermal_pressure = newID
-        case ('pressure')
-            varIDs%thermal_pressure = newID
-        case ('non_thermal_pressure_1')
-            write(*,'(": Using non_thermal_pressure_1 as cosmic ray pressure (variable ",I2,")")') newID
-            varIDs%cr_pressure = newID
-            sim%cr = .true.
-        case ('cosmic_ray_01')
-            write(*,'(": Using cosmic_ray_01 as cosmic ray pressure (variable ",I2,")")') newID
-            varIDs%cr_pressure = newID
-            sim%cr = .true.
-        case ('passive_scalar_1')
-            write(*,'(": Using passive_scalar_1 as metallicity (variable ",I2,")")') newID
-            varIDs%metallicity = newID
-        case ('metallicity')
-            varIDs%metallicity = newID
-        case ('passive_scalar_2')
-            write(*,'(": Using passive_scalar_2 as xHII (variable ",I2,")")') newID
-            varIDs%xHII = newID
-        case ('scalar_01')
-            write(*,'(": Using scalar_01 as xHII (variable ",I2,")")') newID
-            varIDs%xHII = newID
-        case ('passive_scalar_3')
-            write(*,'(": Using passive_scalar_3 as xHeII (variable ",I2,")")') newID
-            varIDs%xHeII = newID
-        case ('scalar_02')
-            write(*,'(": Using scalar_02 as xHeII (variable ",I2,")")') newID
-            varIDs%xHeII = newID
-        case ('passive_scalar_4')
-            write(*,'(": Using passive_scalar_4 as xHeIII (variable ",I2,")")') newID
-            varIDs%xHeIII = newID
-        case ('scalar_03')
-            write(*,'(": Using scalar_03 as xHeIII (variable ",I2,")")') newID
-            varIDs%xHeIII = newID
-        case ('xHII')
-            varIDs%xHII = newID
-        case ('xHeII')
-            varIDs%xHeII = newID
-        case ('xHeIII')
-            varIDs%xHeIII = newID
-        case ('H_p1_fraction')
-            varIDs%xHII = newID
-        case ('He_p1_fraction')
-            varIDs%xHeII = newID
-        case ('He_p2_fraction')
-            varIDs%xHeIII = newID
-        case ('dust')
-            sim%dust = .true.
-            varIDs%dust_density = newID
-        case ('sigma2')
-            varIDs%sigma2 = newID
-        end select
-    end subroutine select_from_descriptor_IDs
 
     !---------------------------------------------------------------
     ! Subroutine: READ HYDRO IDs NEW
@@ -535,29 +400,19 @@ module io_ramses
 
         nomfich=TRIM(repository)//'/hydro_file_descriptor.txt'
         inquire(file=nomfich, exist=ok) ! verify input file
-        if ( ok ) then
-            write(*,'(": Reading variables IDs from hydro_descriptor")')
-            open(unit=10,file=nomfich,status='old',form='formatted')
-            read(10,*)
-            read(10,*)
-            do
-                read(10,*,iostat=status)newID,newVar,newType
-                if (status /= 0) exit
-                nvar = nvar + 1
-                call select_from_descriptor_IDs(newVar,newID)
-            end do
-            close(10)
-            write(*,*)'nvar=',nvar
-            varIDs%nvar = nvar
-        else
-            write(*,'(": ",A," not found. Initializing variables to default IDs.")') trim(nomfich)
-            varIDs%density = 1
-            varIDs%vx = 2; varIDs%vy  = 3; varIDs%vz  = 4
-            varIDs%Blx  = 5; varIDs%Bly = 6; varIDs%Blz = 7
-            varIDs%Brx  = 8; varIDs%Bry = 9; varIDs%Brz = 10
-            varIDs%thermal_pressure = 11; varIDs%metallicity = 12;
-            varIDs%xHII = 13; varIDs%xHeII = 14; varIDs%xHeIII = 15
-        end if
+        write(*,'(": Reading variables IDs from hydro_descriptor")')
+        open(unit=10,file=nomfich,status='old',form='formatted')
+        read(10,*)
+        read(10,*)
+        do
+            read(10,*,iostat=status)newID,newVar,newType
+            if (status /= 0) exit
+            nvar = nvar + 1
+            call varIDs%add(newVar,newID)
+        end do
+        close(10)
+        write(*,*)'nvar=',nvar
+        sim%nvar = nvar
     end subroutine read_hydrofile_descriptor_new
 
     !---------------------------------------------------------------
@@ -576,13 +431,13 @@ module io_ramses
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(dbl),dimension(0:amr%twondim,1:varIDs%nvar),intent(in) :: var
+        real(dbl),dimension(0:amr%twondim,1:sim%nvar),intent(in) :: var
         integer,dimension(0:amr%twondim),intent(in) :: son
         character(128),intent(in)                 :: varname
         real(dbl),intent(inout)                       :: value
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:amr%twondim,1:4),optional,intent(in) :: grav_var
-        real(dbl),dimension(0:amr%twondim,1:varIDs%nvar) :: tempvar
+        real(dbl),dimension(0:amr%twondim,1:sim%nvar) :: tempvar
         real(dbl),dimension(0:amr%twondim) :: totP
         integer :: i
         type(vector) :: v,L,B,vst
@@ -1726,7 +1581,7 @@ module io_ramses
         use coordinate_systems
 
         implicit none
-        real(dbl),dimension(0:amr%twondim,1:varIDs%nvar),intent(in) :: var
+        real(dbl),dimension(0:amr%twondim,1:sim%nvar),intent(in) :: var
         real(dbl),intent(out)           :: sigma
 
         logical :: isConvergent
@@ -1895,7 +1750,7 @@ module io_ramses
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(dbl),dimension(0:amr%twondim,1:varIDs%nvar),intent(in) :: var
+        real(dbl),dimension(0:amr%twondim,1:sim%nvar),intent(in) :: var
         character(128),intent(in)                 :: star_maker
         logical,intent(in)  :: use_crs
         real(dbl) :: sf_eff
@@ -3145,7 +3000,7 @@ module filtering
         type(filter), intent(in) :: filt
         real(dbl), intent(in) :: cell_dx
         type(vector), intent(in) :: cell_x
-        real(dbl), dimension(0:amr%twondim,1:varIDs%nvar), intent(in) :: cell_var
+        real(dbl), dimension(0:amr%twondim,1:sim%nvar), intent(in) :: cell_var
         integer,dimension(0:amr%twondim),intent(in) :: cell_son
         real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
         real(dbl),dimension(0:amr%twondim,1:4),intent(in),optional :: grav_var
