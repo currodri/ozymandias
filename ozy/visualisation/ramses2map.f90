@@ -1514,7 +1514,7 @@ module maps
                     ok_sub = .true.
                     xtemp = xtemp + bbox%centre
                     do isub=1,cam%nsubs
-                        ok_sub = ok_sub .and. filter_sub(cam%subs(isub),(/xtemp%x,xtemp%y,xtemp%z/))
+                        ok_sub = ok_sub .and. filter_sub(cam%subs(isub),(/part%x%x,part%x%y,part%x%z/))
                     end do
                     if (.not.ok_sub)npartsub = npartsub + 1
                     ok_part = ok_part .and. ok_sub

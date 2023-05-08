@@ -25,6 +25,11 @@ from numpy.core.fromnumeric import var
 from ozy.utils import RotationAwareAnnotation
 
 sns.set(style="white")
+plt.rcParams.update({
+    "text.usetex": True,
+    "font.family": "serif",
+    "font.serif": "Computer Modern Roman",
+})
 plt.rcParams["axes.axisbelow"] = False
 
 
@@ -102,7 +107,7 @@ def Moster2013(z, mhalo):
         M_star_high = np.load('moster2013_high.npy')
 
     # Label
-    label = 'Moster et al. 2013 \n (z=%.2f)'%z
+    label = 'Moster et al. 2013 \n'+ r'($z=%.2f$)'%z
     return M_star_low,M_star_high,label
 
 def Behroozi2013(z,mhalo):
@@ -194,7 +199,7 @@ def Behroozi2013(z,mhalo):
         M_star_low = np.load('behroozi2013_low.npy')
         M_star_high = np.load('behroozi2013_high.npy')
 
-    label = 'Behroozi et al. 2013 (z=%.2f)'%z
+    label = 'Behroozi et al. 2013'+ r'($z=%.2f$)'%z
 
     return M_star_low,M_star_high,label
 
@@ -300,7 +305,7 @@ def Behroozi2019(z,mhalo):
         M_star_low = np.load('behroozi2019_low.npy')
         M_star_high = np.load('behroozi2019_high.npy')
 
-    label = 'Behroozi et al. 2019 (z=%.2f)'%z
+    label = r'Behroozi et al. 2019 ($z=%.2f$)'%z
 
     return M_star_low,M_star_high,label
 
@@ -321,13 +326,13 @@ if __name__ == '__main__':
 
 
     # Now add all to a simple plot
-    fig, axes = plt.subplots(1, 1,figsize=(7,7), dpi=100, facecolor='w', edgecolor='k')
+    fig, axes = plt.subplots(1, 1,figsize=(7,7), dpi=300, facecolor='w', edgecolor='k')
     ax = axes
-    ax.set_xlabel(r'$M_{\rm vir, DM} [M_{\odot}]$', fontsize=16)
-    ax.set_ylabel(r'$M_{*} [M_{\odot}]$', fontsize=16)
+    ax.set_xlabel(r'$M_{\rm vir, DM}$ [M$_{\odot}$]', fontsize=20)
+    ax.set_ylabel(r'$M_{*}$ [M$_{\odot}$]', fontsize=20)
     ax.set_yscale('log')
     ax.set_xscale('log')
-    ax.tick_params(labelsize=12)
+    ax.tick_params(labelsize=16)
     ax.xaxis.set_ticks_position('both')
     ax.yaxis.set_ticks_position('both')
     ax.minorticks_on()
@@ -345,8 +350,10 @@ if __name__ == '__main__':
         m_model_low,m_model_high,m_label = Moster2013(0.0,mhalo)
 
         ax.fill_between(x=mhalo,y1=m_model_low,y2=m_model_high,color='b',alpha=0.2)
-        ax.plot(mhalo,m_model_low,color='b')
-        ax.plot(mhalo,m_model_high,color='b')
+        ax.plot(mhalo[m_model_low>=1e8],m_model_low[m_model_low>=1e8],color='b')
+        ax.plot(mhalo[m_model_high>=1e8],m_model_high[m_model_high>=1e8],color='b')
+        ax.plot(mhalo[m_model_low<1e8],m_model_low[m_model_low<1e8],color='b',linestyle='--')
+        ax.plot(mhalo[m_model_high<1e8],m_model_high[m_model_high<1e8],color='b',linestyle='--')
         ind = mhalo.searchsorted(1.5e+10)
         ax.text(1.5e+10,0.25*(m_model_high[ind]+m_model_low[ind]), m_label, fontsize=16, color='b',
                 rotation=45,horizontalalignment='center', verticalalignment='center')
@@ -354,8 +361,10 @@ if __name__ == '__main__':
         m_model_low,m_model_high,m_label = Behroozi2019(0.0,mhalo)
 
         ax.fill_between(x=mhalo,y1=m_model_low,y2=m_model_high,color='orange',alpha=0.2)
-        ax.plot(mhalo,m_model_low,color='orange')
-        ax.plot(mhalo,m_model_high,color='orange')
+        ax.plot(mhalo[m_model_low>=1e8],m_model_low[m_model_low>=1e8],color='orange')
+        ax.plot(mhalo[m_model_high>=1e8],m_model_high[m_model_high>=1e8],color='orange')
+        ax.plot(mhalo[m_model_low<1e8],m_model_low[m_model_low<1e8],color='orange',linestyle='--')
+        ax.plot(mhalo[m_model_high<1e8],m_model_high[m_model_high<1e8],color='orange',linestyle='--')
         ind = mhalo.searchsorted(8e+10)
         ax.text(8e+10,0.4*(m_model_high[ind]+m_model_low[ind]), m_label, fontsize=16, color='orange',
                 rotation=40,horizontalalignment='center', verticalalignment='center')
@@ -363,8 +372,10 @@ if __name__ == '__main__':
         m_model_low,m_model_high,m_label = Behroozi2013(0.0,mhalo)
 
         ax.fill_between(x=mhalo,y1=m_model_low,y2=m_model_high,color='orange',alpha=0.2)
-        ax.plot(mhalo,m_model_low,color='orange')
-        ax.plot(mhalo,m_model_high,color='orange')
+        ax.plot(mhalo[m_model_low>=1e8],m_model_low[m_model_low>=1e8],color='orange')
+        ax.plot(mhalo[m_model_high>=1e8],m_model_high[m_model_high>=1e8],color='orange')
+        ax.plot(mhalo[m_model_low<1e8],m_model_low[m_model_low<1e8],color='orange',linestyle='--')
+        ax.plot(mhalo[m_model_high<1e8],m_model_high[m_model_high<1e8],color='orange',linestyle='--')
         ind = mhalo.searchsorted(8e+10)
         ax.text(8e+10,0.4*(m_model_high[ind]+m_model_low[ind]), m_label, fontsize=16, color='orange',
                 rotation=40,horizontalalignment='center', verticalalignment='center')
@@ -372,20 +383,24 @@ if __name__ == '__main__':
         m_model_low,m_model_high,m_label = Moster2013(0.0,mhalo)
 
         ax.fill_between(x=mhalo,y1=m_model_low,y2=m_model_high,color='b',alpha=0.2)
-        ax.plot(mhalo,m_model_low,color='b')
-        ax.plot(mhalo,m_model_high,color='b')
+        ax.plot(mhalo[m_model_low>=1e8],m_model_low[m_model_low>=1e8],color='b')
+        ax.plot(mhalo[m_model_high>=1e8],m_model_high[m_model_high>=1e8],color='b')
+        ax.plot(mhalo[m_model_low<1e8],m_model_low[m_model_low<1e8],color='b',linestyle='--')
+        ax.plot(mhalo[m_model_high<1e8],m_model_high[m_model_high<1e8],color='b',linestyle='--')
         ind = mhalo.searchsorted(6e+10)
-        ax.text(6e+10,0.25*(m_model_high[ind]+m_model_low[ind]), m_label, fontsize=12, color='b',
+        ax.text(7e+10,0.35*(m_model_high[ind]+m_model_low[ind]), m_label, fontsize=20, color='b',
                 rotation=45,horizontalalignment='center', verticalalignment='center')
             
         m_model_low,m_model_high,m_label = Behroozi2013(0.0,mhalo)
 
         ax.fill_between(x=mhalo,y1=m_model_low,y2=m_model_high,color='orange',alpha=0.2)
-        ax.plot(mhalo,m_model_low,color='orange')
-        ax.plot(mhalo,m_model_high,color='orange')
+        ax.plot(mhalo[m_model_low>=1e8],m_model_low[m_model_low>=1e8],color='orange')
+        ax.plot(mhalo[m_model_high>=1e8],m_model_high[m_model_high>=1e8],color='orange')
+        ax.plot(mhalo[m_model_low<1e8],m_model_low[m_model_low<1e8],color='orange',linestyle='--')
+        ax.plot(mhalo[m_model_high<1e8],m_model_high[m_model_high<1e8],color='orange',linestyle='--')
         ind = mhalo.searchsorted(6e+9)
-        ax.text(8e+9,0.5*(m_model_high[ind]+m_model_low[ind]), m_label, fontsize=12, color='orange',
-                rotation=30,horizontalalignment='center', verticalalignment='center')
+        ax.text(1.15e+10,0.9*(m_model_high[ind]+m_model_low[ind]), m_label, fontsize=20, color='orange',
+                rotation=32,horizontalalignment='center', verticalalignment='center')
     for i in range(0, len(args.model)):
         
         if args.model[i][0] != '/':
@@ -435,9 +450,9 @@ if __name__ == '__main__':
             mstar = lambda x: 0.3*x
             ax.plot(mhalo_model,mstar(mhalo_model),linestyle='dashdot',color='k')
             midx = 0.5*(maxmass+minmass)
-            an = RotationAwareAnnotation(r'$M_*=f_{\rm b}M_{\rm DM}$', xy=(10**midx,mstar(1.1*10**midx)), p=(10**(midx+0.5),mstar(1.1*10**(midx+0.5))), ax=ax,
+            an = RotationAwareAnnotation(r'$M_*=f_{\rm b}M_{\rm DM}$', xy=(10**midx,mstar(1.15*10**midx)), p=(10**(midx+0.5),mstar(1.1*10**(midx+0.55))), ax=ax,
                                         xytext=(-1,1), textcoords="offset points", 
-                                        ha="center", va="baseline", fontsize=16)
+                                        ha="center", va="baseline", fontsize=20)
         # Compute conversion fractions just to print to screen (may be useful)
         print(20*'-')
         print('BARYON CONVERSION EFFICIENCY [%]')
@@ -448,16 +463,16 @@ if __name__ == '__main__':
         print(20*'-')
 
     # Plot vertical lines separating redshifts
-    ax.text(4.7e+9,2e+6, 'z=8', fontsize=16, color='k',alpha=0.5)
+    ax.text(4.7e+9,2e+6, r'$z=8$', fontsize=20, color='k',alpha=0.5)
     ax.plot([1e+10,1e+10],[1e6,1e+11],'k--',alpha=0.3) # z=6
-    ax.text(2e+10,2e+6, 'z=6', fontsize=16, color='k',alpha=0.5)
+    ax.text(2e+10,2e+6, r'$z=6$', fontsize=20, color='k',alpha=0.5)
     ax.plot([5e+10,5e+10],[1e6,1e+11],'k--',alpha=0.3) # z=3
-    ax.text(6e+10,2e+6, 'z=3', fontsize=16, color='k',alpha=0.5)
+    ax.text(6e+10,2e+6, r'$z=3$', fontsize=20, color='k',alpha=0.5)
     # ax.plot([4e+9,1e+10],[1e6,1e+11],'k--',alpha=0.3) # z=3.5
     ax.plot([1.2e+11,1.2e+11],[1e6,1e+11],'k--',alpha=0.3) # z=2
-    ax.text(1.7e+11,2e+6, 'z=2', fontsize=16, color='k',alpha=0.5)
+    ax.text(1.7e+11,2e+6, r'$z=2$', fontsize=20, color='k',alpha=0.5)
 
-    fig.subplots_adjust(top=0.91, bottom=0.1,right=0.97,hspace=0.0)
+    fig.subplots_adjust(top=0.97, bottom=0.1,right=0.99,hspace=0.0)
     if args.NUT:
         args.ind = 'NUT'
-    fig.savefig(os.getcwd()+'/smf_'+str(args.ref)+'_'+str(args.ind)+'.png', format='png', dpi=300)
+    fig.savefig(os.getcwd()+'/smf_'+str(args.ref)+'_'+str(args.ind)+'.pdf', format='pdf', dpi=300)

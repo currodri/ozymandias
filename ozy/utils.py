@@ -38,6 +38,67 @@ class RotationAwareAnnotation(mtext.Annotation):
 
     _rotation = property(_get_rotation, _set_rotation)
 
+def most_contrast_rgba(rgba):
+    """
+    Returns the most contrasting RGBA color for a given RGBA color.
+    """
+    # Extract the RGBA components
+    red, green, blue, alpha = rgba
+
+    # Calculate the luminance of the color
+    luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+
+    # Calculate the opposite color
+    opposite_red = 1 - red
+    opposite_green = 1 - green
+    opposite_blue = 1 - blue
+
+    # Calculate the opposite color's luminance
+    opposite_luminance = 0.2126 * opposite_red + 0.7152 * opposite_green + 0.0722 * opposite_blue
+
+    return (opposite_red, opposite_green, opposite_blue, alpha)
+    # # If the luminance of the opposite color is greater, return the opposite color
+    # if opposite_luminance > luminance:
+    #     return (opposite_red, opposite_green, opposite_blue, alpha)
+
+    # # Otherwise, return black or white depending on the luminance of the original color
+    # if luminance < 0.5:
+    #     return (0, 0, 0, alpha) # Black
+    # else:
+    #     return (1, 1, 1, alpha) # White
+
+
+def invert_tick_colours(ax,var,type_scale):
+    from plot_settings import plotting_dictionary, symlog_variables
+    from matplotlib.colors import LogNorm,SymLogNorm
+    from matplotlib import colormaps
+
+    fig = plt.gcf()
+    plotting_def = plotting_dictionary[var]
+    cmap = colormaps.get_cmap(plotting_def['cmap'])
+    ticks_pos = ax.get_xticks()
+    ticks_labels = ax.get_xticklabels()
+    if var not in symlog_variables:
+        norm = LogNorm(vmin=plotting_def['vmin'+type_scale],
+                         vmax=plotting_def['vmax'+type_scale],
+                         clip=True)
+        for tp,tl in zip(ticks_pos,ticks_labels):
+            rgba = cmap(norm(10**tp))
+            new_rgba = most_contrast_rgba(rgba)
+            tl.set_color(new_rgba)
+        fig.canvas.draw()
+    else:
+        norm = SymLogNorm(vmin=plotting_def['vmin'+type_scale],
+                         vmax=plotting_def['vmax'+type_scale],
+                         linthresh=plotting_def['linthresh'],
+                         linscale=plotting_def['linscale'],
+                         clip=True)
+        for tp,tl in zip(ticks_pos,ticks_labels):
+            rgba = cmap(norm(tp))
+            new_rgba = most_contrast_rgba(rgba)
+            tl.set_color(new_rgba)
+        fig.canvas.draw()
+        
 
 def as_si(x, ndp):
     s = '{x:0.{ndp:d}e}'.format(x=x, ndp=ndp)
@@ -152,17 +213,30 @@ def find_neigh_snaps(simfolder,orig_snap,trange,minsnaps=3,returnweight=False):
         cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
                                         Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
         thubble = cosmo.age(sim.simulation.redshift).value
+        try:
+            next_ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[i-1][-5:]))
+            next_sim = ozy.load('Groups/'+next_ozy_name)
+            next_cosmo = FlatLambdaCDM(H0=next_sim.simulation.hubble_constant, Om0=next_sim.simulation.omega_matter, 
+                                            Ob0=next_sim.simulation.omega_baryon,Tcmb0=2.73)
+            t_next = cosmo.age(next_sim.simulation.redshift).value
+        except:
+            t_next = t_orig - 0.5*trange
+        prev_ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[i+1][-5:]))
+        prev_sim = ozy.load('Groups/'+prev_ozy_name)
+        prev_cosmo = FlatLambdaCDM(H0=prev_sim.simulation.hubble_constant, Om0=prev_sim.simulation.omega_matter, 
+                                        Ob0=prev_sim.simulation.omega_baryon,Tcmb0=2.73)
+        t_prev = cosmo.age(prev_sim.simulation.redshift).value
         if t_orig - thubble <= 0.5*trange and t_orig > thubble:
             neigh_snaps.append(ozy_name)
-            tup = 0.5*(t_orig - thubble)
-            tdown = thubble - (t_orig - 0.5*trange)
-            weights.append(tup+tdown)
+            tup = 0.5*(t_prev - thubble)
+            tdown = 0.5*(thubble - t_next)
+            weights.append((tup+tdown)/abs(t_orig-thubble))
             times.append(thubble)
         elif t_orig - thubble > 0.5*trange:
             if len(neigh_snaps) == 0:
                 # In the case that we need to extend a bit further
                 neigh_snaps.append(ozy_name)
-                tup = 0.5*(t_orig - thubble)
+                tup = 0.5*(t_prev - thubble)
                 weights.append(tup)
                 times.append(thubble)
                 trange = 2*tup
@@ -170,7 +244,20 @@ def find_neigh_snaps(simfolder,orig_snap,trange,minsnaps=3,returnweight=False):
     
     # Add original snapshot
     neigh_snaps.append(ozy_orig)
-    weights.append(0.0)
+    next_ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[iorig-1][-5:]))
+    next_sim = ozy.load('Groups/'+next_ozy_name)
+    next_cosmo = FlatLambdaCDM(H0=next_sim.simulation.hubble_constant, Om0=next_sim.simulation.omega_matter, 
+                                    Ob0=next_sim.simulation.omega_baryon,Tcmb0=2.73)
+    t_next = cosmo.age(next_sim.simulation.redshift).value
+    prev_ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[iorig+1][-5:]))
+    prev_sim = ozy.load('Groups/'+prev_ozy_name)
+    prev_cosmo = FlatLambdaCDM(H0=prev_sim.simulation.hubble_constant, Om0=prev_sim.simulation.omega_matter, 
+                                    Ob0=prev_sim.simulation.omega_baryon,Tcmb0=2.73)
+    t_prev = cosmo.age(prev_sim.simulation.redshift).value
+    # And compute the weight of the original/middle snapshot
+    tup = 0.5*(t_prev - t_orig)
+    tdown = 0.5*(t_orig - t_next)
+    weights.append(tup+tdown)
     times.append(t_orig)
     indexorig = len(weights)
     # And do the same for just above the original one
@@ -180,24 +267,33 @@ def find_neigh_snaps(simfolder,orig_snap,trange,minsnaps=3,returnweight=False):
         cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
                                         Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
         thubble = cosmo.age(sim.simulation.redshift).value
+        try:
+            prev_ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[i+1][-5:]))
+            prev_sim = ozy.load('Groups/'+prev_ozy_name)
+            prev_cosmo = FlatLambdaCDM(H0=prev_sim.simulation.hubble_constant, Om0=prev_sim.simulation.omega_matter, 
+                                            Ob0=prev_sim.simulation.omega_baryon,Tcmb0=2.73)
+            t_prev = cosmo.age(prev_sim.simulation.redshift).value
+        except:
+            t_prev = t_orig + 0.5*trange
+        next_ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[i-1][-5:]))
+        next_sim = ozy.load('Groups/'+next_ozy_name)
+        next_cosmo = FlatLambdaCDM(H0=next_sim.simulation.hubble_constant, Om0=next_sim.simulation.omega_matter, 
+                                        Ob0=next_sim.simulation.omega_baryon,Tcmb0=2.73)
+        t_next = cosmo.age(next_sim.simulation.redshift).value
         if thubble - t_orig <= 0.5*trange and t_orig < thubble:
             neigh_snaps.append(ozy_name)
-            tdown = 0.5*(thubble - t_orig)
-            tup = (t_orig + 0.5*trange) - thubble
-            weights.append(tup+tdown)
+            tdown = 0.5*(thubble - t_next)
+            tup = 0.5*(t_prev - thubble)
+            weights.append((tup+tdown)/abs(t_orig-thubble))
             times.append(thubble)
         elif thubble - t_orig > 0.5*trange:
             if len(neigh_snaps) <= 2:
                 # In the case that we need to extend a bit further
                 neigh_snaps.append(ozy_name)
-                tup = 0.5*(thubble - t_orig)
+                tup = 0.5*(t_prev - thubble)
                 weights.append(tup)
                 times.append(thubble)
             break
-    # And compute the weight of the original/middle snapshot
-    tup = 0.5*(times[indexorig] - times[indexorig-1])
-    tdown = 0.5*(times[indexorig-1] - times[indexorig-2])
-    weights[indexorig-1] = tup+tdown
     
     # And just go back to original place
     os.chdir(presentpath)
@@ -437,14 +533,23 @@ def structure_regions(group, position=None, radius=None,
     if add_substructure:
         subs = myhalo.substructure_list
         for s in subs:
-            distance = group.position - s.position
+            # Get halo galaxies
+            sub_gals = s.galaxies
+            position = s.position
+            mysub = s
+            if len(sub_gals) != 0:
+                for sg in sub_gals:
+                    if sg.central:
+                        position = sg.position
+                        mysub = sg
+            distance = group.position - position
             d = group.obj.quantity(np.linalg.norm(distance.to('kpc').d),'kpc')
             if s.npart >= 1000 and d.to('kpc')<=rmax.to('kpc'):
                 try:
                     tr  = s.radius[tidal_method]
                 except:
                     tr = tidal_radius(myhalo,s,method=tidal_method)
-                mysubs.append(init_region(s,'sphere',rmax=(tr.to('kpc'),'kpc'),
+                mysubs.append(init_region(mysub,'sphere',rmax=(tr.to('kpc'),'kpc'),
                             rmin=(0,'kpc')))
                 
     # If asked for every structure in the halo finder, just add all
@@ -1053,7 +1158,7 @@ def plot_cooling(cool_file):
     return cooling_data
 
 
-def gent_curve(limit,T):
+def gent_curve_rho(limit,T):
     from unyt import erg,g,K,cm
     s_hot = 23.2e+8 * erg / K / g
     s_cold = 4.4e+8 *  erg / K / g
@@ -1067,8 +1172,22 @@ def gent_curve(limit,T):
     
     return rho
 
+def gent_curve_T(limit,rho):
+    from unyt import erg,g,K,cm
+    s_hot = 23.2e+8 * erg / K / g
+    s_cold = 4.4e+8 *  erg / K / g
+    cv = 1.4e+8 * erg / K / g
+    gamma = 5/3
+    T = 0.0
+    if limit == 'hot':
+        T = (np.exp(s_hot/cv)*K) * (rho / (1.673532784796145e-24 * g/cm**3)) ** (gamma-1)
+    elif limit == 'cold':
+        T = (np.exp(s_cold/cv)*K) * (rho / (1.673532784796145e-24 * g/cm**3)) ** (gamma-1)
+    
+    return T
 
-def stats_from_pdf(x,PDF):
+
+def stats_from_pdf(varname,x,PDF,xmin,xmax):
     """This function allows a quick computation of summary statistics
         used when normalised PDFs are returned from Ozymandias codes.
     """
@@ -1083,8 +1202,9 @@ def stats_from_pdf(x,PDF):
         return np.zeros(5)
     if any(PDF<0):
         print('This PDF has negative values, so will be ignored!')
+        # print(x,PDF)
         return np.zeros(5)
-    if len(PDF!=0):
+    if len(PDF[PDF!=0])==1:
         print('This PDF is composed of a single bin, so everything will be set to that value!')
         mean = x[PDF!=0][0]
         return np.array([mean,mean,0.0,mean,mean])
@@ -1092,6 +1212,7 @@ def stats_from_pdf(x,PDF):
     CDF = np.cumsum(PDF)
     if CDF[-1] > 1.1 or CDF[-1]<0.9:
         print('Your PDF exceeds/lacks a total integral of 1 by more than 10%. Please check!')
+        # print(x,PDF)
         PDF = PDF/np.sum(PDF)
         CDF = np.cumsum(PDF)
     
@@ -1136,10 +1257,30 @@ def stats_from_pdf(x,PDF):
             median = optimize.brentq(interp_median,min(x),max(x))
             q2 = optimize.brentq(interp_q2,min(x),max(x))
             q4 = optimize.brentq(interp_q4,min(x),max(x))
-
+    if median > xmax or median < xmin:
+        print('The median is out of bounds. Check!')
+        print(varname)
+        print(median,xmax,xmin)
+        print(x[PDF!=0],PDF[PDF!=0])
+        print(x,PDF)
+        # exit(0)
+    if q2 > xmax or q2 < xmin:
+        print('Second quartile is out of bounds. Check!')
+        print(varname)
+        print(q2,xmax,xmin)
+        print(x[PDF!=0],PDF[PDF!=0])
+        # exit(0)
+    if q4 > xmax or q4 < xmin:
+        print('Fourth quartile is out of bounds. Check!')
+        print(varname)
+        print(q4,xmax,xmin)
+        print(x[PDF!=0],PDF[PDF!=0])
+        # exit(0)
     return np.array([mean,median,std,q2,q4])
 
 def pdf_handler_to_stats(obj,pdf_obj,ifilt):
+    from ozy.plot_settings import plotting_dictionary, \
+                                symlog_variables
     # This returns:
     # mean,median,std,q2,q4,minvalue,max_value
     nwvar = pdf_obj.nwvars
@@ -1149,6 +1290,7 @@ def pdf_handler_to_stats(obj,pdf_obj,ifilt):
     # the case, get rid of that last 
     varname = str(pdf_obj.varname.decode("utf-8")).rstrip()
     scaletype = str(pdf_obj.scaletype.decode("utf-8")).rstrip() 
+    plotting_def = plotting_dictionary[varname]
     try:
         numflag = int(varname.split('_')[-1])
         numflag = True
@@ -1159,11 +1301,16 @@ def pdf_handler_to_stats(obj,pdf_obj,ifilt):
         code_units = get_code_units(sfrstr)
     else:
         code_units = get_code_units(varname)
+    # print('ifilt',ifilt,pdf_obj.minv[:],pdf_obj.maxv[:],pdf_obj.minv[ifilt],pdf_obj.maxv[ifilt])
     for i in range(0, nwvar):
         PDF = pdf_obj.heights[ifilt,i,:]
         x = 0.5*(pdf_obj.bins[1:]+pdf_obj.bins[:-1])
         # print(varname,x,PDF,obj.array(np.array([pdf_obj.minv[ifilt],pdf_obj.maxv[ifilt]]),code_units))
-        stats_array[i,:5] = stats_from_pdf(x,PDF)
+        xmin,xmax = pdf_obj.minv[ifilt],pdf_obj.maxv[ifilt]
+        if scaletype == 'log_even':
+            xmin,xmax = np.log10(pdf_obj.minv[ifilt]),np.log10(pdf_obj.maxv[ifilt])
+        stats_array[i,:5] = stats_from_pdf(varname,x,PDF,xmin,xmax)
+        # print(varname,i,x,PDF)
         if not all(stats_array[i,:5]==0.0):
             # Just make sure no empty PDF
             if scaletype == 'log_even':
@@ -1173,6 +1320,9 @@ def pdf_handler_to_stats(obj,pdf_obj,ifilt):
                 new_sigma = np.log(10)*orig_sigma*stats_array[i,0]
                 stats_array[i,2] = new_sigma
             stats_array[i,5:] = np.array([pdf_obj.minv[ifilt],pdf_obj.maxv[ifilt]])
+        elif any(np.isnan(PDF)) and (pdf_obj.minv[ifilt] != 0 or pdf_obj.maxv[ifilt] != 0):
+            print('The limits of the binning may be wrong, because you have valid min and max!')
+            # print(varname,obj.array(np.array([pdf_obj.minv[ifilt],pdf_obj.maxv[ifilt]]),code_units).to(plotting_def['units']),plotting_def['bin_min'],plotting_def['bin_max'])
             
     stats_array = obj.array(stats_array,code_units)
     return stats_array
@@ -1299,8 +1449,8 @@ def get_code_bins(obj,varname,nbins=100,logscale=True):
             bin_edges = np.linspace(np.log10(min_val),np.log10(max_val),nbins+1)
             scaletype = 'log_even'
         else:
-            linthresh = obj.quantity(plotting_def['linthresh'],plotting_def['units'])
-            bin_edges = symlog_bins(min_val,max_val,nbins,zero_eps=linthresh.to(code_units).d)
+            linscale = obj.quantity(plotting_def['linscale'],plotting_def['units'])
+            bin_edges = symlog_bins(min_val,max_val,nbins,zero_eps=linscale.to(code_units).d)
             scaletype = 'symlog'
     else:
         bin_edges = np.linspace(min_val,max_val,nbins+1)

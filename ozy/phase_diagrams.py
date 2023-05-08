@@ -3,7 +3,7 @@ import h5py
 import os
 import ozy
 from unyt import unyt_array,unyt_quantity
-from ozy.utils import init_region,init_filter,gent_curve
+from ozy.utils import init_region,init_filter,gent_curve_T
 from ozy.plot_settings import symlog_variables
 from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units
 # TODO: Allow for parallel computation of phase diagrams.
@@ -301,13 +301,11 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
     import seaborn as sns
     from ozy.plot_settings import plotting_dictionary
     sns.set(style="white")
-    # plt.rc('text', usetex=True)
-    # plt.rc('font', family='serif')
-    # hfont = {'fontname':'Helvetica'}
-    # matplotlib.rc('text', usetex = True)
-    # matplotlib.rc('font', **{'family' : "serif"})
-    # params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
-    # matplotlib.rcParams.update(params)
+    plt.rc('text', usetex=True)
+    plt.rc('font', family='serif')
+    hfont = {'fontname':'Helvetica'}
+    matplotlib.rc('text', usetex = True)
+    matplotlib.rc('font', **{'family' : "serif"})
 
     # Check that the required field is actually in the PhaseDiagram
     if field not in pd.zvars['hydro']:
@@ -429,13 +427,11 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
     import seaborn as sns
     from ozy.plot_settings import plotting_dictionary
     sns.set(style="white")
-    # plt.rc('text', usetex=True)
-    # plt.rc('font', family='serif')
-    # hfont = {'fontname':'Helvetica'}
-    # matplotlib.rc('text', usetex = True)
-    # matplotlib.rc('font', **{'family' : "serif"})
-    # params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
-    # matplotlib.rcParams.update(params)
+    plt.rc('text', usetex=True)
+    plt.rc('font', family='serif')
+    hfont = {'fontname':'Helvetica'}
+    matplotlib.rc('text', usetex = True)
+    matplotlib.rc('font', **{'family' : "serif"})
 
     # How many phase diagram datasets have been provided
     if isinstance(pds,list):
@@ -493,6 +489,7 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
     else:
         print('The layout asked is not allowed. Please check!')
         exit
+    print(layout)
     if layout == 'compact':
         figsize = plt.figaspect(float((5.0 * nrow) / (5.0 * ncol)))
         fig = plt.figure(figsize=2*figsize, facecolor='w',edgecolor='k')
@@ -559,10 +556,31 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
                 y = pd.obj.array(pd.ydata[0].d,code_units_y)
             y = y.in_units(plotting_y['units'])
             code_units_z = get_code_units(field)
-            z = np.array(pd.zdata['hydro'][field_indexes[i]][:,:,weight_indexes[i],0].d,order='F')
+            z = np.array(pd.zdata['hydro'][field_indexes[ipd]][:,:,weight_indexes[ipd],0].d,order='F')
             z = pd.obj.array(z,code_units_z)
+            print(np.nanmin(z).to('erg'),np.nanmax(z).to('erg'))
             sim_z = pd.obj.simulation.redshift
-            if pd.zvars['hydro'][field_indexes[i]].split('/')[-1] in symlog_variables:
+
+            if gent:
+                XX,YY = np.meshgrid(x,y)
+                z_cold = np.sum(z.T[YY<gent_curve_T('cold',XX)])
+                ax[i,j].fill_between([1e-30,8e-20], [gent_curve_T('cold',1e-30),gent_curve_T('cold',8e-20)],
+                                    [1,1],color='b', zorder=1,alpha=0.2)
+                z_warm = np.sum(z.T[(YY>gent_curve_T('cold',XX)) & (YY<gent_curve_T('hot',XX))])
+                ax[i,j].fill_between([1e-30,8e-20], [gent_curve_T('cold',1e-30),gent_curve_T('cold',8e-20)],
+                                    [gent_curve_T('hot',1e-30),gent_curve_T('hot',8e-20)],color='orange', 
+                                    zorder=1,alpha=0.2)
+                ax[i,j].fill_between([1e-30,8e-20], [gent_curve_T('hot',1e-30),gent_curve_T('hot',8e-20)],
+                                [1e8,1e8],color='r', zorder=1,alpha=0.2)
+                z_hot = np.sum(z.T[YY>gent_curve_T('hot',XX)])
+                z_tot = np.sum(z)
+                print(z_cold,z_warm,z_hot)
+                print('Distribution of masses in the Gent phases in %s:'%extra_labels[ipd])
+                print('Cold: %.3f, %.3e'%(100*z_cold/z_tot,z_cold))
+                print('Warm: %.3f, %.3e'%(100*z_warm/z_tot,z_warm))
+                print('Hot: %.3f, %.3e'%(100*z_hot/z_tot, z_hot))
+
+            if pd.zvars['hydro'][field_indexes[ipd]].split('/')[-1] in symlog_variables:
                 plot = ax[i,j].pcolormesh(x,y,
                                     z.in_units(plotting_z['units']).T,
                                     shading='auto',
@@ -606,19 +624,7 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
                 ax[i,j].plot([1e-25,1e-25],[0,2e4],color='k',linewidth=1)
                 ax[i,j].plot([1e-23,1e-23],[0,1e8],color='k',linewidth=1)
             
-            if gent:
-                XX,YY = np.meshgrid(x,y)
-                z_cold = np.sum(z.T[XX>gent_curve('cold',YY)])
-                ax[i,j].plot([gent_curve('cold',2),gent_curve('cold',1e+8)], [2,1e+8],color='b')
-                z_warm = np.sum(z.T[(XX<gent_curve('cold',YY)) & (XX>gent_curve('hot',YY))])
-                ax[i,j].plot([gent_curve('hot',2),gent_curve('hot',1e+8)], [2,1e+8],color='r')
-                z_hot = np.sum(z.T[XX<gent_curve('hot',YY)])
-                z_tot = np.sum(z)
-                print(z_cold,z_warm,z_hot)
-                print('Distribution of masses in the Gent phases in %s:'%extra_labels[ipd])
-                print('Cold: %.3f, %.3e'%(100*z_cold/z_tot,z_cold))
-                print('Warm: %.3f, %.3e'%(100*z_warm/z_tot,z_warm))
-                print('Hot: %.3f, %.3e'%(100*z_hot/z_tot, z_hot))
+            
 
             if stats == 'mean':
                 y_mean = np.zeros(len(x))
@@ -686,7 +692,7 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
                 if doflows:
                     expd_index += 3
                 # Star forming
-                stf = pds[ipd][expd_index]
+                stf = pds[ipd][expd_index].zdata['hydro'][field_indexes[i]][:,:,weight_indexes[i],0]
                 ztot_sf = np.sum(stf)
                 t = np.linspace(0, ztot_sf, n)
                 integral = ((stf >= t[:, None, None]) * stf).sum(axis=(1,2))
@@ -708,23 +714,23 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
                             doflows=False,do_sf=False,layout='compact'):
 
     # Make required imports
+    from astropy.cosmology import FlatLambdaCDM
     import matplotlib
     import matplotlib.pyplot as plt
     import matplotlib.font_manager as fm
     from mpl_toolkits.axes_grid1 import AxesGrid, make_axes_locatable
     from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    import matplotlib.patheffects as pe
     from matplotlib.colors import LogNorm
     import seaborn as sns
     from ozy.plot_settings import plotting_dictionary
     sns.set(style="white")
-    # plt.rc('text', usetex=True)
-    # plt.rc('font', family='serif')
-    # hfont = {'fontname':'Helvetica'}
-    # matplotlib.rc('text', usetex = True)
-    # matplotlib.rc('font', **{'family' : "serif"})
-    # params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
-    # matplotlib.rcParams.update(params)
+    plt.rc('text', usetex=True)
+    plt.rc('font', family='serif')
+    hfont = {'fontname':'Helvetica'}
+    matplotlib.rc('text', usetex = True)
+    matplotlib.rc('font', **{'family' : "serif"})
     
     npds = len(pds)
     # Check that the required field is actually in the PDs provided
@@ -808,11 +814,9 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
                 plotting_y = plotting_dictionary[pd[0].yvar]
             plotting_z = plotting_dictionary[field]
             ax[i,j].set_xlabel(plotting_x['label'],fontsize=18)
-            ax[i,j].tick_params(labelsize=14,direction='in')
             ax[i,j].xaxis.set_ticks_position('both')
-            ax[i,j].yaxis.set_ticks_position('both')
+            ax[i,j].yaxis.set_ticks_position('left')
             ax[i,j].minorticks_on()
-            ax[i,j].tick_params(which='major',axis="both",direction="in")
             ax[i,j].set_xlim([1e-30,8e-20])
             ax[i,j].set_ylim([15,1e+8])
             ax[i,j].set_xscale('log')
@@ -820,15 +824,23 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
             # Get rid of the y-axis labels for the panels in the middle
             # TODO: The ticks should not be only for density and temperature!
             if ipd%2 == 0 and layout == 'compact':
+                ax[i,j].tick_params(labelsize=14)
                 ax[i,j].set_ylabel(plotting_y['label'],fontsize=18)
             elif layout == 'compact':
-                ax[i,j].axes.yaxis.set_visible(False)
+                ax[i,j].tick_params(labelsize=14)
+                ax[i,j].axes.get_yaxis().set_ticks([])
                 ax[i,j].set_xticks([1e-28,1e-26,1e-24,1e-22,1e-20])
             elif ipd != 0 and layout == 'extended':
-                ax[i,j].axes.yaxis.set_visible(False)
+                ax[i,j].set_yticks([1e2,1e3,1e4,1e5,1e6,1e7,1e8])
+                ax[i,j].set_yticklabels([r"",r"$10^3$",r"$10^4$",r"$10^5$",r"$10^6$",r"$10^7$",""])
+                ax[i,j].tick_params(labelsize=14,which='major',axis="y",direction="out")
+                ax[i,j].tick_params(which='minor',axis="y",direction="out")
                 ax[i,j].set_xticks([1e-28,1e-26,1e-24,1e-22,1e-20])
             else:
                 ax[i,j].set_ylabel(plotting_y['label'],fontsize=18)
+                ax[i,j].tick_params(labelsize=14,which='major',axis="y",direction="out")
+                ax[i,j].tick_params(which='minor',axis="y",direction="out")
+
             
             if doflows or do_sf:
                 code_units_x = get_code_units(pd[0][0].xvar)
@@ -837,6 +849,7 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
 
             z = np.zeros((100,100))
             sim_z = np.zeros(len(pd_weight))
+            sim_t = np.zeros(len(pd_weight))
             tot_weight = 0
             for w in range(0, len(pd_weight)):
                 if doflows or do_sf:
@@ -854,31 +867,59 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
                 ztemp = np.array(temp_pd.zdata['hydro'][field_indexes[i]][:,:,weight_indexes[i],0].d,order='F')
                 ztemp = temp_pd.obj.array(ztemp,code_units_z).in_units(plotting_z['units'])
                 z = z + ztemp.d*temp_weight
+                print(extra_labels[ipd],np.nanmin(ztemp.d),np.nanmax(ztemp.d),temp_weight,temp_pd.obj.simulation.redshift)
                 tot_weight = tot_weight + temp_weight
                 sim_z[w] = temp_pd.obj.simulation.redshift
+                h = temp_pd.obj.simulation.hubble_constant
+                cosmo = FlatLambdaCDM(H0=temp_pd.obj.simulation.hubble_constant, Om0=temp_pd.obj.simulation.omega_matter, 
+                                        Ob0=temp_pd.obj.simulation.omega_baryon,Tcmb0=2.73)
+                sim_t[w] = cosmo.age(sim_z[w]).value
             z = z / tot_weight
             XX,YY = np.meshgrid(x,y)
-            delta_z = sim_z.max() - sim_z.min()
+            delta_t = sim_t.max() - sim_t.min()
+            print(extra_labels[ipd],sim_z)
             sim_z = np.mean(sim_z)
+            if gent:
+                XX,YY = np.meshgrid(x,y)
+                z_cold = np.sum(z.T[YY<gent_curve_T('cold',XX)])
+                ax[i,j].fill_between([1e-30,8e-20], [gent_curve_T('cold',1e-30),gent_curve_T('cold',8e-20)],
+                                    [1,1],color='b', zorder=1,alpha=0.2)
+                z_warm = np.sum(z.T[(YY>gent_curve_T('cold',XX)) & (YY<gent_curve_T('hot',XX))])
+                ax[i,j].fill_between([1e-30,8e-20], [gent_curve_T('cold',1e-30),gent_curve_T('cold',8e-20)],
+                                    [gent_curve_T('hot',1e-30),gent_curve_T('hot',8e-20)],color='orange', 
+                                    zorder=1,alpha=0.2)
+                ax[i,j].fill_between([1e-30,8e-20], [gent_curve_T('hot',1e-30),gent_curve_T('hot',8e-20)],
+                                [1e8,1e8],color='r', zorder=1,alpha=0.2)
+                z_hot = np.sum(z.T[YY>gent_curve_T('hot',XX)])
+                z_tot = np.sum(z)
+                print(z_cold,z_warm,z_hot)
+                print('Distribution of masses in the Gent phases in %s:'%extra_labels[ipd])
+                print('Cold: %.3f, %.3e'%(100*z_cold/z_tot,z_cold))
+                print('Warm: %.3f, %.3e'%(100*z_warm/z_tot,z_warm))
+                print('Hot: %.3f, %.3e'%(100*z_hot/z_tot, z_hot))
             if scaletype=='log_even':
                 plot = ax[i,j].pcolormesh(x,y,
                                     z.T,
                                     shading='auto',
                                     cmap=plotting_z['cmap'],
                                     norm=LogNorm(vmin=plotting_z['vmin_galaxy'],
-                                    vmax=plotting_z['vmax_galaxy']))
+                                    vmax=plotting_z['vmax_galaxy']),
+                                    rasterized=True,
+                                    antialiased=True)
             else:
                 plot = ax[i,j].pcolormesh(x,y,
                                     z.T,
                                     shading='auto',
                                     cmap=plotting_z['cmap'],
                                     vmin=plotting_z['vmin'],
-                                    vmax=plotting_z['vmax'])
+                                    vmax=plotting_z['vmax'],
+                                    rasterized=True,
+                                    antialiased=True)
             if redshift:
                 ax[i,j].text(0.05, 0.2, r'$\langle z \rangle = %s$'%str(round(sim_z, 2))+'\n'+
-                                        r'$\delta z = %s$'%str(round(delta_z, 3)),
+                                        r'$\delta t = %s$ Gyr'%str(round(delta_t, 3)),
                             transform=ax[i,j].transAxes, fontsize=16,verticalalignment='top',
-                            color='black')
+                            color='black',path_effects=[pe.withStroke(linewidth=2, foreground="white")])
             if isinstance(extra_labels,list):
                 ax[i,j].text(0.7, 0.9, extra_labels[ipd],
                             transform=ax[i,j].transAxes, fontsize=14,verticalalignment='top',
@@ -898,19 +939,6 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
                 ax[i,j].plot([1e-30,1e-23],[2e4,2e4],color='k',linewidth=1)
                 ax[i,j].plot([1e-25,1e-25],[0,2e4],color='k',linewidth=1)
                 ax[i,j].plot([1e-23,1e-23],[0,1e8],color='k',linewidth=1)
-            
-            if gent:
-                XX,YY = np.meshgrid(x,y)
-                z_cold = np.sum(z.T[XX>gent_curve('cold',YY)])
-                ax[i,j].plot([gent_curve('cold',2),gent_curve('cold',1e+8)], [2,1e+8],color='b')
-                z_warm = np.sum(z.T[(XX<gent_curve('cold',YY)) & (XX>gent_curve('hot',YY))])
-                ax[i,j].plot([gent_curve('hot',2),gent_curve('hot',1e+8)], [2,1e+8],color='r')
-                z_hot = np.sum(z.T[XX<gent_curve('hot',YY)])
-                z_tot = np.sum(z)
-                print('Distribution of masses in the Gent phases:')
-                print('Cold: %.3f, %.3f'%(100*z_cold/z_tot,z_cold))
-                print('Warm: %.3f, %.3f'%(100*z_warm/z_tot,z_warm))
-                print('Hot: %.3f, %.3f'%(100*z_hot/z_tot, z_hot))
 
             if stats == 'mean':
                 y_mean = np.zeros(len(x))
@@ -933,7 +961,7 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
                                         bbox_transform=ax[i,j].transAxes,borderpad=0)
                 cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
                 cbar.set_label(plotting_z['label'],fontsize=20)
-                cbar.ax.tick_params(labelsize=10)
+                cbar.ax.tick_params(labelsize=14)
                 cbaxes.xaxis.set_label_position('top')
                 cbaxes.xaxis.set_ticks_position('top')
             # If we want to include countor for outflows and inflows
@@ -1011,5 +1039,5 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
         if layout == 'compact':
             fig.subplots_adjust(top=0.92,bottom=0.05,left=0.1,right=0.95)
         elif layout == 'extended':
-            fig.subplots_adjust(top=0.85,bottom=0.12,left=0.07,right=0.98)
-        fig.savefig(name+'.png',format='png',dpi=300)
+            fig.subplots_adjust(top=0.83,bottom=0.13,left=0.07,right=0.98)
+        fig.savefig(name+'.pdf',format='pdf',dpi=300)

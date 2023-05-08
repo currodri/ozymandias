@@ -344,6 +344,7 @@ module amr_profiles
             integer :: i,j,k
             integer :: ipos,icpu,ilevel,ind,idim,ivar,iskip,inbor,ison,isub
             integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
+            integer :: total_ncell
             integer :: nvarh
             integer :: roterr
             character(5) :: nchar,ncharcpu
@@ -367,6 +368,7 @@ module amr_profiles
             logical,dimension(:),allocatable :: ref
             type(level),dimension(1:100) :: grid
 
+            total_ncell = 0
             ! Check whether we need to read the gravity files
             read_gravity = .false.
             do ivar=1,prof_data%nyvar
@@ -719,6 +721,7 @@ module amr_profiles
                                                         & prof_data%xdata,prof_data%xvarname)
                                         if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,trans_matrix)
                                     end if
+                                    if (binpos.ne.0)total_ncell = total_ncell + 1
                                 endif
                                 deallocate(tempvar,tempson)
                                 if (read_gravity) deallocate(tempgrav_var)
@@ -733,6 +736,7 @@ module amr_profiles
                     deallocate(grav_var)
                 end if
             end do cpuloop
+            write(*,*)'Total number of cells used: ', total_ncell
         end subroutine get_cells_onedprofile_neigh
 
         subroutine get_cells_onedprofile_fast
@@ -744,7 +748,8 @@ module amr_profiles
             integer :: i,j,k,binpos
             integer :: ipos,icpu,ilevel,ind,idim,ivar,ifilt,isub
             integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
-            integer :: tot_pos,tot_ref,total_ncell
+            integer :: tot_pos,tot_ref,total_ncell,tot_insubs
+            integer :: tot_sel
             integer :: nvarh
             integer :: roterr
             character(5) :: nchar,ncharcpu
@@ -763,6 +768,11 @@ module amr_profiles
             integer,dimension(:),allocatable :: tempson
             logical,dimension(:),allocatable :: ref
 
+            total_ncell = 0
+            tot_pos = 0
+            tot_ref = 0
+            tot_insubs = 0
+            tot_sel = 0
             ! Check whether we need to read the gravity files
             read_gravity = .false.
             do ivar=1,prof_data%nyvar
@@ -983,7 +993,19 @@ module amr_profiles
                                 call rotate_vector(xtemp,trans_matrix)
                                 x(i,:) = xtemp
                                 call checkifinside(x(i,:),reg,ok_cell,distance)
+                                if(ok_cell) tot_pos = tot_pos + 1
+                                if(.not.ref(i)) tot_ref = tot_ref + 1
 
+                                ! If we are avoiding substructure, check whether we are safe
+                                if (prof_data%nsubs>0) then
+                                    ok_sub = .true.
+                                    do isub=1,prof_data%nsubs
+                                        ok_sub = ok_sub .and. filter_sub(prof_data%subs(isub),xorig(i,:))
+                                    end do
+                                    if (.not.ok_sub) tot_insubs = tot_insubs + 1
+                                    ok_cell = ok_cell .and. ok_sub
+                                end if
+                                ok_cell = ok_cell.and.(.not.ref(i))
                                 if (ok_cell) then
                                     ! Transform position to galaxy frame
                                     xtemp = xorig(i,:)
@@ -1015,16 +1037,8 @@ module amr_profiles
                                         ok_filter = filter_cell(reg,filt,xtemp,dx,tempvar,tempson,&
                                                                 &trans_matrix)
                                     end if
-                                    ok_cell= ok_cell.and..not.ref(i).and.ok_filter
-
-                                    ! If we are avoiding substructure, check whether we are safe
-                                    if (prof_data%nsubs>0) then
-                                        ok_sub = .true.
-                                        do isub=1,prof_data%nsubs
-                                            ok_sub = ok_sub .and. filter_sub(prof_data%subs(isub),xorig(i,:))
-                                        end do
-                                        ok_cell = ok_cell .and. ok_sub
-                                    end if
+                                    ok_cell= ok_cell.and.ok_filter
+                                    tot_sel = tot_sel + 1
                                     if (ok_cell) then
                                         binpos = 0
                                         if (read_gravity) then
@@ -1041,6 +1055,7 @@ module amr_profiles
                                                             & prof_data%xdata,prof_data%xvarname)
                                             if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,trans_matrix)
                                         end if
+                                        total_ncell = total_ncell + 1
                                     endif
                                     deallocate(tempvar,tempson)
                                     if (read_gravity) deallocate(tempgrav_var)
@@ -1056,7 +1071,11 @@ module amr_profiles
                 close(10)
                 close(11)
             end do cpuloop
-
+        write(*,*)'Total number of cells used: ', total_ncell
+        write(*,*)'Total number of cells in region and refined: ', tot_sel
+        write(*,*)'Total number of cells refined: ', tot_ref
+        write(*,*)'Total number of cells in region: ', tot_pos
+        write(*,*)'Total number of cells in substructures: ', tot_insubs
         end subroutine get_cells_onedprofile_fast
     end subroutine onedprofile
 

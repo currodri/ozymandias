@@ -54,11 +54,13 @@ class Profile(object):
                     elif isinstance(vd, list):
                         hdd.create_dataset('conditions', data=vd, compression=1)
     def _get_python_region(self,reg):
-        """Save the Fortran derived type as a dictionary inside the Profile class (only the necessary info)."""
+        """Save the Fortran derived type as a dictionary inside the GalacticFlow class (only the necessary info)."""
         self.region = {}
         self.region['type'] = reg.name.decode().split(' ')[0]
-        self.region['centre'] = self.group.obj.array([reg.centre.x, reg.centre.y, reg.centre.z], 'code_length')
-        self.region['axis'] = self.group.obj.array([reg.axis.x, reg.axis.y, reg.axis.z], 'dimensionless')
+        self.region['centre'] = self.obj.array([reg.centre.x, reg.centre.y, reg.centre.z], 'code_length')
+        self.region['axis'] = self.obj.array([reg.axis.x, reg.axis.y, reg.axis.z], 'dimensionless')
+        self.region['rmin'] = self.obj.quantity(reg.rmin, 'code_length')
+        self.region['rmax'] = self.obj.quantity(reg.rmax, 'code_length')
     
     def _get_python_filter(self,filt):
         """Save the Fortran derived type as a dictionary inside the Profile class (only the necessary info)."""
@@ -151,6 +153,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,
         raise KeyError("Having particle vs grid 1D profiles is not well-defined.")
     
     # Now create region
+    
     if isinstance(region_type, geo.region):
         selected_reg = region_type
         enclosing_sphere_r = rmax
@@ -178,10 +181,8 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,
                                                                          rmax=rmax,zmin=zmin,zmax=zmax,
                                                                          return_enclosing_sphere=True)
         
-    
     # Save region details to profile object
     prof._get_python_region(selected_reg)
-
     # Now create filter, if any conditions have been given…
     filt = init_filter(filter_conds, filter_name, group)
 
@@ -229,6 +230,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,lmax=0,nbins=100,
                                     radius=enclosing_sphere_r)
         nsubs = len(subs)
     elif remove_subs:
+        print('Removing substructure!')
         subs = structure_regions(group, add_substructure=True, add_neighbours=False,
                                     tidal_method='BT87_simple')
         nsubs = len(subs)

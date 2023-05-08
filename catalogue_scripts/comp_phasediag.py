@@ -42,7 +42,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='COMPARE PHASE DIAGRAMS')
     parser.add_argument('type', type=str, default='model', help='Comparison option.')
     parser.add_argument('--ind', type=int, default=0, nargs='+', help='Index of the galaxy at the desired redshift.')
-    parser.add_argument('--z', type=float, default=3.0, nargs='+', help='Redshift at which compare.')
+    parser.add_argument('--z', type=float, default=[3.0], nargs='+', help='Redshift at which compare.')
     parser.add_argument('--model', type=str, nargs='+', help='Model names to compare.')
     parser.add_argument('--region',type=str, default='galaxy',help='Region from where to extract data.')
     parser.add_argument('--xvar', type=str, default='density', help='Horizontal axis variable.')
@@ -141,18 +141,34 @@ if __name__ == '__main__':
                                 [args.weight],save=True,recompute=args.recompute, filter_conds='v_sphere_r/>=/%.3f/km*s**-1'%v_escape, filter_name='escaping'+'_'+args.region,
                                 rmin=rmin,rmax=rmax,scaletype=args.scaletype,
                                 cr_st = cr_flags[0],cr_heat=cr_flags[1])
+                if args.do_sf:
+                    if sim.simulation.physics['magnetic'] or sim.simulation.physics['cr']:
+                        sf_model = 'eff_FKmag'
+                    else:
+                        sf_model = 'eff_FK2'
+                    condition_sf = sf_model+'/>=/%.3f/dimensionless'%args.sfeff
+                    print(condition_sf)
+                    starforming = compute_phase_diagram(gal,os.path.join(groupspath, ozyfile), args.xvar,args.yvar, [args.field],
+                                    [args.weight],save=True,recompute=args.recompute, filter_conds=condition_sf, filter_name='starforming'+'_'+args.region,
+                                    rmin=rmin,rmax=rmax,scaletype=args.scaletype,
+                                    cr_st = cr_flags[0],cr_heat=cr_flags[1])
                 pd = compute_phase_diagram(gal,os.path.join(groupspath, ozyfile), args.xvar,args.yvar, [args.field],
                             [args.weight],save=True,recompute=args.recompute,rmin=rmin,rmax=rmax,filter_name=args.region,scaletype=args.scaletype,
                             cr_st = cr_flags[0],cr_heat=cr_flags[1])
-                if args.doflows:
+                if args.doflows and args.do_sf:
+                    pds.append([pd,outflow,inflow,escape,starforming])
+                elif args.doflows:
                     pds.append([pd,outflow,inflow,escape])
+                elif args.do_sf:
+                    pds.append([pd,starforming])
                 else:
                     pds.append(pd)
                 os.chdir(origfolder)
             namephase = '_'+args.xvar+'_'+args.yvar+'_'
+            labels = [names[m] for m in args.model]
             plot_compare_phase_diagram(pds,args.field.split('/')[1],'compare_pd'+namephase+args.region+'_'+args.field.split('/')[1]+'_'+str(args.z[z]),
-                                        weightvar=args.weight.split('/')[1],stats=args.stats,extra_labels=args.model,
-                                        doflows=args.doflows,scaletype=args.scaletype)
+                                        weightvar=args.weight.split('/')[1],stats=args.stats,extra_labels=labels,
+                                        doflows=args.doflows,do_sf=args.do_sf,layout=args.layout,gent=True)
             args.model = simfolders
     elif args.type == 'model_stacked':
         if not isinstance(args.model, list):

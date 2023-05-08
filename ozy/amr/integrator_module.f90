@@ -569,6 +569,7 @@ module amr_integrator
             integer :: ipos,icpu,ilevel,ind,idim,ivar,ifilt,iskip,inbor,ison,isub
             integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
             integer :: tot_pos,tot_ref,total_ncell,tot_insubs
+            integer :: tot_sel
             integer :: nvarh
             integer :: roterr
             character(5) :: nchar,ncharcpu
@@ -597,6 +598,7 @@ module amr_integrator
             tot_pos = 0
             tot_ref = 0
             tot_insubs = 0
+            tot_sel = 0
 
             ! Obtain details of the hydro variables stored
             call read_hydrofile_descriptor(repository)
@@ -882,6 +884,7 @@ module amr_integrator
                                             son(ison) = son(ind_cell(i))
                                         end do
                                         son(ind_cell(i)) = 0
+                                        ref(i) = son(ind_cell(i))>0.and.ilevel<amr%lmax
                                     end if
                                     deallocate(son_dens)
                                 end if
@@ -922,7 +925,7 @@ module amr_integrator
                                 if (read_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(0),:)
                                 tempvar(0,varIDs%vx:varIDs%vz) = vtemp
                                 if (read_gravity) tempgrav_var(0,2:4) = gtemp
-                                do inbor=0,amr%twondim
+                                do inbor=1,amr%twondim
                                     tempvar(inbor,:) = var(ind_nbor(inbor),:)
                                     tempson(inbor)       = son(ind_nbor(inbor))
                                     if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(inbor),:)
@@ -938,6 +941,7 @@ module amr_integrator
                                     if (.not.ok_sub) tot_insubs = tot_insubs + 1
                                     ok_cell = ok_cell .and. ok_sub
                                 end if
+                                if(ok_cell.and..not.ref(i))tot_sel = tot_sel + 1
                                 filterloop: do ifilt=1,attrs%nfilter
                                     if (read_gravity) then
                                         ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx,tempvar,&
@@ -948,7 +952,7 @@ module amr_integrator
                                     end if
                                     ok_cell_each= ok_cell.and..not.ref(i).and.ok_filter
                                     if (ok_cell_each) then
-                                        total_ncell = total_ncell + 1
+                                        if (ifilt.eq.1) total_ncell = total_ncell + 1
                                         if (read_gravity) then
                                             call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt,trans_matrix,tempgrav_var)
                                         else
@@ -976,6 +980,7 @@ module amr_integrator
             call renormalise(attrs)
 
             write(*,*)'Total number of cells used: ', total_ncell
+            write(*,*)'Total number of cells in region and refined: ', tot_sel
             write(*,*)'Total number of cells refined: ', tot_ref
             write(*,*)'Total number of cells in region: ', tot_pos
             write(*,*)'Total number of cells in substructures: ', tot_insubs
