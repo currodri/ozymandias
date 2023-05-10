@@ -354,24 +354,26 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
     print(field,np.nanmin(z).in_units(plotting_z['units']),np.nanmax(z).in_units(plotting_z['units']))
     sim_z = pd.obj.simulation.redshift
     if logscale:
-        if field not in symlog_variables:
+        if field in symlog_variables:
             plot = ax.pcolormesh(x,y,
-                                z[:,:,0].in_units(plotting_z['units']).T,
+                                z[:,:,0].in_units(plotting_z['units']).T.d,
                                 shading='auto',
                                 cmap=plotting_z['cmap'],
-                                norm=LogNorm(vmin=plotting_z['vmin'],
-                                vmax=plotting_z['vmax']))
+                                norm=SymLogNorm(linthresh=plotting_z['linthresh'],
+                                linscale=plotting_z['linscale'],
+                                vmin=plotting_z['vmin_galaxy'],
+                                vmax=plotting_z['vmax_galaxy'],
+                                base=10))
         else:
             plot = ax.pcolormesh(x,y,
-                                z[:,:,0].in_units(plotting_z['units']).T,
+                                z[:,:,0].in_units(plotting_z['units']).T.d,
                                 shading='auto',
                                 cmap=plotting_z['cmap'],
-                                norm=SymLogNorm(vmin=plotting_z['vmin'],
-                                vmax=plotting_z['vmax'],linthresh=plotting_z['linthresh'],
-                                linscale=plotting_z['linscale'],))
+                                norm=LogNorm(vmin=plotting_z['vmin_galaxy'],
+                                vmax=plotting_z['vmax_galaxy']))
     else:
         plot = ax.pcolormesh(x,y,
-                            z[:,:,0].in_units(plotting_z['units']).T,
+                            z[:,:,0].in_units(plotting_z['units']).T.d,
                             shading='auto',
                             cmap=plotting_z['cmap'],
                             vmin=plotting_z['vmin'],
@@ -558,7 +560,7 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
             code_units_z = get_code_units(field)
             z = np.array(pd.zdata['hydro'][field_indexes[ipd]][:,:,weight_indexes[ipd],0].d,order='F')
             z = pd.obj.array(z,code_units_z)
-            print(np.nanmin(z).to('erg'),np.nanmax(z).to('erg'))
+            print(field,np.nanmin(z).to(plotting_z['units']),np.nanmax(z).to(plotting_z['units']))
             sim_z = pd.obj.simulation.redshift
 
             if gent:

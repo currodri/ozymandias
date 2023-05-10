@@ -364,7 +364,7 @@ module amr_profiles
             integer,dimension(:,:),allocatable :: nbor
             integer,dimension(:),allocatable :: son,tempson,iig
             integer,dimension(:),allocatable :: ind_cell,ind_cell2
-            integer ,dimension(0:amr%twondim) :: ind_nbor
+            integer ,dimension(1,0:amr%twondim) :: ind_nbor
             logical,dimension(:),allocatable :: ref
             type(level),dimension(1:100) :: grid
 
@@ -503,31 +503,25 @@ module amr_profiles
                                 grid(ilevel)%ngrid = ngridfile(j,ilevel)
                             end if
 
+                            
                             ! Read grid center
                             do idim=1,amr%ndim
                                 read(10)xxg
-                                do i=1,ngrida
-                                    grid(ilevel)%xg(i,idim) = xxg(i)
-                                end do
+                                grid(ilevel)%xg(:,idim) = xxg(:)
                             end do
-
+                            
                             read(10) ! Skip father index
                             ! Read nbor index
                             do ind=1,amr%twondim
                                 read(10)iig
-                                do i=1,ngrida
-                                    nbor(grid(ilevel)%ind_grid(i),ind) = iig(i)
-                                end do
+                                nbor(grid(ilevel)%ind_grid(:),ind) = iig(:)
                             end do
                             ! Read son index
                             do ind=1,amr%twotondim
                                 iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                                 read(10)iig
-                                do i=1,ngrida
-                                    son(grid(ilevel)%ind_grid(i)+iskip) = iig(i)
-                                end do
+                                son(grid(ilevel)%ind_grid(:)+iskip) = iig(:)
                             end do
-
                             ! Skip cpu map
                             do ind=1,amr%twotondim
                                 read(10)
@@ -538,7 +532,6 @@ module amr_profiles
                                 read(10)
                             end do
                         endif
-
                         ! Read HYDRO data
                         read(11)
                         read(11)
@@ -548,9 +541,7 @@ module amr_profiles
                                 iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                                 varloop: do ivar=1,nvarh
                                     read(11)xxg
-                                    do i=1,ngrida
-                                        var(grid(ilevel)%ind_grid(i)+iskip,ivar) = xxg(i)
-                                    end do
+                                    var(grid(ilevel)%ind_grid(:)+iskip,ivar) = xxg(:)
                                 end do varloop
                             end do tndimloop
                         endif
@@ -563,14 +554,10 @@ module amr_profiles
                                 do ind=1,amr%twotondim
                                     iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                                     read(12)xxg
-                                    do i=1,ngrida
-                                        grav_var(grid(ilevel)%ind_grid(i)+iskip,1) = xxg(i)
-                                    end do
+                                    grav_var(grid(ilevel)%ind_grid(:)+iskip,1) = xxg(:)
                                     do ivar=1,amr%ndim
                                         read(12)xxg
-                                        do i=1,ngrida
-                                            grav_var(grid(ilevel)%ind_grid(i)+iskip,ivar+1) = xxg(i)
-                                        end do
+                                        grav_var(grid(ilevel)%ind_grid(:)+iskip,ivar+1) = xxg(:)
                                     end do
                                 end do
                             end if
@@ -630,22 +617,6 @@ module amr_profiles
                             ! Check if cell is refined
                             do i=1,ngrida
                                 ref(i) = son(ind_cell(i))>0.and.ilevel<amr%lmax
-                                ! Look for cells that just got refined and de-refine them
-                                if (ref(i)) then
-                                    allocate(son_dens(1:amr%twotondim))
-                                    do inbor=1,amr%twotondim
-                                        ison = son(ind_cell(i)) + amr%ncoarse+(inbor-1)*amr%ngridmax
-                                        son_dens(inbor) = var(ison,1)
-                                    end do
-                                    if (all(son_dens == var(ind_cell(i),1))) then
-                                        do inbor=1,amr%twotondim
-                                            ison = son(ind_cell(i)) + amr%ncoarse+(inbor-1)*amr%ngridmax
-                                            son(ison) = son(ind_cell(i))
-                                        end do
-                                        son(ind_cell(i)) = 0
-                                    end if
-                                    deallocate(son_dens)
-                                end if
                             end do          
                             xorig = x
                             ngridaloop: do i=1,ngrida
@@ -677,16 +648,16 @@ module amr_profiles
                                 allocate(tempson(0:amr%twondim))
                                 if (read_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
                                 ! Just correct central cell vectors for the region
-                                tempvar(0,:) = var(ind_nbor(0),:)
-                                tempson(0)       = son(ind_nbor(0))
-                                if (read_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(0),:)
+                                tempvar(0,:) = var(ind_nbor(1,0),:)
+                                tempson(0)       = son(ind_nbor(1,0))
+                                if (read_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
                                 tempvar(0,varIDs%vx:varIDs%vz) = vtemp
                                 if (read_gravity) tempgrav_var(0,2:4) = gtemp
 
                                 do inbor=1,amr%twondim
-                                    tempvar(inbor,:) = var(ind_nbor(inbor),:)
-                                    tempson(inbor)       = son(ind_nbor(inbor))
-                                    if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(inbor),:)
+                                    tempvar(inbor,:) = var(ind_nbor(1,inbor),:)
+                                    tempson(inbor)       = son(ind_nbor(1,inbor))
+                                    if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(1,inbor),:)
                                 end do
                                 if (read_gravity) then
                                     ok_filter = filter_cell(reg,filt,xtemp,dx,tempvar,tempson,&
@@ -1142,7 +1113,7 @@ module amr_profiles
         integer,dimension(:,:),allocatable :: nbor
         integer,dimension(:),allocatable :: son,tempson,iig
         integer,dimension(:),allocatable :: ind_cell,ind_cell2
-        integer ,dimension(0:amr%twondim) :: ind_nbor
+        integer ,dimension(1,0:amr%twondim) :: ind_nbor
         logical,dimension(:),allocatable :: ref
         type(level),dimension(1:100) :: grid
 
@@ -1280,28 +1251,21 @@ module amr_profiles
                         ! Read grid center
                         do idim=1,amr%ndim
                             read(10)xxg
-                            do i=1,ngrida
-                                grid(ilevel)%xg(i,idim) = xxg(i)
-                            end do
+                            grid(ilevel)%xg(:,idim) = xxg(:)
                         end do
-
+                        
                         read(10) ! Skip father index
                         ! Read nbor index
                         do ind=1,amr%twondim
                             read(10)iig
-                            do i=1,ngrida
-                                nbor(grid(ilevel)%ind_grid(i),ind) = iig(i)
-                            end do
+                            nbor(grid(ilevel)%ind_grid(:),ind) = iig(:)
                         end do
                         ! Read son index
                         do ind=1,amr%twotondim
                             iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                             read(10)iig
-                            do i=1,ngrida
-                                son(grid(ilevel)%ind_grid(i)+iskip) = iig(i)
-                            end do
+                            son(grid(ilevel)%ind_grid(:)+iskip) = iig(:)
                         end do
-
                         ! Skip cpu map
                         do ind=1,amr%twotondim
                             read(10)
@@ -1321,9 +1285,7 @@ module amr_profiles
                             iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                             varloop: do ivar=1,nvarh
                                 read(11)xxg
-                                do i=1,ngrida
-                                    var(grid(ilevel)%ind_grid(i)+iskip,ivar) = xxg(i)
-                                end do
+                                var(grid(ilevel)%ind_grid(:)+iskip,ivar) = xxg(:)
                             end do varloop
                         end do tndimloop
                     endif
@@ -1336,14 +1298,10 @@ module amr_profiles
                             do ind=1,amr%twotondim
                                 iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                                 read(12)xxg
-                                do i=1,ngrida
-                                    grav_var(grid(ilevel)%ind_grid(i)+iskip,1) = xxg(i)
-                                end do
+                                grav_var(grid(ilevel)%ind_grid(:)+iskip,1) = xxg(:)
                                 do ivar=1,amr%ndim
                                     read(12)xxg
-                                    do i=1,ngrida
-                                        grav_var(grid(ilevel)%ind_grid(i)+iskip,ivar+1) = xxg(i)
-                                    end do
+                                    grav_var(grid(ilevel)%ind_grid(:)+iskip,ivar+1) = xxg(:)
                                 end do
                             end do
                         end if
@@ -1397,22 +1355,6 @@ module amr_profiles
                         ! Check if cell is refined
                         do i=1,ngrida
                             ref(i) = son(ind_cell(i))>0.and.ilevel<amr%lmax
-                            ! Look for cells that just got refined and de-refine them
-                            if (ref(i)) then
-                                allocate(son_dens(1:amr%twotondim))
-                                do inbor=1,amr%twotondim
-                                    ison = son(ind_cell(i)) + amr%ncoarse+(inbor-1)*amr%ngridmax
-                                    son_dens(inbor) = var(ison,1)
-                                end do
-                                if (all(son_dens == var(ind_cell(i),1))) then
-                                    do inbor=1,amr%twotondim
-                                        ison = son(ind_cell(i)) + amr%ncoarse+(inbor-1)*amr%ngridmax
-                                        son(ison) = son(ind_cell(i))
-                                    end do
-                                    son(ind_cell(i)) = 0
-                                end if
-                                deallocate(son_dens)
-                            end if
                         end do
                         ngridaloop: do i=1,ngrida
                             ! Check if cell is inside the desired region
@@ -1442,15 +1384,15 @@ module amr_profiles
                             allocate(tempson(0:amr%twondim))
                             if (read_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
                             ! Just correct central cell vectors for the region
-                            tempvar(0,:) = var(ind_nbor(0),:)
-                            tempson(0)       = son(ind_nbor(0))
-                            if (read_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(0),:)
+                            tempvar(0,:) = var(ind_nbor(1,0),:)
+                            tempson(0)       = son(ind_nbor(1,0))
+                            if (read_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
                             tempvar(0,varIDs%vx:varIDs%vz) = vtemp
                             if (read_gravity) tempgrav_var(0,2:4) = gtemp
                             do inbor=1,amr%twondim
-                                tempvar(inbor,:) = var(ind_nbor(inbor),:)
-                                tempson(inbor)       = son(ind_nbor(inbor))
-                                if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(inbor),:)
+                                tempvar(inbor,:) = var(ind_nbor(1,inbor),:)
+                                tempson(inbor)       = son(ind_nbor(1,inbor))
+                                if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(1,inbor),:)
                             end do
                             if (read_gravity) then
                                 ok_filter = filter_cell(reg,filt,xtemp,dx,tempvar,tempson,&

@@ -791,18 +791,16 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
     from matplotlib.colors import LogNorm,SymLogNorm
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
     import seaborn as sns
-    sns.set(style="dark")
-    plt.rcParams["axes.axisbelow"] = False
     from unyt import unyt_quantity,unyt_array
     import scipy as sp                                                                                                                                                                                     
     import scipy.ndimage                                                                                                                                                                                   
-    # plt.rc('text', usetex=True)
-    # plt.rc('font', family='serif')
-    # hfont = {'fontname':'Helvetica'}
-    # matplotlib.rc('text', usetex = True)
-    # matplotlib.rc('font', **{'family' : "serif"})
-    # params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
-    # matplotlib.rcParams.update(params)
+    sns.set(style="dark")
+    plt.rcParams["axes.axisbelow"] = False
+    plt.rcParams.update({
+    "text.usetex": True,
+    "font.family": "serif",
+    "font.serif": "Computer Modern Roman",
+    })
 
     if type_scale != '':
         type_scale = '_'+type_scale
@@ -924,16 +922,16 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
                                 origin='lower',extent=ex,interpolation='nearest',
                                 vmin=plotting_def['vmin'+type_scale],vmax=plotting_def['vmax'+type_scale])
 
-            cbaxes = inset_axes(ax[i,j], width="80%", height="5%", loc='lower center')
+            cbaxes = inset_axes(ax[i,j], width="80%", height="6%", loc='lower center')
             cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
             if logscale and fields[ivar].split('/')[1] not in symlog_variables:
-                cbar.set_label(plotting_def['label_log'],color=plotting_def['text_over'],fontsize=22,labelpad=-27, y=0.85,weight='bold')
+                cbar.set_label(plotting_def['label_log'],color=plotting_def['text_over'],fontsize=12,labelpad=-27, y=0.85,weight='bold')
             else:
-                cbar.set_label(plotting_def['label'],color=plotting_def['text_over'],fontsize=22,labelpad=-27, y=0.85)
-            cbar.ax.xaxis.label.set_font_properties(matplotlib.font_manager.FontProperties(weight='bold',size=8))
-            cbar.ax.tick_params(axis='x', pad=-7, labelsize=8,labelcolor=plotting_def['text_over'])
+                cbar.set_label(plotting_def['label'],color=plotting_def['text_over'],fontsize=12,labelpad=-27, y=0.85)
+            cbar.ax.tick_params(axis='x', pad=-8.05, labelsize=11,labelcolor=plotting_def['text_over'])
             cbar.ax.tick_params(length=0,width=0)
             cbar.outline.set_linewidth(1)
+            cbar.ax.set_axisbelow(False)
             invert_tick_colours(cbar.ax,full_varname,type_scale)
 
             if redshift and i==0 and j==0:

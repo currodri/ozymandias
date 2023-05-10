@@ -251,9 +251,9 @@ plotting_dictionary = dict(
                                 'bin_min':3e-2,
                                 'bin_max':5e0,
                                 'vmin_galaxy':3e-3,
-                                'vmax_galaxy':1e-1,
+                                'vmax_galaxy':1.5,
                                 'vmin_cgm':3e-3,
-                                'vmax_cgm':1e-1
+                                'vmax_cgm':1.5
 
     },
     cr_energy = {'cmap':sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),
@@ -806,8 +806,8 @@ plotting_dictionary = dict(
                         'vmax':200,
                         'bin_min':1e-2,
                         'bin_max':1e3,
-                        'vmin_galaxy':8,
-                        'vmax_galaxy':150
+                        'vmin_galaxy':2,
+                        'vmax_galaxy':80
 
     },
     star_mass = {'cmap':'gray',

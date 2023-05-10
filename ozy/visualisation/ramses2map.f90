@@ -755,7 +755,7 @@ module maps
             integer,dimension(:,:),allocatable :: nbor
             integer,dimension(:),allocatable :: son,tempson,iig
             integer,dimension(:),allocatable :: ind_cell,ind_cell2
-            integer ,dimension(0:amr%twondim) :: ind_nbor
+            integer ,dimension(1,0:amr%twondim) :: ind_nbor
             logical,dimension(:),allocatable :: ref
             real(dbl) :: rho,map,weight
             real(dbl) :: xmin,ymin
@@ -763,14 +763,13 @@ module maps
             integer,dimension(1:2) :: n_sample
             integer :: ncells
             integer :: ngrid_current
-            integer ::test,idebug
+            integer :: idebug
             integer :: ifilt
             
 
             type(level),dimension(1:100) :: grid
 
             ncells = 0
-            test = 0
             idebug = 0
 
             ! Check whether we need to read the gravity files
@@ -925,26 +924,20 @@ module maps
                             ! Read grid center
                             do iidim=1,amr%ndim
                                 read(10)xxg
-                                do i=1,ngrida
-                                    grid(ilevel)%xg(i,iidim) = xxg(i)
-                                end do
+                                grid(ilevel)%xg(:,iidim) = xxg(:)
                             end do
                             
                             read(10) ! Skip father index
                             ! Read nbor index
                             do ind=1,amr%twondim
                                 read(10)iig
-                                do i=1,ngrida
-                                    nbor(grid(ilevel)%ind_grid(i),ind) = iig(i)
-                                end do
+                                nbor(grid(ilevel)%ind_grid(:),ind) = iig(:)
                             end do
                             ! Read son index
                             do ind=1,amr%twotondim
                                 iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                                 read(10)iig
-                                do i=1,ngrida
-                                    son(grid(ilevel)%ind_grid(i)+iskip) = iig(i)
-                                end do
+                                son(grid(ilevel)%ind_grid(:)+iskip) = iig(:)
                             end do
                             ! Skip cpu map
                             do ind=1,amr%twotondim
@@ -965,9 +958,7 @@ module maps
                                 iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                                 varloop: do ivar=1,nvarh
                                     read(11)xxg
-                                    do i=1,ngrida
-                                        var(grid(ilevel)%ind_grid(i)+iskip,ivar) = xxg(i)
-                                    end do
+                                    var(grid(ilevel)%ind_grid(:)+iskip,ivar) = xxg(:)
                                 end do varloop
                             end do tndimloop
                         endif
@@ -980,14 +971,10 @@ module maps
                                 do ind=1,amr%twotondim
                                     iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                                     read(12)xxg
-                                    do i=1,ngrida
-                                        grav_var(grid(ilevel)%ind_grid(i)+iskip,1) = xxg(i)
-                                    end do
+                                    grav_var(grid(ilevel)%ind_grid(:)+iskip,1) = xxg(:)
                                     do ivar=1,amr%ndim
                                         read(12)xxg
-                                        do i=1,ngrida
-                                            grav_var(grid(ilevel)%ind_grid(i)+iskip,ivar+1) = xxg(i)
-                                        end do
+                                        grav_var(grid(ilevel)%ind_grid(:)+iskip,ivar+1) = xxg(:)
                                     end do
                                 end do
                             end if
@@ -1047,23 +1034,6 @@ module maps
                             ! Check if cell is refined
                             do i=1,ngrida
                                 ref(i) = son(ind_cell(i))>0.and.ilevel<amr%lmax
-                                ! Look for cells that just got refined and de-refine them
-                                if (ref(i)) then
-                                    allocate(son_dens(1:amr%twotondim))
-                                    do inbor=1,amr%twotondim
-                                        ison = son(ind_cell(i)) + amr%ncoarse+(inbor-1)*amr%ngridmax
-                                        son_dens(inbor) = var(ison,1)
-                                    end do
-                                    if (all(son_dens == var(ind_cell(i),1))) then
-                                        do inbor=1,amr%twotondim
-                                            ison = son(ind_cell(i)) + amr%ncoarse+(inbor-1)*amr%ngridmax
-                                            son(ison) = son(ind_cell(i))
-                                        end do
-                                        son(ind_cell(i)) = 0
-                                        test = test + 1
-                                    end if
-                                    deallocate(son_dens)
-                                end if
                             end do
 
                             ! Project positions onto the camera frame
@@ -1130,18 +1100,17 @@ module maps
                                         allocate(tempson(0:amr%twondim))
                                         if (read_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
                                         ! Just correct central cell vectors for the region
-                                        tempvar(0,:) = var(ind_nbor(0),:)
-                                        tempson(0)       = son(ind_nbor(0))
-                                        if (read_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(0),:)
+                                        tempvar(0,:) = var(ind_nbor(1,0),:)
+                                        tempson(0)       = son(ind_nbor(1,0))
+                                        if (read_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
                                         tempvar(0,varIDs%vx:varIDs%vz) = vtemp
                                         if (read_gravity) tempgrav_var(0,2:4) = gtemp
                                         
                                         do inbor=1,amr%twondim
-                                            tempvar(inbor,:) = var(ind_nbor(inbor),:)
-                                            tempson(inbor)       = son(ind_nbor(inbor))
-                                            if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(inbor),:)
+                                            tempvar(inbor,:) = var(ind_nbor(1,inbor),:)
+                                            tempson(inbor)       = son(ind_nbor(1,inbor))
+                                            if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(1,inbor),:)
                                         end do
-
                                         filterloop: do ifilt=1,cam%nfilter
                                             if (read_gravity) then
                                                 ok_filter = filter_cell(bbox,cam%filters(ifilt),xtemp,dx,tempvar,&
@@ -1191,7 +1160,6 @@ module maps
                 end if
             end do cpuloop
             write(*,*)'ncells: ',ncells
-            write(*,*)'de-refine: ',test
             ! Upload to maximum level (lmax)
             nx_full = 2**amr%lmax
             ny_full = 2**amr%lmax
