@@ -65,7 +65,8 @@ VPATH = ../fortran_commons
 
 # names (without suffix), f90 sources
 LIBSRC_SOURCES = local dictionary_module linalg_module coordinates_module \
-					cooling_module read_amr_module statistics\
+					cooling_module read_amr_module variables statistics\
+					filtering \
 					profiles_module integrator_module export_module \
 					
 
@@ -84,7 +85,7 @@ LIBSRC_FPP_FILES = $(addsuffix .fpp,${LIBSRC_SOURCES})
 
 # names (without suffix), f90 sources
 LIBSRC_WRAP_SOURCES = dictionary_module linalg_module coordinates_module cooling_module \
-						read_amr_module statistics\
+						read_amr_module variables statistics filtering\
 						profiles_module integrator_module export_module
 # file names
 LIBSRC_WRAP_FILES = $(addsuffix .f90,${LIBSRC_WRAP_SOURCES})

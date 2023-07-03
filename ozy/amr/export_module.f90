@@ -19,6 +19,7 @@
 module export_amr
     use local
     use io_ramses
+    use hydro_commons
     use filtering
 
     type chunk_handler
@@ -26,6 +27,7 @@ module export_amr
         character(128),dimension(:),allocatable :: varnames
         type(filter) :: filt
         real(dbl),dimension(:,:,:,:),allocatable :: data
+        type(hydro_var),dimension(:),allocatable :: vars
     end type chunk_handler
 
     contains
@@ -35,6 +37,7 @@ module export_amr
         type(chunk_handler),intent(inout) :: chunk
 
         if (.not.allocated(chunk%varnames)) allocate(chunk%varnames(1:chunk%nvars))
+        if (.not.allocated(chunk%vars)) allocate(chunk%vars(1:chunk%nvars))
         if (.not.allocated(chunk%data)) allocate(chunk%data(1:chunk%nvars,1:chunk%nx,1:chunk%ny,1:chunk%nz))
     end subroutine allocate_chunk_handler
 
@@ -389,7 +392,7 @@ module export_amr
     !     end do
     ! end subroutine get_unigrid_old
 
-    subroutine get_unigrid(repository,reg,lmax,symlog,chunk)
+    subroutine get_unigrid(repository,reg,lmax,symlog,chunk,vardict)
         use vectors
         use coordinate_systems
         use geometrical_regions
@@ -401,6 +404,7 @@ module export_amr
         integer,intent(in) :: lmax
         logical,intent(in) :: symlog
         type(chunk_handler),intent(inout) :: chunk
+        type(dictf90),intent(in),optional :: vardict
 
         ! Specific variables for this subroutine
         integer :: i,j,k
@@ -410,6 +414,7 @@ module export_amr
         integer :: imin,imax,jmin,jmax,kmin,kmax
         integer :: nvarh
         integer :: roterr
+        integer :: ivx,ivy,ivz
         character(5) :: nchar,ncharcpu
         character(128) :: nomfich
         real(dbl) :: distance,dx,value,signto
@@ -447,6 +452,28 @@ module export_amr
         endif
         call get_cpu_map(reg)
         write(*,*)'ncpu_read:',amr%ncpu_read
+
+        ! Set up hydro variables quicklook tools
+        if (present(vardict)) then
+            ! If the user provides their own variable dictionary,
+            ! use that one instead of the automatic from the 
+            ! hydro descriptor file (RAMSES)
+            call get_var_tools(vardict,chunk%nvars,chunk%varnames,chunk%vars)
+
+            ! We always need the indexes of the velocities
+            ! to perform rotations of gas velocities
+            ivx = vardict%get('velocity_x')
+            ivy = vardict%get('velocity_y')
+            ivz = vardict%get('velocity_z')
+        else
+            call get_var_tools(varIDs,chunk%nvars,chunk%varnames,chunk%vars)
+
+            ! We always need the indexes of the velocities
+            ! to perform rotations of gas velocities
+            ivx = varIDs%get('velocity_x')
+            ivy = varIDs%get('velocity_y')
+            ivz = varIDs%get('velocity_z')
+        end if
 
         ! Just make sure that initial values are zero
         chunk%data = 0D0
@@ -664,10 +691,10 @@ module export_amr
                             call checkifinside(newx,reg,ok_cell,distance)
 
                             ! Velocity transformed --> ONLY FOR CENTRAL CELL
-                            vtemp = var(ind_cell(i),varIDs%vx:varIDs%vz)
+                            vtemp = var(ind_cell(i),ivx:ivz)
                             vtemp = vtemp - reg%bulk_velocity
                             call rotate_vector(vtemp,trans_matrix)
-                            var(ind_cell(i),varIDs%vx:varIDs%vz) = vtemp
+                            var(ind_cell(i),ivx:ivz) = vtemp
 
                             ! Get neighbours
                             allocate(ind_cell2(1))
@@ -696,8 +723,8 @@ module export_amr
                                     & iy<=grid(ilevel)%jmax.and.&
                                     & iz<=grid(ilevel)%kmax) then
                                     amrvarloop: do ivar=1,chunk%nvars
-                                        call getvarvalue(reg,dx,xtemp,tempvar,tempson,chunk%varnames(ivar),value)
-                                        grid(ilevel)%cube(ivar,ix,iy,iz) = value
+                                        grid(ilevel)%cube(ivar,ix,iy,iz) = chunk%vars(ivar)%myfunction(amr,sim,chunk%vars(ivar),&
+                                                                                            reg,dx,xtemp,tempvar,tempson,trans_matrix)
                                     end do amrvarloop
                                 endif
                             endif
@@ -802,7 +829,7 @@ module export_amr
         end do
     end subroutine get_unigrid
 
-    subroutine amr2skirt(repository,reg,filt,varname,outpath)
+    subroutine amr2skirt(repository,reg,filt,varname,outpath,vardict)
         use vectors
         use coordinate_systems
         use geometrical_regions
@@ -811,9 +838,10 @@ module export_amr
         ! Input/output variables
         character(128),intent(in) :: repository
         type(region),intent(in) :: reg
-        type(filter),intent(in) :: filt
+        type(filter),intent(inout) :: filt
         character(128),intent(in) :: varname
         character(128),intent(in) :: outpath
+        type(dictf90),intent(in),optional :: vardict
 
         ! Specific variables for this subroutine
         integer :: i,j,k
@@ -822,6 +850,7 @@ module export_amr
         integer :: tot_pos,tot_ref,total_ncell,cpu_ncell
         integer :: nvarh
         integer :: roterr
+        integer :: ivx,ivy,ivz
         character(5) :: nchar,ncharcpu
         character(128) :: nomfich
         real(dbl) :: distance,dx,dx2kpc
@@ -841,6 +870,8 @@ module export_amr
         integer,dimension(:),allocatable :: ind_grid,ind_cell,ind_cell2
         integer ,dimension(:),allocatable :: ind_nbor
         logical,dimension(:),allocatable :: ref
+        character(128),dimension(1) :: vname
+        type(hydro_var),dimension(1) :: hvar
 
         total_ncell = 0
         cpu_ncell = 0
@@ -855,6 +886,34 @@ module export_amr
         ! Compute the Hilbert curve
         call get_cpu_map(reg)
         write(*,*)'ncpu_read:',amr%ncpu_read
+
+        ! Set up hydro variables quicklook tools
+        if (present(vardict)) then
+            ! If the user provides their own variable dictionary,
+            ! use that one instead of the automatic from the 
+            ! hydro descriptor file (RAMSES)
+            call get_var_tools(vardict,1,vname,hvar)
+
+            ! We also do it for the filter variables
+            call get_filter_var_tools(vardict,filt)
+
+            ! We always need the indexes of the velocities
+            ! to perform rotations of gas velocities
+            ivx = vardict%get('velocity_x')
+            ivy = vardict%get('velocity_y')
+            ivz = vardict%get('velocity_z')
+        else
+            call get_var_tools(varIDs,1,vname,hvar)
+
+            ! We also do it for the filter variables
+            call get_filter_var_tools(varIDs,filt)
+
+            ! We always need the indexes of the velocities
+            ! to perform rotations of gas velocities
+            ivx = varIDs%get('velocity_x')
+            ivy = varIDs%get('velocity_y')
+            ivz = varIDs%get('velocity_z')
+        end if
 
         ! Check whether we need to read the gravity files
         read_gravity = .false.
@@ -1112,9 +1171,9 @@ module export_amr
                             x(i,:) = xtemp
                             call checkifinside(x(i,:),reg,ok_cell,distance)
                             ! Velocity transformed --> ONLY FOR CENTRAL CELL
-                            vtemp = var(ind_cell(i),varIDs%vx:varIDs%vz)
+                            vtemp = var(ind_cell(i),ivx:ivz)
                             vtemp = vtemp - reg%bulk_velocity
-                            var(ind_cell(i),varIDs%vx:varIDs%vz) = vtemp
+                            var(ind_cell(i),ivx:ivz) = vtemp
 
                             ! Gravitational acc --> ONLY FOR CENTRAL CELL
                             if (read_gravity) then
@@ -1151,9 +1210,11 @@ module export_amr
                             if (ok_cell_each) then
                                 total_ncell = total_ncell + 1
                                 if (read_gravity) then
-                                    call getvarvalue(reg,dx,xtemp,tempvar,tempson,varname,myval,trans_matrix,tempgrav_var)
+                                    myval = hvar(1)%myfunction(amr,sim,hvar(1),reg,dx,xtemp,tempvar,&
+                                                            tempson,trans_matrix,tempgrav_var)
                                 else
-                                    call getvarvalue(reg,dx,xtemp,tempvar,tempson,varname,myval,trans_matrix)
+                                    myval = hvar(1)%myfunction(amr,sim,hvar(1),reg,dx,xtemp,tempvar,&
+                                                            tempson,trans_matrix)
                                 endif
                                 ! Position to kpc
                                 xtemp = xtemp * (sim%unit_l*cm2kpc)
