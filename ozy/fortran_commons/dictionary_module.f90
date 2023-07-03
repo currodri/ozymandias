@@ -96,7 +96,7 @@ module dictionary_commons
         implicit none
 
         type(dictf90), intent(in)  :: self
-        character(128), intent(in) :: key
+        character(len=*), intent(in) :: key
 
         integer :: i
 
@@ -116,7 +116,7 @@ module dictionary_commons
         implicit none
 
         class(dictf90), intent(in)  :: self
-        character(128), intent(in) :: key
+        character(len=*), intent(in) :: key
 
         find_key_class = find_key(self,key)
     end function find_key_class

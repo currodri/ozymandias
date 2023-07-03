@@ -305,12 +305,8 @@ module maps
 
         contains
 
-        subroutine project_cells(repository,bbox,cam,proj)
+        subroutine project_cells
             implicit none
-            character(128),intent(in) :: repository
-            type(region),intent(in) :: bbox
-            type(camera),intent(in) :: cam
-            type(projection_handler),intent(inout) :: proj
 
             logical :: ok_cell,ok_filter,ok_sub,read_gravity
             integer :: i,j,k
@@ -724,12 +720,8 @@ module maps
             end do        
         end subroutine project_cells
 
-        subroutine project_cells_neigh(repository,bbox,cam,proj)
+        subroutine project_cells_neigh
             implicit none
-            character(128),intent(in) :: repository
-            type(region),intent(in) :: bbox
-            type(camera),intent(in) :: cam
-            type(projection_handler),intent(inout) :: proj
 
             logical :: ok_cell,read_gravity,ok_filter,ok_cell_each,ok_sub
             integer :: i,j,k

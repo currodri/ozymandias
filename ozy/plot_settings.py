@@ -743,15 +743,6 @@ plotting_dictionary = dict(
                     'linthresh':10,
                     'linscale':1
     },
-    absmomentum_sphere_r = {'cmap':sns.color_palette("vlag", as_cmap=True),
-                    'text_over':'black',
-                    'label':r'$\vert p_r\vert$ [M$_{\odot}$ km/s]',
-                    'units':'Msun*km*s**-1',
-                    'bin_min':0,
-                    'bin_max':1e+7,
-                    'linthresh':10,
-                    'linscale':10
-    },
     ang_momentum_x = {'cmap':sns.color_palette("vlag", as_cmap=True),
                     'text_over':'black',
                     'label':r'$L_x$ [M$_{\odot}$ kpc$\cdot$km/s]',
@@ -940,16 +931,6 @@ plotting_dictionary = dict(
                 'bin_min':1e-5,
                 'bin_max':10
     },
-    neighbour_accuracy = {'cmap':'magma',
-                'text_over':'white',
-                'label':'Neighbour Accuracy',
-                'label_log':'Neighbour Accuracy',
-                'units':'dimensionless',
-                'vmin':0.9,
-                'vmax':1,
-                'vmin_galaxy':0.9,
-                'vmax_galaxy':1
-    }
 )
 
 circle_dictionary = dict(
