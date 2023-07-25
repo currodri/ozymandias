@@ -7,6 +7,20 @@ from ozy.utils import remove_out_zoom
 
 plist_dict = dict( gas='glist', star='slist', bh='bhlist', dust='dlist', dm='dmlist', dm2='dm2list')
 
+
+def build_HaloMaker(obj):
+    # TODO: Add the option to run HaloMaker if the brick files do not exist
+    # import ozy.run_halomaker as run
+    # run(self, 'halo')
+    # run(self, 'galaxy')
+    # run(self, 'cloud')
+    obj.clean_brickfile = True
+
+    # Read HaloMaker brick catalogues
+    print("Running build_HaloMaker")
+    read_HM(obj, 'halo')
+    read_HM(obj, 'galaxy')
+
 def read_HM(obj, grouptype):
     """Read found structures from HaloMaker files.
     

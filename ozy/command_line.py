@@ -75,7 +75,7 @@ def run_ozy(infile, args):
     from .main import OZY
     obj = OZY(infile)
     
-    obj.build_HaloMaker(**args)
+    obj.run_halocatalogue(**args)
     obj.save(outfile)
     
 def run_multiple_ozy(dir, args):
