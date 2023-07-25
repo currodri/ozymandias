@@ -26,7 +26,7 @@ class Snapshot(object):
                 os.makedirs(self.outdir)
             except:
                 pass
-    def build_HaloMaker(self, skipran, **kwargs):
+    def run_halocatalogue(self, skipran, **kwargs):
         if not os.path.exists(self.snap):
             return
         self.set_output_information(**kwargs)
@@ -36,7 +36,7 @@ class Snapshot(object):
         self._make_output_dir()
         
         obj = ozy.OZY(self.snap)
-        obj.build_HaloMaker(**kwargs)
+        obj.run_halocatalogue(**kwargs)
         obj.save(self.outfile)
         
         obj = None
@@ -84,7 +84,7 @@ def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
     if build_HaloMaker:
         rank_snaps = snaps[rank::nprocs]
         for snap in rank_snaps:
-            snap.build_HaloMaker(skipran, **kwargs)
+            snap.run_halocatalogue(skipran, **kwargs)
     
     if progen:
         ozy.progen.run_progen(snapdirs, snapname, snapindexes, prefix=prefix, extension=extension, **kwargs)

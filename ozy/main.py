@@ -32,6 +32,13 @@ class OZY(object):
         self.halos       = []
         self.galaxies    = []
         self.group_types = []
+        
+        if 'catalogue_reader' in args._kwargs:
+            self.catalogue_reader = args._kwargs['catalogue_reader']
+        else:
+            print('Reverting to the HaloMaker reader, since no catalogue_reader was provided!')
+            from ozy.read_HaloMaker import build_HaloMaker
+            self.catalogue_reader = build_HaloMaker
 
     def array(self, value, units):
         return unyt_array(value, units, registry=self.unit_registry)
@@ -143,35 +150,24 @@ class OZY(object):
         from ozy.saver import save
         save(self, filename)
     
-    def build_HaloMaker(self, *args, **kwargs):
+    def run_halocatalogue(self, *args, **kwargs):
         """This is the central function of the OZY class for the HALOMAKER catalogues.
 
         This method is reponsible for:
-        1) Calling the Fortran routines that cleans up the raw HaloMaker catalogues
+        1) Calling the halo catalogue reader to extract the basic information
         2) Creating halos and galaxies
         3) Linking objects through the chosen method
         4) Computing additional quantities
-        5) Saving all as a clean HDF5 file
 
         """
         import ozy.group_assignment as assign
         import ozy.group_linking as link
-        from ozy.read_HaloMaker import read_HM
         
         self._args = args
         self._kwargs = kwargs
 
-        # TODO: Add the option to run HaloMaker if the brick files do not exist
-        # import ozy.run_halomaker as run
-        # run(self, 'halo')
-        # run(self, 'galaxy')
-        # run(self, 'cloud')
-        self.clean_brickfile = True
-
-        # Read HaloMaker brick catalogues
-        print("Running build_HaloMaker")
-        read_HM(self, 'halo')
-        read_HM(self, 'galaxy')
+        # Run the provided halo catalogue reader
+        self.catalogue_reader(self,*args,**kwargs)
 
         if self._has_halos:
             # Make assignment
