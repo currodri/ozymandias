@@ -33,8 +33,8 @@ class OZY(object):
         self.galaxies    = []
         self.group_types = []
         
-        if 'catalogue_reader' in args._kwargs:
-            self.catalogue_reader = args._kwargs['catalogue_reader']
+        if 'catalogue_reader' in self._kwargs:
+            self.catalogue_reader = self._kwargs['catalogue_reader']
         else:
             print('Reverting to the HaloMaker reader, since no catalogue_reader was provided!')
             from ozy.read_HaloMaker import build_HaloMaker
