@@ -8,7 +8,7 @@ from ozy.utils import remove_out_zoom
 plist_dict = dict( gas='glist', star='slist', bh='bhlist', dust='dlist', dm='dmlist', dm2='dm2list')
 
 
-def build_HaloMaker(obj):
+def build_HaloMaker(obj,*args,**kwargs):
     # TODO: Add the option to run HaloMaker if the brick files do not exist
     # import ozy.run_halomaker as run
     # run(self, 'halo')
