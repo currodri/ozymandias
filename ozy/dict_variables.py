@@ -72,6 +72,7 @@ grid_variables = dict(
     grad_crp = {'unit':'code_pressure/code_length','neighbour':True},
     grad_crprsphere = {'unit':'code_pressure/code_length','neighbour':True},
     grad_crpz = {'unit':'code_pressure/code_length','neighbour':True},
+    grad_thermalpressure = {'unit':'code_pressure/code_length','neighbour':True},
     gradscale_crprsphere = {'unit':'code_length','neighbour':True},
     gradscale_crp = {'unit':'code_length','neighbour':True},
     cr_energy_specific = {'unit':'code_specific_energy','neighbour':False},

@@ -110,7 +110,11 @@ class Galaxy(Group):
     def _empty_galaxy(self):
         """Add atributes to galaxy to zero when no interest is in it."""
 
+        empty_array = np.zeros((4,7)).astype(np.float64)
+
         self.mass['dm'] = self.obj.quantity(0.0, 'code_mass')
+        self.angular_mom['dm'] = self.obj.array(np.array([0,0,0]),
+                                                             'code_mass*code_length*code_velocity')
         self.mass['stellar'] = self.obj.quantity(0.0, 'code_mass')
         self.mass['gas'] = self.obj.quantity(0.0, 'code_mass')
         self.mass['baryon'] = self.mass['stellar'] + self.mass['gas']
@@ -123,16 +127,17 @@ class Galaxy(Group):
         self.nstar = 0
         self.sfr['10Myr'] = self.obj.quantity(0.0,'Msun/yr')
         self.sfr['100Myr'] = self.obj.quantity(0.0,'Msun/yr')
-        self.metallicity['stellar'] = 0 # Mass-weighted average!
+        self.metallicity['stellar'] = self.obj.array(empty_array, 'dimensionless') # Mass-weighted average!
+        self.angular_mom['stellar'] = self.obj.array(np.array([0,0,0]),
+                                                             'code_mass*code_length*code_velocity')
+        
 
         phase_names = ['cold','warm','hot']
 
-        empty_array = np.zeros((4,7)).astype(np.float64)
-
         if self.obj.simulation.physics['hydro']:
             self.mass['gas'] = self.obj.quantity(0.0, 'code_mass')
-            self.gas_density['galaxy_gas'] = self.obj.array(empty_array, 'code_density')
-            self.temperature['galaxy_gas'] = self.obj.array(empty_array, 'code_temperature')
+            self.gas_density['gas'] = self.obj.array(empty_array, 'code_density')
+            self.temperature['gas'] = self.obj.array(empty_array, 'code_temperature')
             self.angular_mom['gas'] = self.obj.array(np.array([0.0,0.0,0.0]).astype(np.float64),
                                                              'code_mass*code_length*code_velocity')
             self.energies['thermal_energy'] = self.obj.quantity(0.0, 'code_mass * code_velocity**2')
@@ -142,7 +147,7 @@ class Galaxy(Group):
             if not self.obj.simulation.physics['magnetic'] and not self.obj.simulation.physics['cr']:
                 self.sf_efficiency['eff_FK2'] = self.obj.array(empty_array, 'dimensionless')
             if self.obj.simulation.physics['metals']:
-                self.metallicity['galaxy_gas'] = self.obj.array(empty_array, 'dimensionless')
+                self.metallicity['gas'] = self.obj.array(empty_array, 'dimensionless')
             for i in range(0, len(phase_names)):
                 self.mass['gas_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass')
                 self.gas_density[phase_names[i]] = self.obj.array(empty_array, 'code_density')
@@ -274,7 +279,7 @@ class Galaxy(Group):
         self.nstar = glob_attrs.nstar
         self.sfr['10Myr'] = self.obj.quantity(glob_attrs.data[1,0,0],'Msun/yr')
         self.sfr['100Myr'] = self.obj.quantity(glob_attrs.data[2,0,0],'Msun/yr')
-        self.metallicity['stellar'] = glob_attrs.data[3,1,0] # Mass-weighted average!
+        self.metallicity['stellar'] = self.obj.array(np.full((4,7),glob_attrs.data[3,1,0]), 'dimensionless') # Mass-weighted average!
         self.angular_mom['stellar'] = self.obj.array(np.array([glob_attrs.data[4,0,0],glob_attrs.data[5,0,0],glob_attrs.data[6,0,0]]),
                                                              'code_mass*code_length*code_velocity')
 

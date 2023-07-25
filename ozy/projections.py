@@ -349,10 +349,11 @@ class Projection(object):
                 hdu.header["cond_"+str(i)] = filt['conditions'][i]
 
 def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_size=1024,
-                    pov='faceon',lmax=100,lmin=1,window=(0.0,'kpc'),
+                    pov='faceon',lmax=100,lmin=1,type_projection='gauss_deposition', window=(0.0,'kpc'),
                     rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(0.0,'rvir'), xmax=(0.2,'rvir'),
                     ymin=(0.0,'rvir'), ymax=(0.2,'rvir'),zmin=(0.0,'rvir'), zmax=(0.2,'rvir'),
                     mycentre=([0.5,0.5,0.5],'rvir'), myaxis=np.array([1.,0.,0.]),
+                    nexp_factor = 1.0,
                     tag_file=None,
                     inverse_tag=False, remove_subs=False,
                     filter_conds=['none'],filter_name=['none']):
@@ -446,7 +447,6 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     if group.type != 'halo':
         velocity = group.velocity.in_units('code_velocity')
         bulk.x, bulk.y, bulk.z = velocity.d[0], velocity.d[1], velocity.d[2]
-        print('velocity',velocity.d[0], velocity.d[1], velocity.d[2])
 
     if proj.pov == 'faceon':
         centre = vectors.vector()
@@ -655,7 +655,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         nsubs = 0
     
     cam = obs_instruments.init_camera(centre,axis,up_vector,region_size,region_axis,bulk,distance,
-                                      far_cut_depth,map_max_size-1,nfilter,nsubs)
+                                      far_cut_depth,map_max_size,nfilter,nsubs)
 
     # Now give filters to camera Fortran type
     for i in range(0,nfilter):
@@ -689,11 +689,13 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     if len(proj.vars['gas']) != 0:
         print('Performing hydro projection for '+str(len(proj.vars['gas']))+' variables')
         if lmax != 0 or lmin != 0:
-            maps.projection_hydro(group.obj.simulation.fullpath,cam,use_neigh,hydro_handler,int(lmax),int(lmin))
+            maps.projection_hydro(group.obj.simulation.fullpath,type_projection,cam,use_neigh,
+                                  hydro_handler,int(lmax),int(lmin),nexp_factor)
         else:
-            maps.projection_hydro(group.obj.simulation.fullpath,cam,use_neigh,hydro_handler)
-        # TODO: Weird issue when the direct toto array is given.
-        data = np.copy(hydro_handler.toto)
+            maps.projection_hydro(group.obj.simulation.fullpath,type_projection,cam,use_neigh,
+                                  hydro_handler,nexp_factor=nexp_factor)
+        # TODO: Weird issue when the direct map array is given.
+        data = np.copy(hydro_handler.map)
         proj.data_maps.append(data)
     else:
         del proj.vars['gas']
@@ -746,8 +748,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
             maps.projection_parts(group.obj.simulation.fullpath,cam,parts_handler,tag_file,inverse_tag)
         else:
             maps.projection_parts(group.obj.simulation.fullpath,cam,parts_handler)
-        # TODO: Weird issue when the direct toto array is given.
-        data = np.copy(parts_handler.toto)
+        # TODO: Weird issue when the direct map array is given.
+        data = np.copy(parts_handler.map)
         if len(proj.vars['star']) == 0:
             data_dm = data.reshape(nfilter,len(proj.vars['dm']),data.shape[2],data.shape[3])
             proj.data_maps.append(data_dm)
@@ -883,7 +885,7 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
                 # We smooth with a Gaussian kernel with x_stddev=1 (and y_stddev=1)
                 # It is a 9x9 array
                 from astropy.convolution import Gaussian2DKernel, convolve
-                kernel = Gaussian2DKernel(x_stddev=0.8)
+                kernel = Gaussian2DKernel(x_stddev=2.5)
                 # astropy's convolution replaces the NaN pixels with a kernel-weighted
                 # interpolation from their neighbors
                 cImage = convolve(hdul[h].data.T, kernel)
@@ -896,30 +898,30 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
                 plot = ax[i,j].imshow(np.log10(cImage), cmap=plotting_def['cmap'],
                                 origin='lower',vmin=np.log10(plotting_def['vmin'+type_scale]),
                                 vmax=np.log10(plotting_def['vmax'+type_scale]),extent=ex,
-                                interpolation='nearest')
+                                interpolation='none')
             elif logscale and fields[ivar].split('/')[1] in symlog_variables:
                 if (filter_name != 'outflow' and filter_name != 'inflow'):
                     plot = ax[i,j].imshow(cImage, cmap=plotting_def['cmap'],
                                     origin='lower',norm=SymLogNorm(linthresh=plotting_def['linthresh'], linscale=1,
                                     vmin=plotting_def['vmin'+type_scale], vmax=plotting_def['vmax'+type_scale]),
                                     extent=ex,
-                                    interpolation='nearest')
+                                    interpolation='none')
                 elif fields[ivar].split('/')[1] == 'v_sphere_r':
                     if filter_name == 'inflow' and smooth:                                                                                                                                                                                          
                         cImage = sp.ndimage.filters.gaussian_filter(-hdul[h].data.T, sigma, mode='constant')
                     plot = ax[i,j].imshow(np.log10(cImage), cmap=plotting_def['cmap_'+filter_name],
                                     origin='lower',vmin=np.log10(plotting_def['vmin_'+filter_name]),
                                     vmax=np.log10(plotting_def['vmax_'+filter_name]),extent=ex,
-                                    interpolation='nearest')
+                                    interpolation='none')
                 else:
                     plot = ax[i,j].imshow(cImage, cmap=plotting_def['cmap'],
                                     origin='lower',norm=SymLogNorm(linthresh=plotting_def['linthresh'], linscale=1,
                                     vmin=plotting_def['vmin'+type_scale], vmax=plotting_def['vmax'+type_scale]),
                                     extent=ex,
-                                    interpolation='nearest')
+                                    interpolation='none')
             else:
                 plot = ax[i,j].imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
-                                origin='lower',extent=ex,interpolation='nearest',
+                                origin='lower',extent=ex,interpolation='none',
                                 vmin=plotting_def['vmin'+type_scale],vmax=plotting_def['vmax'+type_scale])
 
             cbaxes = inset_axes(ax[i,j], width="80%", height="6%", loc='lower center')
@@ -935,7 +937,7 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
             invert_tick_colours(cbar.ax,full_varname,type_scale)
 
             if redshift and i==0 and j==0:
-                ax[i,j].text(0.05, 0.90, r'$z = ${z:.2f}'.format(z=hdul[h].header['redshift']), # Redshift
+                ax[i,j].text(0.05, 0.90, r'$z = {z:.2f}$'.format(z=hdul[h].header['redshift']), # Redshift
                                     verticalalignment='bottom', horizontalalignment='left',
                                     transform=ax[i,j].transAxes,
                                     color=plotting_def['text_over'], fontsize=10,fontweight='bold')
@@ -1229,7 +1231,7 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=(3,'kpc')
 
                 
                 if redshift and i%2==0 and j==0:
-                    ax[i,j].text(0.05, 0.90, r'$z = ${z:.2f}'.format(z=hdul[0].header['redshift']), # Redshift
+                    ax[i,j].text(0.05, 0.90, r'$z = {z:.2f}$'.format(z=hdul[0].header['redshift']), # Redshift
                                         verticalalignment='bottom', horizontalalignment='left',
                                         transform=ax[i,j].transAxes,
                                         color='w', fontsize=15,fontweight='bold')
@@ -1411,7 +1413,7 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=(3,'kpc'),
                                         full_varname,type_scale)
 
     if redshift:
-        ax.text(0.03, 0.95, r'$z = ${z:.2f}'.format(z=hdul[h].header['redshift']), # Redshift
+        ax.text(0.03, 0.95, r'$z = {z:.2f}$'.format(z=hdul[h].header['redshift']), # Redshift
                             verticalalignment='bottom', horizontalalignment='left',
                             transform=ax.transAxes,
                             color=plotting_def['text_over'], fontsize=20,fontweight='bold')
@@ -1546,7 +1548,7 @@ def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=(3,'kpc'),r
                     vmax=np.log10(plotting_def['vmax']),alpha=0.4)
 
     if redshift:
-        ax.text(0.05, 0.90, r'$z = ${z:.2f}'.format(z=hdul[h].header['redshift']), # Redshift
+        ax.text(0.05, 0.90, r'$z = {z:.2f}$'.format(z=hdul[h].header['redshift']), # Redshift
                     verticalalignment='bottom', horizontalalignment='left',
                     transform=ax.transAxes,
                     color='white', fontsize=16,fontweight='bold')
@@ -1731,8 +1733,8 @@ def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,
         maps.healpix_hydro(group.obj.simulation.fullpath,cam,use_neigh,hydro_handler,nside,int(lmax),int(lmin))
     else:
         maps.healpix_hydro(group.obj.simulation.fullpath,cam,use_neigh,hydro_handler,nside)
-    # TODO: Weird issue when the direct toto array is given.
-    data = np.copy(hydro_handler.toto)
+    # TODO: Weird issue when the direct map array is given.
+    data = np.copy(hydro_handler.map)
     proj.data_maps.append(data)
     # TODO: Add particle projections
 

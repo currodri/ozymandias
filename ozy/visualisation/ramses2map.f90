@@ -9,6 +9,7 @@ module obs_instruments
         type(vector) :: centre,los_axis,up_vector
         type(vector) :: region_axis, region_velocity
         real(dbl),dimension(1:2) :: region_size
+        real(dbl),dimension(1:2) :: dx_pixel
         real(dbl) :: distance,far_cut_depth
         integer :: map_max_size=1024
         integer :: nfilter,nsubs
@@ -52,6 +53,8 @@ module obs_instruments
         init_camera%far_cut_depth = far_cut_depth
         init_camera%map_max_size = map_max_size
 
+        init_camera%dx_pixel(:) = dble(init_camera%region_size(:)) / init_camera%map_max_size
+
         init_camera%nfilter = nfilter
         if (.not.allocated(init_camera%filters)) allocate(init_camera%filters(nfilter))
 
@@ -75,9 +78,12 @@ module obs_instruments
         if (aspect_ratio > 1D0) then
             n_map(1) = cam%map_max_size
             n_map(2) = int(nint(cam%map_max_size/aspect_ratio))
-        else
+        else if (aspect_ratio < 1D0) then
             n_map(2) = cam%map_max_size
             n_map(1) = int(nint(cam%map_max_size*aspect_ratio))
+        else
+            n_map(2) = cam%map_max_size
+            n_map(1) = cam%map_max_size
         endif
     end subroutine get_map_size
 
@@ -251,10 +257,21 @@ module maps
     type projection_handler
         character(128) :: pov
         integer :: nvars,nfilter
+        integer, dimension(1:2) :: n_sample
         character(128),dimension(:),allocatable :: varnames
         character(128) :: weightvar
-        real(dbl),dimension(:,:,:,:),allocatable :: toto
+        real(dbl),dimension(:,:,:,:),allocatable :: map
+        real(dbl),dimension(:,:,:),allocatable :: weights
     end type projection_handler
+
+    ! Gaussian kernel configuration and normalisation
+    integer, parameter::rmax_npix_kernel = 50 ! Max number of pixels for radius (for computational speed-up)
+    integer, parameter::kdx_expand = 25
+    integer, parameter::nexpand_gauss = 30
+    integer, parameter::ngauss = 10
+    real(sgl), dimension(0:ngauss)::gauss_norm_values = &
+        & (/1.0, 1.16825, 2.28371, 2.49311, 2.50631, 2.50663,&
+            2.50663,2.50663,2.50663,2.50663,2.50663/)
 
     contains
 
@@ -265,13 +282,313 @@ module maps
         if (.not.allocated(proj%varnames)) allocate(proj%varnames(1:proj%nvars))
     end subroutine allocate_projection_handler
 
-    subroutine projection_hydro(repository,cam,use_neigh,proj,lmax,lmin)
+    subroutine get_pos_map(proj,grid,ix,iy,ii_map)
+        implicit none
+
+        type(projection_handler), intent(in) :: proj
+        type(level), intent(in) :: grid
+        integer, intent(in) :: ix,iy
+        integer, dimension(1:2), intent(inout) :: ii_map
+
+        real(dbl) :: xconv,yconv
+
+        ! Grid to map transformation factors
+        xconv = dble(proj%n_sample(1))/dble(grid%imax - grid%imin + 1)
+        yconv = dble(proj%n_sample(2))/dble(grid%jmax - grid%jmin + 1)
+
+        ! Compute map pixel
+        ii_map(1) = int(dble(ix-grid%imin)*xconv)
+        ii_map(2) = int(dble(iy-grid%jmin)*yconv)
+    end subroutine get_pos_map
+
+    subroutine grid_projection(proj,cam,grid,nexp_factor)
+        use constants, only: halfsqrt2
+        implicit none
+    
+        type(projection_handler), intent(inout) :: proj
+        type(camera), intent(in)                :: cam
+        type(level), dimension(100), intent(in)  :: grid
+        real(dbl), intent(in), optional :: nexp_factor
+
+        integer     ::nexpand
+        integer     ::dx_i
+        integer     ::ix,iy,ivar,ilevel,ifilt
+        
+        real(dbl)   ::kdx, kdx2, dx, ksize
+        real(dbl)   ::nexp_f
+        real(dbl)   ::kernel_norm
+        integer     ::ipix, jpix
+        real(dbl)   ::ipix2, jpix2
+        integer     ::ixh,iyh
+        real(dbl)   ::rpixel2
+        integer     ::ixmin, ixmax
+        integer     ::jymin, jymax
+        integer     ::kxmin, kxmax
+        integer     ::kymin, kymax
+        real(dbl)   ::rcut2
+        real(dbl)   ::xconv, yconv
+        ! real(dbl)   ::kfilter
+        real(dbl), dimension(:,:), allocatable :: kfilter
+        integer,dimension(1:2) :: xpix
+
+        write(*,*)'Using gaussian smoothing with nexp_factor = ',nexp_factor
+
+        ! Initialise map
+        call get_map_size(cam,proj%n_sample)
+        allocate(proj%map(1:proj%nfilter,1:proj%nvars,1:proj%n_sample(1),1:proj%n_sample(2)))
+        allocate(proj%weights(1:proj%nfilter,1:proj%n_sample(1),1:proj%n_sample(2)))
+        proj%map     = 0D0
+        proj%weights = 0D0
+
+        if (present(nexp_factor)) then
+            nexp_f = nexp_factor
+        else
+            nexp_f = 1.0d0
+        end if
+        ! Loop over levels
+        do ilevel=cam%lmin,cam%lmax
+            if (.not. grid(ilevel)%active) cycle
+            dx = 0.5**ilevel
+            ksize = (dx/min(cam%dx_pixel(1), cam%dx_pixel(2)))
+            if (ksize .lt. 1.0d0) then
+                ksize = 0.5d0 * ksize
+            end if
+            xconv = dble(proj%n_sample(1))/dble(grid(ilevel)%imax - grid(ilevel)%imin + 1)
+            yconv = dble(proj%n_sample(2))/dble(grid(ilevel)%jmax - grid(ilevel)%jmin + 1)
+            if (ksize.lt.halfsqrt2) then
+                print*,'No circle in use!'
+                ! Loop over projected pixels in ilevel
+                do iy = grid(ilevel)%jmin, grid(ilevel)%jmax
+                    xpix(2) = int(dble(iy-grid(ilevel)%jmin+1)*xconv)
+                    if (xpix(2) .lt. 1) cycle
+                    if (xpix(2) .gt. proj%n_sample(2)) cycle
+                    do ix = grid(ilevel)%imin, grid(ilevel)%imax
+                        xpix(1) = int(dble(ix-grid(ilevel)%imin+1)*yconv)
+                        if (xpix(1) .lt. 1) cycle
+                        if (xpix(1) .gt. proj%n_sample(1)) cycle
+                        ! Get the index of cell in the map grid
+                        ixh = int(xpix(1)); iyh = int(xpix(2))
+                        ! Project to map
+                        do ifilt = 1, proj%nfilter
+                            proj%weights(ifilt,ixh,iyh) = proj%weights(ifilt,ixh,iyh) + grid(ilevel)%map(ifilt,ix,iy)
+                            do ivar = 1, proj%nvars
+                                proj%map(ifilt,ivar,ixh,iyh) = proj%map(ifilt,ivar,ixh,iyh) + grid(ilevel)%cube(ifilt,ivar,ix,iy)
+                            end do
+                        end do
+                    end do
+                end do
+            else
+                ! Compute kernel translation to map properties
+                kdx = ksize
+                kdx = max(kdx, 0.25d0) ! Kernels should not be kdx < dx_pixel/4
+                kdx2 = kdx**2.0d0
+
+                nexpand = nexp_f*min(int(kdx_expand*kdx), nexpand_gauss)
+                if (nexpand .gt. ngauss) then
+                    kernel_norm = gauss_norm_values(ngauss)
+                else if (nexpand .ge. 0) then
+                    kernel_norm = gauss_norm_values(nexpand)
+                else
+                    write (*, *) "ERROR: nexpand < 0 for gauss"
+                    stop
+                end if
+                print*,'nexpand,kernel_norm,kdx,xconv,yconv: ',nexpand,kernel_norm,kdx,xconv,yconv
+                kernel_norm = 1.0d0/(kernel_norm*twopi*kdx)
+                dx_i = min(max(int(nexpand*kdx), 1), rmax_npix_kernel)
+                rcut2 = dble(dx_i)**2.0d0
+                call create_kfilter
+                ! Loop over projected pixels in ilevel
+                do iy = grid(ilevel)%jmin, grid(ilevel)%jmax
+                    xpix(2) = int(dble(iy-grid(ilevel)%jmin+1)*xconv)
+                    if (xpix(2) .lt. 1) cycle
+                    if (xpix(2) .gt. proj%n_sample(2)) cycle
+                    do ix = grid(ilevel)%imin, grid(ilevel)%imax
+                        xpix(1) = int(dble(ix-grid(ilevel)%imin+1)*yconv)
+                        if (xpix(1) .lt. 1) cycle
+                        if (xpix(1) .gt. proj%n_sample(1)) cycle
+                        ! Compute kernel limits
+                        ! print*,'Checking ', ix,iy
+                        ixmin = int(xpix(1) - dx_i)
+                        jymin = int(xpix(2) - dx_i)
+                        ixmax = int(xpix(1) + dx_i)
+                        jymax = int(xpix(2) + dx_i)
+                        ! print*,xpix,dx_i,ixmin,ixmax,jymin,jymax
+                        kxmin = 1 - min(0,ixmin)
+                        kymin = 1 - min(0,jymin)
+
+                        ixmin = max(ixmin, 1); ixmax = min(ixmax, proj%n_sample(1))
+                        jymin = max(jymin, 1); jymax = min(jymax, proj%n_sample(2))
+                        kxmax = kxmin + (ixmax-ixmin)
+                        kymax = kymin + (jymax-jymin)
+
+                        ! print*,ixmin,ixmax,jymin,jymax,kxmin,kymin,kxmax,kymax
+                        do ifilt = 1, proj%nfilter
+                            ! if (size(proj%weights(ifilt,ixmin:ixmax,jymin:jymax),1).ne.size(kfilter(kxmin:kxmax,kymin:kymax),1)) then
+                            !     print*,shape(proj%weights(ifilt,ixmin:ixmax,jymin:jymax)),shape(kfilter(kxmin:kxmax,kymin:kymax))
+                            !     stop
+                            ! end if
+                            proj%weights(ifilt,ixmin:ixmax,jymin:jymax) = proj%weights(ifilt,ixmin:ixmax,jymin:jymax) + &
+                                                                            &grid(ilevel)%map(ifilt,ix,iy)*kfilter(kxmin:kxmax,kymin:kymax)
+                            do ivar = 1, proj%nvars
+                                proj%map(ifilt, ivar,ixmin:ixmax,jymin:jymax) = proj%map(ifilt, ivar,ixmin:ixmax,jymin:jymax) + &
+                                                                    &grid(ilevel)%cube(ifilt,ivar,ix,iy)*kfilter(kxmin:kxmax,kymin:kymax)
+                            end do
+                        end do
+                        ! call circular_projection
+                    end do
+                end do
+                deallocate(kfilter)
+            end if
+        end do
+
+        ! Finally, normalise using the saved weights
+        filtloopmap: do ifilt=1,proj%nfilter
+            projvarloopmap: do ivar=1,proj%nvars
+                proj%map(ifilt,ivar,:,:)=proj%map(ifilt,ivar,:,:)/proj%weights(ifilt,:,:)
+            end do projvarloopmap
+        end do filtloopmap
+        
+    contains
+
+        subroutine create_kfilter
+            implicit none
+
+            allocate(kfilter(1:2*dx_i+1, 1:2*dx_i+1))
+            kfilter = 0d0
+            do jpix = 1, 2*dx_i+1
+                jpix2 = dble(jpix - (dx_i + 1))**2
+                do ipix = 1, 2*dx_i+1
+                    ipix2 = dble(ipix - (dx_i + 1))**2
+                    rpixel2 = ipix2 + jpix2
+                    print*,jpix,ipix,rpixel2,rcut2,kernel_norm*exp(-0.5d0*rpixel2/kdx2)
+                    if (rpixel2 .gt. rcut2) cycle
+                    ! Compute kernel weight at set distance
+                    kfilter(ipix,jpix) = kernel_norm*exp(-0.5d0*rpixel2/kdx2)
+                end do
+            end do
+
+        end subroutine create_kfilter
+
+    end subroutine grid_projection
+
+    subroutine point_projection(proj,cam,grid)
+        implicit none
+
+        type(projection_handler), intent(inout) :: proj
+        type(camera), intent(in)                :: cam
+        type(level), dimension(100), intent(in)  :: grid
+
+        integer :: ix, iy, ixh, iyh
+        integer :: ilevel, ivar, ifilt
+        integer, dimension(1:2) :: xpix
+
+        ! Initialise map
+        allocate(proj%map(1:proj%nfilter,1:proj%nvars,1:proj%n_sample(1),1:proj%n_sample(2)))
+        allocate(proj%weights(1:proj%nfilter,1:proj%n_sample(1),1:proj%n_sample(2)))
+        proj%map     = 0D0
+        proj%weights = 0D0
+
+        do ilevel=cam%lmin,cam%lmax
+            ! Loop over projected pixels in ilevel
+            do ix = grid(ilevel)%imin, grid(ilevel)%imax
+                do iy = grid(ilevel)%jmin, grid(ilevel)%jmax
+                    ! Get the index of cell in the map grid
+                    call get_pos_map(proj,grid(ilevel),ix,iy,xpix)
+                    ixh = int(xpix(1)); iyh = int(xpix(2))
+                    ! Project to map
+                    do ifilt = 1, proj%nfilter
+                        proj%weights(ifilt,ixh,iyh) = proj%weights(ifilt,ixh,iyh) + grid(ilevel)%map(ifilt,ix,iy)
+                        do ivar = 1, proj%nvars
+                            proj%map(ifilt,ivar,ixh,iyh) = proj%map(ifilt,ivar,ixh,iyh) + grid(ilevel)%cube(ifilt,ivar,ix,iy)
+                        end do
+                    end do
+                end do
+            end do
+        end do
+
+        ! Finally, normalise using the saved weights
+        filtloopmap: do ifilt=1,proj%nfilter
+            projvarloopmap: do ivar=1,proj%nvars
+                proj%map(ifilt,ivar,:,:)=proj%map(ifilt,ivar,:,:)/proj%weights(ifilt,:,:)
+            end do projvarloopmap
+        end do filtloopmap
+    end subroutine point_projection
+
+    subroutine upload_projection(proj,cam,bbox,grid)
+        implicit none
+
+        type(projection_handler), intent(inout) :: proj
+        type(camera), intent(in)                :: cam
+        type(region), intent(in)                :: bbox
+        type(level), dimension(100), intent(in) :: grid
+
+        integer :: ix, iy, ixh, iyh
+        integer :: ilevel, ivar, ifilt
+        integer, dimension(1:2) :: xpix
+        integer :: nx_full,ny_full
+        integer :: imin, imax, jmin, jmax
+        integer :: i,j,ndom
+        real(dbl) :: xmin, ymin
+
+        ! Initialise map
+        allocate(proj%map(1:proj%nfilter,1:proj%nvars,1:proj%n_sample(1),1:proj%n_sample(2)))
+        allocate(proj%weights(1:proj%nfilter,1:proj%n_sample(1),1:proj%n_sample(2)))
+        proj%map     = 0D0
+        proj%weights = 0D0
+
+        ! Upload to maximum level (lmax)
+        nx_full = 2**cam%lmax
+        ny_full = 2**cam%lmax
+        imin = 1
+        imax = int((bbox%xmax-bbox%xmin)*dble(nx_full))
+        jmin = 1
+        jmax = int((bbox%ymax-bbox%ymin)*dble(ny_full))
+        filtlooplmax: do ifilt=1,proj%nfilter
+            xloop: do ix = imin,imax
+                xmin = ((ix-0.5)/2**cam%lmax)
+                yloop: do iy=jmin,jmax
+                    ymin=((iy-0.5)/2**cam%lmax)
+                    ilevelloop: do ilevel=cam%lmin,cam%lmax-1
+                        ndom = 2**ilevel
+                        i = int(xmin*ndom)+1
+                        j = int(ymin*ndom)+1
+                            projvarlooplmax: do ivar=1,proj%nvars
+                                grid(cam%lmax)%cube(ifilt,ivar,ix,iy)=grid(cam%lmax)%cube(ifilt,ivar,ix,iy) + &
+                                                            & grid(ilevel)%cube(ifilt,ivar,i,j)
+                            end do projvarlooplmax
+                            grid(cam%lmax)%map(ifilt,ix,iy)=grid(cam%lmax)%map(ifilt,ix,iy) + &
+                                                            & grid(ilevel)%map(ifilt,i,j)
+                    end do ilevelloop
+            end do yloop
+            end do xloop
+        end do filtlooplmax
+
+        do i=1,proj%n_sample(1)
+            ix = int(dble(i)/dble(proj%n_sample(1))*dble(imax-imin+1))+imin
+            ix = min(ix,imax)
+            do j=1,proj%n_sample(2)
+                iy = int(dble(j)/dble(proj%n_sample(2))*dble(jmax-jmin+1))+jmin
+                iy = min(iy,jmax)
+                filtloopmap: do ifilt=1,proj%nfilter
+                    projvarloopmap: do ivar=1,proj%nvars
+                        proj%map(ifilt,ivar,i,j)=grid(cam%lmax)%cube(ifilt,ivar,ix,iy)/grid(cam%lmax)%map(ifilt,ix,iy)
+                    end do projvarloopmap
+                end do filtloopmap
+            end do
+        end do 
+
+    end subroutine upload_projection
+
+    subroutine projection_hydro(repository,type_projection,cam,use_neigh,proj,&
+                                &lmax,lmin,nexp_factor)
         implicit none
         character(128),intent(in) :: repository
+        character(128),intent(in) :: type_projection
         type(camera),intent(inout) :: cam
         logical,intent(in) :: use_neigh
         type(projection_handler),intent(inout) :: proj
         integer,intent(in),optional :: lmax,lmin
+        real(dbl),intent(in),optional :: nexp_factor
 
         type(region) :: bbox
 
@@ -282,8 +599,9 @@ module maps
         write(*,*)'Maximum resolution level: ',amr%nlevelmax
         write(*,*)'Using: ',amr%lmax
         cam%lmin = 1;cam%lmax = amr%lmax
+        if(present(lmax)) cam%lmax = max(min(lmax,amr%nlevelmax),1)
+        amr%lmax = cam%lmax
         if(present(lmin)) cam%lmin = max(1,min(lmin,amr%lmax))
-        if(present(lmax)) cam%lmax = min(amr%lmax,max(lmax,1))
         write(*,*)'Camera using lmin, lmax: ',cam%lmin,cam%lmax
         call get_bounding_box(cam,bbox)
         bbox%name = 'cube'
@@ -294,23 +612,20 @@ module maps
         call get_map_box(cam,bbox)
 
         if (cam%nsubs>0)write(*,*)'Excluding substructure: ',cam%nsubs
-
+        proj%nfilter = cam%nfilter
+        call get_map_size(cam,proj%n_sample)
         ! Perform projections
         if (use_neigh) then
             write(*,*)'Loading neighbours...'
-            call project_cells_neigh(repository,bbox,cam,proj)
+            call project_cells_neigh
         else
-            call project_cells(repository,bbox,cam,proj)
+            call project_cells
         end if
 
         contains
 
-        subroutine project_cells(repository,bbox,cam,proj)
+        subroutine project_cells
             implicit none
-            character(128),intent(in) :: repository
-            type(region),intent(in) :: bbox
-            type(camera),intent(in) :: cam
-            type(projection_handler),intent(inout) :: proj
 
             logical :: ok_cell,ok_filter,ok_sub,read_gravity
             integer :: i,j,k
@@ -321,11 +636,12 @@ module maps
             integer :: roterr
             character(5) :: nchar,ncharcpu
             character(128) :: nomfich
-            real(dbl) :: distance,dx
+            real(dbl) :: distance,dx,ksize
             type(vector) :: xtemp,vtemp,gtemp
             integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
             real(dbl),dimension(1:8,1:3) :: xc
             real(dbl),dimension(1:3,1:3) :: trans_matrix
+            real(dbl),dimension(1:proj%nvars) :: hvalues
             real(dbl),dimension(:,:),allocatable :: xg,x,xorig
             real(dbl),dimension(:,:,:),allocatable :: var,grav_var
             real(dbl),dimension(:,:),allocatable :: tempvar
@@ -336,12 +652,11 @@ module maps
             real(dbl) :: rho,map,weight
             real(dbl) :: xmin,ymin
             integer :: ndom
-            integer,dimension(1:2) :: n_sample
+            integer,dimension(1:2) :: ii_map
             integer :: ncells
             
 
             type(level),dimension(1:100) :: grid
-
 
             ncells = 0
 
@@ -359,6 +674,7 @@ module maps
             do ilevel=1,amr%lmax
                 nx_full = 2**ilevel
                 ny_full = 2**ilevel
+                ! Test this imin whether it should be +1 or not
                 imin = int(0D0*dble(nx_full))+1
                 imax = int((bbox%xmax-bbox%xmin)*dble(nx_full))+1
                 jmin = int(0D0*dble(ny_full))+1
@@ -371,6 +687,7 @@ module maps
                 grid(ilevel)%imax = imax
                 grid(ilevel)%jmin = jmin
                 grid(ilevel)%jmax = jmax
+                grid(ilevel)%active = .false.
             end do
 
             trans_matrix = 0D0
@@ -379,7 +696,6 @@ module maps
                 write(*,*) 'Incorrect CS transformation!'
                 stop
             endif
-
 
             allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
             allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
@@ -553,7 +869,8 @@ module maps
                     end do domloop
 
                     !Compute map
-                    if (ngrida>0) then
+                    if (ngrida>0.and.(ilevel.ge.cam%lmin)&
+                        &.and.(ilevel.le.cam%lmax)) then
                         ! Loop over cells
                         cellloop: do ind=1,amr%twotondim
 
@@ -581,14 +898,6 @@ module maps
                                 call checkifinside(x(i,:),bbox,ok_cell,distance)
                                 xtemp = xtemp + bbox%centre
                                 x(i,:) = xtemp
-                                ! TODO: This is a quick fix for the cells in the limits of the box
-                                ! for axis-aligned projections, but should be done in a better way
-                                ! using proper weights
-                                if (trim(proj%pov)=='x'.or.trim(proj%pov)=='y'.or.trim(proj%pov)=='z') then
-                                    ok_cell  = (bbox%xmin <= x(i,1)+dx/2.and.x(i,1)-dx/2 <= bbox%xmax.and.&
-                                                &bbox%ymin <= x(i,2)+dx/2.and.x(i,2)-dx/2 <= bbox%ymax.and.&
-                                                &bbox%zmin <= x(i,3)+dx/2.and.x(i,3)-dx/2 <= bbox%zmax)
-                                end if
                                 ok_cell= ok_cell.and..not.ref(i)
                                 ! If we are avoiding substructure, check whether we are safe
                                 if (cam%nsubs>0) then
@@ -602,8 +911,8 @@ module maps
                                 if (ok_cell) then
                                     ix = int((x(i,1)+0.5*(bbox%xmax-bbox%xmin))*dble(nx_full)) + 1
                                     iy = int((x(i,2)+0.5*(bbox%ymax-bbox%ymin))*dble(ny_full)) + 1
-                                    weight = (min(x(i,3)+dx/2.,bbox%zmax)-max(x(i,3)-dx/2.,bbox%zmin))/dx
-                                    weight = min(1.0d0,max(weight,0.0d0))
+                                    !weight = (min(x(i,3)+dx/2.,bbox%zmax)-max(x(i,3)-dx/2.,bbox%zmin))/dx
+                                    !weight = min(1.0d0,max(weight,0.0d0))
                                     if( ix>=grid(ilevel)%imin.and.&
                                         & iy>=grid(ilevel)%jmin.and.&
                                         & ix<=grid(ilevel)%imax.and.&
@@ -631,6 +940,7 @@ module maps
                                         if (read_gravity) tempgrav_var(0,:) = grav_var(i,ind,:)
                                         tempvar(0,varIDs%vx:varIDs%vz) = vtemp
                                         if (read_gravity) tempgrav_var(0,2:4) = gtemp
+                                        
                                         filterloop: do ifilt=1,cam%nfilter
                                             if (read_gravity) then
                                                 ok_filter = filter_cell(bbox,cam%filters(ifilt),xtemp,dx,tempvar,&
@@ -641,6 +951,7 @@ module maps
                                             end if
                                             ! Finally, get hydro data
                                             if (ok_filter) then
+                                                if (.not.grid(ilevel)%active) grid(ilevel)%active = .true.
                                                 weight = 1D0
                                                 if (trim(proj%weightvar) /= 'counts') then
                                                     if (read_gravity) then 
@@ -648,7 +959,7 @@ module maps
                                                     else
                                                         call getvarvalue(bbox,dx,xtemp,tempvar,tempson,proj%weightvar,rho,trans_matrix)
                                                     end if
-                                                    weight = MAX(rho*dx*weight/(bbox%zmax-bbox%zmin),0D0)
+                                                    weight = rho !MAX(rho*dx*weight/(bbox%zmax-bbox%zmin),0D0)
                                                 end if
                                                 grid(ilevel)%map(ifilt,ix,iy)=grid(ilevel)%map(ifilt,ix,iy)+weight
 
@@ -674,62 +985,33 @@ module maps
                         if (read_gravity) then
                             deallocate(grav_var)
                         end if
+                    else if (ngrida>0) then
+                        deallocate(xg,son,var,ref,x)
+                        if (read_gravity) then
+                            deallocate(grav_var)
+                        end if
                     endif
                 end do levelloop
             end do cpuloop
             write(*,*)'ncells:',ncells
-            ! Upload to maximum level (lmax)
-            nx_full = 2**amr%lmax
-            ny_full = 2**amr%lmax
-            imin = int(0D0*dble(nx_full))+1
-            imax = int((bbox%xmax-bbox%xmin)*dble(nx_full))
-            jmin = int(0D0*dble(ny_full))+1
-            jmax = int((bbox%ymax-bbox%ymin)*dble(ny_full))
-            filtlooplmax: do ifilt=1,cam%nfilter
-                xloop: do ix = imin,imax
-                    xmin = ((ix-0.5)/2**amr%lmax)
-                    yloop: do iy=jmin,jmax
-                        ymin=((iy-0.5)/2**amr%lmax)
-                        ilevelloop: do ilevel=1,amr%lmax-1
-                            ndom = 2**ilevel
-                            i = int(xmin*ndom)+1
-                            j = int(ymin*ndom)+1
-                                projvarlooplmax: do ivar=1,proj%nvars
-                                    grid(amr%lmax)%cube(ifilt,ivar,ix,iy)=grid(amr%lmax)%cube(ifilt,ivar,ix,iy) + &
-                                                                & grid(ilevel)%cube(ifilt,ivar,i,j)
-                                end do projvarlooplmax
-                                grid(amr%lmax)%map(ifilt,ix,iy)=grid(amr%lmax)%map(ifilt,ix,iy) + &
-                                                                & grid(ilevel)%map(ifilt,i,j)
-                        end do ilevelloop
-                end do yloop
-                end do xloop
-            end do filtlooplmax
 
-            call get_map_size(cam,n_sample)
-            proj%nfilter = cam%nfilter
-            allocate(proj%toto(1:proj%nfilter,1:proj%nvars,0:n_sample(1),0:n_sample(2)))
-            proj%toto = 0D0
-            do i=0,n_sample(1)
-                ix = int(dble(i)/dble(n_sample(1))*dble(imax-imin+1))+imin
-                ix = min(ix,imax)
-                do j=0,n_sample(2)
-                    iy = int(dble(j)/dble(n_sample(2))*dble(jmax-jmin+1))+jmin
-                    iy = min(iy,jmax)
-                    filtlooptoto: do ifilt=1,proj%nfilter
-                        projvarlooptoto: do ivar=1,proj%nvars
-                            proj%toto(ifilt,ivar,i,j)=grid(amr%lmax)%cube(ifilt,ivar,ix,iy)/grid(amr%lmax)%map(ifilt,ix,iy)
-                        end do projvarlooptoto
-                    end do filtlooptoto
-                end do
-            end do        
+            ! Select the type of projection function needed
+            select case (trim(type_projection))
+            case ('gauss_deposition')
+                call grid_projection(proj,cam,grid,nexp_factor)
+            case ('point_deposition')
+                call point_projection(proj,cam,grid)
+            case ('upload_deposition')
+                call upload_projection(proj,cam,bbox,grid)
+            case default
+                write(*,*)'Deposition type ',trim(type_projection),' not recognised'
+                write(*,*)'Falling back to default (upload_projection)'
+                call upload_projection(proj,cam,bbox,grid)
+            end select
         end subroutine project_cells
 
-        subroutine project_cells_neigh(repository,bbox,cam,proj)
+        subroutine project_cells_neigh
             implicit none
-            character(128),intent(in) :: repository
-            type(region),intent(in) :: bbox
-            type(camera),intent(in) :: cam
-            type(projection_handler),intent(inout) :: proj
 
             logical :: ok_cell,read_gravity,ok_filter,ok_cell_each,ok_sub
             integer :: i,j,k
@@ -800,6 +1082,7 @@ module maps
                 grid(ilevel)%jmin = jmin
                 grid(ilevel)%jmax = jmax
                 grid(ilevel)%ngrid = 0
+                grid(ilevel)%active = .false.
             end do
 
             !call los_transformation(cam,trans_matrix)
@@ -1049,14 +1332,6 @@ module maps
                                 call checkifinside(x(i,:),bbox,ok_cell,distance)
                                 xtemp = xtemp + bbox%centre
                                 x(i,:) = xtemp
-                                ! TODO: This is a quick fix for the cells in the limits of the box
-                                ! for axis-aligned projections, but should be done in a better way
-                                ! using proper weights
-                                if (trim(proj%pov)=='x'.or.trim(proj%pov)=='y'.or.trim(proj%pov)=='z') then
-                                    ok_cell  = (bbox%xmin <= x(i,1)+dx/2.and.x(i,1)-dx/2 <= bbox%xmax.and.&
-                                                &bbox%ymin <= x(i,2)+dx/2.and.x(i,2)-dx/2 <= bbox%ymax.and.&
-                                                &bbox%zmin <= x(i,3)+dx/2.and.x(i,3)-dx/2 <= bbox%zmax)
-                                end if
                                 ok_cell= ok_cell.and..not.ref(i)
                                 ! If we are avoiding substructure, check whether we are safe
                                 if (cam%nsubs>0) then
@@ -1121,6 +1396,7 @@ module maps
                                             end if
                                             ! Finally, get hydro data
                                             if (ok_filter) then
+                                                if (.not.grid(ilevel)%active) grid(ilevel)%active = .true.
                                                 weight = 1D0
                                                 if (trim(proj%weightvar) /= 'counts') then
                                                     if (read_gravity) then 
@@ -1160,50 +1436,20 @@ module maps
                 end if
             end do cpuloop
             write(*,*)'ncells: ',ncells
-            ! Upload to maximum level (lmax)
-            nx_full = 2**amr%lmax
-            ny_full = 2**amr%lmax
-            imin = int(0D0*dble(nx_full))+1
-            imax = int((bbox%xmax-bbox%xmin)*dble(nx_full))
-            jmin = int(0D0*dble(ny_full))+1
-            jmax = int((bbox%ymax-bbox%ymin)*dble(ny_full))
-            filtlooplmax: do ifilt=1,cam%nfilter
-                xloop: do ix = imin,imax
-                    xmin = ((ix-0.5)/2**amr%lmax)
-                    yloop: do iy=jmin,jmax
-                        ymin=((iy-0.5)/2**amr%lmax)
-                        ilevelloop: do ilevel=1,amr%lmax-1
-                            ndom = 2**ilevel
-                            i = int(xmin*ndom)+1
-                            j = int(ymin*ndom)+1
-                                projvarlooplmax: do ivar=1,proj%nvars
-                                    grid(amr%lmax)%cube(ifilt,ivar,ix,iy)=grid(amr%lmax)%cube(ifilt,ivar,ix,iy) + &
-                                                                & grid(ilevel)%cube(ifilt,ivar,i,j)
-                                end do projvarlooplmax
-                                grid(amr%lmax)%map(ifilt,ix,iy)=grid(amr%lmax)%map(ifilt,ix,iy) + &
-                                                                & grid(ilevel)%map(ifilt,i,j)
-                        end do ilevelloop
-                end do yloop
-                end do xloop
-            end do filtlooplmax
 
-            call get_map_size(cam,n_sample)
-            proj%nfilter = cam%nfilter
-            allocate(proj%toto(1:proj%nfilter,1:proj%nvars,0:n_sample(1),0:n_sample(2)))
-            proj%toto = 0D0
-            do i=0,n_sample(1)
-                ix = int(dble(i)/dble(n_sample(1))*dble(imax-imin+1))+imin
-                ix = min(ix,imax)
-                do j=0,n_sample(2)
-                    iy = int(dble(j)/dble(n_sample(2))*dble(jmax-jmin+1))+jmin
-                    iy = min(iy,jmax)
-                    filtlooptoto: do ifilt=1,proj%nfilter
-                        projvarlooptoto: do ivar=1,proj%nvars
-                            proj%toto(ifilt,ivar,i,j)=grid(amr%lmax)%cube(ifilt,ivar,ix,iy)/grid(amr%lmax)%map(ifilt,ix,iy)
-                        end do projvarlooptoto
-                    end do filtlooptoto
-                end do
-            end do        
+            ! Select the type of projection function needed
+            select case (trim(type_projection))
+            case ('gauss_deposition')
+                call grid_projection(proj,cam,grid,nexp_factor)
+            case ('point_deposition')
+                call point_projection(proj,cam,grid)
+            case ('upload_deposition')
+                call upload_projection(proj,cam,bbox,grid)
+            case default
+                write(*,*)'Deposition type ',trim(type_projection),' not recognised'
+                write(*,*)'Falling back to default (upload_projection)'
+                call upload_projection(proj,cam,bbox,grid)
+            end select        
         end subroutine project_cells_neigh
 
         
@@ -1240,7 +1486,7 @@ module maps
         else
             call project_particles(repository,bbox,cam,proj)
         endif
-        write(*,*)minval(proj%toto),maxval(proj%toto)
+        write(*,*)minval(proj%map),maxval(proj%map)
     end subroutine projection_parts
 
     subroutine project_particles(repository,bbox,cam,proj,tag_file,inverse_tag)
@@ -1332,9 +1578,9 @@ module maps
 
         ! Allocate toto
         proj%nfilter = cam%nfilter
-        allocate(proj%toto(1:proj%nfilter,1:proj%nvars,0:n_map(1)-1,0:n_map(2)-1))
+        allocate(proj%map(1:proj%nfilter,1:proj%nvars,0:n_map(1)-1,0:n_map(2)-1))
 
-        proj%toto = 0D0
+        proj%map = 0D0
 
         ! Cosmological model
         if (sim%aexp.eq.1.and.sim%h0.eq.1)sim%cosmo=.false.
@@ -1535,16 +1781,16 @@ module maps
                             if (ix>=0.and.ix<(n_map(1)-1).and.&
                                 &iy>=0.and.iy<(n_map(2)-1).and.&
                                 &ddx>0.and.ddy>0) then
-                                filtlooptoto: do ifilt=1,proj%nfilter
+                                filtloopmap: do ifilt=1,proj%nfilter
                                     ok_filter = filter_particle(bbox,cam%filters(ifilt),part)
                                     if (ok_filter) then
-                                        proj%toto(ifilt,ivar,ix  ,iy  ) = proj%toto(ifilt,ivar,ix  ,iy  ) + mapvalue*dex*dey*weight
-                                        proj%toto(ifilt,ivar,ix  ,iyp1) = proj%toto(ifilt,ivar,ix  ,iyp1) + mapvalue*dex*ddy*weight
-                                        proj%toto(ifilt,ivar,ixp1,iy  ) = proj%toto(ifilt,ivar,ixp1,iy  ) + mapvalue*ddx*dey*weight
-                                        proj%toto(ifilt,ivar,ixp1,iyp1) = proj%toto(ifilt,ivar,ixp1,iyp1) + mapvalue*ddx*ddy*weight
+                                        proj%map(ifilt,ivar,ix  ,iy  ) = proj%map(ifilt,ivar,ix  ,iy  ) + mapvalue*dex*dey*weight
+                                        proj%map(ifilt,ivar,ix  ,iyp1) = proj%map(ifilt,ivar,ix  ,iyp1) + mapvalue*dex*ddy*weight
+                                        proj%map(ifilt,ivar,ixp1,iy  ) = proj%map(ifilt,ivar,ixp1,iy  ) + mapvalue*ddx*dey*weight
+                                        proj%map(ifilt,ivar,ixp1,iyp1) = proj%map(ifilt,ivar,ixp1,iyp1) + mapvalue*ddx*ddy*weight
                                         nparttoto(ifilt) = nparttoto(ifilt) + 1
                                     end if
-                                end do filtlooptoto
+                                end do filtloopmap
                                 
                             endif
                         endif
@@ -1645,10 +1891,10 @@ module maps
             write(*,*)'Total number of healpix map: ',ns+1
             ! TODO: We should also include in here the filters
             proj%nfilter = cam%nfilter
-            allocate(proj%toto(1:proj%nfilter,1:proj%nvars,1:1,0:ns))
+            allocate(proj%map(1:proj%nfilter,1:proj%nvars,1:1,0:ns))
             allocate(proj_rho(1:proj%nfilter,0:ns))
             allocate(listpix(0:ns))
-            proj%toto = 0D0
+            proj%map = 0D0
             proj_rho = 0D0
             listpix = -1
 
@@ -1895,7 +2141,7 @@ module maps
                                                     call getvarvalue(bsphere,dx,xtemp,tempvar,tempson,proj%varnames(ivar),map)
                                                     do j=1,size(listpix_clean)
                                                         ix = listpix_clean(j)
-                                                        proj%toto(ifilt,ivar,1,ix) = proj%toto(ifilt,ivar,1,ix)+map*rho*dx*weight/(bsphere%rmax-bsphere%rmin)
+                                                        proj%map(ifilt,ivar,1,ix) = proj%map(ifilt,ivar,1,ix)+map*rho*dx*weight/(bsphere%rmax-bsphere%rmin)
                                                     end do
                                                 end do projvarloop
                                             end if
@@ -1915,13 +2161,13 @@ module maps
             write(*,*)'ncells:',ncells
 
             ! Renormalise cells to compute weighted values
-            filtlooptoto: do ifilt=1,proj%nfilter
+            filtloopmap: do ifilt=1,proj%nfilter
                 do i=0,ns
-                    projvarlooptoto: do ivar=1,proj%nvars
-                        proj%toto(ifilt,ivar,1,i) = proj%toto(ifilt,ivar,1,i)/proj_rho(ifilt,i)
-                    end do projvarlooptoto
+                    projvarloopmap: do ivar=1,proj%nvars
+                        proj%map(ifilt,ivar,1,i) = proj%map(ifilt,ivar,1,i)/proj_rho(ifilt,i)
+                    end do projvarloopmap
                 end do
-            end do filtlooptoto
+            end do filtloopmap
 
         end subroutine project_cells_hpix
 

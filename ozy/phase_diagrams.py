@@ -943,13 +943,17 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
                 ax[i,j].plot([1e-23,1e-23],[0,1e8],color='k',linewidth=1)
 
             if stats == 'mean':
+                z_tot = np.sum(z)
                 y_mean = np.zeros(len(x))
+                n_points = np.zeros(len(x))
                 z = z.T
                 for k in range(0, len(x)):
                     a = np.nansum(y * z[:,k])
                     b = np.nansum(z[:,k])
                     y_mean[k] = a/b
-                ax[i,j].plot(x,y_mean,color='w',linewidth=2, linestyle='--')
+                    n_points[k] = np.nansum(z[:,k])/z_tot
+                print(n_points)
+                ax[i,j].plot(x[n_points>1e-5],y_mean[n_points>1e-5],color='w',linewidth=2, linestyle='--')
             
             if ipd==0:
                 if layout == 'compact':

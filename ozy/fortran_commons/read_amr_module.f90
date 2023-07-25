@@ -60,6 +60,7 @@ module io_ramses
     end type sim_info
 
     type level
+        logical::active
         integer::ilevel
         integer::ngrid
         integer,dimension(:),allocatable :: ind_grid
@@ -851,6 +852,7 @@ module io_ramses
             value = var(0,varIDs%cr_pressure) / (4D0/3d0 - 1d0)
         case ('cr_pressure')
             value = var(0,varIDs%cr_pressure)
+            if(value<1d-22)print*,value
         case ('cr_energy_specific')
             ! Specific CR energy, computed as CR_energydensity*volume/cell mass
             value = (var(0,varIDs%cr_pressure) / (4D0/3d0 - 1d0)) / var(0,varIDs%density)
@@ -931,6 +933,8 @@ module io_ramses
             ! This is defined as Dcr/Lcr, with Lcr the CR pressure gradient scale
             ! CR pressure gradient scale
             ! This is defined as Pcr/grad(Pcr)
+            B = 0.5d0 * (/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+
             dxright = dx; dxleft = dx
             if (son(1) .eq. 0) dxright = dxright * 1.5D0
             if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
@@ -943,7 +947,9 @@ module io_ramses
             if (son(5) .eq. 0) dxright = dxright * 1.5D0
             if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
             v%z = (var(5,varIDs%cr_pressure) - var(6,varIDs%cr_pressure)) / (dxright + dxleft)
-            value = Dcr / abs(var(0,varIDs%cr_pressure)/magnitude(v))
+            B = B / magnitude(B)
+            value = Dcr / abs(var(0,varIDs%cr_pressure)/(abs(v.DOT.B))) !abs(var(0,varIDs%cr_pressure)/(magnitude(v))) ! !
+            if (value>1d10) print*,value,var(:,varIDs%cr_pressure),var(:,varIDs%thermal_pressure),abs(v.DOT.B)
         case ('alfvendiff_ratio')
             ! Ratio of Alfven to diffusion speed
             B = 0.5d0 * (/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
@@ -962,8 +968,8 @@ module io_ramses
             if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
             v%z = (var(5,varIDs%cr_pressure) - var(6,varIDs%cr_pressure)) / (dxright + dxleft)
             B = B / magnitude(B)
-            value = Dcr / abs(var(0,varIDs%cr_pressure)/(magnitude(v))) !abs(var(0,varIDs%cr_pressure)/(abs(v.DOT.B)))
-            value = vA / value
+            value = Dcr / abs(var(0,varIDs%cr_pressure)/(abs(v.DOT.B))) ! abs(var(0,varIDs%cr_pressure)/(magnitude(v))) !
+            value = (5d0/3d0) * vA / (value + (5d0/3d0) * vA)
         case ('grad_crpx')
             ! Gradient of CR pressure in the x direction
             dxright = dx; dxleft = dx
@@ -1713,6 +1719,49 @@ module io_ramses
         end if
 
     end subroutine get_eta_sn
+
+    !---------------------------------------------------------------
+    ! Subroutine: GET Dcr
+    !
+    ! When we have a CRMHD simulation, look for the diffusion
+    ! constant value as defined in the namelist
+    ! TODO: This only works for NUT sims!
+    !---------------------------------------------------------------
+    subroutine get_Dcr(repository)
+        implicit none
+        character(128), intent(in) :: repository
+        integer :: i,status,ipos,jpos
+        character(128) :: nomfich
+        character(6)  ::  param
+        real(dbl) ::  pvalue
+        character(200) :: line
+        logical :: ok
+
+        nomfich=TRIM(repository)//'/../CRiMHD+SfFb.nml'
+        
+        inquire(file=nomfich, exist=ok) ! verify input file
+        if (ok) then
+            write(*,'(": Reading Dcr from namelist.txt")')
+            open(unit=15,file=nomfich,status='old',form='formatted')
+            do
+                read(15,'(A)',iostat=status)line
+                if (status /= 0) exit
+                param = line(1:3)
+                if (param=='Dcr') then
+                    ipos = index(line,'=')
+                    jpos = index(line,'!')
+                    read(line(ipos+1:jpos-1),'(F10.0)')pvalue
+                    sim%Dcr = pvalue
+                    write(*,*)': Found Dcr=',sim%Dcr
+                    exit
+                end if
+            end do
+        else
+            write(*,'(": Namelist not found: Dcr set to 3.0d28")')
+            sim%Dcr = 3.0d28
+        end if
+
+    end subroutine get_Dcr
     !---------------------------------------------------------------
     ! Function: CMP SIGMA TURB
     !
@@ -2419,6 +2468,7 @@ module io_ramses
             cooling_file=TRIM(repository)//'/cooling_'//TRIM(nchar)//'.out'
             inquire(file=cooling_file, exist=ok)
             if(ok) call read_cool(cooling_file)
+            call get_Dcr(repository)
         endif
     end subroutine init_amr_read
 

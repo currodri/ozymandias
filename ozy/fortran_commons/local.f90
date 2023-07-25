@@ -49,6 +49,7 @@ module constants
   ! Other constants
   real(dbl) :: pi=3.14159265359
   real(dbl) :: twopi = 6.283185307179586
+  real(dbl) :: halfsqrt2 = 0.7071067811865476
   real(dbl) :: smallc = 1D-10
   real(dbl) :: smallr = 1D-10
   ! Mass
