@@ -642,7 +642,7 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
         reg.name = 'sphere'
         reg.criteria_name = 'r_sphere'
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        centre.x, centre.y, centre.z = group.position[0].to('code_length'), group.position[1].to('code_length'), group.position[2].to('code_length')
         reg.centre = centre
         axis = vectors.vector()
         norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
@@ -655,22 +655,22 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
         bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
         reg.bulk_velocity = bulk
         if rmin[1] == 'rvir':
-            reg.rmin = rmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            reg.rmin = rmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
         else:
             reg.rmin = group.obj.quantity(rmin[0],str(rmin[1])).in_units('code_length')
         if rmax[1] == 'rvir':
-            rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
         else:
             rmax = group.obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')
         reg.rmax = rmax
-        enclosing_sphere_p = group.position
+        enclosing_sphere_p = group.position.to('code_length')
         enclosing_sphere_r = rmax
 
     elif region_type == 'basic_sphere':
         reg.name = 'sphere'
         reg.criteria_name = 'r_sphere'
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        centre.x, centre.y, centre.z = group.position[0].to('code_length'), group.position[1].to('code_length'), group.position[2].to('code_length')
         reg.centre = centre
         axis = vectors.vector()
         norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
@@ -680,20 +680,20 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
         bulk.x, bulk.y, bulk.z = 0,0,0
         reg.bulk_velocity = bulk
         if rmin[1] == 'rvir':
-            reg.rmin = rmin[0]*group.virial_quantities['radius'].d
+            reg.rmin = rmin[0]*group.virial_quantities['radius'].in_units('code_length').d
         else:
             reg.rmin = group.obj.quantity(rmin[0],str(rmin[1])).in_units('code_length')
         if rmax[1] == 'rvir':
-            rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
         else:
             rmax = group.obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')
         reg.rmax = rmax
-        enclosing_sphere_p = group.position
+        enclosing_sphere_p = group.position.to('code_length')
         enclosing_sphere_r = rmax
     elif region_type == 'basic_cube':
         reg.name = 'cube'
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        centre.x, centre.y, centre.z = group.position[0].to('code_length'), group.position[1].to('code_length'), group.position[2].to('code_length')
         reg.centre = centre
         axis = vectors.vector()
         norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
@@ -708,7 +708,7 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
         reg.ymax = group.obj.quantity(ymax[0],str(ymax[1])).in_units('code_length')
         reg.zmin = group.obj.quantity(zmin[0],str(zmin[1])).in_units('code_length')
         reg.zmax = group.obj.quantity(zmax[0],str(zmax[1])).in_units('code_length')
-        enclosing_sphere_p = group.position
+        enclosing_sphere_p = group.position.to('code_length')
         corner = np.array([reg.xmax-centre.x,reg.ymax-centre.y,reg.zmax-centre.z])
         enclosing_sphere_r = np.linalg.norm(corner)
         
@@ -728,20 +728,20 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
         reg.bulk_velocity = bulk
         
         if rmin[1] == 'rvir':
-            reg.rmin = rmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            reg.rmin = rmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
         else:
             reg.rmin = group.obj.quantity(rmin[0],str(rmin[1])).in_units('code_length')
         if rmax[1] == 'rvir':
-            reg.rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            reg.rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
         else:
             reg.rmax = group.obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')
         
         if zmin[1] == 'rvir':
-            reg.zmin = zmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            reg.zmin = zmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
         else:
             reg.zmin = group.obj.quantity(zmin[0],str(zmin[1])).in_units('code_length')
         if zmax[1] == 'rvir':
-            reg.zmax = zmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            reg.zmax = zmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
         else:
             reg.zmax = group.obj.quantity(zmax[0],str(zmax[1])).in_units('code_length')
         enclosing_sphere_p = mycentre + group.obj.array(norm_L * max(reg.rmax,0.5*(reg.zmax-reg.zmin)),'code_length')
@@ -749,7 +749,7 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
     elif region_type == 'cylinder':
         reg.name = 'cylinder'
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        centre.x, centre.y, centre.z = group.position[0].to('code_length'), group.position[1].to('code_length'), group.position[2].to('code_length')
         reg.centre = centre
         axis = vectors.vector()
         norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
@@ -761,23 +761,23 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
         reg.bulk_velocity = bulk
 
         if rmin[1] == 'rvir':
-            reg.rmin = rmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            reg.rmin = rmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
         else:
             reg.rmin = group.obj.quantity(rmin[0],str(rmin[1])).in_units('code_length')
         if rmax[1] == 'rvir':
-            reg.rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            reg.rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
         else:
             reg.rmax = group.obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')
         
         if zmin[1] == 'rvir':
-            reg.zmin = zmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            reg.zmin = zmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
         else:
             reg.zmin = group.obj.quantity(zmin[0],str(zmin[1])).in_units('code_length')
         if zmax[1] == 'rvir':
-            reg.zmax = zmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            reg.zmax = zmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
         else:
             reg.zmax = group.obj.quantity(zmax[0],str(zmax[1])).in_units('code_length')
-        enclosing_sphere_p = group.position + norm_L * max(rmax,0.5*(reg.zmax-reg.zmin))
+        enclosing_sphere_p = group.position.to('code_length') + norm_L * max(rmax,0.5*(reg.zmax-reg.zmin))
         enclosing_sphere_r = np.sqrt(max(abs(reg.zmax),abs(reg.zmin))**2 + 2*reg.rmax**2)
     elif region_type == 'top_midplane_cylinder':
         reg.name = 'cylinder'
@@ -786,20 +786,20 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
         reg.axis = axis
         if rmin[1] == 'rvir':
-            reg.rmin = rmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            reg.rmin = rmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
         else:
             reg.rmin = group.obj.quantity(rmin[0],str(rmin[1])).in_units('code_length')
         if rmax[1] == 'rvir':
-            reg.rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            reg.rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
         else:
             reg.rmax = group.obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')
         
         if zmin[1] == 'rvir':
-            reg.zmin = zmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            reg.zmin = zmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
         else:
             reg.zmin = group.obj.quantity(zmin[0],str(zmin[1])).in_units('code_length')
         if zmax[1] == 'rvir':
-            reg.zmax = zmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            reg.zmax = zmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
         else:
             reg.zmax = group.obj.quantity(zmax[0],str(zmax[1])).in_units('code_length')
         centre = vectors.vector()
@@ -820,24 +820,24 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
         reg.axis = axis
 
         if rmin[1] == 'rvir':
-            reg.rmin = rmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            reg.rmin = rmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
         else:
             reg.rmin = group.obj.quantity(rmin[0],str(rmin[1])).in_units('code_length')
         if rmax[1] == 'rvir':
-            reg.rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            reg.rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
         else:
             reg.rmax = group.obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')
         
         if zmin[1] == 'rvir':
-            reg.zmin = zmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            reg.zmin = zmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
         else:
             reg.zmin = group.obj.quantity(zmin[0],str(zmin[1])).in_units('code_length')
         if zmax[1] == 'rvir':
-            reg.zmax = zmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            reg.zmax = zmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].in_units('code_length').d
         else:
             reg.zmax = group.obj.quantity(zmax[0],str(zmax[1])).in_units('code_length')
         centre = vectors.vector()
-        im_centre = group.position.d + norm_L.d * reg.zmax
+        im_centre = group.position.to('code_length').d + norm_L.d * reg.zmax
         centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
         reg.centre = centre
         bulk = vectors.vector()

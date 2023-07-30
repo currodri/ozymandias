@@ -433,9 +433,9 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     # Setup camera details for the requested POV (Point of View)
     if window[0] == 0.0 or window[1] == 'rvir':
         if group.type == 'halo':
-            rvir = group.virial_quantities['radius'].d
+            rvir = group.virial_quantities['radius'].to('code_length').d
         else:
-            rvir = group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            rvir = group.obj.halos[group.parent_halo_index].virial_quantities['radius'].to('code_length').d
     if window[0] == 0.0:
         if group.type == 'halo':
             window = 1.2*rvir
@@ -447,7 +447,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         else:
             window = group.obj.quantity(window[0],window[1]).in_units('code_length').d
     centre = vectors.vector()
-    centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+    centre.x, centre.y, centre.z = group.position[0].to('code_length'), group.position[1].to('code_length'), group.position[2].to('code_length')
     bulk = vectors.vector()
     region_axis = vectors.vector()
     norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
@@ -459,7 +459,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
 
     if proj.pov == 'faceon':
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        centre.x, centre.y, centre.z = group.position[0].to('code_length'), group.position[1].to('code_length'), group.position[2].to('code_length')
         axis = vectors.vector()
         norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
         up = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
@@ -480,7 +480,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         enclosing_sphere_r = rmax
     elif proj.pov == 'edgeon':
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        centre.x, centre.y, centre.z = group.position[0].to('code_length'), group.position[1].to('code_length'), group.position[2].to('code_length')
         axis = vectors.vector()
         norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
         los = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
@@ -501,7 +501,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         enclosing_sphere_r = rmax
     elif proj.pov == 'x':
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        centre.x, centre.y, centre.z = group.position[0].to('code_length'), group.position[1].to('code_length'), group.position[2].to('code_length')
         axis = vectors.vector()
         axis.x,axis.y,axis.z = 1.0, 0.0, 0.0
         up_vector = vectors.vector()
@@ -519,7 +519,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         enclosing_sphere_r = rmax
     elif proj.pov == 'y':
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        centre.x, centre.y, centre.z = group.position[0].to('code_length'), group.position[1].to('code_length'), group.position[2].to('code_length')
         axis = vectors.vector()
         axis.x,axis.y,axis.z = 0.0, 1.0, 0.0
         up_vector = vectors.vector()
@@ -537,7 +537,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         enclosing_sphere_r = rmax
     elif proj.pov == 'z':
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        centre.x, centre.y, centre.z = group.position[0].to('code_length'), group.position[1].to('code_length'), group.position[2].to('code_length')
         axis = vectors.vector()
         axis.x,axis.y,axis.z = 0.0, 0.0, 1.0
         up_vector = vectors.vector()
@@ -567,8 +567,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         far_cut_depth = 0.3*rmax
         centre = vectors.vector()
         im_centre = group.position.d + 0.99*norm_L * rmax
-        centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
-        enclosing_sphere_p = im_centre
+        centre.x, centre.y, centre.z = im_centre[0].to('code_length'), im_centre[1].to('code_length'), im_centre[2].to('code_length')
+        enclosing_sphere_p = im_centre.to('code_length')
         enclosing_sphere_r = np.sqrt(max(abs(far_cut_depth),abs(distance))**2 + 2*window**2)
     elif proj.pov == 'bottom_midplane':
         axis = vectors.vector()
@@ -584,12 +584,12 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         far_cut_depth = rmax
         centre = vectors.vector()
         im_centre = group.position.d + norm_L * rmax
-        centre.x, centre.y, centre.z = im_centre[0], im_centre[1], im_centre[2]
-        enclosing_sphere_p = im_centre
+        centre.x, centre.y, centre.z = im_centre[0].to('code_length'), im_centre[1].to('code_length'), im_centre[2].to('code_length')
+        enclosing_sphere_p = im_centre.to('code_length')
         enclosing_sphere_r = np.sqrt(max(abs(far_cut_depth),abs(distance))**2 + 2*window**2)
     elif proj.pov == 'custom':
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        centre.x, centre.y, centre.z = group.position[0].to('code_length'), group.position[1].to('code_length'), group.position[2].to('code_length')
         axis = vectors.vector()
         norm_L = myaxis/np.linalg.norm(myaxis)
         up = up_axis / np.linalg.norm(up_axis)
@@ -600,7 +600,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
         distance = rmax
         far_cut_depth = rmax
-        enclosing_sphere_p = group.position
+        enclosing_sphere_p = group.position.to('code_length')
         enclosing_sphere_r = rmax
     elif proj.pov == 'custom_cylinder':
         centre = vectors.vector()
@@ -616,18 +616,18 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         region_axis.x,region_axis.y,region_axis.z = norm_L[0], norm_L[1], norm_L[2]
         
         if rmax[1] == 'rvir':
-            window = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            window = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].to('code_length').d
         else:
             window = group.obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')
         rmax = window
         region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
         
         if zmin[1] == 'rvir':
-            distance = zmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            distance = zmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].to('code_length').d
         else:
             distance = group.obj.quantity(zmin[0],str(zmin[1])).in_units('code_length')
         if zmax[1] == 'rvir':
-            far_cut_depth = zmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            far_cut_depth = zmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].to('code_length').d
         else:
             far_cut_depth = group.obj.quantity(zmax[0],str(zmax[1])).in_units('code_length')
         enclosing_sphere_p = mycentre + norm_L * max(rmax,0.5*(far_cut_depth-distance))
@@ -646,7 +646,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         region_size = np.array([2.0*rmax,2.0*rmax],order='F')
         distance = rmax
         far_cut_depth = rmax
-        enclosing_sphere_p = group.position
+        enclosing_sphere_p = group.position.to('code_length')
         enclosing_sphere_r = rmax
 
     # Now create filters if any conditions have been given...
@@ -1294,10 +1294,11 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=(3,'kpc')
                 ax[i,j].get_xaxis().set_visible(False)
                 ax[i,j].get_yaxis().set_visible(False)
                 continue 
-            if fields[ivar].split('/')[1] == 'skirt': have_skirt = True
-            if len(skirt_images) != len(faceon_fits):
-                print('You need to provide the same number of SKIRT projections than simulations!')
-                exit
+            if fields[ivar].split('/')[1] == 'skirt': 
+                have_skirt = True
+                if len(skirt_images) != len(faceon_fits):
+                    print('You need to provide the same number of SKIRT projections than simulations!')
+                    exit
             if i%2 == 0:
                 ax[i,j].set_xlim([-0.5*width_x,0.5*width_x])
                 ax[i,j].set_ylim([-0.5*width_y,0.5*width_y])

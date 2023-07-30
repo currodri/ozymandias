@@ -2629,13 +2629,14 @@ module io_ramses
         character(6)  ::  param
         real(dbl) ::  pvalue
         character(200) :: line
-        logical :: ok
+        logical :: ok,ok_found
 
         nomfich=TRIM(repository)//'/namelist.txt'
         
         inquire(file=nomfich, exist=ok) ! verify input file
         if (ok) then
             if (verbose) write(*,'(": Reading eta_sn from namelist.txt")')
+            ok_found = .false.
             open(unit=15,file=nomfich,status='old',form='formatted')
             do
                 read(15,'(A)',iostat=status)line
@@ -2647,12 +2648,17 @@ module io_ramses
                     read(line(ipos+1:jpos-1),'(F10.0)')pvalue
                     sim%eta_sn = pvalue
                     if (verbose) write(*,*)': Found eta_sn=',sim%eta_sn
+                    ok_found = .true.
                     exit
                 end if
             end do
+            if (.not.ok_found) then
+                write(*,'(": Namelist does not have eta_sn: eta_sn set to 0.317")')
+                sim%eta_sn = 0.317D0
+            end if
         else
-            if (verbose) write(*,'(": Namelist not found: eta_sn set to 0.2")')
-            sim%eta_sn = 2D-1
+            if (verbose) write(*,'(": Namelist not found: eta_sn set to 0.317")')
+            sim%eta_sn = 0.317D0 !2D-1
         end if
 
     end subroutine get_eta_sn

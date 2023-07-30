@@ -248,9 +248,7 @@ module part_integrator
 #else
         integer(ilg),dimension(:),allocatable :: id
 #endif
-#ifndef IMASS
         integer(1),dimension(:), allocatable :: part_tags
-#endif
         real(dbl),dimension(:),allocatable :: m,age,met,imass
         real(dbl),dimension(:,:),allocatable :: x,v
 
@@ -262,15 +260,6 @@ module part_integrator
         real(dbl),dimension(1:100) :: massresbins=0d0
         integer,dimension(1:100) :: order=0
 
-#ifdef LONGINT
-        write(*,*) 'Using LONGINT for particle IDs'
-#endif
-#ifndef IMASS
-        if (sim%eta_sn .eq. -1D0) then
-            write(*,*)': eta_sn=-1 and not IMASS --> should set this up!'
-            stop
-        end if
-#endif
         ! Obtain details of the hydro variables stored
         call read_hydrofile_descriptor(repository)
 
@@ -280,6 +269,16 @@ module part_integrator
 
         ! Check if particle data uses family
         if (sim%dm .and. sim%hydro) call check_families(repository)
+
+#ifdef LONGINT
+        write(*,*) 'Using LONGINT for particle IDs'
+#endif
+#ifndef IMASS
+        if (sim%eta_sn .eq. -1D0) then
+            write(*,*)': eta_sn=-1 and not IMASS --> should set this up!'
+            stop
+        end if
+#endif
 
         ! Compute the Hilbert curve
         call get_cpu_map(reg)
@@ -371,7 +370,7 @@ module part_integrator
                 allocate(met(1:npart2))
                 allocate(imass(1:npart2))
 #ifndef IMASS
-                allocate(part_tags(1:npart2))
+                if (sim%family) allocate(part_tags(1:npart2))
 #endif
             endif
             if (present(get_ids)) then
@@ -430,9 +429,13 @@ module part_integrator
                     part%imass = imass(i)
 #else
                     part%imass = 0D0
-                    if (part_tags(i)==1) then
-                        part%imass = m(i)
-                    elseif (part_tags(i)==0.or.part_tags(i)==-1) then
+                    if (sim%family) then
+                        if (part_tags(i)==1) then
+                            part%imass = m(i)
+                        elseif (part_tags(i)==0.or.part_tags(i)==-1) then
+                            part%imass = m(i) / (1D0 - sim%eta_sn)
+                        end if
+                    else
                         part%imass = m(i) / (1D0 - sim%eta_sn)
                     end if
 #endif
@@ -499,7 +502,7 @@ module part_integrator
             if (allocated(id))deallocate(id)
             if (nstar>0)deallocate(age,met,imass)
 #ifndef IMASS
-            if (nstar>0)deallocate(part_tags)
+            if (nstar>0.and.sim%family)deallocate(part_tags)
 #endif
             inpart = inpart + npart2
         end do cpuloop
