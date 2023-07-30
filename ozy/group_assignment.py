@@ -13,6 +13,7 @@ def galaxies_to_halos(obj):
     
     if not obj._has_galaxies:
         # Check that the OZY object includes galaxies.
+        print("WARNING: Not a single galaxy in output.")
         return
     # Loop over all galaxies in catalogue.
     for galaxy in obj.galaxies:

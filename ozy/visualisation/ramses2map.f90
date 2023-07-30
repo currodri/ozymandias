@@ -1279,9 +1279,7 @@ module maps
 #else
         integer(ilg),dimension(:),allocatable :: id,tag_id
 #endif
-#ifndef IMASS
         integer(1),dimension(:), allocatable :: part_tags
-#endif
         integer,dimension(1:2) :: n_map
         real(dbl),dimension(:),allocatable :: m,age,met
         real(dbl),dimension(:),allocatable :: imass
@@ -1391,7 +1389,7 @@ module maps
                 allocate(met(1:npart2))
                 allocate(imass(1:npart2))
 #ifndef IMASS
-                allocate(part_tags(1:npart2))
+                if (sim%family) allocate(part_tags(1:npart2))
 #endif
             endif
             if (present(tag_file) .and. (.not. allocated(id))) allocate(id(1:npart2))
@@ -1453,9 +1451,13 @@ module maps
                     part%imass = imass(i)
 #else
                     part%imass = 0D0
-                    if (part_tags(i)==1) then
-                        part%imass = m(i)
-                    elseif (part_tags(i)==0.or.part_tags(i)==-1) then
+                    if (sim%family) then
+                        if (part_tags(i)==1) then
+                            part%imass = m(i)
+                        elseif (part_tags(i)==0.or.part_tags(i)==-1) then
+                            part%imass = m(i) / (1D0 - sim%eta_sn)
+                        end if
+                    else
                         part%imass = m(i) / (1D0 - sim%eta_sn)
                     end if
 #endif
@@ -1555,7 +1557,7 @@ module maps
             if (allocated(id))deallocate(id)
             if (nstar>0)deallocate(age,met,imass)
 #ifndef IMASS
-            if (nstar>0)deallocate(part_tags)
+            if (nstar>0.and.sim%family)deallocate(part_tags)
 #endif
         end do cpuloop
         write(*,*)'> nparttoto: ',nparttoto

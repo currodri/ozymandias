@@ -83,7 +83,6 @@ def _write_attrib(obj_list, k, v, hd):
         data = [getattr(i,k) for i in obj_list]
     else:
         return
-    
     _write_dataset(k, data, hd)
     if unit:
         hd[k].attrs.create('unit', str(v.units).encode('utf8'))

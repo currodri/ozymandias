@@ -179,14 +179,15 @@ class Galaxy(Group):
                 self.energies['cr_energy_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass * code_velocity**2')
                 self.energies['cr_energy_specific_'+phase_names[i]] = self.obj.array(empty_array, 'code_specific_energy')
                 self.pressure_support['grav_crpfrsphere_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
-        if self.obj.simulation.physics['rt']:
-            self.radiation['xHII'] = empty_array
-            self.radiation['xHeII'] = empty_array
-            self.radiation['xHeIII'] = empty_array
-            for i in range(0, len(phase_names)):
-                self.radiation['xHII_'+phase_names[i]] = empty_array
-                self.radiation['xHeII_'+phase_names[i]] = empty_array
-                self.radiation['xHeIII_'+phase_names[i]] = empty_array
+        # TODO: Code RT
+        # if self.obj.simulation.physics['rt']:
+        #     self.radiation['xHII'] = empty_array
+        #     self.radiation['xHeII'] = empty_array
+        #     self.radiation['xHeIII'] = empty_array
+        #     for i in range(0, len(phase_names)):
+        #         self.radiation['xHII_'+phase_names[i]] = empty_array
+        #         self.radiation['xHeII_'+phase_names[i]] = empty_array
+        #         self.radiation['xHeIII_'+phase_names[i]] = empty_array
 
         # Assign results to galaxy object
         if self.obj.simulation.physics['hydro']:
@@ -214,11 +215,12 @@ class Galaxy(Group):
             self.energies['halo_cr_energy_specific'] = self.obj.array(empty_array, 'code_specific_energy')
             self.pressure_support['grav_crpfrsphere'] = self.obj.array(empty_array, 'dimensionless')
 
-        if self.obj.simulation.physics['rt']:
-            print('Computing ionisation fractions')
-            self.radiation['halo_xHII'] = empty_array
-            self.radiation['halo_xHeII'] = empty_array
-            self.radiation['halo_xHeIII'] = empty_array
+        # TODO: Code RT
+        # if self.obj.simulation.physics['rt']:
+        #     print('Computing ionisation fractions')
+        #     self.radiation['halo_xHII'] = empty_array
+        #     self.radiation['halo_xHeII'] = empty_array
+        #     self.radiation['halo_xHeIII'] = empty_array
 
 
     def _calculate_stardm_quantities(self):
@@ -343,9 +345,10 @@ class Galaxy(Group):
                                 'eff_FKmag','eff_FKmagnocr']
             do_binning += [False,True,True,True,True]
         nvar_rt = len(quantity_names)
-        if self.obj.simulation.physics['rt']:
-            quantity_names += ['xHII','xHeII','xHeIII']
-            do_binning += [False,False,False]
+        # TODO: Code RT
+        # if self.obj.simulation.physics['rt']:
+        #     quantity_names += ['xHII','xHeII','xHeIII']
+        #     do_binning += [False,False,False]
                 
         # Initialise Fortran derived type with attributes
         # This object hold the following attributes:
@@ -438,16 +441,16 @@ class Galaxy(Group):
                 self.energies['cr_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.result[nvar_crs].total[i+1,0,0], 'code_mass * code_velocity**2')
                 self.energies['cr_energy_specific_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+1],i+1),'code_specific_energy')
                 self.pressure_support['grav_crpfrsphere_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+2],i+1), 'dimensionless')
-        if self.obj.simulation.physics['rt']:
-            #TODO: This is not really correct, need to update for the format of AMR integrations
-            print('Computing ionisation fractions')
-            self.radiation['xHII'] = glob_attrs.data[0,nvar_rt,1:,:-1]
-            self.radiation['xHeII'] = glob_attrs.data[0,nvar_rt+1,1:,:-1]
-            self.radiation['xHeIII'] = glob_attrs.data[0,nvar_rt+2,1:,:-1]
-            for i in range(0, len(phase_names)):
-                self.radiation['xHII_'+phase_names[i]] = glob_attrs.data[i+1,nvar_rt,1:,:-1]
-                self.radiation['xHeII_'+phase_names[i]] = glob_attrs.data[i+1,nvar_rt+1,1:,:-1]
-                self.radiation['xHeIII_'+phase_names[i]] = glob_attrs.data[i+1,nvar_rt+2,1:,:-1]
+        # if self.obj.simulation.physics['rt']:
+        #     #TODO: This is not really correct, need to update for the format of AMR integrations
+        #     print('Computing ionisation fractions')
+        #     self.radiation['xHII'] = glob_attrs.data[0,nvar_rt,1:,:-1]
+        #     self.radiation['xHeII'] = glob_attrs.data[0,nvar_rt+1,1:,:-1]
+        #     self.radiation['xHeIII'] = glob_attrs.data[0,nvar_rt+2,1:,:-1]
+        #     for i in range(0, len(phase_names)):
+        #         self.radiation['xHII_'+phase_names[i]] = glob_attrs.data[i+1,nvar_rt,1:,:-1]
+        #         self.radiation['xHeII_'+phase_names[i]] = glob_attrs.data[i+1,nvar_rt+1,1:,:-1]
+        #         self.radiation['xHeIII_'+phase_names[i]] = glob_attrs.data[i+1,nvar_rt+2,1:,:-1]
 
     def _calculate_halo_gas_quantities(self):
         from ozy.utils import get_code_bins, pdf_handler_to_stats
@@ -495,9 +498,10 @@ class Galaxy(Group):
                                 'grav_crpfrsphere']
             do_binning += [False,True,True]
         nvar_rt = len(quantity_names)
-        if self.obj.simulation.physics['rt']:
-            quantity_names += ['xHII','xHeII','xHeIII']
-            do_binning += [False,False,False]
+        # TODO: Code RT
+        # if self.obj.simulation.physics['rt']:
+        #     quantity_names += ['xHII','xHeII','xHeIII']
+        #     do_binning += [False,False,False]
                 
         # Initialise Fortran derived type with attributes
         # This object hold the following attributes:
@@ -562,12 +566,12 @@ class Galaxy(Group):
             self.energies['halo_cr_energy_specific'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+1],0),'code_specific_energy')
             self.pressure_support['grav_crpfrsphere'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+2],0),'dimensionless')
 
-        if self.obj.simulation.physics['rt']:
-            #TODO: This is not really correct, need to update for the format of AMR integrations
-            print('Computing ionisation fractions')
-            self.radiation['halo_xHII'] = glob_attrs.data[0,nvar_rt,1:,:-1]
-            self.radiation['halo_xHeII'] = glob_attrs.data[0,nvar_rt+1,1:,:-1]
-            self.radiation['halo_xHeIII'] = glob_attrs.data[0,nvar_rt+2,1:,:-1]
+        # if self.obj.simulation.physics['rt']:
+        #     #TODO: This is not really correct, need to update for the format of AMR integrations
+        #     print('Computing ionisation fractions')
+        #     self.radiation['halo_xHII'] = glob_attrs.data[0,nvar_rt,1:,:-1]
+        #     self.radiation['halo_xHeII'] = glob_attrs.data[0,nvar_rt+1,1:,:-1]
+        #     self.radiation['halo_xHeIII'] = glob_attrs.data[0,nvar_rt+2,1:,:-1]
 
     def _calculate_velocity_dispersions(self):
         """Calculate velocity dispersions for the various components."""

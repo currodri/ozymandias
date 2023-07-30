@@ -187,7 +187,7 @@ class OZY(object):
                 self.galaxies[np.argmax(masses)]._process_galaxy()
             else:
                 for gal in self.galaxies:
-                    gal._process_galaxy(**self._kwargs)
+                    gal._process_galaxy()
 
             # Link objects between each other
             link.galaxies_to_halos(self)
