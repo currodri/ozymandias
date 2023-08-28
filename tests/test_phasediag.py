@@ -25,7 +25,7 @@ plot_single_phase_diagram(pd,'total_coolingtime','NUT_00035_pd_total_coolingtime
 
 pd = compute_phase_diagram(gal,'test_00035.hdf5', 'density','temperature', 
                             ['gas/mass','gas/alfvendiff_ratio','gas/stheatcooling_ratio','gas/streaming_heating','gas/net_cooling','gas/total_coolingtime'],
-                            ['gas/cumulative','gas/mass','gas/density','gas/volume'],save=True,recompute=False,rmax=(1.0,'rvir'),
+                            ['gas/cumulative','gas/mass','gas/density','gas/volume'],save=True,recompute=True,rmax=(1.0,'rvir'),
                             rmin=(0.2,'rvir'),nbins=[100,100],filter_name='halo',cr_st=True,cr_heat=True)
 
 print('Tot_mass: ',np.sum(pd.zdata['hydro'][0][:,:,0][:,:,0]))

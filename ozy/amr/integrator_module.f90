@@ -569,6 +569,7 @@ module amr_integrator
             integer :: ipos,icpu,ilevel,ind,idim,ivar,ifilt,iskip,inbor,ison,isub
             integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
             integer :: tot_pos,tot_ref,total_ncell,tot_insubs
+            integer :: tot_sel
             integer :: nvarh
             integer :: roterr
             character(5) :: nchar,ncharcpu
@@ -589,7 +590,7 @@ module amr_integrator
             integer,dimension(:,:),allocatable :: nbor
             integer,dimension(:),allocatable :: son,tempson,iig
             integer,dimension(:),allocatable :: ind_cell,ind_cell2
-            integer ,dimension(:),allocatable :: ind_nbor
+            integer ,dimension(:,:),allocatable :: ind_nbor
             logical,dimension(:),allocatable :: ref
             type(level),dimension(1:100) :: grid
 
@@ -597,6 +598,7 @@ module amr_integrator
             tot_pos = 0
             tot_ref = 0
             tot_insubs = 0
+            tot_sel = 0
 
             ! Obtain details of the hydro variables stored
             call read_hydrofile_descriptor(repository)
@@ -605,7 +607,7 @@ module amr_integrator
             call init_amr_read(repository)
             amr%lmax = amr%nlevelmax
 
-            allocate(ind_nbor(0:amr%twondim))
+            allocate(ind_nbor(1,0:amr%twondim))
 
             ! Compute the Hilbert curve
             call get_cpu_map(reg)
@@ -748,28 +750,21 @@ module amr_integrator
                             ! Read grid center
                             do idim=1,amr%ndim
                                 read(10)xxg
-                                do i=1,ngrida
-                                    grid(ilevel)%xg(i,idim) = xxg(i)
-                                end do
+                                grid(ilevel)%xg(:,idim) = xxg(:)
                             end do
-
+                            
                             read(10) ! Skip father index
                             ! Read nbor index
                             do ind=1,amr%twondim
                                 read(10)iig
-                                do i=1,ngrida
-                                    nbor(grid(ilevel)%ind_grid(i),ind) = iig(i)
-                                end do
+                                nbor(grid(ilevel)%ind_grid(:),ind) = iig(:)
                             end do
                             ! Read son index
                             do ind=1,amr%twotondim
                                 iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                                 read(10)iig
-                                do i=1,ngrida
-                                    son(grid(ilevel)%ind_grid(i)+iskip) = iig(i)
-                                end do
+                                son(grid(ilevel)%ind_grid(:)+iskip) = iig(:)
                             end do
-
                             ! Skip cpu map
                             do ind=1,amr%twotondim
                                 read(10)
@@ -780,7 +775,6 @@ module amr_integrator
                                 read(10)
                             end do
                         endif
-
                         ! Read HYDRO data
                         read(11)
                         read(11)
@@ -790,9 +784,7 @@ module amr_integrator
                                 iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                                 varloop: do ivar=1,nvarh
                                     read(11)xxg
-                                    do i=1,ngrida
-                                        var(grid(ilevel)%ind_grid(i)+iskip,ivar) = xxg(i)
-                                    end do
+                                    var(grid(ilevel)%ind_grid(:)+iskip,ivar) = xxg(:)
                                 end do varloop
                             end do tndimloop
                         endif
@@ -805,14 +797,10 @@ module amr_integrator
                                 do ind=1,amr%twotondim
                                     iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                                     read(12)xxg
-                                    do i=1,ngrida
-                                        grav_var(grid(ilevel)%ind_grid(i)+iskip,1) = xxg(i)
-                                    end do
+                                    grav_var(grid(ilevel)%ind_grid(:)+iskip,1) = xxg(:)
                                     do ivar=1,amr%ndim
                                         read(12)xxg
-                                        do i=1,ngrida
-                                            grav_var(grid(ilevel)%ind_grid(i)+iskip,ivar+1) = xxg(i)
-                                        end do
+                                        grav_var(grid(ilevel)%ind_grid(:)+iskip,ivar+1) = xxg(:)
                                     end do
                                 end do
                             end if
@@ -869,22 +857,6 @@ module amr_integrator
                             ! Check if cell is refined
                             do i=1,ngrida
                                 ref(i) = son(ind_cell(i))>0.and.ilevel<amr%lmax
-                                ! Look for cells that just got refined and de-refine them
-                                if (ref(i)) then
-                                    allocate(son_dens(1:amr%twotondim))
-                                    do inbor=1,amr%twotondim
-                                        ison = son(ind_cell(i)) + amr%ncoarse+(inbor-1)*amr%ngridmax
-                                        son_dens(inbor) = var(ison,1)
-                                    end do
-                                    if (all(son_dens == var(ind_cell(i),1))) then
-                                        do inbor=1,amr%twotondim
-                                            ison = son(ind_cell(i)) + amr%ncoarse+(inbor-1)*amr%ngridmax
-                                            son(ison) = son(ind_cell(i))
-                                        end do
-                                        son(ind_cell(i)) = 0
-                                    end if
-                                    deallocate(son_dens)
-                                end if
                             end do
 
                             xorig  = x
@@ -917,15 +889,15 @@ module amr_integrator
                                 allocate(tempson(0:amr%twondim))
                                 if (read_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
                                 ! Just correct central cell vectors for the region
-                                tempvar(0,:) = var(ind_nbor(0),:)
-                                tempson(0)       = son(ind_nbor(0))
-                                if (read_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(0),:)
+                                tempvar(0,:) = var(ind_nbor(1,0),:)
+                                tempson(0)       = son(ind_nbor(1,0))
+                                if (read_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
                                 tempvar(0,varIDs%vx:varIDs%vz) = vtemp
                                 if (read_gravity) tempgrav_var(0,2:4) = gtemp
-                                do inbor=0,amr%twondim
-                                    tempvar(inbor,:) = var(ind_nbor(inbor),:)
-                                    tempson(inbor)       = son(ind_nbor(inbor))
-                                    if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(inbor),:)
+                                do inbor=1,amr%twondim
+                                    tempvar(inbor,:) = var(ind_nbor(1,inbor),:)
+                                    tempson(inbor)       = son(ind_nbor(1,inbor))
+                                    if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(1,inbor),:)
                                 end do
                                 ! If we are avoiding substructure, check whether we are safe
                                 if (ok_cell)tot_pos = tot_pos + 1
@@ -938,6 +910,7 @@ module amr_integrator
                                     if (.not.ok_sub) tot_insubs = tot_insubs + 1
                                     ok_cell = ok_cell .and. ok_sub
                                 end if
+                                if(ok_cell.and..not.ref(i))tot_sel = tot_sel + 1
                                 filterloop: do ifilt=1,attrs%nfilter
                                     if (read_gravity) then
                                         ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx,tempvar,&
@@ -948,7 +921,7 @@ module amr_integrator
                                     end if
                                     ok_cell_each= ok_cell.and..not.ref(i).and.ok_filter
                                     if (ok_cell_each) then
-                                        total_ncell = total_ncell + 1
+                                        if (ifilt.eq.1) total_ncell = total_ncell + 1
                                         if (read_gravity) then
                                             call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt,trans_matrix,tempgrav_var)
                                         else
@@ -976,6 +949,7 @@ module amr_integrator
             call renormalise(attrs)
 
             write(*,*)'Total number of cells used: ', total_ncell
+            write(*,*)'Total number of cells in region and refined: ', tot_sel
             write(*,*)'Total number of cells refined: ', tot_ref
             write(*,*)'Total number of cells in region: ', tot_pos
             write(*,*)'Total number of cells in substructures: ', tot_insubs

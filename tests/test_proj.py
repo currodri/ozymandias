@@ -60,10 +60,33 @@ gal = obj.galaxies[progind]
 # plot_single_galaxy_projection('NUT_00035_y.fits',['gas/density','gas/temperature','star/sdensity',
 #                                                   'gas/magnetic_magnitude','gas/grad_crp','gas/eff_FKmag'])
 # plot_single_galaxy_projection('NUT_00035_y.fits',['gas/density','gas/temperature','star/sdensity',
-                                                  # 'gas/neighbour_accuracy','gas/grad_crp','gas/eff_FKmag'])
-# proj = do_projection(gal,['gas/density','gas/temperature','gas/v_cyl_z','gas/v_sphere_r','gas/grav_crpfz','gas/grav_crpfrsphere','gas/sigma','gas/grav_therpfz'],window=(0.1,'rvir'),pov='edgeon',weight=['gas/density','star/cumulative'])
+#                                                   'gas/neighbour_accuracy','gas/grad_crp','gas/eff_FKmag'])
+# proj = do_projection(gal,['gas/density','gas/temperature','gas/alfven_speed',
+#                           'gas/diffusion_speed','gas/alfvendiff_ratio',
+#                           'gas/grav_crpfrsphere','gas/sigma','gas/grav_therpfz'],
+#                      window=(0.1,'rvir'),pov='edgeon',weight=['gas/density','star/cumulative'],
+#                      type_projection='gauss_deposition',nexp_factor=0.4)
 # proj.save_FITS('NUT_00035_edgeon.fits')
-plot_single_galaxy_projection('NUT_00035_edgeon.fits',['gas/density','gas/temperature','gas/v_cyl_z','gas/v_sphere_r','gas/grav_crpfz','gas/grav_crpfrsphere','gas/sigma','gas/grav_therpfz'],type_scale='galaxy')
+# plot_single_galaxy_projection('NUT_00035_edgeon.fits',['gas/density','gas/temperature','gas/alfven_speed',
+#                                                        'gas/diffusion_speed','gas/alfvendiff_ratio',
+#                                                        'gas/grav_crpfrsphere','gas/sigma',
+#                                                        'gas/grav_therpfz'],type_scale='galaxy',smooth=False)
+
+proj = do_projection(gal,['gas/density','gas/temperature','gas/alfven_speed',
+                          'gas/cr_pressure','star/sfr_surface_100','dm/sdensity'],
+                     window=(0.1,'rvir'),pov='edgeon',weight=['gas/density','star/cumulative'],
+                     type_projection='gauss_deposition',nexp_factor=1.0,lmin=16,lmax=16)
+proj.save_FITS('NUT_00035_edgeon.fits')
+plot_single_galaxy_projection('NUT_00035_edgeon.fits',['gas/density','gas/temperature','gas/alfven_speed',
+                          'gas/cr_pressure','star/sfr_surface_100','dm/sdensity'],type_scale='galaxy',smooth=False)
+
+# proj = do_projection(gal,['gas/density','gas/temperature','gas/alfven_speed',
+#                           'gas/metallicity','star/sfr_surface_100','dm/sdensity'],
+#                      window=(0.1,'rvir'),pov='faceon',weight=['gas/density','star/cumulative'],
+#                      type_projection='gauss_deposition',nexp_factor=2)
+# proj.save_FITS('NUT_00035_faceon.fits')
+# plot_single_galaxy_projection('NUT_00035_faceon.fits',['gas/density','gas/temperature','gas/alfven_speed',
+#                           'gas/metallicity','star/sfr_surface_100','dm/sdensity'],type_scale='galaxy',smooth=False)
 
 # proj = do_projection(gal,['gas/density','gas/temperature','gas/eff_FKmag','gas/magnetic_magnitude','gas/streaming_heating','gas/grad_crp'],window=(1,'kpc'),pov='faceon')
 # proj.save_FITS('NUT_00035_faceon.fits')

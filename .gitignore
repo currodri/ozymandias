@@ -183,3 +183,5 @@ ozy/visualisation/*_pkg
 ozy/amr/amr2.py
 ozy/part/part2.py
 ozy/visualisation/vis.py
+ozy/__pycache__/sim_attributes.cpython-38.pyc
+ozy/__pycache__/utils.cpython-38.pyc

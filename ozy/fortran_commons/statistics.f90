@@ -205,7 +205,7 @@ module stats_utils
             end do
         end if
         
-        ! Make sure were are not out of the outer boundaries
+        ! Make sure we are not out of the outer boundaries
         if (value .eq. bins(nbins)) then
             ibin = nbins
         else if (value<bins(0).or.value>bins(nbins)) then
