@@ -356,7 +356,6 @@ module maps
             xconv = dble(proj%n_sample(1))/dble(grid(ilevel)%imax - grid(ilevel)%imin + 1)
             yconv = dble(proj%n_sample(2))/dble(grid(ilevel)%jmax - grid(ilevel)%jmin + 1)
             if (ksize.lt.halfsqrt2) then
-                print*,'No circle in use!'
                 ! Loop over projected pixels in ilevel
                 do iy = grid(ilevel)%jmin, grid(ilevel)%jmax
                     xpix(2) = int(dble(iy-grid(ilevel)%jmin+1)*xconv)
@@ -392,7 +391,6 @@ module maps
                     write (*, *) "ERROR: nexpand < 0 for gauss"
                     stop
                 end if
-                print*,'nexpand,kernel_norm,kdx,xconv,yconv: ',nexpand,kernel_norm,kdx,xconv,yconv
                 kernel_norm = 1.0d0/(kernel_norm*twopi*kdx)
                 dx_i = min(max(int(nexpand*kdx), 1), rmax_npix_kernel)
                 rcut2 = dble(dx_i)**2.0d0
@@ -460,7 +458,6 @@ module maps
                 do ipix = 1, 2*dx_i+1
                     ipix2 = dble(ipix - (dx_i + 1))**2
                     rpixel2 = ipix2 + jpix2
-                    print*,jpix,ipix,rpixel2,rcut2,kernel_norm*exp(-0.5d0*rpixel2/kdx2)
                     if (rpixel2 .gt. rcut2) cycle
                     ! Compute kernel weight at set distance
                     kfilter(ipix,jpix) = kernel_norm*exp(-0.5d0*rpixel2/kdx2)

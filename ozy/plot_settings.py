@@ -21,7 +21,10 @@ symlog_variables = [
     'ang_momentum_y',
     'ang_momentum_z',
     'massflow_rate_sphere_r',
-    'net_cooling'
+    'net_cooling',
+    'Bx_proj',
+    'By_proj',
+    'Bz_proj'
 ]
 
 plotting_dictionary = dict(
@@ -212,6 +215,57 @@ plotting_dictionary = dict(
                                 'vmax_galaxy':5e-5,
                                 'vmin_cgm':4e-10,
                                 'vmax_cgm':5e-7
+
+    },
+    Bx_proj = {'cmap':sns.color_palette("icefire", as_cmap=True),
+                                'text_over':'white',
+                                'label':r'$B_x$ [$G$]',
+                                'label_log':r'$\log(B_x/{\rm G})$',
+                                'units':'G',
+                                'vmin':4e-12,
+                                'vmax':5e-5,
+                                'bin_min':4e-12,
+                                'bin_max':5e-5,
+                                'vmin_galaxy':-5e-5,
+                                'vmax_galaxy':5e-5,
+                                'vmin_cgm':4e-10,
+                                'vmax_cgm':5e-7,
+                                'linthresh':1e-8,
+                                'linscale':1e-9
+
+    },
+    By_proj = {'cmap':sns.color_palette("icefire", as_cmap=True),
+                                'text_over':'white',
+                                'label':r'$B_y$ [$G$]',
+                                'label_log':r'$\log(B_y/{\rm G})$',
+                                'units':'G',
+                                'vmin':4e-12,
+                                'vmax':5e-5,
+                                'bin_min':4e-12,
+                                'bin_max':5e-5,
+                                'vmin_galaxy':-5e-5,
+                                'vmax_galaxy':5e-5,
+                                'vmin_cgm':4e-10,
+                                'vmax_cgm':5e-7,
+                                'linthresh':1e-8,
+                                'linscale':1e-9
+
+    },
+    Bz_proj = {'cmap':sns.color_palette("icefire", as_cmap=True),
+                                'text_over':'white',
+                                'label':r'$B_z$ [$G$]',
+                                'label_log':r'$\log(B_z/{\rm G})$',
+                                'units':'G',
+                                'vmin':4e-12,
+                                'vmax':5e-5,
+                                'bin_min':4e-12,
+                                'bin_max':5e-5,
+                                'vmin_galaxy':-5e-5,
+                                'vmax_galaxy':5e-5,
+                                'vmin_cgm':4e-10,
+                                'vmax_cgm':5e-7,
+                                'linthresh':1e-8,
+                                'linscale':1e-9
 
     },
     alfven_speed = {'cmap':'swift.evermore',

@@ -799,6 +799,27 @@ module io_ramses
             ! Magnetic energy as magnitude(B)**2/2
             B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
             value = (0.5 * (B.DOT.B) * (dx*dx)) * dx
+        case ('Bx')
+            value = 0.5 *(var(0,varIDs%Blx)+var(0,varIDs%Brx))
+        case ('Bx_proj')
+            B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+            v = B
+            call rotate_vector(v,trans_matrix)
+            value = v%x
+        case ('By_proj')
+            B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+            v = B
+            call rotate_vector(v,trans_matrix)
+            value = v%y
+        case ('Bz_proj')
+            B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+            v = B
+            call rotate_vector(v,trans_matrix)
+            value = v%z
+        case ('By')
+            value = 0.5 *(var(0,varIDs%Bly)+var(0,varIDs%Bry))
+        case ('Bz')
+            value = 0.5 *(var(0,varIDs%Blz)+var(0,varIDs%Brz))
         case ('magnetic_magnitude')
             B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
             value = magnitude(B)
