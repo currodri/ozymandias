@@ -3073,6 +3073,7 @@ module io_ramses
                                 & sim%t_frw(iii-1)*(part%age-sim%tau_frw(iii))/(sim%tau_frw(iii-1)-sim%tau_frw(iii))
 #endif
                         value = (sim%time_simu-time)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+                        if (value<0d0) value = 0d0
                     endif
                 case ('birth_date')
                     ! Birth date

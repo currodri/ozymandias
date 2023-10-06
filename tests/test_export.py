@@ -1,6 +1,6 @@
 import numpy as np
 import ozy
-from ozy.export import unigrid_amr
+from ozy.export import unigrid_amr,basicexport2txt
 
 obj = ozy.load('test_00035.hdf5')
 virial_mass = [i.virial_quantities['mass'] for i in obj.galaxies]
@@ -15,4 +15,6 @@ grid = unigrid_amr(obj, group=gal, lmax=14, xmin=(pos[0]-r,'code_length'), xmax=
                     zmax=(pos[2]+r,'code_length'))
 
 print(grid.shape, grid.min(), grid.max())
+
+basicexport2txt(obj,gal,rmax=(r,'code_length'),h=(0,'pc'),smoothmethod='level')
 
