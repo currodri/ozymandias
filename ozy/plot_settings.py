@@ -66,7 +66,7 @@ plotting_dictionary = dict(
                     'vmax_galaxy':8e+6,
                     'vmin_outflow':4e+3,
                     'vmax_outflow':7e+5,
-                    'vmin_cgm':7e+3,
+                    'vmin_cgm':7e+4,
                     'vmax_cgm':8e+6
     },
     thermal_energy = {'cmap':sns.color_palette("rocket", as_cmap=True),
