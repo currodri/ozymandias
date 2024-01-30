@@ -30,7 +30,7 @@ names = {'cosmoNUThd':'HD',
         'cosmoNUTcrmhd':'CRMHD',
         'cosmoNUTcrmhd\_nost':'nsCRMHD',
         'cosmoNUTcrmhd\_noheat':'nhCRMHD',
-        'cosmoNUTrticrmhd':'RTCRiMHD',
+        'cosmoNUTrtcrmhd':'RTCRMHD',
         'cosmoNUTcrmhd\_3e29':'3e29CRMHD'
         }
 line_dict = {'cosmoNUThd':'royalblue',
@@ -41,7 +41,7 @@ line_dict = {'cosmoNUThd':'royalblue',
                 'cosmoNUTcrmhd\_nost':'olive',
                 'cosmoNUTcrmhd\_noheat':'darkgoldenrod',
                 'cosmoNUTcrmhd\_3e29':'firebrick',
-                'cosmoNUTrticrmhd':'firebrick'}
+                'cosmoNUTrtcrmhd':'firebrick'}
 
 phase_labels = {'hot':'Hot','warm_ionised':'Warm ionised','warm_neutral':'Warm neutral','cold':'Cold'}
 phase_colours = {'hot':'maroon','warm_ionised':'orangered','warm_neutral':'orange','cold':'b'}
@@ -532,7 +532,7 @@ if __name__ == '__main__':
                             print(v+'_'+d_key+'rvir_'+str(f))
                             try:
                                 value = gf.data[v+'_'+d_key+'rvir_'+str(f)].in_units(plt_setting['units'])
-                                if args.type == 'inflow':
+                                if args.flowtype == 'inflow':
                                     value = -value
                                 data[d][f].append(value)
                             except:
@@ -2706,14 +2706,14 @@ if __name__ == '__main__':
                 except:
                     progind = -1
                 
-                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.type,rmin=(args.r-0.01,'rvir'),
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
                                     rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute,
                                     remove_subs=args.rm_subs,pdf_bins=args.nbins)
                 
                 d_key = str(int(100*args.r))
                 try:
                     d = gf.data[args.var+'_'+d_key+'rvir_all'].in_units(plt_setting['units'])
-                    if args.type == 'inflow':
+                    if args.flowtype == 'inflow':
                         d = -d
                     flow_values.append(d)
                 except:
@@ -2739,5 +2739,5 @@ if __name__ == '__main__':
 
         if args.NUT:
             args.ind = 'NUT'
-        fig.savefig(os.getcwd()+'/'+args.type+'_'+args.var+'_'+str(args.ind)+'_'+d_key+'rvir.png', format='png', dpi=200)
+        fig.savefig(os.getcwd()+'/'+args.flowtype+'_'+args.var+'_'+str(args.ind)+'_'+d_key+'rvir.png', format='png', dpi=200)
             

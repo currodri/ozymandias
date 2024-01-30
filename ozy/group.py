@@ -185,15 +185,16 @@ class Galaxy(Group):
                 self.energies['cr_energy_specific_'+phase_names[i]] = self.obj.array(empty_array, 'code_specific_energy')
                 self.pressure_support['grav_crpfrsphere_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
         if self.obj.simulation.physics['rt']:
-            self.radiation['xHII'] = empty_array
-            self.radiation['xHeII'] = empty_array
-            self.radiation['xHeIII'] = empty_array
+            self.radiation['xHII'] = self.obj.array(empty_array,'dimensionless')
+            self.radiation['xHeII'] = self.obj.array(empty_array,'dimensionless')
+            self.radiation['xHeIII'] = self.obj.array(empty_array,'dimensionless')
             for i in range(0, len(phase_names)):
-                self.radiation['xHII_'+phase_names[i]] = empty_array
-                self.radiation['xHeII_'+phase_names[i]] = empty_array
-                self.radiation['xHeIII_'+phase_names[i]] = empty_array
+                self.radiation['xHII_'+phase_names[i]] = self.obj.array(empty_array,'dimensionless')
+                self.radiation['xHeII_'+phase_names[i]] = self.obj.array(empty_array,'dimensionless')
+                self.radiation['xHeIII_'+phase_names[i]] = self.obj.array(empty_array,'dimensionless')
 
         # Assign results to galaxy object
+        phase_names = ['hot','warm_ionised','warm_neutral','cold']
         if self.obj.simulation.physics['hydro']:
             self.mass['halo_gas'] = self.obj.quantity(0.0, 'code_mass')
             self.gas_density['halo_gas'] = self.obj.array(empty_array, 'code_density')
@@ -206,6 +207,17 @@ class Galaxy(Group):
             self.velocity_dispersion['halo_gas_turbulent'] = self.obj.array(empty_array, 'code_velocity')
             if self.obj.simulation.physics['metals']:
                 self.metallicity['halo_gas'] = self.obj.array(empty_array,'dimensionless')
+            for i in range(0, len(phase_names)):
+                self.mass['halo_gas_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass')
+                self.gas_density['halo_gas_'+phase_names[i]] = self.obj.array(empty_array,'code_density')
+                self.temperature['halo_gas_'+phase_names[i]] = self.obj.array(empty_array,'code_temperature')
+                self.angular_mom['halo_gas_'+phase_names[i]] = self.obj.array(np.array([0.0,0.0,0.0]),
+                                                                'code_mass*code_length*code_velocity')
+                self.energies['halo_thermal_energy_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass * code_velocity**2')
+                self.energies['halo_thermal_energy_specific_'+phase_names[i]] = self.obj.array(empty_array,'code_specific_energy')
+                self.pressure_support['halo_grav_therpfrsphere_'+phase_names[i]] = self.obj.array(empty_array,'dimensionless')
+                self.velocity_dispersion['halo_gas_turbulent_'+phase_names[i]] = self.obj.array(empty_array,'code_velocity')
+            
         else:
             self.mass['halo_gas'] = self.obj.quantity(0.0, 'code_mass')
         
@@ -213,17 +225,29 @@ class Galaxy(Group):
             self.energies['halo_magnetic_energy'] = self.obj.quantity(0.0, 'code_mass * code_velocity**2')
             self.energies['halo_magnetic_energy_specific'] = self.obj.array(empty_array, 'code_specific_energy')
             self.magnetism['halo_magnetic_magnitude'] = self.obj.array(empty_array, 'code_magnetic')
+            for i in range(0, len(phase_names)):
+                self.energies['halo_magnetic_energy_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass * code_velocity**2')
+                self.energies['halo_magnetic_energy_specific_'+phase_names[i]] = self.obj.array(empty_array,'code_specific_energy')
+                self.magnetism['halo_magnetic_magnitude_'+phase_names[i]] = self.obj.array(empty_array,'code_magnetic')
         
         if self.obj.simulation.physics['cr']:
             self.energies['halo_cr_energy'] = self.obj.quantity(0.0, 'code_mass * code_velocity**2')
             self.energies['halo_cr_energy_specific'] = self.obj.array(empty_array, 'code_specific_energy')
             self.pressure_support['grav_crpfrsphere'] = self.obj.array(empty_array, 'dimensionless')
+            for i in range(0, len(phase_names)):
+                self.energies['halo_cr_energy_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass * code_velocity**2')
+                self.energies['halo_cr_energy_specific_'+phase_names[i]] = self.obj.array(empty_array,'code_specific_energy')
+                self.pressure_support['grav_crpfrsphere_'+phase_names[i]] = self.obj.array(empty_array,'dimensionless')
+
 
         if self.obj.simulation.physics['rt']:
-            print('Computing ionisation fractions')
-            self.radiation['halo_xHII'] = empty_array
-            self.radiation['halo_xHeII'] = empty_array
-            self.radiation['halo_xHeIII'] = empty_array
+            self.radiation['halo_xHII'] = self.obj.array(empty_array,'dimensionless')
+            self.radiation['halo_xHeII'] = self.obj.array(empty_array,'dimensionless')
+            self.radiation['halo_xHeIII'] = self.obj.array(empty_array,'dimensionless')
+            for i in range(0, len(phase_names)):
+                self.radiation['halo_xHII_'+phase_names[i]] = self.obj.array(empty_array,'dimensionless')
+                self.radiation['halo_xHeII_'+phase_names[i]] = self.obj.array(empty_array,'dimensionless')
+                self.radiation['halo_xHeIII_'+phase_names[i]] = self.obj.array(empty_array,'dimensionless')
 
 
     def _calculate_stardm_quantities(self):
@@ -298,7 +322,7 @@ class Galaxy(Group):
         # Initialise region
         selected_reg = init_region(self,'sphere',rmin=(0.0,'rvir'),rmax=(0.2,'rvir'))
 
-        # We do not want any particular filter, just simple integration will do
+        # Define phase filters (for ISM, based on entropy)
         all_filt = filtering.filter()
         phase_names = ['cold','warm','hot']
         cold_filt = init_filter(cond_strs=['entropy_specific/</4.4e+8/erg*K**-1*g**-1'],name='cold',group=self)
@@ -306,7 +330,7 @@ class Galaxy(Group):
         hot_filt  = init_filter(cond_strs=['entropy_specific/>/23.2e+8/erg*K**-1*g**-1'],name='hot',group=self)
         filt = [all_filt,cold_filt,warm_filt,hot_filt]
 
-        # Since the number of global quanties that can be computed
+        # Since the number of global quantities that can be computed
         # from the gas data depends on the specific configuration
         # of a simulation, this needs to be determined at the start
         # See: ozy/sim_attributes.py/assign_attributes
@@ -350,7 +374,7 @@ class Galaxy(Group):
         nvar_rt = len(quantity_names)
         if self.obj.simulation.physics['rt']:
             quantity_names += ['xHII','xHeII','xHeIII']
-            do_binning += [False,False,False]
+            do_binning += [True,True,True]
                 
         # Initialise Fortran derived type with attributes
         # This object hold the following attributes:
@@ -421,7 +445,6 @@ class Galaxy(Group):
             self.mass['gas'] = self.obj.quantity(0.0, 'code_mass')
         
         if self.obj.simulation.physics['magnetic']:
-            print('Computing magnetic energies')
             self.energies['magnetic_energy'] = self.obj.quantity(glob_attrs.result[nvar_magnetic].total[0,0,0], 'code_mass * code_velocity**2')
             self.energies['magnetic_energy_specific'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_magnetic+1],0),'code_specific_energy')
             self.magnetism['magnetic_magnitude'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_magnetic+2],0),'code_magnetic')
@@ -433,7 +456,6 @@ class Galaxy(Group):
                 self.magnetism['magnetic_magnitude_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_magnetic+2],i+1),'code_magnetic')
         
         if self.obj.simulation.physics['cr']:
-            print('Computing CR energies')
             self.energies['cr_energy'] = self.obj.quantity(glob_attrs.result[nvar_crs].total[0,0,0], 'code_mass * code_velocity**2')
             self.energies['cr_energy_specific'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+1],0),'code_specific_energy')
             self.pressure_support['grav_crpfrsphere'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+2],0),'dimensionless')
@@ -444,15 +466,13 @@ class Galaxy(Group):
                 self.energies['cr_energy_specific_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+1],i+1),'code_specific_energy')
                 self.pressure_support['grav_crpfrsphere_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+2],i+1), 'dimensionless')
         if self.obj.simulation.physics['rt']:
-            #TODO: This is not really correct, need to update for the format of AMR integrations
-            print('Computing ionisation fractions')
-            self.radiation['xHII'] = glob_attrs.data[0,nvar_rt,1:,:-1]
-            self.radiation['xHeII'] = glob_attrs.data[0,nvar_rt+1,1:,:-1]
-            self.radiation['xHeIII'] = glob_attrs.data[0,nvar_rt+2,1:,:-1]
+            self.radiation['xHII'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_rt],0),'dimensionless')
+            self.radiation['xHeII'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_rt+1],0),'dimensionless')
+            self.radiation['xHeIII'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_rt+2],0),'dimensionless')
             for i in range(0, len(phase_names)):
-                self.radiation['xHII_'+phase_names[i]] = glob_attrs.data[i+1,nvar_rt,1:,:-1]
-                self.radiation['xHeII_'+phase_names[i]] = glob_attrs.data[i+1,nvar_rt+1,1:,:-1]
-                self.radiation['xHeIII_'+phase_names[i]] = glob_attrs.data[i+1,nvar_rt+2,1:,:-1]
+                self.radiation['xHII_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_rt],i+1),'dimensionless')
+                self.radiation['xHeII_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_rt+1],i+1),'dimensionless')
+                self.radiation['xHeIII_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_rt+2],i+1),'dimensionless')
 
     def _calculate_halo_gas_quantities(self):
         from ozy.utils import get_code_bins, pdf_handler_to_stats
@@ -462,8 +482,14 @@ class Galaxy(Group):
         # Initialise region
         selected_reg = init_region(self,'sphere',rmin=(0.2,'rvir'),rmax=(1.0,'rvir'))
 
-        # We do not want any particular filter, just simple integration will do
+        # Define phase filters (for CGM)
         all_filt = filtering.filter()
+        phase_names = ['hot','warm_ionised','warm_neutral','cold']
+        hot = init_filter(cond_strs=['temperature/>/1e5/K'],name='hot',group=self)
+        warm_ionised = init_filter(cond_strs=['temperature/</1e5/K','temperature/>/9e3/K'],name='warm_ionised',group=self)
+        warm_neutral = init_filter(cond_strs=['temperature/</9e3/K','temperature/>/1e3/K'],name='warm_neutral',group=self)
+        cold = init_filter(cond_strs=['temperature/</1e3/K'],name='cold',group=self)
+        filt = [all_filt,hot,warm_ionised,warm_neutral,cold]
 
         # Since the number of global quanties that can be computed
         # from the gas data depends on the specific configuration
@@ -502,7 +528,7 @@ class Galaxy(Group):
         nvar_rt = len(quantity_names)
         if self.obj.simulation.physics['rt']:
             quantity_names += ['xHII','xHeII','xHeIII']
-            do_binning += [False,False,False]
+            do_binning += [True,True,True]
                 
         # Initialise Fortran derived type with attributes
         # This object hold the following attributes:
@@ -516,12 +542,12 @@ class Galaxy(Group):
         glob_attrs = amr_integrator.amr_region_attrs()
         glob_attrs.nvars = len(quantity_names)
         glob_attrs.nwvars = len(weight_names)
-        glob_attrs.nfilter = 1
+        glob_attrs.nfilter = len(phase_names) + 1
         amr_integrator.allocate_amr_regions_attrs(glob_attrs)
         for i in range(0, len(quantity_names)):
             glob_attrs.varnames.T.view('S128')[i] = quantity_names[i].ljust(128)
             glob_attrs.result[i].nbins = pdf_bins
-            glob_attrs.result[i].nfilter = 1
+            glob_attrs.result[i].nfilter = len(filt)
             glob_attrs.result[i].nwvars = len(weight_names)
             glob_attrs.result[i].varname = quantity_names[i]
             mybins = get_code_bins(self.obj,'gas/'+quantity_names[i],pdf_bins)
@@ -533,7 +559,8 @@ class Galaxy(Group):
                 glob_attrs.result[i].wvarnames.T.view('S128')[j] = weight_names[j].ljust(128)
         
         
-        glob_attrs.filters[0] = all_filt
+        for i in range(0, glob_attrs.nfilter):
+            glob_attrs.filters[i] = filt[i]
 
         # Begin integration
         use_neigh = True
@@ -554,6 +581,18 @@ class Galaxy(Group):
             self.velocity_dispersion['halo_gas_turbulent'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[9],0),'code_velocity')
             if self.obj.simulation.physics['metals']:
                 self.metallicity['halo_gas'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[10],0),'dimensionless')
+            for i in range(0, len(phase_names)):
+                self.mass['halo_gas_'+phase_names[i]] = self.obj.quantity(glob_attrs.result[0].total[i+1,0,0], 'code_mass')
+                self.gas_density['halo_gas_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[1],i+1),'code_density')
+                self.temperature['halo_gas_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[2],i+1),'code_temperature')
+                self.angular_mom['halo_gas_'+phase_names[i]] = self.obj.array(np.array([glob_attrs.result[3].total[i+1,0,0],
+                                                                                        glob_attrs.result[4].total[i+1,0,0],
+                                                                                        glob_attrs.result[5].total[i+1,0,0]]),
+                                                                'code_mass*code_length*code_velocity')
+                self.energies['halo_thermal_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.result[6].total[i+1,0,0], 'code_mass * code_velocity**2')
+                self.energies['halo_thermal_energy_specific_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[7],i+1),'code_specific_energy')
+                self.pressure_support['halo_grav_therpfrsphere_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[8],i+1),'dimensionless')
+                self.velocity_dispersion['halo_gas_turbulent_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[9],i+1),'code_velocity')
         else:
             self.mass['halo_gas'] = self.obj.quantity(np.zeros((3,7)), 'code_mass')
         
@@ -561,18 +600,29 @@ class Galaxy(Group):
             self.energies['halo_magnetic_energy'] = self.obj.quantity(glob_attrs.result[nvar_magnetic].total[0,0,0], 'code_mass * code_velocity**2')
             self.energies['halo_magnetic_energy_specific'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_magnetic+1],0),'code_specific_energy')
             self.magnetism['halo_magnetic_magnitude'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_magnetic+2],0),'code_magnetic')
-        
+            for i in range(0, len(phase_names)):
+                self.energies['halo_magnetic_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.result[nvar_magnetic].total[i+1,0,0], 'code_mass * code_velocity**2')
+                self.energies['halo_magnetic_energy_specific_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_magnetic+1],i+1),'code_specific_energy')
+                self.magnetism['halo_magnetic_magnitude_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_magnetic+2],i+1),'code_magnetic')
+                
         if self.obj.simulation.physics['cr']:
             self.energies['halo_cr_energy'] = self.obj.quantity(glob_attrs.result[nvar_crs].total[0,0,0], 'code_mass * code_velocity**2')
             self.energies['halo_cr_energy_specific'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+1],0),'code_specific_energy')
             self.pressure_support['grav_crpfrsphere'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+2],0),'dimensionless')
+            for i in range(0, len(phase_names)):
+                self.energies['halo_cr_energy_'+phase_names[i]] = self.obj.quantity(glob_attrs.result[nvar_crs].total[i+1,0,0], 'code_mass * code_velocity**2')
+                self.energies['halo_cr_energy_specific_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+1],i+1),'code_specific_energy')
+                self.pressure_support['grav_crpfrsphere_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_crs+2],i+1),'dimensionless')
 
         if self.obj.simulation.physics['rt']:
-            #TODO: This is not really correct, need to update for the format of AMR integrations
-            print('Computing ionisation fractions')
-            self.radiation['halo_xHII'] = glob_attrs.data[0,nvar_rt,1:,:-1]
-            self.radiation['halo_xHeII'] = glob_attrs.data[0,nvar_rt+1,1:,:-1]
-            self.radiation['halo_xHeIII'] = glob_attrs.data[0,nvar_rt+2,1:,:-1]
+            self.radiation['halo_xHII'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_rt],0),'dimensionless')
+            self.radiation['halo_xHeII'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_rt+1],0),'dimensionless')
+            self.radiation['halo_xHeIII'] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_rt+2],0),'dimensionless')
+            for i in range(0, len(phase_names)):
+                self.radiation['halo_xHII_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_rt],i+1),'dimensionless')
+                self.radiation['halo_xHeII_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_rt+1],i+1),'dimensionless')
+                self.radiation['halo_xHeIII_'+phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,glob_attrs.result[nvar_rt+2],i+1),'dimensionless')
+
 
     def _calculate_velocity_dispersions(self):
         """Calculate velocity dispersions for the various components."""

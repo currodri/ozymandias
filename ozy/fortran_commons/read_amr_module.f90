@@ -588,9 +588,10 @@ module io_ramses
         integer :: i
         type(vector) :: v,L,B,vst
         type(basis) :: temp_basis
-        real(dbl) :: T,rho,cV,lambda,lambda_prime,ne,ecr,nH,Tmin,Dcr,vA
+        real(dbl) :: T,rho,cV,lambda,lambda_prime,ne,ecr,nH,Tmin,Dcr,vA,cs
         real(dbl) :: dxleft,dxright
         real(dbl) :: bsign
+        real(dbl) :: volume
         real(dbl) :: lambda_co, lambda_st, lambda_cr
         character(128) :: star_maker
 
@@ -879,6 +880,14 @@ module io_ramses
             value = (var(0,varIDs%cr_pressure) / (4D0/3d0 - 1d0)) / var(0,varIDs%density)
         case ('cr_temperature_eff')
             value = var(0,varIDs%cr_pressure) / var(0,varIDs%density)
+        case ('gamma_ray_luminosity')
+            ! Integrate hadronic gamma-ray volumetric luminosity. This assumes the CR spectral
+            ! index at 5 GeV of the MW measured by Fermi LAT (Casandjian 2015)
+            ! and the CR energy density in the solar neighbourhood measure by Voyager 2
+            ! (Boschini et al. 2020)
+            nH  = var(0,varIDs%density) * sim%nH ![H/cm^3]
+            ecr = (var(0,varIDs%cr_pressure) / (4D0/3d0 - 1d0) ) * (sim%unit_d * ((sim%unit_l/sim%unit_t)**2)) ! [erg/cm^3]
+            value = LgammaH * nH * (ecr / ecr_sun) / (sim%unit_p / sim%unit_t)
         case ('grad_crp')
             ! Magnitude of CR pressure gradient
             dxright = dx; dxleft = dx
@@ -894,6 +903,24 @@ module io_ramses
             if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
             v%z = (var(5,varIDs%cr_pressure) - var(6,varIDs%cr_pressure)) / (dxright + dxleft)
             value = magnitude(v)
+        case ('grad_crp_dotmag')
+            ! Dot product of CR pressure gradient and magnetic field unit vector
+            dxright = dx; dxleft = dx
+            if (son(1) .eq. 0) dxright = dxright * 1.5D0
+            if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
+            v%x = (var(1,varIDs%cr_pressure) - var(2,varIDs%cr_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .eq. 0) dxright = dxright * 1.5D0
+            if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
+            v%y = (var(3,varIDs%cr_pressure) - var(4,varIDs%cr_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .eq. 0) dxright = dxright * 1.5D0
+            if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
+            v%z = (var(5,varIDs%cr_pressure) - var(6,varIDs%cr_pressure)) / (dxright + dxleft)
+
+            B = 0.5d0 * (/(tempvar(0,varIDs%Blx)+tempvar(0,varIDs%Brx)),(tempvar(0,varIDs%Bly)+tempvar(0,varIDs%Bry)),(tempvar(0,varIDs%Blz)+tempvar(0,varIDs%Brz))/)
+            B = B / magnitude(B)
+            value = abs(v.DOT.B)
         case ('grad_crprsphere')
             ! CR pressure gradient in the radial direction
             dxright = dx; dxleft = dx
@@ -954,42 +981,60 @@ module io_ramses
             ! This is defined as Dcr/Lcr, with Lcr the CR pressure gradient scale
             ! CR pressure gradient scale
             ! This is defined as Pcr/grad(Pcr)
-            B = 0.5d0 * (/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+            tempvar(:,:) = var(:,:)
+            if (tempvar(0,varIDs%cr_pressure).le.1d-10) then
+                tempvar(0,varIDs%cr_pressure) = 1d-10
+            end if
+            if (any(tempvar(:,varIDs%cr_pressure).le.1d-10)) then
+                do i = 1, 6
+                    if (tempvar(i,varIDs%cr_pressure).le.1d-10) tempvar(i,varIDs%cr_pressure) = 1d-10
+                end do
+            end if
+            B = 0.5d0 * (/(tempvar(0,varIDs%Blx)+tempvar(0,varIDs%Brx)),(tempvar(0,varIDs%Bly)+tempvar(0,varIDs%Bry)),(tempvar(0,varIDs%Blz)+tempvar(0,varIDs%Brz))/)
 
             dxright = dx; dxleft = dx
             if (son(1) .eq. 0) dxright = dxright * 1.5D0
             if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-            v%x = (var(1,varIDs%cr_pressure) - var(2,varIDs%cr_pressure)) / (dxright + dxleft)
+            v%x = (tempvar(1,varIDs%cr_pressure) - tempvar(2,varIDs%cr_pressure)) / (dxright + dxleft)
             dxright = dx; dxleft = dx
             if (son(3) .eq. 0) dxright = dxright * 1.5D0
             if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-            v%y = (var(3,varIDs%cr_pressure) - var(4,varIDs%cr_pressure)) / (dxright + dxleft)
+            v%y = (tempvar(3,varIDs%cr_pressure) - tempvar(4,varIDs%cr_pressure)) / (dxright + dxleft)
             dxright = dx; dxleft = dx
             if (son(5) .eq. 0) dxright = dxright * 1.5D0
             if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-            v%z = (var(5,varIDs%cr_pressure) - var(6,varIDs%cr_pressure)) / (dxright + dxleft)
+            v%z = (tempvar(5,varIDs%cr_pressure) - tempvar(6,varIDs%cr_pressure)) / (dxright + dxleft)
             B = B / magnitude(B)
-            value = Dcr / abs(var(0,varIDs%cr_pressure)/(abs(v.DOT.B))) !abs(var(0,varIDs%cr_pressure)/(magnitude(v))) ! !
-            if (value>1d10) print*,value,var(:,varIDs%cr_pressure),var(:,varIDs%thermal_pressure),abs(v.DOT.B)
+            value = Dcr / abs(tempvar(0,varIDs%cr_pressure)/(abs(v.DOT.B))) !abs(tempvar(0,varIDs%cr_pressure)/(magnitude(v))) ! !
+            ! if (value>1d10) print*,value,tempvar(:,varIDs%cr_pressure),tempvar(:,varIDs%thermal_pressure),abs(v.DOT.B)
         case ('alfvendiff_ratio')
             ! Ratio of Alfven to diffusion speed
-            B = 0.5d0 * (/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
-            vA = magnitude(B) / sqrt(var(0,varIDs%density))
+            tempvar(:,:) = var(:,:)
+            if (tempvar(0,varIDs%cr_pressure).le.1d-10) then
+                tempvar(0,varIDs%cr_pressure) = 1d-10
+            end if
+            if (any(tempvar(:,varIDs%cr_pressure).le.1d-10)) then
+                do i = 1, 6
+                    if (tempvar(i,varIDs%cr_pressure).le.1d-10) tempvar(i,varIDs%cr_pressure) = 1d-10
+                end do
+            end if
+            B = 0.5d0 * (/(tempvar(0,varIDs%Blx)+tempvar(0,varIDs%Brx)),(tempvar(0,varIDs%Bly)+tempvar(0,varIDs%Bry)),(tempvar(0,varIDs%Blz)+tempvar(0,varIDs%Brz))/)
+            vA = magnitude(B) / sqrt(tempvar(0,varIDs%density))
 
             dxright = dx; dxleft = dx
             if (son(1) .eq. 0) dxright = dxright * 1.5D0
             if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-            v%x = (var(1,varIDs%cr_pressure) - var(2,varIDs%cr_pressure)) / (dxright + dxleft)
+            v%x = (tempvar(1,varIDs%cr_pressure) - tempvar(2,varIDs%cr_pressure)) / (dxright + dxleft)
             dxright = dx; dxleft = dx
             if (son(3) .eq. 0) dxright = dxright * 1.5D0
             if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-            v%y = (var(3,varIDs%cr_pressure) - var(4,varIDs%cr_pressure)) / (dxright + dxleft)
+            v%y = (tempvar(3,varIDs%cr_pressure) - tempvar(4,varIDs%cr_pressure)) / (dxright + dxleft)
             dxright = dx; dxleft = dx
             if (son(5) .eq. 0) dxright = dxright * 1.5D0
             if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-            v%z = (var(5,varIDs%cr_pressure) - var(6,varIDs%cr_pressure)) / (dxright + dxleft)
+            v%z = (tempvar(5,varIDs%cr_pressure) - tempvar(6,varIDs%cr_pressure)) / (dxright + dxleft)
             B = B / magnitude(B)
-            value = Dcr / abs(var(0,varIDs%cr_pressure)/(abs(v.DOT.B))) ! abs(var(0,varIDs%cr_pressure)/(magnitude(v))) !
+            value = Dcr / abs(tempvar(0,varIDs%cr_pressure)/(abs(v.DOT.B))) ! abs(tempvar(0,varIDs%cr_pressure)/(magnitude(v))) !
             value = (5d0/3d0) * vA / (value + (5d0/3d0) * vA)
         case ('grad_crpx')
             ! Gradient of CR pressure in the x direction
@@ -1689,6 +1734,11 @@ module io_ramses
             v = v + reg%bulk_velocity
             tempvar(0,varIDs%vx:varIDs%vz) = v
             call cmp_sigma_turb(tempvar,value)
+        case ('mach_number')
+            ! Mach number (velocity/sound speed) in the reference frame of the galaxy
+            cs = sqrt(5D0/3d0 * (max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density)) / var(0,varIDs%density)))
+            v = tempvar(0,varIDs%vx:varIDs%vz)
+            value = magnitude(v)/cs
         case default
             write(*,*)'Variable not supported: ',TRIM(varname)
             write(*,*)'Aborting!'

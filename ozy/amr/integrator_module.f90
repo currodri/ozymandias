@@ -93,9 +93,9 @@ module amr_integrator
                 
                 wvarloop1: do j=1,attrs%result(i)%nwvars
                     ! Get weights
-                    if (attrs%result(i)%wvarnames(j)=='counts') then
+                    if (trim(attrs%result(i)%wvarnames(j))=='counts') then
                         wtemp =  1D0
-                    else if (attrs%result(i)%wvarnames(j)=='cumulative') then
+                    else if (trim(attrs%result(i)%wvarnames(j))=='cumulative') then
                         wtemp = ytemp
                     else
                         if (present(grav_var)) then
@@ -117,10 +117,10 @@ module amr_integrator
 
                     ! Now do it for the case of no binning (old integration method)
                     ! Get weights
-                    if (attrs%result(i)%wvarnames(j)=='counts') then
+                    if (trim(attrs%result(i)%wvarnames(j))=='counts') then
                         wtemp =  1D0
                         ytemp = 1D0
-                    else if (attrs%result(i)%wvarnames(j)=='cumulative') then
+                    else if (trim(attrs%result(i)%wvarnames(j))=='cumulative') then
                         wtemp = 1D0
                     endif
                     
@@ -145,10 +145,10 @@ module amr_integrator
 
                 wvarloop2: do j=1,attrs%result(i)%nwvars
                     ! Get weights
-                    if (attrs%result(i)%wvarnames(j)=='counts') then
+                    if (trim(attrs%result(i)%wvarnames(j))=='counts') then
                         wtemp =  1D0
                         ytemp = 1D0
-                    else if (attrs%result(i)%wvarnames(j)=='cumulative') then
+                    else if (trim(attrs%result(i)%wvarnames(j))=='cumulative') then
                         wtemp = 1D0
                     else
                         if (present(grav_var)) then
@@ -182,14 +182,14 @@ module amr_integrator
             varloop: do i=1,attrs%nvars
                 if (attrs%result(i)%do_binning) then
                     wvarloop1: do j=1,attrs%result(i)%nwvars
-                        if (attrs%result(i)%wvarnames(j) /= 'cumulative' .and. attrs%result(i)%wvarnames(j) /= 'counts') then
+                        if (trim(attrs%result(i)%wvarnames(j)) /= 'cumulative' .and. trim(attrs%result(i)%wvarnames(j)) /= 'counts') then
                             attrs%result(i)%heights(ifilt,j,:) = attrs%result(i)%heights(ifilt,j,:) / attrs%result(i)%totweights(ifilt,j)
                             attrs%result(i)%total(ifilt,j,1) = attrs%result(i)%total(ifilt,j,1) / attrs%result(i)%total(ifilt,j,2)
                         endif
                     end do wvarloop1
                 else
                     wvarloop2: do j=1,attrs%result(i)%nwvars
-                        if (attrs%result(i)%wvarnames(j) /= 'cumulative' .and. attrs%result(i)%wvarnames(j) /= 'counts') then
+                        if (trim(attrs%result(i)%wvarnames(j)) /= 'cumulative' .and. trim(attrs%result(i)%wvarnames(j)) /= 'counts') then
                             attrs%result(i)%total(ifilt,j,1) = attrs%result(i)%total(ifilt,j,1) / attrs%result(i)%total(ifilt,j,2)
                         endif
                     end do wvarloop2

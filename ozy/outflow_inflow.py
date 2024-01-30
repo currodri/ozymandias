@@ -176,7 +176,7 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'),
         else:
             filt = init_filter(cond_strs='v_sphere_r/<=/0/km*s**-1',name='inflow',group=group)
     else:
-        raise ValueError("This type of galactic flow is not supported. Please check!")
+        raise ValueError(f"This type of galactic flow is not supported: {flow_type}. Please check!")
     
     d_key = str(int(100*0.5*(rmax[0]+rmin[0])))
     shell_width = reg.rmax-reg.rmin

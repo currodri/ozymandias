@@ -31,7 +31,7 @@ line_dict = {'cosmoNUThd':'royalblue',
                 'cosmoNUTcrmhd\_nost':'olive',
                 'cosmoNUTcrmhd\_noheat':'darkgoldenrod',
                 'cosmoNUTcrmhd\_3e29':'firebrick',
-                'cosmoNUTrticrmhd':'firebrick'}
+                'cosmoNUTrtcrmhd':'firebrick'}
 
 names = {'cosmoNUThd':'HD',
         'cosmoNUThd\_all\_cr10':'HDcr10',
@@ -41,7 +41,7 @@ names = {'cosmoNUThd':'HD',
         'cosmoNUTcrmhd\_nost':'nsCRMHD',
         'cosmoNUTcrmhd\_noheat':'nhCRMHD',
         'cosmoNUTcrmhd\_3e29':'3e29CRMHD',
-        'cosmoNUTrticrmhd':'RTCRiMHD'
+        'cosmoNUTrtcrmhd':'RTCRMHD'
         }
 
 if __name__ == '__main__':
@@ -476,7 +476,7 @@ if __name__ == '__main__':
         axR.set_xlabel(r'$z$', fontsize=20)
         axR.tick_params(labelsize=17)
     
-        axes[0].legend(loc='best', fontsize=14,frameon=False, ncol=len(args.model))
+        axes[0].legend(loc='best', fontsize=14,frameon=False, ncol=int(len(args.model)/2))
         fig.subplots_adjust(top=0.87, bottom=0.13,right=0.91,left=0.08,hspace=0.0,wspace=0.0)
         if args.NUT:
             args.ind = 'NUT'

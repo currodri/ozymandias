@@ -352,7 +352,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
                     pov='faceon',lmax=100,lmin=1,type_projection='gauss_deposition', window=(0.0,'kpc'),
                     rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(0.0,'rvir'), xmax=(0.2,'rvir'),
                     ymin=(0.0,'rvir'), ymax=(0.2,'rvir'),zmin=(0.0,'rvir'), zmax=(0.2,'rvir'),
-                    mycentre=([0.5,0.5,0.5],'rvir'), myaxis=np.array([1.,0.,0.]),
+                    mycentre=([0.5,0.5,0.5],'rvir'), myaxis=np.array([1.,0.,0.]), thickness=(0.0,'kpc'),
                     nexp_factor = 1.0,
                     tag_file=None,
                     inverse_tag=False, remove_subs=False,
@@ -457,11 +457,16 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         up /= np.linalg.norm(up)
         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
         up_vector = vectors.vector()
-        up_vector.x, up_vector.y, up_vector.z = -up[0], -up[1], -up[2]
+        up_vector.x, up_vector.y, up_vector.z = up[0], up[1], up[2]
         rmax = window
         region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
-        distance = rmax
-        far_cut_depth = rmax
+        if thickness[0] != 0.0:
+            thickness_value = group.obj.quantity(thickness[0],thickness[1]).in_units('code_length').d
+            distance = 0.5*thickness_value
+            far_cut_depth = 0.5*thickness_value
+        else:
+            distance = rmax
+            far_cut_depth = rmax
         enclosing_sphere_p = group.position
         enclosing_sphere_r = rmax
     elif proj.pov == 'edgeon':
@@ -471,13 +476,18 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
         los = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
         los /= np.linalg.norm(los)
-        axis.x,axis.y,axis.z = los[0], los[1], los[2]
+        axis.x,axis.y,axis.z = -los[0], -los[1], -los[2]
         up_vector = vectors.vector()
         up_vector.x,up_vector.y,up_vector.z = norm_L[0], norm_L[1], norm_L[2]
         rmax = window
         region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
-        distance = rmax
-        far_cut_depth = rmax
+        if thickness[0] != 0.0:
+            thickness_value = group.obj.quantity(thickness[0],thickness[1]).in_units('code_length').d
+            distance = 0.5*thickness_value
+            far_cut_depth = 0.5*thickness_value
+        else:
+            distance = rmax
+            far_cut_depth = rmax
         enclosing_sphere_p = group.position
         enclosing_sphere_r = rmax
     elif proj.pov == 'x':
@@ -896,13 +906,13 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
             if logscale and fields[ivar].split('/')[1] not in symlog_variables:
                 
                 plot = ax[i,j].imshow(np.log10(cImage), cmap=plotting_def['cmap'],
-                                origin='lower',vmin=np.log10(plotting_def['vmin'+type_scale]),
+                                origin='upper',vmin=np.log10(plotting_def['vmin'+type_scale]),
                                 vmax=np.log10(plotting_def['vmax'+type_scale]),extent=ex,
                                 interpolation='none')
             elif logscale and fields[ivar].split('/')[1] in symlog_variables:
                 if (filter_name != 'outflow' and filter_name != 'inflow'):
                     plot = ax[i,j].imshow(cImage, cmap=plotting_def['cmap'],
-                                    origin='lower',norm=SymLogNorm(linthresh=plotting_def['linthresh'], linscale=1,
+                                    origin='upper',norm=SymLogNorm(linthresh=plotting_def['linthresh'], linscale=1,
                                     vmin=plotting_def['vmin'+type_scale], vmax=plotting_def['vmax'+type_scale]),
                                     extent=ex,
                                     interpolation='none')
@@ -910,18 +920,18 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
                     if filter_name == 'inflow' and smooth:                                                                                                                                                                                          
                         cImage = sp.ndimage.filters.gaussian_filter(-hdul[h].data.T, sigma, mode='constant')
                     plot = ax[i,j].imshow(np.log10(cImage), cmap=plotting_def['cmap_'+filter_name],
-                                    origin='lower',vmin=np.log10(plotting_def['vmin_'+filter_name]),
+                                    origin='upper',vmin=np.log10(plotting_def['vmin_'+filter_name]),
                                     vmax=np.log10(plotting_def['vmax_'+filter_name]),extent=ex,
                                     interpolation='none')
                 else:
                     plot = ax[i,j].imshow(cImage, cmap=plotting_def['cmap'],
-                                    origin='lower',norm=SymLogNorm(linthresh=plotting_def['linthresh'], linscale=1,
+                                    origin='upper',norm=SymLogNorm(linthresh=plotting_def['linthresh'], linscale=1,
                                     vmin=plotting_def['vmin'+type_scale], vmax=plotting_def['vmax'+type_scale]),
                                     extent=ex,
                                     interpolation='none')
             else:
                 plot = ax[i,j].imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
-                                origin='lower',extent=ex,interpolation='none',
+                                origin='upper',extent=ex,interpolation='none',
                                 vmin=plotting_def['vmin'+type_scale],vmax=plotting_def['vmax'+type_scale])
 
             cbaxes = inset_axes(ax[i,j], width="80%", height="6%", loc='lower center')
@@ -1123,7 +1133,7 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=(3,'kpc')
                     full_varname = 'density'
                     if i%2 == 0:
                         plot = ax[i,j].imshow(np.log10(hdul['gas/density'].data.T), cmap=plotting_def['cmap'],
-                                    origin='lower',vmin=np.log10(plotting_def['vmin'+type_scale]),
+                                    origin='upper',vmin=np.log10(plotting_def['vmin'+type_scale]),
                                     vmax=np.log10(plotting_def['vmax'+type_scale]),extent=ex,
                                     interpolation='nearest')
                     else:
@@ -1144,22 +1154,22 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=(3,'kpc')
                         rgbArray[:,:,2] = inflow*255*0.8
                         plot = ax[i,j].imshow(np.zeros((nx,ny,3), 'uint8'), cmap='gray',
                                         vmin=plotting_def['vmin'+type_scale],vmax=plotting_def['vmax'+type_scale])
-                        ax[i,j].imshow(v_sphere,origin='lower',extent=ex,interpolation='lanczos')
+                        ax[i,j].imshow(v_sphere,origin='upper',extent=ex,interpolation='lanczos')
                         
                 elif logscale and fields[ivar].split('/')[1] != 'v_sphere_r':
                     plot = ax[i,j].imshow(np.log10(cImage), cmap=plotting_def['cmap'],
-                                    origin='lower',vmin=np.log10(plotting_def['vmin'+type_scale]),
+                                    origin='upper',vmin=np.log10(plotting_def['vmin'+type_scale]),
                                     vmax=np.log10(plotting_def['vmax'+type_scale]),extent=ex,
                                     interpolation='nearest')
                 elif logscale and fields[ivar].split('/')[1] == 'v_sphere_r':
                     plot = ax[i,j].imshow(cImage, cmap=plotting_def['cmap'],
-                                    origin='lower',norm=SymLogNorm(linthresh=10, linscale=1,vmin=plotting_def['vmin'], vmax=plotting_def['vmax']),
+                                    origin='upper',norm=SymLogNorm(linthresh=10, linscale=1,vmin=plotting_def['vmin'], vmax=plotting_def['vmax']),
                                     extent=ex,
                                     interpolation='nearest')
                 
                 else:
                     plot = ax[i,j].imshow(cImage, cmap=plotting_def['cmap'],
-                                    origin='lower',extent=ex,interpolation='nearest',
+                                    origin='upper',extent=ex,interpolation='nearest',
                                     vmin=plotting_def['vmin'],vmax=plotting_def['vmax'])
                 if i%2 == 0:
                     cbaxes = inset_axes(ax[i,j], width="80%", height="6%", loc='lower center')
@@ -1372,13 +1382,13 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=(3,'kpc'),
     print(field,np.nanmin(cImage),np.nanmax(cImage))
     if logscale and field.split('/')[1] not in symlog_variables:
         plot = ax.imshow(np.log10(cImage), cmap=colormap,
-                        origin='lower',vmin=np.log10(plotting_def['vmin'+type_scale]),
+                        origin='upper',vmin=np.log10(plotting_def['vmin'+type_scale]),
                         vmax=np.log10(plotting_def['vmax'+type_scale]),extent=ex,
                         interpolation='nearest')
     elif logscale and field.split('/')[1] in symlog_variables:
         if (filter_name != 'outflow' and filter_name != 'inflow'):
             plot = ax.imshow(cImage, cmap=colormap,
-                            origin='lower',norm=SymLogNorm(linthresh=0.1, linscale=1,
+                            origin='upper',norm=SymLogNorm(linthresh=0.1, linscale=1,
                             vmin=plotting_def['vmin'+type_scale], vmax=plotting_def['vmax'+type_scale]),
                             extent=ex,
                             interpolation='nearest')
@@ -1386,18 +1396,18 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=(3,'kpc'),
             if filter_name == 'inflow' and smooth:                                                                                                                                                                                          
                 cImage = sp.ndimage.filters.gaussian_filter(-hdul[h].data.T, sigma, mode='constant')
             plot = ax.imshow(np.log10(cImage), cmap=plotting_def['cmap_'+filter_name],
-                            origin='lower',vmin=np.log10(plotting_def['vmin_'+filter_name]),
+                            origin='upper',vmin=np.log10(plotting_def['vmin_'+filter_name]),
                             vmax=np.log10(plotting_def['vmax_'+filter_name]),extent=ex,
                             interpolation='nearest')
         else:
             plot = ax.imshow(cImage, cmap=colormap,
-                            origin='lower',norm=SymLogNorm(linthresh=0.1, linscale=1,
+                            origin='upper',norm=SymLogNorm(linthresh=0.1, linscale=1,
                             vmin=plotting_def['vmin'+type_scale], vmax=plotting_def['vmax'+type_scale]),
                             extent=ex,
                             interpolation='nearest')
     else:
         plot = ax.imshow(hdul[h].data.T, cmap=colormap,
-                        origin='lower',extent=ex,interpolation='nearest',
+                        origin='upper',extent=ex,interpolation='nearest',
                         vmin=plotting_def['vmin'+type_scale],vmax=plotting_def['vmax'+type_scale])
     if colorbar:
         cbaxes = inset_axes(ax, width="80%", height="5%", loc='lower center')
@@ -1409,8 +1419,7 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=(3,'kpc'),
         cbar.ax.xaxis.label.set_font_properties(matplotlib.font_manager.FontProperties(weight='bold',size=15))
         cbar.ax.tick_params(axis='x', pad=-16, labelsize=13,labelcolor=plotting_def['text_over'])
         cbar.ax.tick_params(length=0,width=0)
-        invert_tick_colours(fig,cbar.ax.get_xticks(),cbar.ax.get_xticklabels(),
-                                        full_varname,type_scale)
+        invert_tick_colours(cbar.ax,full_varname,type_scale)
 
     if redshift:
         ax.text(0.03, 0.95, r'$z = {z:.2f}$'.format(z=hdul[h].header['redshift']), # Redshift
@@ -1536,13 +1545,13 @@ def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=(3,'kpc'),r
     
     rgb_default = make_lupton_rgb(images[0], images[1], images[2],Q=10, stretch=0.5)
 
-    ax.imshow(rgb_default,origin='lower',extent=ex,interpolation='nearest')
+    ax.imshow(rgb_default,origin='upper',extent=ex,interpolation='nearest')
 
     if stars:
         h = [k for k in range(0,len(hdul)) if hdul[k].header['btype']=='star/mass'][0]
         stars = np.log10(hdul[h].data.T)
         plotting_def = plotting_dictionary['star_mass']
-        ax.imshow(stars,origin='lower',cmap=plotting_def['cmap'],
+        ax.imshow(stars,origin='upper',cmap=plotting_def['cmap'],
                     extent=ex,interpolation='nearest',
                     vmin=np.log10(plotting_def['vmin']),
                     vmax=np.log10(plotting_def['vmax']),alpha=0.4)
@@ -1796,7 +1805,7 @@ def load_single_galaxy_healpix(proj_FITS,field,filter_name='none'):
 
     return data,nside,target_wcs
 
-def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False):
+def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False,fig_format='png'):
     """This function uses the HEALPix projection information in a FITS file following
         the OZY format and plots it using the OZY standards."""
 
@@ -1917,9 +1926,9 @@ def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False):
                 color=plotting_def['text_over'])
     # fig.subplots_adjust(hspace=0, wspace=0,top = 0.95,bottom = 0.02,left = 0.02,right = 0.98)
     if stellar:
-        fig.savefig(proj_FITS.split('.')[0]+'_stars.png',format='png',dpi=300)
+        fig.savefig(proj_FITS.split('.')[0]+f'_stars.{fig_format}',format=fig_format,dpi=300)
     else:
-        fig.savefig(proj_FITS.split('.')[0]+'.png',format='png',dpi=300)
+        fig.savefig(proj_FITS.split('.')[0]+f'.{fig_format}',format=fig_format,dpi=300)
 
 def structure_overplotting(group, add_substructure=True, add_neighbours=False,
                             tidal_method='BT87_simple',rmax=(1e10,'kpc')):

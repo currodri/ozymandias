@@ -89,4 +89,7 @@ module constants
   real(dbl),parameter :: gamma_crs=1.3333333   ! Cosmic rays assumed always relativistic
   ! Cosmology
   real(dbl),parameter :: rhoc=1.8800000d-29   ! Critical density of the Universe (g cm-3)
+  ! Milky Way constants
+  real(dbl),parameter :: ecr_sun=1.4d-12 ! CR energy density in the Solar neighbourhood (Boschini et al. 2020, erg/cm-3)
+  real(dbl),parameter :: LgammaH=1.1d-28 ! Gamma-ray luminosity per H atom in the 0.5-5 GeV range (Casandjian 2015)
 end module constants
