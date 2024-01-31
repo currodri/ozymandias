@@ -55,6 +55,7 @@ if __name__ == '__main__':
     parser.add_argument('--ind', type=int, default=0, help='Index of the galaxy in the ending snapshot.')
     parser.add_argument('--var', type=str, default='massflow_rate', help='Flow variable to be plotted.')
     parser.add_argument('--r', type=float, default=0.2, help='Fraction of rvir at which flow measured.')
+    parser.add_argument('--dr', type=float, default=0.01, help='Thickness of the shell in units of rvir.')
     parser.add_argument('--start', type=int, default=10, help='Starting index to look for galaxy.')
     parser.add_argument('--end', type=int, default=1000, help='Ending index to look for galaxy.')
     parser.add_argument('--nbins',type=int,default=1000,help='Number of bins for the underlying PDF.')
@@ -389,8 +390,8 @@ if __name__ == '__main__':
                 except:
                     progind = -1
                 
-                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
-                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute,
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-args.dr,'rvir'),
+                                    rmax=(args.r+args.dr,'rvir'),save=True,recompute=args.recompute,
                                     remove_subs=args.rm_subs,pdf_bins=args.nbins)
                 
                 d_key = str(int(100*args.r))
@@ -519,8 +520,8 @@ if __name__ == '__main__':
                 except:
                     progind = -1
                 
-                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
-                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute,separate_phases=True,
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-args.dr,'rvir'),
+                                    rmax=(args.r+args.dr,'rvir'),save=True,recompute=args.recompute,separate_phases=True,
                                     remove_subs=args.rm_subs,pdf_bins=args.nbins)
                 
                 d_key = str(int(100*args.r))
@@ -672,8 +673,8 @@ if __name__ == '__main__':
                 except:
                     progind = -1
                 
-                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
-                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute,
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-args.dr,'rvir'),
+                                    rmax=(args.r+args.dr,'rvir'),save=True,recompute=args.recompute,
                                     remove_subs=args.rm_subs,pdf_bins=args.nbins)
                 
                 d_key = str(int(100*args.r))
@@ -863,8 +864,8 @@ if __name__ == '__main__':
                 except:
                     progind = -1
                 
-                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
-                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute,
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-args.dr,'rvir'),
+                                    rmax=(args.r+args.dr,'rvir'),save=True,recompute=args.recompute,
                                     remove_subs=args.rm_subs,pdf_bins=args.nbins)
                 
                 d_key = str(int(100*args.r))
@@ -1073,8 +1074,8 @@ if __name__ == '__main__':
                 except:
                     progind = -1
                 
-                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
-                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute,
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-args.dr,'rvir'),
+                                    rmax=(args.r+args.dr,'rvir'),save=True,recompute=args.recompute,
                                     remove_subs=args.rm_subs,pdf_bins=args.nbins)
                 
                 d_key = str(int(100*args.r))
@@ -1266,8 +1267,8 @@ if __name__ == '__main__':
                 except:
                     progind = -1
                 
-                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
-                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute,
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-args.dr,'rvir'),
+                                    rmax=(args.r+args.dr,'rvir'),save=True,recompute=args.recompute,
                                     remove_subs=args.rm_subs,pdf_bins=args.nbins)
                 
                 d_key = str(int(100*args.r))
@@ -1480,8 +1481,8 @@ if __name__ == '__main__':
                     progind = sim.galaxies[progind].progen_galaxy_star
                 except:
                     progind = -1
-                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
-                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute,
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-args.dr,'rvir'),
+                                    rmax=(args.r+args.dr,'rvir'),save=True,recompute=args.recompute,
                                     remove_subs=args.rm_subs,pdf_bins=args.nbins)
                 
                 d_key = str(int(100*args.r))
@@ -1673,8 +1674,8 @@ if __name__ == '__main__':
                     progind = sim.galaxies[progind].progen_galaxy_star
                 except:
                     progind = -1
-                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
-                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute,
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-args.dr,'rvir'),
+                                    rmax=(args.r+args.dr,'rvir'),save=True,recompute=args.recompute,
                                     remove_subs=args.rm_subs,pdf_bins=args.nbins)
                 
                 d_key = str(int(100*args.r))
@@ -1862,8 +1863,8 @@ if __name__ == '__main__':
                     progind = sim.galaxies[progind].progen_galaxy_star
                 except:
                     progind = -1
-                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
-                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute,
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-args.dr,'rvir'),
+                                    rmax=(args.r+args.dr,'rvir'),save=True,recompute=args.recompute,
                                     remove_subs=args.rm_subs,pdf_bins=args.nbins)
                 
                 d_key = str(int(100*args.r))
@@ -2085,8 +2086,8 @@ if __name__ == '__main__':
                     progind = sim.galaxies[progind].progen_galaxy_star
                 except:
                     progind = -1
-                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
-                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute,
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-args.dr,'rvir'),
+                                    rmax=(args.r+args.dr,'rvir'),save=True,recompute=args.recompute,
                                     remove_subs=args.rm_subs,pdf_bins=args.nbins)
                 
                 d_key = str(int(100*args.r))
@@ -2304,8 +2305,8 @@ if __name__ == '__main__':
                     progind = sim.galaxies[progind].progen_galaxy_star
                 except:
                     progind = -1
-                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
-                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute,
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-args.dr,'rvir'),
+                                    rmax=(args.r+args.dr,'rvir'),save=True,recompute=args.recompute,
                                     remove_subs=args.rm_subs,pdf_bins=args.nbins)
                 
                 d_key = str(int(100*args.r))
@@ -2526,8 +2527,8 @@ if __name__ == '__main__':
                 except:
                     progind = -1
                 
-                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
-                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute,
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-args.dr,'rvir'),
+                                    rmax=(args.r+args.dr,'rvir'),save=True,recompute=args.recompute,
                                     remove_subs=args.rm_subs,pdf_bins=args.nbins)
                 
                 d_key = str(int(100*args.r))
@@ -2706,8 +2707,8 @@ if __name__ == '__main__':
                 except:
                     progind = -1
                 
-                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-0.01,'rvir'),
-                                    rmax=(args.r+0.01,'rvir'),save=True,recompute=args.recompute,
+                gf = compute_flows(gal,os.path.join(groupspath, ozyfile),args.flowtype,rmin=(args.r-args.dr,'rvir'),
+                                    rmax=(args.r+args.dr,'rvir'),save=True,recompute=args.recompute,
                                     remove_subs=args.rm_subs,pdf_bins=args.nbins)
                 
                 d_key = str(int(100*args.r))

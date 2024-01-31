@@ -289,6 +289,10 @@ class GalacticFlow:
         self.region['type'] = flows_gp.attrs['type']
         self.region['centre'] = flows_gp.attrs['centre']
         self.region['axis'] = flows_gp.attrs['axis']
+        self.region['r'] = unyt_quantity(flows_gp.attrs['r'], 'code_length', registry=self.obj.unit_registry)
+        self.region['rmin'] = unyt_quantity(flows_gp.attrs['rmin'], 'code_length', registry=self.obj.unit_registry)
+        self.region['rmax'] = unyt_quantity(flows_gp.attrs['rmax'], 'code_length', registry=self.obj.unit_registry)
+        self.region['dr'] = unyt_quantity(flows_gp.attrs['dr'], 'code_length', registry=self.obj.unit_registry)
         self.filter = {}
         self.type = flows_gp.attrs['name']
         self.filter['name'] = flows_gp.attrs['name']

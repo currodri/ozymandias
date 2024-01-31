@@ -56,6 +56,7 @@ class GalacticFlow(object):
         self.region['rmin'] = self.obj.quantity(reg.rmin, 'code_length')
         self.region['rmax'] = self.obj.quantity(reg.rmax, 'code_length')
         self.region['r'] = self.obj.quantity(0.5*(reg.rmax+reg.rmin), 'code_length')
+        self.region['dr'] = self.obj.quantity(reg.rmax-reg.rmin, 'code_length')
     
     def _get_python_filter(self,filt):
         """Save the Frotran derived type as a dictionary inside the GalacticFlow class."""
@@ -71,16 +72,15 @@ class GalacticFlow(object):
                 cond_str = cond_var+'/'+cond_op+'/'+str(cond_value.d)+'/'+cond_units
                 self.filter['conditions'].append(cond_str)
 
-def get_flow_name(gf_group, gf, r):
+def get_flow_name(gf_group, gf, r, dr):
     """Create an individual galactic flow identifier name."""
     name = str(gf.type)
     name += '|'+str(gf.region['type'])
     name += '|'+str(r)
-    if name in gf_group:
-        name += '|new'
+    name += '|'+str(dr)
     return name
 
-def check_if_same_flow(hd,gf,r):
+def check_if_same_flow(hd,gf,r,dr):
     """This function looks at an OZY file for the flow data specified by gf for a particular object."""
     if gf.rm_subs:
         flow_key = '_data/flows_nosubs/'
@@ -92,11 +92,12 @@ def check_if_same_flow(hd,gf,r):
         check_type = (g.split('|')[0] == gf.type)
         check_region = (g.split('|')[1] == gf.region['type'])
         check_r = (g.split('|')[2] == str(r))
-        if check_type and check_region and check_r:
+        check_dr = (g.split('|')[3] == str(dr))
+        if check_type and check_region and check_r and check_dr:
             return True, g
     return False, 'none'
 
-def write_flow(obj,ozy_file,gf,r):
+def write_flow(obj,ozy_file,gf,r,dr):
     """This function writes the resulting flow data to the original OZY file."""
     f = h5py.File(ozy_file, 'r+')
     if gf.rm_subs:
@@ -110,7 +111,8 @@ def write_flow(obj,ozy_file,gf,r):
         flows = f[str(gf.group.type)+flow_key+str(gf.group._index)]
 
     # Clean data and save to dataset
-    gf_name = get_flow_name(flows,gf,r)
+    gf_name = get_flow_name(flows,gf,r,dr)
+    print(f'Saving flow data {gf_name}...')
     hdgf = flows.create_group(gf_name)
     gf._serialise(hdgf)
 
@@ -180,6 +182,8 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'),
     
     d_key = str(int(100*0.5*(rmax[0]+rmin[0])))
     shell_width = reg.rmax-reg.rmin
+    width_key = str(100*(rmax[0]-rmin[0]))
+    width_key = width_key.replace('.', '_')
     shell_r = 0.5*(reg.rmax+reg.rmin)
 
     # Since the number of global quantities that can be computed
@@ -244,7 +248,7 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'),
 
     # Check if flow data is already present and if it coincides with the new one
     f = h5py.File(ozy_file, 'r+')
-    gf_present, gf_key = check_if_same_flow(f,gf,d_key)
+    gf_present, gf_key = check_if_same_flow(f,gf,d_key,width_key)
     if gf_present and recompute:
         if remove_subs:
             del f[str(gf.group.type)+'_data/flows_nosubs/'+str(gf.group._index)+'/'+str(gf_key)]
@@ -253,7 +257,7 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'),
 
         print('Overwriting flow data in %s_data'%group.type)
     elif gf_present and not recompute:
-        print('Flow data with same details already present for galaxy %s. No overwritting!'%group._index)
+        print('Flow data with same details (%s) already present for galaxy %s. No overwritting!'%(gf_key,group._index))
         group._init_flows()
         if remove_subs:
             print('Removing substructure!')
@@ -269,7 +273,7 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'),
                     break
             return group.flows[selected_gf]
     else:
-        print('Writing flow data in %s_data'%group.type)
+        print('Writing flow data %s in %s_data'%(gf_key,group.type))
     f.close()
 
     # If substructre is removed, obtain regions
@@ -500,6 +504,6 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'),
             gf.data['xHeIII_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[nvar+2],i)
 
     if save:
-        write_flow(group.obj, ozy_file, gf, d_key)
+        write_flow(group.obj, ozy_file, gf, d_key, width_key)
     
     return gf
