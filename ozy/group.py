@@ -2,7 +2,6 @@ import numpy as np
 from pprint import pprint
 from amr2 import vectors
 from amr2 import geometrical_regions as geo
-from amr2 import filtering
 from amr2 import amr_integrator,stats_utils
 from part2 import part_integrator
 
@@ -260,7 +259,7 @@ class Galaxy(Group):
         selected_reg = init_region(self,'sphere')
 
         # We do not want any particular filter, just simple integration will do
-        filt = filtering.filter()
+        filt = init_filter('none','none',group=self)
 
         # Initialise Fortran derived type with attributes
         # This object hold the following attributes:
@@ -323,7 +322,7 @@ class Galaxy(Group):
         selected_reg = init_region(self,'sphere',rmin=(0.0,'rvir'),rmax=(0.2,'rvir'))
 
         # Define phase filters (for ISM, based on entropy)
-        all_filt = filtering.filter()
+        all_filt = init_filter('none','none',group=self)
         phase_names = ['cold','warm','hot']
         cold_filt = init_filter(cond_strs=['entropy_specific/</4.4e+8/erg*K**-1*g**-1'],name='cold',group=self)
         warm_filt = init_filter(cond_strs=['entropy_specific/>=/4.4e+8/erg*K**-1*g**-1','entropy_specific/<=/23.2e+8/erg*K**-1*g**-1'],name='warm',group=self)
@@ -483,7 +482,7 @@ class Galaxy(Group):
         selected_reg = init_region(self,'sphere',rmin=(0.2,'rvir'),rmax=(1.0,'rvir'))
 
         # Define phase filters (for CGM)
-        all_filt = filtering.filter()
+        all_filt = init_filter('none','none',group=self)
         phase_names = ['hot','warm_ionised','warm_neutral','cold']
         hot = init_filter(cond_strs=['temperature/>/1e5/K'],name='hot',group=self)
         warm_ionised = init_filter(cond_strs=['temperature/</1e5/K','temperature/>/9e3/K'],name='warm_ionised',group=self)

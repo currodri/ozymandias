@@ -427,7 +427,7 @@ module export_amr
         integer,dimension(:,:),allocatable :: nbor
         integer,dimension(:),allocatable :: son,tempson
         integer,dimension(:),allocatable :: ind_grid,ind_cell,ind_cell2
-        integer ,dimension(0:amr%twondim)::ind_nbor
+        integer ,dimension(:),allocatable::ind_nbor
         logical,dimension(:),allocatable :: ref
 
         type(level),dimension(1:100) :: grid
@@ -670,6 +670,7 @@ module export_amr
                             var(ind_cell(i),varIDs%vx:varIDs%vz) = vtemp
 
                             ! Get neighbours
+                            allocate(ind_nbor(0:amr%twondim))
                             allocate(ind_cell2(1))
                             ind_cell2(1) = ind_cell(i)
                             call getnbor(son,nbor,ind_cell2,ind_nbor,1)
@@ -680,6 +681,7 @@ module export_amr
                                 tempvar(inbor,:) = var(ind_nbor(inbor),:)
                                 tempson(inbor)       = son(ind_nbor(inbor))
                             end do
+                            deallocate(ind_nbor)
 
                             ! Check filter
                             ok_filter = filter_cell(reg,chunk%filt,xtemp,dx,tempvar,&

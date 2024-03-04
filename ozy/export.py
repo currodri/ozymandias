@@ -7,7 +7,6 @@ def unigrid_amr(obj, group=None, filter=None, lmax =0, n=[100,100,100], vars=['g
     from ozy.utils import init_region,init_filter
     from ozy.group import create_new_group
 
-    from amr2 import filtering
     from amr2 import export_amr
 
     output_path = obj.simulation.fullpath
@@ -27,7 +26,7 @@ def unigrid_amr(obj, group=None, filter=None, lmax =0, n=[100,100,100], vars=['g
                                     zmin=zmin, zmax=zmax)
     # Get filter if not given
     if filter == None:
-        filt = filtering.filter()
+        filt = init_filter('none','none',group)
     
     # Get supported variables
     hydrovars = []
@@ -69,7 +68,7 @@ def export2skirt(obj, group=None, filter=None, lmax =0, var='dust_density', xmin
     from ozy.utils import init_region,init_filter
     from ozy.group import create_new_group
 
-    from part2 import filtering,export_part
+    from part2 import export_part
     from amr2 import export_amr
 
     output_path = obj.simulation.fullpath
@@ -92,7 +91,7 @@ def export2skirt(obj, group=None, filter=None, lmax =0, var='dust_density', xmin
 
     # Get filter if not given
     if filter == None:
-        filt = filtering.filter()
+        filt = init_filter('none','none',group)
     
     # Create name for output files
     outid = output_path.split('/')[-1][-5:]
@@ -124,7 +123,7 @@ def export2disperse(obj, group=None, filter=None, xmin=(0,'code_length'), xmax=(
     from ozy.utils import init_region,init_filter
     from ozy.group import create_new_group
 
-    from part2 import filtering,export_part
+    from part2 import export_part
 
     output_path = obj.simulation.fullpath
 
@@ -143,7 +142,7 @@ def export2disperse(obj, group=None, filter=None, xmin=(0,'code_length'), xmax=(
 
     # Get filter if not given
     if filter == None:
-        filt = filtering.filter()
+        filt = init_filter('none','none',group)
     
     # Create name for output files
     outid = output_path.split('/')[-1][-5:]
@@ -168,7 +167,7 @@ def basicexport2txt(obj, group=None, filter=None, lmax =0, var='dust_density', x
     from ozy.utils import init_region,init_filter
     from ozy.group import create_new_group
 
-    from part2 import filtering,export_part
+    from part2 import export_part
     from amr2 import export_amr
 
     output_path = obj.simulation.fullpath
@@ -191,7 +190,7 @@ def basicexport2txt(obj, group=None, filter=None, lmax =0, var='dust_density', x
 
     # Get filter if not given
     if filter == None:
-        filt = filtering.filter()
+        filt = init_filter('none','none',group)
     
     # Create name for output files
     outid = output_path.split('/')[-1][-5:]

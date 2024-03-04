@@ -588,7 +588,7 @@ module io_ramses
         integer :: i
         type(vector) :: v,L,B,vst
         type(basis) :: temp_basis
-        real(dbl) :: T,rho,cV,lambda,lambda_prime,ne,ecr,nH,Tmin,Dcr,vA,cs
+        real(dbl) :: T,rho,cV,lambda,lambda_prime,ne,ecr,nH,Tmin,Dcr,vA,cs,sigma
         real(dbl) :: dxleft,dxright
         real(dbl) :: bsign
         real(dbl) :: volume
@@ -834,6 +834,9 @@ module io_ramses
         case ('magnetic_pressure')
             B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
             value = 0.5 * (B.DOT.B)
+        case ('plasma_beta')
+            B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+            value = max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density)) / (0.5 * (B.DOT.B))
         case ('alfven_speed')
             ! Alfven speed defined as B / sqrt(rho)
             B = 0.5*(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
@@ -875,6 +878,135 @@ module io_ramses
         case ('cr_pressure')
             value = var(0,varIDs%cr_pressure)
             if(value<1d-22)print*,value
+        case ('total_pressure')
+            ! Total pressure (thermal, turbulent, magnetic and CR)
+            ! TODO: Add radiation pressure
+            totP(:) = 0d0
+            if (sim%hydro) then
+                totP(0) = var(0,varIDs%thermal_pressure)
+                ! Go back to box coordinates for the central cell, which is transformed usually
+                ! before sent to read_amr
+                tempvar(:,:) = var(:,:)
+                v = tempvar(0,varIDs%vx:varIDs%vz)
+                call rotate_vector(v,transpose(trans_matrix))
+                v = v + reg%bulk_velocity
+                tempvar(0,varIDs%vx:varIDs%vz) = v
+                call cmp_sigma_turb(tempvar,sigma)
+                totP(0) = totP(0) + var(0,varIDs%density) * sigma**2d0
+            end if
+            if (sim%mhd) then
+                B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),&
+                    & (var(0,varIDs%Bly)+var(0,varIDs%Bry)),&
+                    & (var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+                totP(0) = totP(0) + 0.5 * (B.DOT.B)
+            end if
+            if (sim%cr) totP(0) = totP(0) + var(0,varIDs%cr_pressure)
+            value = totP(0)
+        case ('fP_thermal')
+            ! Ratio of thermal over total pressure (thermal, turbulent, magnetic and CR)
+            ! TODO: Add radiation pressure
+            totP(:) = 0d0
+            if (sim%hydro) then
+                totP(0) =  max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density))
+                ! Go back to box coordinates for the central cell, which is transformed usually
+                ! before sent to read_amr
+                tempvar(:,:) = var(:,:)
+                v = tempvar(0,varIDs%vx:varIDs%vz)
+                call rotate_vector(v,transpose(trans_matrix))
+                v = v + reg%bulk_velocity
+                tempvar(0,varIDs%vx:varIDs%vz) = v
+                call cmp_sigma_turb(tempvar,sigma)
+                totP(0) = totP(0) + var(0,varIDs%density) * sigma**2d0
+            end if
+            if (sim%mhd) then
+                B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),&
+                    & (var(0,varIDs%Bly)+var(0,varIDs%Bry)),&
+                    & (var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+                totP(0) = totP(0) + 0.5 * (B.DOT.B)
+            end if
+            if (sim%cr) totP(0) = totP(0) + var(0,varIDs%cr_pressure)
+            value =  max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density)) / totP(0)
+        case ('fP_turbulent')
+            ! Ratio of turbulent over total pressure (thermal, turbulent, magnetic and CR)
+            ! TODO: Add radiation pressure
+            totP(:) = 0d0
+            sigma = 0d0
+            if (sim%hydro) then
+                totP(0) =  max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density))
+                ! Go back to box coordinates for the central cell, which is transformed usually
+                ! before sent to read_amr
+                tempvar(:,:) = var(:,:)
+                v = tempvar(0,varIDs%vx:varIDs%vz)
+                call rotate_vector(v,transpose(trans_matrix))
+                v = v + reg%bulk_velocity
+                tempvar(0,varIDs%vx:varIDs%vz) = v
+                call cmp_sigma_turb(tempvar,sigma)
+                totP(0) = totP(0) + var(0,varIDs%density) * sigma**2d0
+            end if
+            if (sim%mhd) then
+                B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),&
+                    & (var(0,varIDs%Bly)+var(0,varIDs%Bry)),&
+                    & (var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+                totP(0) = totP(0) + 0.5 * (B.DOT.B)
+            end if
+            if (sim%cr) totP(0) = totP(0) + var(0,varIDs%cr_pressure)
+            value = var(0,varIDs%density) * sigma**2d0 / totP(0)
+        case ('fP_magnetic')
+            ! Ratio of magnetic over total pressure (thermal, turbulent, magnetic and CR)
+            ! TODO: Add radiation pressure
+            totP(:) = 0d0
+            sigma = 0d0
+            if (sim%hydro) then
+                totP(0) =  max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density))
+                ! Go back to box coordinates for the central cell, which is transformed usually
+                ! before sent to read_amr
+                tempvar(:,:) = var(:,:)
+                v = tempvar(0,varIDs%vx:varIDs%vz)
+                call rotate_vector(v,transpose(trans_matrix))
+                v = v + reg%bulk_velocity
+                tempvar(0,varIDs%vx:varIDs%vz) = v
+                call cmp_sigma_turb(tempvar,sigma)
+                totP(0) = totP(0) + var(0,varIDs%density) * sigma**2d0
+            end if
+            if (sim%mhd) then
+                B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),&
+                    & (var(0,varIDs%Bly)+var(0,varIDs%Bry)),&
+                    & (var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+                totP(0) = totP(0) + 0.5 * (B.DOT.B)
+            end if
+            if (sim%cr) totP(0) = totP(0) + var(0,varIDs%cr_pressure)
+            value = 0.5 * (B.DOT.B) / totP(0)   
+        case ('fP_cr')
+            ! Ratio of CR over total pressure (thermal, turbulent, magnetic and CR)
+            ! TODO: Add radiation pressure
+            totP(:) = 0d0
+            sigma = 0d0
+            if (sim%hydro) then
+                totP(0) =  max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density))
+                ! Go back to box coordinates for the central cell, which is transformed usually
+                ! before sent to read_amr
+                tempvar(:,:) = var(:,:)
+                v = tempvar(0,varIDs%vx:varIDs%vz)
+                call rotate_vector(v,transpose(trans_matrix))
+                v = v + reg%bulk_velocity
+                tempvar(0,varIDs%vx:varIDs%vz) = v
+                call cmp_sigma_turb(tempvar,sigma)
+                totP(0) = totP(0) + var(0,varIDs%density) * sigma**2d0
+            end if
+            if (sim%mhd) then
+                B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),&
+                    & (var(0,varIDs%Bly)+var(0,varIDs%Bry)),&
+                    & (var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+                totP(0) = totP(0) + 0.5 * (B.DOT.B)
+            end if
+            if (sim%cr) then
+                totP(0) = totP(0) + var(0,varIDs%cr_pressure)
+                value = var(0,varIDs%cr_pressure) / totP(0)
+            else
+                value = 0d0
+            end if 
+        case ('chi_cr')
+            value = var(0,varIDs%cr_pressure) / max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density))
         case ('cr_energy_specific')
             ! Specific CR energy, computed as CR_energydensity*volume/cell mass
             value = (var(0,varIDs%cr_pressure) / (4D0/3d0 - 1d0)) / var(0,varIDs%density)
@@ -1704,6 +1836,54 @@ module io_ramses
             v = v + reg%bulk_velocity
             tempvar(0,varIDs%vx:varIDs%vz) = v
             value  = sf_eff(reg,dx,x,tempvar,star_maker,.false.)
+        case ('jeans_mtt')
+            ! MTT model Jeans length
+            star_maker = 'jeans_mtt'
+            ! Go back to box coordinates for the central cell, which is transformed usually
+            ! before sent to read_amr
+            ! Converging flow check
+            tempvar(:,:) = var(:,:)
+            v = tempvar(0,varIDs%vx:varIDs%vz)
+            call rotate_vector(v,transpose(trans_matrix))
+            v = v + reg%bulk_velocity
+            tempvar(0,varIDs%vx:varIDs%vz) = v
+            value  = sf_eff(reg,dx,x,tempvar,star_maker,.true.)
+        case ('jeansmtt_dx')
+            ! MTT model Jeans length in cell units
+            star_maker = 'jeansmtt_dx'
+            ! Go back to box coordinates for the central cell, which is transformed usually
+            ! before sent to read_amr
+            ! Converging flow check
+            tempvar(:,:) = var(:,:)
+            v = tempvar(0,varIDs%vx:varIDs%vz)
+            call rotate_vector(v,transpose(trans_matrix))
+            v = v + reg%bulk_velocity
+            tempvar(0,varIDs%vx:varIDs%vz) = v
+            value  = sf_eff(reg,dx,x,tempvar,star_maker,.true.)
+        case ('jeans_mttnocr')
+            ! MTT model Jeans length without CR pressure support
+            star_maker = 'jeans_mtt'
+            ! Go back to box coordinates for the central cell, which is transformed usually
+            ! before sent to read_amr
+            ! Converging flow check
+            tempvar(:,:) = var(:,:)
+            v = tempvar(0,varIDs%vx:varIDs%vz)
+            call rotate_vector(v,transpose(trans_matrix))
+            v = v + reg%bulk_velocity
+            tempvar(0,varIDs%vx:varIDs%vz) = v
+            value  = sf_eff(reg,dx,x,tempvar,star_maker,.false.)
+        case ('jeansmtt_dxnocr')
+            ! MTT model Jeans length in cell units without CR pressure support
+            star_maker = 'jeansmtt_dx'
+            ! Go back to box coordinates for the central cell, which is transformed usually
+            ! before sent to read_amr
+            ! Converging flow check
+            tempvar(:,:) = var(:,:)
+            v = tempvar(0,varIDs%vx:varIDs%vz)
+            call rotate_vector(v,transpose(trans_matrix))
+            v = v + reg%bulk_velocity
+            tempvar(0,varIDs%vx:varIDs%vz) = v
+            value  = sf_eff(reg,dx,x,tempvar,star_maker,.false.)
         case ('neighbour_accuracy')
             ! This variable is used as a debugging method to check
             ! whether the nearest neighbour implementation is able to 
@@ -2416,6 +2596,337 @@ module io_ramses
             sf_eff = e_cts/2.0*phi_t*exp(3.0/8.0*sigs)*(2.0-erfc((sigs-scrit)/sqrt(2.0*sigs)))
         end if
 
+        ! 3. COMPUTE JEANS LENGTH
+        if (TRIM(star_maker)=='jeans_mtt') then
+            ! We need to estimate the norm of the gradient of the velocity field in the cell (tensor of 2nd rank)
+            ! i.e. || A ||^2 = trace( A A^T) where A = grad vec(v) is the tensor. 
+            ! So construct values of velocity field on the 6 faces of the cell using simple linear interpolation 
+            ! from neighbouring cell values and differentiate. 
+            ! Get neighbor cells if they exist, otherwise use straight injection from local cell
+            d = var(0,varIDs%density)
+            darr = var(:,varIDs%density)
+
+            uarr = var(:,varIDs%vx)
+            varr = var(:,varIDs%vy)
+            warr = var(:,varIDs%vz)
+            divv  = (uarr(2)*darr(2)-uarr(1)*darr(1)) &
+                & + (varr(4)*darr(4)-varr(3)*darr(3)) & 
+                & + (warr(6)*darr(6)-warr(5)*darr(5))
+            
+            ! Average velocity
+            dtot  = sum(darr)
+            uavg  = sum(darr*uarr)/dtot
+            vavg  = sum(darr*varr)/dtot
+            wavg  = sum(darr*warr)/dtot
+            ! Subtract the mean velocity field
+            uarr(:) = uarr(:) - uavg
+            varr(:) = varr(:) - vavg
+            warr(:) = warr(:) - wavg
+            ! Subtract the symmetric divergence field                    
+            ! ex)  (---->,<--): only subtract (-->,<--): result (-->,0) 
+            ! ex)  (<----,-->): only subtract (<--,-->): result (<--,0)
+            px_div = min( abs(darr(1)*uarr(1)),abs(darr(2)*uarr(2)))
+            py_div = min( abs(darr(3)*varr(3)),abs(darr(4)*varr(4)))
+            pz_div = min( abs(darr(5)*warr(5)),abs(darr(6)*warr(6)))
+
+            isConvergent = darr(2)*uarr(2) - darr(1)*uarr(1) < 0 
+            if (isConvergent) then
+                uarr(1) = uarr(1) - px_div/darr(1)
+                uarr(2) = uarr(2) + px_div/darr(2)
+            else ! comment out if you do not want to subtract outflows
+                uarr(1) = uarr(1) + px_div/darr(1)
+                uarr(2) = uarr(2) - px_div/darr(2)
+            end if 
+
+            isConvergent = darr(4)*varr(4) - darr(3)*varr(3) < 0
+            if (isConvergent) then
+                varr(3) = varr(3) - py_div/darr(3)
+                varr(4) = varr(4) + py_div/darr(4)
+            else ! comment out if you do not want to subtract outflows
+                varr(3) = varr(3) + py_div/darr(3)
+                varr(4) = varr(4) - py_div/darr(4)
+            end if
+
+            isConvergent = darr(6)*warr(6) - darr(5)*warr(5) < 0
+            if (isConvergent) then 
+                warr(5) = warr(5) - pz_div/darr(5)
+                warr(6) = warr(6) + pz_div/darr(6)
+            else ! comment out if you do not want to subtract outflows
+                warr(5) = warr(5) + pz_div/darr(5)
+                warr(6) = warr(6) - pz_div/darr(6)
+            end if
+
+            ! subtract the rotational velocity field (x-y) plane
+            ! ^y       <-        |4|        |-u|
+            ! |       |  |     |1| |2|   |-v|  |+v|
+            ! --->x    ->        |3|        |+u|
+            Jz  = - varr(1)*darr(1) + varr(2)*darr(2) &
+                &   + uarr(3)*darr(3) - uarr(4)*darr(4)
+            Jz  = Jz / 4.0
+
+            varr(1) = varr(1) + Jz/darr(1) 
+            varr(2) = varr(2) - Jz/darr(2) 
+            uarr(3) = uarr(3) - Jz/darr(3)
+            uarr(4) = uarr(4) + Jz/darr(4)
+
+            ! subtract the rotational velocity field (y-z) plane
+            ! ^z       <-        |6|        |-v|  
+            ! |       |  |     |3| |4|   |-w|  |+w|
+            ! --->y    ->        |5|        |+v|
+            Jx  = - warr(3)*darr(3) + warr(4)*darr(4) &
+                &   + varr(5)*darr(5) - varr(6)*darr(6)
+            Jx  = Jx / 4.0
+
+            warr(3) = warr(3) + Jx/darr(3) 
+            warr(4) = warr(4) - Jx/darr(4) 
+            varr(5) = varr(5) - Jx/darr(5)
+            varr(6) = varr(6) + Jx/darr(6)
+
+            ! subtract the rotational velocity field (x-z) plane
+            ! ^z       ->        |6|        |+u|  
+            ! |       |  |     |1| |2|   |+w|  |-w|
+            ! --->x    <-        |5|        |-u|
+            Jy  = + warr(1)*darr(1) - warr(2)*darr(2) &
+                &   - uarr(5)*darr(5) + uarr(6)*darr(6)
+            Jy  = Jy / 4.0
+
+            warr(1) = warr(1) - Jy/darr(1) 
+            warr(2) = warr(2) + Jy/darr(2) 
+            uarr(5) = uarr(5) + Jy/darr(5)
+            uarr(6) = uarr(6) - Jy/darr(6)
+
+            ! From this point, uarr,varr,warr is just the turbulent velocity
+            trgv  = 0.0
+
+            !x-direc
+            ul    = (darr(2)*uarr(2) + d*uarr(0))/(darr(2)+d)
+            ur    = (darr(1)*uarr(1) + d*uarr(0))/(darr(1)+d)
+            trgv  = trgv + (ur-ul)**2
+            !y-direc
+            ul    = (darr(4)*varr(4) + d*varr(0))/(darr(4)+d)
+            ur    = (darr(3)*varr(3) + d*varr(0))/(darr(3)+d)
+            trgv  = trgv + (ur-ul)**2
+            !z-direc
+            ul    = (darr(6)*warr(6) + d*warr(0))/(darr(6)+d)
+            ur    = (darr(5)*warr(5) + d*warr(0))/(darr(5)+d)
+            trgv  = trgv + (ur-ul)**2
+            !z-direc; tangential component - y
+            ul    = (darr(6)*varr(6) + d*varr(0))/(darr(6)+d)
+            ur    = (darr(5)*varr(5) + d*varr(0))/(darr(5)+d)
+            trgv  = trgv + (ur-ul)**2
+            !y-direc; tangential component - z
+            ul    = (darr(4)*warr(4) + d*warr(0))/(darr(4)+d)
+            ur    = (darr(3)*warr(3) + d*warr(0))/(darr(3)+d)
+            trgv  = trgv + (ur-ul)**2
+            !z-direc; tangential component - x
+            ul    = (darr(6)*uarr(6) + d*uarr(0))/(darr(6)+d)
+            ur    = (darr(5)*uarr(5) + d*uarr(0))/(darr(5)+d)
+            trgv  = trgv + (ur-ul)**2
+            !x-direc; tangential component - z
+            ul    = (darr(2)*warr(2) + d*warr(0))/(darr(2)+d)
+            ur    = (darr(1)*warr(1) + d*warr(0))/(darr(1)+d)
+            trgv  = trgv + (ur-ul)**2
+            !y-direc; tangential component - x
+            ul    = (darr(4)*uarr(4) + d*uarr(0))/(darr(4)+d)
+            ur    = (darr(3)*uarr(3) + d*uarr(0))/(darr(3)+d)
+            trgv  = trgv + (ur-ul)**2
+            !x-direc; tangential component - y
+            ul    = (darr(2)*varr(2) + d*varr(0))/(darr(2)+d)
+            ur    = (darr(1)*varr(1) + d*varr(0))/(darr(1)+d)
+            trgv  = trgv + (ur-ul)**2
+
+            ! Now compute sound speed squared
+            temp = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * gamma_gas
+            ! TODO: This is a quick fix for negative T in CRMHD sims
+            if (temp<0d0) temp = Tmin * gamma_gas
+            ! TODO: This should be change to add also radiation pressure
+            if (sim%cr.and.use_crs) then
+                temp = temp + var(0,varIDs%cr_pressure) / var(0,varIDs%density) * gamma_crs
+            end if
+            temp = max(temp,smallc**2)
+            c_s2 = temp
+            if (sim%mhd) then
+                ! Added magnetic pressure to the support as contribution to c_s (assuming isothermal gas within the cell)
+                Bx = var(0,varIDs%Blx)+var(0,varIDs%Brx)
+                By = var(0,varIDs%Bly)+var(0,varIDs%Bry)
+                Bz = var(0,varIDs%Blz)+var(0,varIDs%Brz)
+                ! 1/2 factor in Pmag comes from (Br+Bl)/2
+                ! Pmag = 0.03978873577*0.25*(Bx**2 + By**2 + Bz**2) ! Pmag = B^2/(8*Pi)
+                Pmag = 0.125d0*(Bx**2 + By**2 + Bz**2) ! Pmag = B^2/2
+                invbeta = Pmag/(c_s2*d) ! beta = c_s^2 * rho / Pmag
+                c_s2 = c_s2*(1.+invbeta) ! (c_s)_eff = c_s*(1.+beta^-1)**0.5
+            end if
+            ! Calculate "turbulent" Jeans length in code length
+            ! (see e.g. Chandrasekhar 51, Bonazzola et al 87, Federrath & Klessen 2012 eq 36)
+            rho_local = d
+            lamjt = (pi*trgv + sqrt(pi*pi*trgv*trgv + 36.0*pi*c_s2*factG*rho_local*dx**2))/(6.0*factG*rho_local*dx)
+            sf_eff = lamjt ! TODO: Don't like this change of variable names...
+        elseif (TRIM(star_maker)=='jeansmtt_dx') then
+            ! We need to estimate the norm of the gradient of the velocity field in the cell (tensor of 2nd rank)
+            ! i.e. || A ||^2 = trace( A A^T) where A = grad vec(v) is the tensor. 
+            ! So construct values of velocity field on the 6 faces of the cell using simple linear interpolation 
+            ! from neighbouring cell values and differentiate. 
+            ! Get neighbor cells if they exist, otherwise use straight injection from local cell
+
+            d = var(0,varIDs%density)
+            darr = var(:,varIDs%density)
+
+            uarr = var(:,varIDs%vx)
+            varr = var(:,varIDs%vy)
+            warr = var(:,varIDs%vz)
+            divv  = (uarr(2)*darr(2)-uarr(1)*darr(1)) &
+                & + (varr(4)*darr(4)-varr(3)*darr(3)) & 
+                & + (warr(6)*darr(6)-warr(5)*darr(5))
+            
+            ! Average velocity
+            dtot  = sum(darr)
+            uavg  = sum(darr*uarr)/dtot
+            vavg  = sum(darr*varr)/dtot
+            wavg  = sum(darr*warr)/dtot
+            ! Subtract the mean velocity field
+            uarr(:) = uarr(:) - uavg
+            varr(:) = varr(:) - vavg
+            warr(:) = warr(:) - wavg
+            ! Subtract the symmetric divergence field                    
+            ! ex)  (---->,<--): only subtract (-->,<--): result (-->,0) 
+            ! ex)  (<----,-->): only subtract (<--,-->): result (<--,0)
+            px_div = min( abs(darr(1)*uarr(1)),abs(darr(2)*uarr(2)))
+            py_div = min( abs(darr(3)*varr(3)),abs(darr(4)*varr(4)))
+            pz_div = min( abs(darr(5)*warr(5)),abs(darr(6)*warr(6)))
+
+            isConvergent = darr(2)*uarr(2) - darr(1)*uarr(1) < 0 
+            if (isConvergent) then
+                uarr(1) = uarr(1) - px_div/darr(1)
+                uarr(2) = uarr(2) + px_div/darr(2)
+            else ! comment out if you do not want to subtract outflows
+                uarr(1) = uarr(1) + px_div/darr(1)
+                uarr(2) = uarr(2) - px_div/darr(2)
+            end if 
+
+            isConvergent = darr(4)*varr(4) - darr(3)*varr(3) < 0
+            if (isConvergent) then
+                varr(3) = varr(3) - py_div/darr(3)
+                varr(4) = varr(4) + py_div/darr(4)
+            else ! comment out if you do not want to subtract outflows
+                varr(3) = varr(3) + py_div/darr(3)
+                varr(4) = varr(4) - py_div/darr(4)
+            end if
+
+            isConvergent = darr(6)*warr(6) - darr(5)*warr(5) < 0
+            if (isConvergent) then 
+                warr(5) = warr(5) - pz_div/darr(5)
+                warr(6) = warr(6) + pz_div/darr(6)
+            else ! comment out if you do not want to subtract outflows
+                warr(5) = warr(5) + pz_div/darr(5)
+                warr(6) = warr(6) - pz_div/darr(6)
+            end if
+
+            ! subtract the rotational velocity field (x-y) plane
+            ! ^y       <-        |4|        |-u|
+            ! |       |  |     |1| |2|   |-v|  |+v|
+            ! --->x    ->        |3|        |+u|
+            Jz  = - varr(1)*darr(1) + varr(2)*darr(2) &
+                &   + uarr(3)*darr(3) - uarr(4)*darr(4)
+            Jz  = Jz / 4.0
+
+            varr(1) = varr(1) + Jz/darr(1) 
+            varr(2) = varr(2) - Jz/darr(2) 
+            uarr(3) = uarr(3) - Jz/darr(3)
+            uarr(4) = uarr(4) + Jz/darr(4)
+
+            ! subtract the rotational velocity field (y-z) plane
+            ! ^z       <-        |6|        |-v|  
+            ! |       |  |     |3| |4|   |-w|  |+w|
+            ! --->y    ->        |5|        |+v|
+            Jx  = - warr(3)*darr(3) + warr(4)*darr(4) &
+                &   + varr(5)*darr(5) - varr(6)*darr(6)
+            Jx  = Jx / 4.0
+
+            warr(3) = warr(3) + Jx/darr(3) 
+            warr(4) = warr(4) - Jx/darr(4) 
+            varr(5) = varr(5) - Jx/darr(5)
+            varr(6) = varr(6) + Jx/darr(6)
+
+            ! subtract the rotational velocity field (x-z) plane
+            ! ^z       ->        |6|        |+u|  
+            ! |       |  |     |1| |2|   |+w|  |-w|
+            ! --->x    <-        |5|        |-u|
+            Jy  = + warr(1)*darr(1) - warr(2)*darr(2) &
+                &   - uarr(5)*darr(5) + uarr(6)*darr(6)
+            Jy  = Jy / 4.0
+
+            warr(1) = warr(1) - Jy/darr(1) 
+            warr(2) = warr(2) + Jy/darr(2) 
+            uarr(5) = uarr(5) + Jy/darr(5)
+            uarr(6) = uarr(6) - Jy/darr(6)
+
+            ! From this point, uarr,varr,warr is just the turbulent velocity
+            trgv  = 0.0
+
+            !x-direc
+            ul    = (darr(2)*uarr(2) + d*uarr(0))/(darr(2)+d)
+            ur    = (darr(1)*uarr(1) + d*uarr(0))/(darr(1)+d)
+            trgv  = trgv + (ur-ul)**2
+            !y-direc
+            ul    = (darr(4)*varr(4) + d*varr(0))/(darr(4)+d)
+            ur    = (darr(3)*varr(3) + d*varr(0))/(darr(3)+d)
+            trgv  = trgv + (ur-ul)**2
+            !z-direc
+            ul    = (darr(6)*warr(6) + d*warr(0))/(darr(6)+d)
+            ur    = (darr(5)*warr(5) + d*warr(0))/(darr(5)+d)
+            trgv  = trgv + (ur-ul)**2
+            !z-direc; tangential component - y
+            ul    = (darr(6)*varr(6) + d*varr(0))/(darr(6)+d)
+            ur    = (darr(5)*varr(5) + d*varr(0))/(darr(5)+d)
+            trgv  = trgv + (ur-ul)**2
+            !y-direc; tangential component - z
+            ul    = (darr(4)*warr(4) + d*warr(0))/(darr(4)+d)
+            ur    = (darr(3)*warr(3) + d*warr(0))/(darr(3)+d)
+            trgv  = trgv + (ur-ul)**2
+            !z-direc; tangential component - x
+            ul    = (darr(6)*uarr(6) + d*uarr(0))/(darr(6)+d)
+            ur    = (darr(5)*uarr(5) + d*uarr(0))/(darr(5)+d)
+            trgv  = trgv + (ur-ul)**2
+            !x-direc; tangential component - z
+            ul    = (darr(2)*warr(2) + d*warr(0))/(darr(2)+d)
+            ur    = (darr(1)*warr(1) + d*warr(0))/(darr(1)+d)
+            trgv  = trgv + (ur-ul)**2
+            !y-direc; tangential component - x
+            ul    = (darr(4)*uarr(4) + d*uarr(0))/(darr(4)+d)
+            ur    = (darr(3)*uarr(3) + d*uarr(0))/(darr(3)+d)
+            trgv  = trgv + (ur-ul)**2
+            !x-direc; tangential component - y
+            ul    = (darr(2)*varr(2) + d*varr(0))/(darr(2)+d)
+            ur    = (darr(1)*varr(1) + d*varr(0))/(darr(1)+d)
+            trgv  = trgv + (ur-ul)**2
+
+            ! Now compute sound speed squared
+            temp = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * gamma_gas
+            ! TODO: This is a quick fix for negative T in CRMHD sims
+            if (temp<0d0) temp = Tmin * gamma_gas
+            ! TODO: This should be change to add also radiation pressure
+            if (sim%cr.and.use_crs) then
+                temp = temp + var(0,varIDs%cr_pressure) / var(0,varIDs%density) * gamma_crs
+            end if
+            temp = max(temp,smallc**2)
+            c_s2 = temp
+            if (sim%mhd) then
+                ! Added magnetic pressure to the support as contribution to c_s (assuming isothermal gas within the cell)
+                Bx = var(0,varIDs%Blx)+var(0,varIDs%Brx)
+                By = var(0,varIDs%Bly)+var(0,varIDs%Bry)
+                Bz = var(0,varIDs%Blz)+var(0,varIDs%Brz)
+                ! 1/2 factor in Pmag comes from (Br+Bl)/2
+                ! Pmag = 0.03978873577*0.25*(Bx**2 + By**2 + Bz**2) ! Pmag = B^2/(8*Pi)
+                Pmag = 0.125d0*(Bx**2 + By**2 + Bz**2) ! Pmag = B^2/2
+                invbeta = Pmag/(c_s2*d) ! beta = c_s^2 * rho / Pmag
+                c_s2 = c_s2*(1.+invbeta) ! (c_s)_eff = c_s*(1.+beta^-1)**0.5
+            end if
+            ! Calculate "turbulent" Jeans length in cell units
+            ! (see e.g. Chandrasekhar 51, Bonazzola et al 87, Federrath & Klessen 2012 eq 36)
+            rho_local = d
+            lamjt = (pi*trgv + sqrt(pi*pi*trgv*trgv + 36.0*pi*c_s2*factG*rho_local*dx**2))/(6.0*factG*rho_local*dx**2d0)
+            sf_eff = lamjt ! TODO: Don't like this change of variable names...
+        end if
         
     end function sf_eff
 
@@ -2430,6 +2941,8 @@ module io_ramses
         implicit none
         character(128), intent(in) :: repository
         character(5) :: nchar
+        character(13) :: namestr13
+        character(14) :: namestr14
         integer :: ipos,impi,i,nx,ny,nz
         character(128) :: nomfich
         character(128)  :: cooling_file
@@ -2490,26 +3003,26 @@ module io_ramses
         open(unit=10,file=nomfich,form='formatted',status='old')
         read(10,*)!ncpu
         read(10,*)!ndim
-        read(10,'("levelmin    =",I11)')amr%levelmin
-        read(10,'("levelmax    =",I11)')amr%levelmax
+        read(10,'(A13,I11)')namestr13,amr%levelmin
+        read(10,'(A13,I11)')namestr13,amr%levelmax
         read(10,*)
         read(10,*)
         read(10,*)
     
-        read(10,'("boxlen      =",E23.15)')sim%boxlen
-        read(10,'("time        =",E23.15)')sim%t
-        read(10,'("aexp        =",E23.15)')sim%aexp
-        read(10,'("H0          =",E23.15)')sim%h0
-        read(10,'("omega_m     =",E23.15)')sim%omega_m
-        read(10,'("omega_l     =",E23.15)')sim%omega_l
-        read(10,'("omega_k     =",E23.15)')sim%omega_k
-        read(10,'("omega_b     =",E23.15)')sim%omega_b
-        read(10,'("unit_l      =",E23.15)')sim%unit_l
-        read(10,'("unit_d      =",E23.15)')sim%unit_d
-        read(10,'("unit_t      =",E23.15)')sim%unit_t
+        read(10,'(A13,E23.15)')namestr13,sim%boxlen
+        read(10,'(A13,E23.15)')namestr13,sim%t
+        read(10,'(A13,E23.15)')namestr13,sim%aexp
+        read(10,'(A13,E23.15)')namestr13,sim%h0
+        read(10,'(A13,E23.15)')namestr13,sim%omega_m
+        read(10,'(A13,E23.15)')namestr13,sim%omega_l
+        read(10,'(A13,E23.15)')namestr13,sim%omega_k
+        read(10,'(A13,E23.15)')namestr13,sim%omega_b
+        read(10,'(A13,E23.15)')namestr13,sim%unit_l
+        read(10,'(A13,E23.15)')namestr13,sim%unit_d
+        read(10,'(A13,E23.15)')namestr13,sim%unit_t
         read(10,*)
         sim%unit_m = ((sim%unit_d*sim%unit_l)*sim%unit_l)*sim%unit_l
-        read(10,'("ordering type=",A80)')amr%ordering
+        read(10,'(A14,A80)')namestr14,amr%ordering
         read(10,*)
         if(allocated(amr%cpu_list))deallocate(amr%cpu_list)
         allocate(amr%cpu_list(1:amr%ncpu))
@@ -2566,8 +3079,6 @@ module io_ramses
         xxmin=box_limits(1,1) ; xxmax=box_limits(1,2)
         yymin=box_limits(2,1) ; yymax=box_limits(2,2)
         zzmin=box_limits(3,1) ; zzmax=box_limits(3,2)
-        write(*,*)'limits:',xxmin,xxmax,yymin,yymax,zzmin,zzmax
-        write(*,*)'ordering: ',TRIM(amr%ordering)
         if(TRIM(amr%ordering).eq.'hilbert')then
 
             dxmax=max(xxmax-xxmin,yymax-yymin,zzmax-zzmin)
@@ -3229,7 +3740,7 @@ module filtering
 
     type filter
         character(128) :: name
-        integer :: ncond
+        integer :: ncond=0
         character(128), dimension(:), allocatable :: cond_vars
         character(128), dimension(:), allocatable :: cond_vars_comp
         character(2), dimension(:), allocatable :: cond_ops

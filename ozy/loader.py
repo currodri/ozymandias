@@ -461,11 +461,21 @@ class OZY:
         for h in self.halos:
             galaxies.extend(h.satellite_galaxies)
     
-    @property
-    def most_massive_galaxy(self):
+    def most_massive_galaxy(self,return_index=False):
         mstellar = [i.mass['stellar'] for i in self.galaxies]
         ibig = np.argmax(mstellar)
-        return self.galaxies[ibig]
+        if return_index:
+            return ibig
+        else:
+            return self.galaxies[ibig]
+        
+    def most_massive_system(self,return_index=False):
+        mvir = [i.virial_quantities['mass'] for i in self.galaxies]
+        ibig = np.argmax(mvir)
+        if return_index:
+            return ibig
+        else:
+            return self.galaxies[ibig]
     def array(self, value, units):
         return unyt_array(value, units, registry=self.unit_registry)
 

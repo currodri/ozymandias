@@ -182,8 +182,9 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'),
     
     d_key = str(int(100*0.5*(rmax[0]+rmin[0])))
     shell_width = reg.rmax-reg.rmin
-    width_key = str(100*(rmax[0]-rmin[0]))
+    width_key = str(round(100*(rmax[0]-rmin[0]),6))
     width_key = width_key.replace('.', '_')
+    print('width_key: ',width_key)
     shell_r = 0.5*(reg.rmax+reg.rmin)
 
     # Since the number of global quantities that can be computed

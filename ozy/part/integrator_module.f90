@@ -250,19 +250,22 @@ module part_integrator
 
         ! If we're asked to get particle IDs, allocate array with maximum number of particles
         ! and initiliase to zero
-        if (present(get_ids) .and. get_ids) then
-            allocate(attrs%ids(1:npart))
-            attrs%ids = 0
-            attrs%nids = npart
+        if (present(get_ids)) then
+            if (get_ids) then
+                allocate(attrs%ids(1:npart))
+                attrs%ids = 0
+                attrs%nids = npart
+            end if
         endif
 
         ! If we're asked to check contamination, we also need to save the IDs
         ! of the low resolution particles
-        if (present(get_ids) .and. get_ids .and. &
-            & present(check_contamination) .and. check_contamination) then
-            allocate(attrs%cont_ids(1:npart))
-            attrs%cont_ids = 0
-            attrs%ncont = 0
+        if (present(get_ids) .and. present(check_contamination)) then
+            if (get_ids .and. check_contamination) then
+                allocate(attrs%cont_ids(1:npart))
+                attrs%cont_ids = 0
+                attrs%ncont = 0
+            end if
         endif
 
         ! Compute binned variables
@@ -279,6 +282,7 @@ module part_integrator
             read(1)
             read(1)
             read(1)
+
             allocate(m(1:npart2))
             if(nstar>0)then
                 allocate(age(1:npart2))
@@ -289,7 +293,9 @@ module part_integrator
                 allocate(part_tags(1:npart2))
 #endif
             endif
-            if (present(get_ids) .and. get_ids .and. (.not. allocated(id))) allocate(id(1:npart2))
+            if (present(get_ids)) then
+                if (get_ids .and. (.not. allocated(id))) allocate(id(1:npart2))
+            end if
             allocate(x(1:npart2,1:ndim2))
             allocate(v(1:npart2,1:ndim2))
 
@@ -323,8 +329,8 @@ module part_integrator
 #ifdef IMASS
                 read(1)imass
 #endif
-            elseif (present(get_ids) .and. get_ids .and. nstar .eq. 0) then
-                read(1)id
+            elseif (present(get_ids)) then
+                if(get_ids .and. nstar .eq. 0) read(1)id
             endif
             close(1)
 
@@ -349,11 +355,14 @@ module part_integrator
                         part%imass = m(i) / (1D0 - sim%eta_sn)
                     end if
 #endif
-                elseif (present(get_ids) .and. get_ids) then
-                    part%id = id(i)
-                    part%age = 0D0
-                    part%met = 0D0
-                    part%imass = 0D0
+
+                elseif (present(get_ids)) then
+                    if (get_ids) then
+                        part%id = id(i)
+                        part%age = 0D0
+                        part%met = 0D0
+                        part%imass = 0D0
+                    end if
                 else
                     part%id = 0
                     part%age = 0D0
@@ -368,23 +377,26 @@ module part_integrator
                 ok_filter = filter_particle(reg,filt,part)
                 ok_part = ok_part.and.ok_filter
                 if (ok_part) then
-                    if (present(get_ids) .and. get_ids) attrs%ids(inpart+i) = part%id
+                    if (present(get_ids)) then
+                        if (get_ids) attrs%ids(inpart+i) = part%id
+                    end if
                     call getparttype(part,ptype)
-                    if (present(check_contamination) .and. check_contamination &
-                        .and. ptype .eq. 'dm') then
-                        ptmassmin = min(part%m,ptmassmin)
-                        ptmassmax = max(part%m,ptmassmax)
-                        if (.not. any(massresbins == part%m)) then
-                            massresbins(nmasscont+1) = part%m
-                            nmasscont = nmasscont + 1
-                        endif
-                        if (part%m > ptmassmin) then
-                            npartcont = npartcont + 1
-                            if (present(get_ids) .and. get_ids) attrs%cont_ids(inpart+i) = part%id
-                            masslr = masslr + part%m
-                        else
-                            masshr = masshr + part%m
-                        endif
+                    if (present(check_contamination)) then
+                        if (check_contamination .and. ptype .eq. 'dm') then
+                            ptmassmin = min(part%m,ptmassmin)
+                            ptmassmax = max(part%m,ptmassmax)
+                            if (.not. any(massresbins == part%m)) then
+                                massresbins(nmasscont+1) = part%m
+                                nmasscont = nmasscont + 1
+                            endif
+                            if (part%m > ptmassmin) then
+                                npartcont = npartcont + 1
+                                if (present(get_ids) .and. get_ids) attrs%cont_ids(inpart+i) = part%id
+                                masslr = masslr + part%m
+                            else
+                                masshr = masshr + part%m
+                            endif
+                        end if
                     endif
                     if (ptype.eq.'dm') attrs%ndm = attrs%ndm + 1
                     if (ptype.eq.'star') attrs%nstar = attrs%nstar + 1
@@ -403,22 +415,23 @@ module part_integrator
 
         ! Finally, just renormalise for weighted quantities
         call renormalise(attrs)
-
         ! If we want to check contamination, print
         ! some global statistics
-        if (present(check_contamination) .and. check_contamination) then
-            write(*,*)'==== CONTAMINATION REPORT ===='
-            write(*,*)'>>> Total Mass:   ',masslr+masshr
-            write(*,*)'>>> % Mass in LR: ', masslr/(masslr+masshr)
-            write(*,*)'>>> # of LR:      ', npartcont
-            write(*,*)'>>> # of mass res:', nmasscont
-            if (nmasscont .gt. 0) then
-                call quick_sort_dp(massresbins(1:nmasscont),order(1:nmasscont),nmasscont)
-                write(*,*)'>>> Mass resolutions >>>'
-                do i=1,nmasscont
-                    write(*,*) massresbins(i)
-                end do
-            endif
+        if (present(check_contamination)) then
+            if (check_contamination) then
+                write(*,*)'==== CONTAMINATION REPORT ===='
+                write(*,*)'>>> Total Mass:   ',masslr+masshr
+                write(*,*)'>>> % Mass in LR: ', masslr/(masslr+masshr)
+                write(*,*)'>>> # of LR:      ', npartcont
+                write(*,*)'>>> # of mass res:', nmasscont
+                if (nmasscont .gt. 0) then
+                    call quick_sort_dp(massresbins(1:nmasscont),order(1:nmasscont),nmasscont)
+                    write(*,*)'>>> Mass resolutions >>>'
+                    do i=1,nmasscont
+                        write(*,*) massresbins(i)
+                    end do
+                endif
+            end if
         endif
     end subroutine integrate_region
 

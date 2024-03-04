@@ -2,10 +2,8 @@ import numpy as np
 import ozy
 from ozy.export import unigrid_amr,basicexport2txt
 
-obj = ozy.load('test_00035.hdf5')
-virial_mass = [i.virial_quantities['mass'] for i in obj.galaxies]
-progind = np.argmax(virial_mass)
-gal = obj.galaxies[progind]
+obj = ozy.load('test_00010.hdf5')
+gal = obj.most_massive_system
 
 r = 0.01 * obj.halos[gal.parent_halo_index].virial_quantities['radius'].to('code_length').d
 pos = gal.position.to('code_length').d

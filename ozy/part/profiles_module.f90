@@ -395,7 +395,9 @@ module part_profiles
 #else
                     call binarysearch_ilg(ntag,tag_id,part%id,ok_tag)
 #endif
-                    if (present(inverse_tag) .and. inverse_tag .and. ok_tag) ok_tag = .false.
+                    if (present(inverse_tag)) then
+                        if (inverse_tag .and. ok_tag) ok_tag = .false.
+                    end if
                     ok_part = ok_tag .and. ok_part
                 endif
                 if (ok_part) then

@@ -442,7 +442,6 @@ def tidal_radius(central, satellite, method='BT87_simple'):
     """
     Computation of the tidal radius of a satellite with respect to a central galaxy.
     """
-    from amr2 import filtering
     from amr2 import amr_integrator,stats_utils
     from part2 import part_integrator
 
@@ -464,7 +463,7 @@ def tidal_radius(central, satellite, method='BT87_simple'):
 
         # Initialise region
         selected_reg = init_region(central,'sphere',rmax=(d.to('kpc').d,'kpc'),rmin=(0.0,'kpc'))
-        filt = filtering.filter()
+        filt = init_filter('none','none',central)
 
         # Particles first
         glob_attrs = part_integrator.part_region_attrs()

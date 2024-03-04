@@ -10,7 +10,6 @@ from ozy.dict_variables import common_variables,grid_variables,particle_variable
 from joblib import Parallel, delayed
 from amr2 import vectors
 from amr2 import geometrical_regions as geo
-from amr2 import filtering
 from amr2 import amr_profiles as amrprofmod
 
 blacklist = [
@@ -158,6 +157,19 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins
     # Check if phase data is already present and if it coincides with the new one
     f = h5py.File(ozy_file, 'r+')
     pd_present, pd_key = check_if_same_phasediag(f,pd)
+    if pd_present:
+        group._init_phase_diagrams()
+        for i,p in enumerate(group.phase_diagrams):
+            if p.key == pd_key:
+                selected_pd = i
+                break
+        pd_temp = group.phase_diagrams[selected_pd]
+        # TODO: This should be done for all type of variables, not just hydro
+        for pd_field in pd.zvars['hydro']:
+            if not pd_field in pd_temp.zvars['hydro']:
+                print('Recomputing phase-diagram because of missing requested variables!')
+                recompute = True
+                break
     if pd_present and recompute:
         del f[str(pd.group.type)+'_data/phase_diagrams/'+str(group._index)+'/'+str(pd_key)]
         print('Overwriting phase diagram data in %s_data'%group.type)
@@ -395,20 +407,24 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
         ax.plot(x,y_mean,color='r',linewidth=2)
 
     if gent:
-        s1 = 4.4e+8
-        s2 = 23.2e+8
-        cv = 1.4e+8
-        gamma = 5/3
-        rho1_low = 1.673532784796145e-24 * (2/(np.exp(s1/cv))) ** (1/(gamma-1))
-        rho1_high = 1.673532784796145e-24 * (1e+8/(np.exp(s1/cv))) ** (1/(gamma-1))
-        ax.plot([rho1_low,rho1_high], [2,1e+8],color='k')
-        rho2_low = 1.673532784796145e-24 * (2/(np.exp(s2/cv))) ** (1/(gamma-1))
-        rho2_high = 1.673532784796145e-24 * (1e+8/(np.exp(s2/cv))) ** (1/(gamma-1))
-        ax.plot([rho2_low,rho2_high], [2,1e+8],color='k')
-        
-
-
-
+        XX,YY = np.meshgrid(x,y)
+        ax.fill_between([1e-30,8e-20], [gent_curve_T('cold',1e-30),gent_curve_T('cold',8e-20)],
+                            [1,1],color='b', zorder=1,alpha=0.2)
+        ax.fill_between([1e-30,8e-20], [gent_curve_T('cold',1e-30),gent_curve_T('cold',8e-20)],
+                            [gent_curve_T('hot',1e-30),gent_curve_T('hot',8e-20)],color='orange', 
+                            zorder=1,alpha=0.2)
+        ax.fill_between([1e-30,8e-20], [gent_curve_T('hot',1e-30),gent_curve_T('hot',8e-20)],
+                        [1e8,1e8],color='r', zorder=1,alpha=0.2)
+        if field == 'mass':
+            z_cold = np.sum(z.T[YY<gent_curve_T('cold',XX)])
+            z_warm = np.sum(z.T[(YY>gent_curve_T('cold',XX)) & (YY<gent_curve_T('hot',XX))])
+            z_hot = np.sum(z.T[YY>gent_curve_T('hot',XX)])
+            z_tot = np.sum(z)
+            print(z_cold,z_warm,z_hot)
+            print('Cold: %.3f, %.3e'%(100*z_cold/z_tot,z_cold))
+            print('Warm: %.3f, %.3e'%(100*z_warm/z_tot,z_warm))
+            print('Hot: %.3f, %.3e'%(100*z_hot/z_tot, z_hot))
+            
     fig.subplots_adjust(top=0.97,bottom=0.1,left=0.1,right=0.95)
     fig.savefig(name+'.png',format='png',dpi=300)
 
@@ -416,7 +432,8 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
                                 scaletype='log_even',redshift=True,
                                 stats='none',extra_labels='none',
                                 gent=False,powell=False,doflows=False,
-                                do_sf=False,layout='compact'):
+                                do_sf=False,layout='compact',
+                                returnfig=False):
 
     # Make required imports
     import matplotlib
@@ -444,13 +461,13 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
     # Check that the required field is actually in the PDs provided
     field_indexes = []
     weight_indexes = []
-    for pd in pds:
+    for i,pd in enumerate(pds):
         if doflows or do_sf:
-            if field not in pd[0].zvars['hydro']:
-                raise KeyError('The field %s is not included in this PhaseDiagram object. Aborting!'%field)
+            if field[i] not in pd[0].zvars['hydro']:
+                raise KeyError('The field %s is not included in this PhaseDiagram object. Aborting!'%field[i])
             else:
                 for f in range(0,len(pd[0].zvars['hydro'])):
-                    if pd[0].zvars['hydro'][f] == field:
+                    if pd[0].zvars['hydro'][f] == field[i]:
                         field_indexes.append(f)
                         break
                 if weightvar not in pd[0].weightvars['hydro']:
@@ -462,11 +479,11 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
                             weight_indexes.append(w)
                             break
         else:
-            if field not in pd.zvars['hydro']:
-                raise KeyError('The field %s is not included in this PhaseDiagram object. Aborting!'%field)
+            if field[i] not in pd.zvars['hydro']:
+                raise KeyError('The field %s is not included in this PhaseDiagram object. Aborting!'%field[i])
             else:
                 for f in range(0,len(pd.zvars['hydro'])):
-                    if pd.zvars['hydro'][f] == field:
+                    if pd.zvars['hydro'][f] == field[i]:
                         field_indexes.append(f)
                         break
                 if weightvar not in pd.weightvars['hydro']:
@@ -519,7 +536,7 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
                 pd = pds[ipd]
             plotting_x = plotting_dictionary[pd.xvar]
             plotting_y = plotting_dictionary[pd.yvar]
-            plotting_z = plotting_dictionary[field]
+            plotting_z = plotting_dictionary[field[i]]
             ax[i,j].set_xlabel(plotting_x['label'],fontsize=20)
             # Get rid of the y-axis labels for the panels in the middle
             # TODO: The ticks should not be only for density and temperature!
@@ -557,30 +574,31 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
             else:
                 y = pd.obj.array(pd.ydata[0].d,code_units_y)
             y = y.in_units(plotting_y['units'])
-            code_units_z = get_code_units(field)
+            code_units_z = get_code_units(field[i])
             z = np.array(pd.zdata['hydro'][field_indexes[ipd]][:,:,weight_indexes[ipd],0].d,order='F')
             z = pd.obj.array(z,code_units_z)
-            print(field,np.nanmin(z).to(plotting_z['units']),np.nanmax(z).to(plotting_z['units']))
+            print(field[i],np.nanmin(z).to(plotting_z['units']),np.nanmax(z).to(plotting_z['units']),pd.obj.simulation.redshift)
             sim_z = pd.obj.simulation.redshift
 
             if gent:
                 XX,YY = np.meshgrid(x,y)
-                z_cold = np.sum(z.T[YY<gent_curve_T('cold',XX)])
                 ax[i,j].fill_between([1e-30,8e-20], [gent_curve_T('cold',1e-30),gent_curve_T('cold',8e-20)],
                                     [1,1],color='b', zorder=1,alpha=0.2)
-                z_warm = np.sum(z.T[(YY>gent_curve_T('cold',XX)) & (YY<gent_curve_T('hot',XX))])
                 ax[i,j].fill_between([1e-30,8e-20], [gent_curve_T('cold',1e-30),gent_curve_T('cold',8e-20)],
                                     [gent_curve_T('hot',1e-30),gent_curve_T('hot',8e-20)],color='orange', 
                                     zorder=1,alpha=0.2)
                 ax[i,j].fill_between([1e-30,8e-20], [gent_curve_T('hot',1e-30),gent_curve_T('hot',8e-20)],
                                 [1e8,1e8],color='r', zorder=1,alpha=0.2)
-                z_hot = np.sum(z.T[YY>gent_curve_T('hot',XX)])
-                z_tot = np.sum(z)
-                print(z_cold,z_warm,z_hot)
-                print('Distribution of masses in the Gent phases in %s:'%extra_labels[ipd])
-                print('Cold: %.3f, %.3e'%(100*z_cold/z_tot,z_cold))
-                print('Warm: %.3f, %.3e'%(100*z_warm/z_tot,z_warm))
-                print('Hot: %.3f, %.3e'%(100*z_hot/z_tot, z_hot))
+                if field == 'mass':
+                    z_cold = np.sum(z.T[YY<gent_curve_T('cold',XX)])
+                    z_warm = np.sum(z.T[(YY>gent_curve_T('cold',XX)) & (YY<gent_curve_T('hot',XX))])
+                    z_hot = np.sum(z.T[YY>gent_curve_T('hot',XX)])
+                    z_tot = np.sum(z)
+                    print(z_cold,z_warm,z_hot)
+                    print('Distribution of masses in the Gent phases in %s:'%extra_labels[ipd])
+                    print('Cold: %.3f, %.3e'%(100*z_cold/z_tot,z_cold))
+                    print('Warm: %.3f, %.3e'%(100*z_warm/z_tot,z_warm))
+                    print('Hot: %.3f, %.3e'%(100*z_hot/z_tot, z_hot))
 
             if pd.zvars['hydro'][field_indexes[ipd]].split('/')[-1] in symlog_variables:
                 plot = ax[i,j].pcolormesh(x,y,
@@ -708,12 +726,16 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
             fig.subplots_adjust(top=0.92,bottom=0.05,left=0.1,right=0.95)
         elif layout == 'extended':
             fig.subplots_adjust(top=0.85,bottom=0.12,left=0.07,right=0.98)
-        fig.savefig(name+'.png',format='png',dpi=300)
+        if returnfig:
+            return fig,ax
+        else:
+            fig.savefig(name+'.png',format='png',dpi=300)
 
 def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
                             scaletype='log_even',redshift=True,stats='none',
                             extra_labels='none',gent=False,powell=False,
-                            doflows=False,do_sf=False,layout='compact'):
+                            doflows=False,do_sf=False,layout='compact',
+                            returnfig=False):
 
     # Make required imports
     from astropy.cosmology import FlatLambdaCDM
@@ -738,13 +760,15 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
     # Check that the required field is actually in the PDs provided
     field_indexes = []
     weight_indexes = []
-    for pd in pds:
+    for i,pd in enumerate(pds):
+        field_indexes.append([])
+        weight_indexes.append([])
         if doflows or do_sf:
-            if field not in pd[0][0].zvars['hydro']:
-                raise KeyError('The field %s is not included in this PhaseDiagram object. Aborting!'%field)
+            if field[i] not in pd[0][0].zvars['hydro']:
+                raise KeyError('The field %s is not included in this PhaseDiagram object. Aborting!'%field[i])
             else:
                 for f in range(0,len(pd[0][0].zvars['hydro'])):
-                    if pd[0][0].zvars['hydro'][f] == field:
+                    if pd[0][0].zvars['hydro'][f] == field[i]:
                         field_indexes.append(f)
                         break
                 if weightvar not in pd[0][0].weightvars['hydro']:
@@ -756,21 +780,22 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
                             weight_indexes.append(w)
                             break
         else:
-            if field not in pd[0].zvars['hydro']:
-                raise KeyError('The field %s is not included in this PhaseDiagram object. Aborting!'%field)
-            else:
-                for f in range(0,len(pd[0].zvars['hydro'])):
-                    if pd[0].zvars['hydro'][f] == field:
-                        field_indexes.append(f)
-                        break
-                if weightvar not in pd[0].weightvars['hydro']:
-                    raise KeyError('The weight field %s is not included in this PhaseDiagram object. Aborting!'%weightvar)
-                    exit
+            for pd2 in pd:
+                if field[i] not in pd2.zvars['hydro']:
+                    raise KeyError('The field %s is not included in this PhaseDiagram object. Aborting!'%field[i])
                 else:
-                    for w in range(0, len(pd[0].weightvars['hydro'])):
-                        if pd[0].weightvars['hydro'][w] == weightvar:
-                            weight_indexes.append(w)
+                    for f in range(0,len(pd2.zvars['hydro'])):
+                        if pd2.zvars['hydro'][f] == field[i]:
+                            field_indexes[-1].append(f)
                             break
+                    if weightvar not in pd2.weightvars['hydro']:
+                        raise KeyError('The weight field %s is not included in this PhaseDiagram object. Aborting!'%weightvar)
+                        exit
+                    else:
+                        for w in range(0, len(pd2.weightvars['hydro'])):
+                            if pd2.weightvars['hydro'][w] == weightvar:
+                                weight_indexes[-1].append(w)
+                                break
     if len(field_indexes) != npds or len(weight_indexes) != npds:
         print('You should check the fields and weights available, not all your phase diagrams have them!')
         exit
@@ -814,7 +839,7 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
             else:
                 plotting_x = plotting_dictionary[pd[0].xvar]
                 plotting_y = plotting_dictionary[pd[0].yvar]
-            plotting_z = plotting_dictionary[field]
+            plotting_z = plotting_dictionary[field[ipd]]
             ax[i,j].set_xlabel(plotting_x['label'],fontsize=18)
             ax[i,j].xaxis.set_ticks_position('both')
             ax[i,j].yaxis.set_ticks_position('left')
@@ -865,11 +890,12 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
                 code_units_y = get_code_units(temp_pd.yvar)
                 y = temp_pd.obj.array(10**temp_pd.ydata[0].d,code_units_y)
                 y = y.in_units(plotting_y['units'])
-                code_units_z = get_code_units(field)
-                ztemp = np.array(temp_pd.zdata['hydro'][field_indexes[i]][:,:,weight_indexes[i],0].d,order='F')
+                code_units_z = get_code_units(field[ipd])
+                ztemp = np.array(temp_pd.zdata['hydro'][field_indexes[ipd][w]][:,:,weight_indexes[ipd][w],0].d,order='F')
+                print(field_indexes[ipd][w],weight_indexes[ipd][w],temp_pd.zvars['hydro'][field_indexes[ipd][w]])
                 ztemp = temp_pd.obj.array(ztemp,code_units_z).in_units(plotting_z['units'])
                 z = z + ztemp.d*temp_weight
-                print(extra_labels[ipd],np.nanmin(ztemp.d),np.nanmax(ztemp.d),temp_weight,temp_pd.obj.simulation.redshift)
+                print(extra_labels[ipd],np.nanmin(ztemp).to(plotting_z['units']),np.nanmax(ztemp).to(plotting_z['units']),temp_weight,temp_pd.obj.simulation.redshift)
                 tot_weight = tot_weight + temp_weight
                 sim_z[w] = temp_pd.obj.simulation.redshift
                 h = temp_pd.obj.simulation.hubble_constant
@@ -879,26 +905,26 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
             z = z / tot_weight
             XX,YY = np.meshgrid(x,y)
             delta_t = sim_t.max() - sim_t.min()
-            print(extra_labels[ipd],sim_z)
             sim_z = np.mean(sim_z)
             if gent:
                 XX,YY = np.meshgrid(x,y)
-                z_cold = np.sum(z.T[YY<gent_curve_T('cold',XX)])
                 ax[i,j].fill_between([1e-30,8e-20], [gent_curve_T('cold',1e-30),gent_curve_T('cold',8e-20)],
                                     [1,1],color='b', zorder=1,alpha=0.2)
-                z_warm = np.sum(z.T[(YY>gent_curve_T('cold',XX)) & (YY<gent_curve_T('hot',XX))])
                 ax[i,j].fill_between([1e-30,8e-20], [gent_curve_T('cold',1e-30),gent_curve_T('cold',8e-20)],
                                     [gent_curve_T('hot',1e-30),gent_curve_T('hot',8e-20)],color='orange', 
                                     zorder=1,alpha=0.2)
                 ax[i,j].fill_between([1e-30,8e-20], [gent_curve_T('hot',1e-30),gent_curve_T('hot',8e-20)],
                                 [1e8,1e8],color='r', zorder=1,alpha=0.2)
-                z_hot = np.sum(z.T[YY>gent_curve_T('hot',XX)])
-                z_tot = np.sum(z)
-                print(z_cold,z_warm,z_hot)
-                print('Distribution of masses in the Gent phases in %s:'%extra_labels[ipd])
-                print('Cold: %.3f, %.3e'%(100*z_cold/z_tot,z_cold))
-                print('Warm: %.3f, %.3e'%(100*z_warm/z_tot,z_warm))
-                print('Hot: %.3f, %.3e'%(100*z_hot/z_tot, z_hot))
+                if field == 'mass':
+                    z_cold = np.nansum(z.T[YY<gent_curve_T('cold',XX)])
+                    z_hot = np.nansum(z.T[YY>gent_curve_T('hot',XX)])
+                    z_warm = np.nansum(z.T[(YY>gent_curve_T('cold',XX)) & (YY<gent_curve_T('hot',XX))])
+                    z_tot = np.nansum(z)
+                    print(z_cold,z_warm,z_hot)
+                    print('Distribution of masses in the Gent phases in %s:'%extra_labels[ipd])
+                    print('Cold: %.3f, %.3e'%(100*z_cold/z_tot,z_cold))
+                    print('Warm: %.3f, %.3e'%(100*z_warm/z_tot,z_warm))
+                    print('Hot: %.3f, %.3e'%(100*z_hot/z_tot, z_hot))
             if scaletype=='log_even':
                 plot = ax[i,j].pcolormesh(x,y,
                                     z.T,
@@ -978,7 +1004,7 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
                 tot_weight = 0
                 for w in range(0, len(weights[ipd])):
                     outpd = pds[ipd][w][1]
-                    zoutflow_temp = np.array(outpd.zdata['hydro'][field_indexes[i]][:,:,weight_indexes[i],0].d,order='F')
+                    zoutflow_temp = np.array(outpd.zdata['hydro'][field_indexes[ipd][w]][:,:,weight_indexes[ipd][w],0].d,order='F')
                     zoutflow = zoutflow + outpd.obj.array(zoutflow_temp,code_units_z).in_units(plotting_z['units']).d*weights[ipd][w][1]
                     tot_weight = tot_weight + weights[ipd][w][1]
                 zoutflow = zoutflow / tot_weight
@@ -994,7 +1020,7 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
                 tot_weight = 0
                 for w in range(0, len(weights[ipd])):
                     inpd = pds[ipd][w][2]
-                    zinflow_temp = np.array(inpd.zdata['hydro'][field_indexes[i]][:,:,weight_indexes[i],0].d,order='F')
+                    zinflow_temp = np.array(inpd.zdata['hydro'][field_indexes[ipd][w]][:,:,weight_indexes[ipd][w],0].d,order='F')
                     zinflow = zinflow + inpd.obj.array(zinflow_temp,code_units_z).in_units(plotting_z['units']).d*weights[ipd][w][2]
                     tot_weight = tot_weight + weights[ipd][w][2]
                 zinflow = zinflow / tot_weight
@@ -1009,7 +1035,7 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
                 tot_weight = 0
                 for w in range(0, len(weights[ipd])):
                     espd = pds[ipd][w][3]
-                    zescape_temp = np.array(espd.zdata['hydro'][field_indexes[i]][:,:,weight_indexes[i],0].d,order='F')
+                    zescape_temp = np.array(espd.zdata['hydro'][field_indexes[ipd][w]][:,:,weight_indexes[ipd][w],0].d,order='F')
                     zescape = zescape + espd.obj.array(zescape_temp,code_units_z).in_units(plotting_z['units']).d*weights[ipd][w][3]
                     tot_weight = tot_weight + weights[ipd][w][3]
                 zescape = zescape / tot_weight
@@ -1030,7 +1056,7 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
                 tot_weight = 0
                 for w in range(0, len(weights[ipd])):
                     espd = pds[ipd][w][expd_index]
-                    zsf_temp = np.array(espd.zdata['hydro'][field_indexes[i]][:,:,weight_indexes[i],0].d,order='F')
+                    zsf_temp = np.array(espd.zdata['hydro'][field_indexes[ipd][w]][:,:,weight_indexes[ipd][w],0].d,order='F')
                     zsf = zsf + espd.obj.array(zsf_temp,code_units_z).in_units(plotting_z['units']).d*weights[ipd][w][expd_index]
                     tot_weight = tot_weight + weights[ipd][w][expd_index]
                 zsf = zsf / tot_weight
@@ -1046,4 +1072,7 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
             fig.subplots_adjust(top=0.92,bottom=0.05,left=0.1,right=0.95)
         elif layout == 'extended':
             fig.subplots_adjust(top=0.83,bottom=0.13,left=0.07,right=0.98)
-        fig.savefig(name+'.pdf',format='pdf',dpi=300)
+        if returnfig:
+            return fig, ax
+        else:
+            fig.savefig(name+'.pdf',format='pdf',dpi=300)

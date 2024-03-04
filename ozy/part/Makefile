@@ -4,8 +4,8 @@
 
 CC       = gcc
 #CC       = ifort
-#F90      = gfortran
-F90      = ifort
+F90      = gfortran
+#F90      = ifx
 #F90      =  /opt/intel/composer_xe_2015.3.187/bin/intel64/ifort
 PYTHON   = python
 
@@ -15,13 +15,13 @@ PYTHON   = python
 
 ifeq ($(F90),gfortran)
 	FPP      = gfortran -E
-	FPP_F90FLAGS = -x f95-cpp-input -fPIC
+	FPP_F90FLAGS = -x f95-cpp-input -fPIC -g
 	F90FLAGS = -O3 -fPIC -cpp -ffree-line-length-256 -DIMASS -DNOIFPORT
     FCOMP    = gfortran
     LIBS     =
 endif
 
-ifeq ($(F90),ifort)
+ifeq ($(F90),ifx)
 
 	FPP      = gfortran -E # gfortran f90wrap temp files only. not compilation
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
