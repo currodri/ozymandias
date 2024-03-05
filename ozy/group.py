@@ -1,7 +1,5 @@
 import numpy as np
 from pprint import pprint
-from amr2 import vectors
-from amr2 import geometrical_regions as geo
 from amr2 import amr_integrator,stats_utils
 from part2 import part_integrator
 

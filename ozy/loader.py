@@ -10,7 +10,7 @@ from unyt import UnitRegistry,unyt_array,unyt_quantity
 
 from ozy.sim_attributes import SimulationAttributes
 from ozy.utils import info_printer
-
+from ozy.saver import _write_attrib, _write_dict
 
 class LazyDataset:
     """A lazily-loaded HDF5 dataset.
@@ -30,6 +30,12 @@ class LazyDataset:
                 else:
                     self._data = dataset[:]
         return self._data.__getitem__(index)
+    
+    def __setitem__(self, index, value):
+        if self._data is not None:
+            self._data.__setitem__(index, value)
+        else:
+            raise ValueError("Cannot perform item assignment before loading the dataset.")
 
 class LazyList(Sequence):
     """This type should be indistinguishable from the built-in list.
@@ -115,6 +121,9 @@ class LazyDict(Mapping):
             value = self._builder(key)
             self._inner[key] = value
         return value
+    
+    def __setitem__(self, key, value):
+        self._inner[key] = value
 
     def get(self, key, default=None):
         if key in self._inner:
@@ -647,6 +656,133 @@ class Galaxy(Group):
                 lambda d: self.obj._galaxy_dicts[attr][d][self._index])
         raise AttributeError("'{}' object has no attribute '{}'".format(
             self.__class__.__name__, attr))
+        
+    def clear_cache(self):
+        """Clear the cache for the __getattr__ method."""
+        self.__getattr__.cache_clear()
+        
+    def update_attribute(self,attr,value):
+        if attr in self.obj._galaxy_data:
+            # A. The attribute is a single data point (no dict)
+            # 1. We update the value in the currently loaded OZY object
+            data = self.obj._galaxy_data[attr][:]
+            data[self._index] = value
+            self.clear_cache()
+            
+            # 2. Update the original HDF5 file for future reference
+            with h5py.File(self.obj.data_file, 'a') as hd:
+                _write_attrib(self.obj.galaxies, attr, value, hd['galaxy_data'])
+        elif attr in self.obj._galaxy_dicts and isinstance(value, dict):
+            # B. The attribute is a dictionary with keys and values
+            # 1. Update the full dictionary in the currently loaded OZY object
+            for kk, vv in value.items():
+                data = self.obj._galaxy_dicts[attr][kk][:]
+                data[self._index] = vv
+            self.clear_cache()
+            
+            # 2. Update the original HDF5 file for future reference
+            with h5py.File(self.obj.data_file, 'a') as hd:
+                _write_dict(self.obj.galaxies, attr, value, hd['galaxy_data/dicts'])
+        elif attr.split('.')[0] in self.obj._galaxy_dicts:
+            # C. The attribute is a single key of a dictionary already present
+            # 1. Update the single key of the dictionary in the currently loaded OZY object
+            dictname = attr.split('.')[0]
+            keyname = attr.split('.')[1]
+            data = self.obj._galaxy_dicts[dictname][keyname][:]
+            data[self._index] = value
+            self.clear_cache()
+            
+            # 2. Update the original HDF5 file for future reference
+            with h5py.File(self.obj.data_file, 'a') as hd:
+                _write_dict(self.obj.galaxies, dictname, self.obj._galaxy_dicts[dictname], hd['galaxy_data/dicts'])
+        else:
+            # D. This is the case of an inexistent attribute/dict
+            #    Choose what type of data is it
+            if isinstance(value, dict):
+                # This is the case of adding a new dictionary
+                # 1. Add the new data to the global OZY object
+                for kk, vv in value.items():
+                    k = attr + '.' + kk
+                    self.obj._galaxy_dicts[attr][kk] = LazyDataset(
+                        self.obj, 'galaxy_data/dicts/' + k
+                    )
+                    if isinstance(vv, unyt_quantity):
+                        empty_array = np.full(self.obj.ngalaxies, 0.0)
+                        self.obj._galaxy_dicts[attr][kk]._data = self.obj.array(empty_array, vv.units)
+                    elif isinstance(vv, unyt_array):
+                        empty_array = np.full((self.obj.ngalaxies,len(vv)), 0.0)
+                        self.obj._galaxy_dicts[attr][kk]._data = self.obj.array(empty_array, vv.units)
+                    elif isinstance(vv, (np.ndarray,list)):
+                        empty_array = np.full((self.obj.ngalaxies,len(vv)), 0.0)
+                        self.obj._galaxy_dicts[attr][kk]._data = empty_array
+                    else:
+                        empty_array = np.zeros(self.obj.ngalaxies, dtype=type(value))
+                        self.obj._galaxy_dicts[attr][kk]._data = empty_array
+                    self.obj._galaxy_dicts[attr][kk][self._index] = vv
+                    
+                # 2. Clean cache to reload Galaxy details
+                self.clear_cache()
+                
+                # 3. Update the original HDF5 file
+                with h5py.File(self.obj.data_file, 'r+') as hd:
+                    _write_dict(self.obj.galaxies, attr, value, hd['galaxy_data/dicts'])
+            elif len(attr.split('.')) > 1:
+                # This is the case that we want to add a key to an
+                # already existent dictionary
+                dictname = attr.split('.')[0]
+                keyname = attr.split('.')[1]
+                # 1. Add the new data to the global OZY object
+                self.obj._galaxy_dicts[dictname][keyname] = LazyDataset(
+                        self.obj, 'galaxy_data/dicts/' + attr
+                    )
+                if isinstance(vv, unyt_quantity):
+                    empty_array = np.full(self.obj.ngalaxies, 0.0)
+                    self.obj._galaxy_dicts[attr][kk]._data = self.obj.array(empty_array, vv.units)
+                elif isinstance(vv, unyt_array):
+                    empty_array = np.full((self.obj.ngalaxies,len(vv)), 0.0)
+                    self.obj._galaxy_dicts[attr][kk]._data = self.obj.array(empty_array, vv.units)
+                elif isinstance(vv, (np.ndarray,list)):
+                    empty_array = np.full((self.obj.ngalaxies,len(vv)), 0.0)
+                    self.obj._galaxy_dicts[attr][kk]._data = empty_array
+                else:
+                    empty_array = np.zeros(self.obj.ngalaxies, dtype=type(value))
+                    self.obj._galaxy_dicts[attr][kk]._data = empty_array
+                self.obj._galaxy_dicts[attr][kk][self._index] = value
+
+                # 2. Clean cache to reload Galaxy details
+                self.clear_cache()
+                
+                # 3. Update the original HDF5 file
+                with h5py.File(self.obj.data_file, 'r+') as hd:
+                    _write_dict(self.obj.galaxies, dictname, self.obj._galaxy_dicts[dictname], hd['galaxy_data/dicts'])
+                
+            else:
+                # This is the final case in which we only want to add
+                # a single attribute
+                # 1. Add the new data to the global OZY object
+                self.obj._galaxy_data[attr] = LazyDataset(
+                        self.obj, 'galaxy_data/' + attr
+                    )
+                if isinstance(value, unyt_quantity):
+                    empty_array = np.full(self.obj.ngalaxies, 0.0)
+                    self.obj._galaxy_data[attr]._data = self.obj.array(empty_array, value.units)
+                elif isinstance(value, unyt_array):
+                    empty_array = np.full((self.obj.ngalaxies,len(vv)), 0.0)
+                    self.obj._galaxy_data[attr]._data = self.obj.array(empty_array, value.units)
+                elif isinstance(value, (np.ndarray,list)):
+                    empty_array = np.full((self.obj.ngalaxies,len(value)), 0.0)
+                    self.obj._galaxy_data[attr]._data = empty_array
+                else:
+                    empty_array = np.zeros(self.obj.ngalaxies, dtype=type(value))
+                    self.obj._galaxy_data[attr]._data = empty_array
+                self.obj._galaxy_data[attr][self._index] = value
+
+                # 2. Clean cache to reload Galaxy details
+                self.clear_cache()
+                
+                with h5py.File(self.obj.data_file, 'r+') as hd:
+                    _write_attrib(self.obj.galaxies, attr, value, hd['galaxy_data'])
+            
 
 class Cloud(Group):
     def __init__(self, obj, index):
