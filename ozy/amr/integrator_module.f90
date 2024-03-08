@@ -211,7 +211,7 @@ module amr_integrator
 
         ! Choose type if integrator
         if (use_neigh) then
-            write(*,*)'Loading neighbours...'
+            if (verbose) write(*,*)'Loading neighbours...'
             call integrate_region_neigh
         else
             call integrate_region_fast
@@ -261,14 +261,14 @@ module amr_integrator
 
             ! Compute the Hilbert curve
             call get_cpu_map(reg)
-            write(*,*)'ncpu_read:',amr%ncpu_read
+            if (verbose) write(*,*)'ncpu_read:',amr%ncpu_read
 
             ! Check whether we need to read the gravity files
             read_gravity = .false.
             do ivar=1,attrs%nvars
                 if (attrs%varnames(ivar)(1:4) .eq. 'grav') then
                     read_gravity = .true.
-                    write(*,*)'Reading gravity files...'
+                    if (verbose) write(*,*)'Reading gravity files...'
                     exit
                 endif
             end do
@@ -553,9 +553,9 @@ module amr_integrator
             ! Finally just renormalise for weighted quantities
             call renormalise(attrs)
 
-            write(*,*)'Total number of cells used: ', total_ncell
-            write(*,*)'Total number of cells refined: ', tot_ref
-            write(*,*)'Total number of cells in region: ', tot_pos
+            if (verbose) write(*,*)'Total number of cells used: ', total_ncell
+            if (verbose) write(*,*)'Total number of cells refined: ', tot_ref
+            if (verbose) write(*,*)'Total number of cells in region: ', tot_pos
 
         end subroutine integrate_region_fast
 
@@ -611,7 +611,7 @@ module amr_integrator
 
             ! Compute the Hilbert curve
             call get_cpu_map(reg)
-            write(*,*)'ncpu_read:',amr%ncpu_read
+            if (verbose) write(*,*)'ncpu_read:',amr%ncpu_read
 
             ! Check whether we need to read the gravity files
             read_gravity = .false.
@@ -619,7 +619,7 @@ module amr_integrator
                 if (attrs%varnames(ivar)(1:4) .eq. 'grav' .or.&
                 & trim(attrs%varnames(ivar)) .eq. 'neighbour_accuracy') then
                     read_gravity = .true.
-                    write(*,*)'Reading gravity files...'
+                    if (verbose) write(*,*)'Reading gravity files...'
                     exit
                 endif
             end do
@@ -948,11 +948,11 @@ module amr_integrator
             ! Finally just renormalise for weighted quantities
             call renormalise(attrs)
 
-            write(*,*)'Total number of cells used: ', total_ncell
-            write(*,*)'Total number of cells in region and refined: ', tot_sel
-            write(*,*)'Total number of cells refined: ', tot_ref
-            write(*,*)'Total number of cells in region: ', tot_pos
-            write(*,*)'Total number of cells in substructures: ', tot_insubs
+            if (verbose) write(*,*)'Total number of cells used: ', total_ncell
+            if (verbose) write(*,*)'Total number of cells in region and refined: ', tot_sel
+            if (verbose) write(*,*)'Total number of cells refined: ', tot_ref
+            if (verbose) write(*,*)'Total number of cells in region: ', tot_pos
+            if (verbose) write(*,*)'Total number of cells in substructures: ', tot_insubs
 
         end subroutine integrate_region_neigh
     end subroutine integrate_region

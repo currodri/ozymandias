@@ -995,6 +995,187 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
         else:
             fig.savefig(proj_FITS.split('.')[0]+'.png',format='png',dpi=300)
 
+def plot_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=(3,'kpc'),
+                 redshift=True,returnfig=False,pov='x',type_scale='galaxy',
+                 smooth=False,
+                 labels=[],centers=[],radii=[],circle_keys=[]):
+    """This function uses the projection information in a set of FITS files and combines in a single
+        figure following the OZY standards."""
+    
+    # Make required imports
+    from ozy.utils import tidal_radius,invert_tick_colours
+    from ozy.plot_settings import circle_dictionary
+    import matplotlib
+    import matplotlib.pyplot as plt
+    import matplotlib.font_manager as fm
+    from mpl_toolkits.axes_grid1 import AxesGrid, make_axes_locatable
+    from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+    from matplotlib.colors import LogNorm,SymLogNorm
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    import seaborn as sns
+    from unyt import unyt_quantity,unyt_array
+    import scipy as sp                                                                                                                                                                                     
+    import scipy.ndimage
+    sns.set(style="dark")
+    plt.rcParams["axes.axisbelow"] = False
+    plt.rcParams.update({
+    "text.usetex": True,
+    "font.family": "serif",
+    "font.serif": "Computer Modern Roman",
+    })
+    if type_scale != '':
+        type_scale = '_'+type_scale
+
+    # First,check that the FITS files actually exist
+    if not os.path.exists(faceon_fits):
+        raise ImportError('File not found. Please check!: '+str(faceon_fits))
+    if not os.path.exists(edgeon_fits):
+        raise ImportError('File not found. Please check!: '+str(edgeon_fits))
+
+    # Since everything is fine, we begin plotting…
+    ncol = int(len(fields))
+    nrow = 2
+    height_ratios = [2,1]
+    figsize = plt.figaspect(3 / (2 * float(ncol)))
+    fig = plt.figure(figsize=figsize, facecolor='k', edgecolor='k')
+    plot_grid = fig.add_gridspec(nrow, ncol, wspace=0, hspace=0,left=0,right=1,
+                                    bottom=0, top=1, height_ratios=height_ratios)
+    ax = []
+    for i in range(0,nrow):
+        ax.append([])
+        for j in range(0,ncol):
+            ax[i].append(fig.add_subplot(plot_grid[i,j]))
+    ax = np.asarray(ax)
+
+    hdul = [fits.open(faceon_fits), fits.open(edgeon_fits)]
+    
+    for j in range(0, 2):
+        for i in range(0, len(fields)):
+            # Construct camera
+            length_unit = unyt_quantity(1.0,hdul[j][0].header['CUNIT1'])
+            width_x =  hdul[j][0].header['CDELT1']*hdul[j][0].header['NAXIS1'] * length_unit
+            width_y =  hdul[j][0].header['CDELT2']*hdul[j][0].header['NAXIS2'] * length_unit
+            ex = [-0.5*width_x,0.5*width_x,-0.5*width_y,0.5*width_y]
+            los_axis,up_axis,centre,velocity = vectors.vector(),vectors.vector(),vectors.vector(),vectors.vector()
+            los_axis.x,los_axis.y,los_axis.z = hdul[j][0].header['LOS_X'],hdul[j][0].header['LOS_Y'],hdul[j][0].header['LOS_Z']
+            up_axis.x,up_axis.y,up_axis.z = hdul[j][0].header['UP_X'],hdul[j][0].header['UP_Y'],hdul[j][0].header['UP_Z']
+            centre.x,centre.y,centre.z = hdul[j][0].header['CENTRE_X'],hdul[j][0].header['CENTRE_Y'],hdul[j][0].header['CENTRE_Z']
+            cam = obs_instruments.init_camera(centre,los_axis,up_axis,width_x.d,los_axis,velocity,
+                                            width_x.d,width_x.d,hdul[j][0].header['NAXIS1'],
+                                            1,len(centers))
+            if j%2 == 0:
+                ax[j,i].set_xlim([-0.5*width_x,0.5*width_x])
+                ax[j,i].set_ylim([-0.5*width_y,0.5*width_y])
+                ex = np.asarray([-0.5*width_x,0.5*width_x,-0.5*width_y,0.5*width_y])
+            else:
+                ax[j,i].set_xlim([-0.5*width_x,0.5*width_x])
+                ax[j,i].set_ylim([-0.25*width_y,0.25*width_y])
+                ex = np.asarray([-0.5*width_x,0.5*width_x,-0.5*width_y,0.5*width_y])
+            ax[j,i].axes.xaxis.set_visible(False)
+            ax[j,i].axes.yaxis.set_visible(False)
+            ax[j,i].axis('off')
+            if fields[i].split('/')[1] != 'densityandv_sphere_r':
+                h = [k for k in range(0,len(hdul[j])) if hdul[j][k].header['btype']==fields[i]][0]
+
+            if fields[i].split('/')[0] == 'star' or fields[i].split('/')[0] == 'dm':
+                plotting_def = plotting_dictionary[fields[i].split('/')[0]+'_'+fields[i].split('/')[1]]
+                full_varname = fields[i].split('/')[0]+'_'+fields[i].split('/')[1]
+            elif fields[i].split('/')[1] != 'densityandv_sphere_r':
+                plotting_def = plotting_dictionary[fields[i].split('/')[1]]
+                full_varname = fields[i].split('/')[1]
+            if smooth:
+                # We smooth with a Gaussian kernel with x_stddev=1 (and y_stddev=1)
+                # It is a 9x9 array
+                from astropy.convolution import Gaussian2DKernel, convolve
+                kernel = Gaussian2DKernel(x_stddev=1.5)
+                # astropy's convolution replaces the NaN pixels with a kernel-weighted
+                # interpolation from their neighbors
+                cImage = convolve(hdul[j][h].data.T, kernel)
+                # sigma=3
+                # cImage = sp.ndimage.filters.gaussian_filter(hdul[j][h].data.T, sigma, mode='constant')
+            else:
+                cImage = hdul[j][h].data.T
+                
+                        
+            if logscale and fields[i].split('/')[1] != 'v_sphere_r':
+                plot = ax[j,i].imshow(np.log10(cImage), cmap=plotting_def['cmap'],
+                                origin='upper',vmin=np.log10(plotting_def['vmin'+type_scale]),
+                                vmax=np.log10(plotting_def['vmax'+type_scale]),extent=ex,
+                                interpolation='nearest')
+            elif logscale and fields[i].split('/')[1] == 'v_sphere_r':
+                plot = ax[j,i].imshow(cImage, cmap=plotting_def['cmap'],
+                                origin='upper',norm=SymLogNorm(linthresh=10, linscale=1,vmin=plotting_def['vmin'], vmax=plotting_def['vmax']),
+                                extent=ex,
+                                interpolation='nearest')
+            
+            else:
+                plot = ax[j,i].imshow(cImage, cmap=plotting_def['cmap'],
+                                origin='upper',extent=ex,interpolation='nearest',
+                                vmin=plotting_def['vmin'],vmax=plotting_def['vmax'])
+            if j%2 == 0:
+                cbaxes = inset_axes(ax[j,i], width="80%", height="6%", loc='lower center')
+                cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
+                if logscale and fields[i].split('/')[1] not in symlog_variables:
+                    cbar.set_label(plotting_def['label_log'],color=plotting_def['text_over'],fontsize=14,labelpad=-30, y=0.85,weight='bold')
+                else:
+                    cbar.set_label(plotting_def['label'],color=plotting_def['text_over'],fontsize=14,labelpad=-30, y=0.85)
+                cbar.ax.tick_params(axis='x', pad=-8.05, labelsize=11,labelcolor=plotting_def['text_over'])
+                cbar.ax.tick_params(length=0,width=0)
+                cbar.outline.set_linewidth(1)
+                cbar.ax.set_axisbelow(False)
+                invert_tick_colours(cbar.ax,full_varname,type_scale)
+            if redshift and j%2==0 and i==0:
+                ax[j,i].text(0.05, 0.88, r'$z = {z:.2f}$'.format(z=hdul[j][0].header['redshift']), # Redshift
+                                    verticalalignment='bottom', horizontalalignment='left',
+                                    transform=ax[j,i].transAxes,
+                                    color=plotting_def['text_over'], fontsize=15,fontweight='bold')
+
+            fontprops = fm.FontProperties(size=15,weight='bold')
+            if scalebar != None:
+                if scalebar and j%2==0 and i==0:
+                    sl = int(unyt_quantity(scalebar[0],scalebar[1]).in_units(hdul[j][0].header['CUNIT1']).d)
+                    slb = AnchoredSizeBar(ax[j,i].transData,
+                                                sl, '%s %s'%(str(int(sl)),hdul[j][0].header['CUNIT1']),
+                                                'upper right',
+                                                pad=0.1,
+                                                color=plotting_def['text_over'],
+                                                frameon=False,
+                                                size_vertical=0.1,
+                                                fontproperties=fontprops)
+                    ax[j,i].add_artist(slb)
+            if len(labels) !=0 and j%2==0 and i==ax.shape[1]-1:
+                l = labels[int(i/2)][0] + '\n' + labels[int(i/2)][1] + '\n' + labels[int(i/2)][2]
+                ax[j,i].text(0.15, 0.7, l,
+                                verticalalignment='bottom', horizontalalignment='left',
+                                transform=ax[j,i].transAxes,
+                                color=plotting_def['text_over'], fontsize=10,fontweight='bold',
+                                bbox=dict(facecolor='none', edgecolor='white'))
+            if len(centers) != 0 and len(radii) != 0 and len(circle_keys) != 0 and i%2 == 0:
+                # This expects for each point:
+                # 1. a center given as a OZY.array
+                # 2. a radius given as an OZY.quantity
+                # 3. a dictionary of the plotting settings of the circle,
+                #    including the "edgecolor" and the "linestyle"
+                centrecircle = centers[int(i/2)].in_units(hdul[j][0].header['CUNIT1']).d
+                dist = centrecircle - np.array([centre.x,centre.y,centre.z])
+                dist = np.linalg.norm(dist) - radii[int(i/2)].in_units(hdul[j][0].header['CUNIT1']).d
+                if dist <= (width_x/2):
+                    obs_instruments.project_points(cam,1,centrecircle)
+                    r = radii[int(i/2)].in_units(hdul[j][0].header['CUNIT1']).d
+                    circle_settings = circle_keys[int(i/2)]
+                    circle = plt.Circle(centrecircle,r,fill=False,
+                                        edgecolor=circle_settings['edgecolor'],
+                                        linestyle=circle_settings['linestyle'],
+                                        linewidth=circle_settings['linewidth'],
+                                        alpha=1.0)
+                    ax[j,i].add_patch(circle)
+
+    fig.subplots_adjust(hspace=0,wspace=0,left=0,right=1, bottom=0, top=1)
+    if returnfig:
+        return fig
+    else:
+        fig.savefig('plot_facevsedge.png',format='png',dpi=300)
+
 def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=(3,'kpc'),
                  redshift=True,returnfig=False,pov='x',type_scale='galaxy',
                  skirt_images=None,smooth=False,

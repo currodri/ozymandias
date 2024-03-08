@@ -17,6 +17,7 @@ ifeq ($(F90),gfortran)
     FPP      = gfortran -E
     FPP_F90FLAGS = -x f95-cpp-input -fPIC
     F90FLAGS = -O0 -g -fcheck=all -fPIC -cpp -ffree-line-length-256 -DIMASS 
+    F90FLAGS = -Ofast -fPIC -cpp -ffree-line-length-256 -DIMASS
     FCOMP    = gfortran
     LIBS     =
 endif

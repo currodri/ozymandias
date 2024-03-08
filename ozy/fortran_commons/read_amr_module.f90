@@ -98,6 +98,7 @@ module io_ramses
     type(sim_info) :: sim
     type(amr_info) :: amr
     type(hydroID)  :: varIDs
+    logical :: verbose
 
     contains
 
@@ -287,12 +288,12 @@ module io_ramses
         end do
         read(fline,*)var1,var2,var3,var4,var5,var6
         if (trim(var6) .eq. 'family') then
-            write(*,*)': This simulation uses particle families'
+            if (verbose) write(*,*)': This simulation uses particle families'
             sim%family = .true.
         else if (trim(var6) .eq. 'tform') then
-            write(*,*)': This simulation uses the old particle format'
+            if (verbose) write(*,*)': This simulation uses the old particle format'
         else
-            write(*,*)': This simulation format for particles is not recognised!'
+            if (verbose) write(*,*)': This simulation format for particles is not recognised!'
             stop
         endif
     end subroutine check_families
@@ -323,17 +324,17 @@ module io_ramses
             read(10,*) igrstart,igr8,igr1,igr2
             close(10)
             if (igrstart .eq. "n") then
-                write(*,*) "This is an old RAMSES simulation"
+                if (verbose) write(*,*) "This is an old RAMSES simulation"
                 call read_hydrofile_descriptor_old(repository)
             elseif (igrstart .eq. "#") then
-                write(*,*) "This is a new RAMSES simulation"
+                if (verbose) write(*,*) "This is a new RAMSES simulation"
                 call read_hydrofile_descriptor_new(repository)
             else
-                write(*,*)" I do not recognise this sim format. Check!"
+                if (verbose) write(*,*)" I do not recognise this sim format. Check!"
                 stop
             endif
         else
-            write(*,'(": ",A," not found. Initializing variables to default IDs.")') trim(nomfich)
+            if (verbose) write(*,'(": ",A," not found. Initializing variables to default IDs.")') trim(nomfich)
             varIDs%density = 1
             varIDs%vx = 2; varIDs%vy  = 3; varIDs%vz  = 4
             varIDs%Blx  = 5; varIDs%Bly = 6; varIDs%Blz = 7
@@ -368,12 +369,12 @@ module io_ramses
         nomfich=TRIM(repository)//'/hydro_file_descriptor.txt'
         inquire(file=nomfich, exist=ok) ! verify input file
         if ( ok ) then
-            write(*,'(": Reading variables IDs from hydro_descriptor")')
+            if (verbose) write(*,'(": Reading variables IDs from hydro_descriptor")')
             open(unit=10,file=nomfich,status='old',form='formatted')
             ! read(10,'("nvar        =",I11)')nvar
             read(10,*) igr9,igr1,igr2
             read(igr2,*,iostat=statn) nvhydro
-            write(*,*)'nvar=',nvhydro
+            if (verbose) write(*,*)'nvar=',nvhydro
             varIDs%nvar = nvhydro
             if (nvhydro > 9) then
                 nvloop = 9
@@ -402,7 +403,7 @@ module io_ramses
             ! end do
             close(10)
         else
-            write(*,'(": ",A," not found. Initializing variables to default IDs.")') trim(nomfich)
+            if (verbose) write(*,'(": ",A," not found. Initializing variables to default IDs.")') trim(nomfich)
             varIDs%density = 1
             varIDs%vx = 2; varIDs%vy  = 3; varIDs%vz  = 4
             varIDs%Blx  = 5; varIDs%Bly = 6; varIDs%Blz = 7
@@ -467,35 +468,35 @@ module io_ramses
         case ('pressure')
             varIDs%thermal_pressure = newID
         case ('non_thermal_pressure_1')
-            write(*,'(": Using non_thermal_pressure_1 as cosmic ray pressure (variable ",I2,")")') newID
+            if (verbose) write(*,'(": Using non_thermal_pressure_1 as cosmic ray pressure (variable ",I2,")")') newID
             varIDs%cr_pressure = newID
             sim%cr = .true.
         case ('cosmic_ray_01')
-            write(*,'(": Using cosmic_ray_01 as cosmic ray pressure (variable ",I2,")")') newID
+            if (verbose) write(*,'(": Using cosmic_ray_01 as cosmic ray pressure (variable ",I2,")")') newID
             varIDs%cr_pressure = newID
             sim%cr = .true.
         case ('passive_scalar_1')
-            write(*,'(": Using passive_scalar_1 as metallicity (variable ",I2,")")') newID
+            if (verbose) write(*,'(": Using passive_scalar_1 as metallicity (variable ",I2,")")') newID
             varIDs%metallicity = newID
         case ('metallicity')
             varIDs%metallicity = newID
         case ('passive_scalar_2')
-            write(*,'(": Using passive_scalar_2 as xHII (variable ",I2,")")') newID
+            if (verbose) write(*,'(": Using passive_scalar_2 as xHII (variable ",I2,")")') newID
             varIDs%xHII = newID
         case ('scalar_01')
-            write(*,'(": Using scalar_01 as xHII (variable ",I2,")")') newID
+            if (verbose) write(*,'(": Using scalar_01 as xHII (variable ",I2,")")') newID
             varIDs%xHII = newID
         case ('passive_scalar_3')
-            write(*,'(": Using passive_scalar_3 as xHeII (variable ",I2,")")') newID
+            if (verbose) write(*,'(": Using passive_scalar_3 as xHeII (variable ",I2,")")') newID
             varIDs%xHeII = newID
         case ('scalar_02')
-            write(*,'(": Using scalar_02 as xHeII (variable ",I2,")")') newID
+            if (verbose) write(*,'(": Using scalar_02 as xHeII (variable ",I2,")")') newID
             varIDs%xHeII = newID
         case ('passive_scalar_4')
-            write(*,'(": Using passive_scalar_4 as xHeIII (variable ",I2,")")') newID
+            if (verbose) write(*,'(": Using passive_scalar_4 as xHeIII (variable ",I2,")")') newID
             varIDs%xHeIII = newID
         case ('scalar_03')
-            write(*,'(": Using scalar_03 as xHeIII (variable ",I2,")")') newID
+            if (verbose) write(*,'(": Using scalar_03 as xHeIII (variable ",I2,")")') newID
             varIDs%xHeIII = newID
         case ('xHII')
             varIDs%xHII = newID
@@ -537,7 +538,7 @@ module io_ramses
         nomfich=TRIM(repository)//'/hydro_file_descriptor.txt'
         inquire(file=nomfich, exist=ok) ! verify input file
         if ( ok ) then
-            write(*,'(": Reading variables IDs from hydro_descriptor")')
+            if (verbose) write(*,'(": Reading variables IDs from hydro_descriptor")')
             open(unit=10,file=nomfich,status='old',form='formatted')
             read(10,*)
             read(10,*)
@@ -548,10 +549,10 @@ module io_ramses
                 call select_from_descriptor_IDs(newVar,newID)
             end do
             close(10)
-            write(*,*)'nvar=',nvar
+            if (verbose) write(*,*)'nvar=',nvar
             varIDs%nvar = nvar
         else
-            write(*,'(": ",A," not found. Initializing variables to default IDs.")') trim(nomfich)
+            if (verbose) write(*,'(": ",A," not found. Initializing variables to default IDs.")') trim(nomfich)
             varIDs%density = 1
             varIDs%vx = 2; varIDs%vy  = 3; varIDs%vz  = 4
             varIDs%Blx  = 5; varIDs%Bly = 6; varIDs%Blz = 7
@@ -824,6 +825,36 @@ module io_ramses
         case ('magnetic_magnitude')
             B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
             value = magnitude(B)
+        case ('Bz_cyl')
+            ! Magnetic field in the cylindrical z direction
+            B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+            call cylindrical_basis_from_cartesian(x,temp_basis)
+            value = B.DOT.temp_basis%u(3)
+        case ('Bphi_cyl')
+            ! Magnetic field in the cylindrical phi direction
+            B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+            call cylindrical_basis_from_cartesian(x,temp_basis)
+            value = B.DOT.temp_basis%u(2)
+        case ('Br_cyl')
+            ! Magnetic field in the cylindrical radial direction
+            B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+            call cylindrical_basis_from_cartesian(x,temp_basis)
+            value = B.DOT.temp_basis%u(1)
+        case ('Bzcyl_overB')
+            ! Ratio of magnetic field in the cylindrical z direction to total B-field
+            B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+            call cylindrical_basis_from_cartesian(x,temp_basis)
+            value = abs(B.DOT.temp_basis%u(3)) / magnitude(B)
+        case ('Bphicyl_overB')
+            ! Ratio of magnetic field in the cylindrical phi direction to total B-field
+            B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+            call cylindrical_basis_from_cartesian(x,temp_basis)
+            value = abs(B.DOT.temp_basis%u(2)) / magnitude(B)
+        case ('Brcyl_overB')
+            ! Ratio of magnetic field in the cylindrical radial direction to total B-field
+            B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+            call cylindrical_basis_from_cartesian(x,temp_basis)
+            value = abs(B.DOT.temp_basis%u(1)) / magnitude(B)
         case ('magnetic_energy_specific')
             ! Specific magnetic energy as E_mag/cell mass
             B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
@@ -1949,7 +1980,7 @@ module io_ramses
         
         inquire(file=nomfich, exist=ok) ! verify input file
         if (ok) then
-            write(*,'(": Reading eta_sn from namelist.txt")')
+            if (verbose) write(*,'(": Reading eta_sn from namelist.txt")')
             open(unit=15,file=nomfich,status='old',form='formatted')
             do
                 read(15,'(A)',iostat=status)line
@@ -1960,12 +1991,12 @@ module io_ramses
                     jpos = index(line,'!')
                     read(line(ipos+1:jpos-1),'(F10.0)')pvalue
                     sim%eta_sn = pvalue
-                    write(*,*)': Found eta_sn=',sim%eta_sn
+                    if (verbose) write(*,*)': Found eta_sn=',sim%eta_sn
                     exit
                 end if
             end do
         else
-            write(*,'(": Namelist not found: eta_sn set to 0.2")')
+            if (verbose) write(*,'(": Namelist not found: eta_sn set to 0.2")')
             sim%eta_sn = 2D-1
         end if
 
@@ -1992,7 +2023,7 @@ module io_ramses
         
         inquire(file=nomfich, exist=ok) ! verify input file
         if (ok) then
-            write(*,'(": Reading Dcr from namelist.txt")')
+            if (verbose) write(*,'(": Reading Dcr from namelist.txt")')
             open(unit=15,file=nomfich,status='old',form='formatted')
             do
                 read(15,'(A)',iostat=status)line
@@ -2003,12 +2034,12 @@ module io_ramses
                     jpos = index(line,'!')
                     read(line(ipos+1:jpos-1),'(F10.0)')pvalue
                     sim%Dcr = pvalue
-                    write(*,*)': Found Dcr=',sim%Dcr
+                    if (verbose) write(*,*)': Found Dcr=',sim%Dcr
                     exit
                 end if
             end do
         else
-            write(*,'(": Namelist not found: Dcr set to 3.0d28")')
+            if (verbose) write(*,'(": Namelist not found: Dcr set to 3.0d28")')
             sim%Dcr = 3.0d28
         end if
 
@@ -2955,7 +2986,7 @@ module io_ramses
         inquire(file=nomfich, exist=ok)
         if ( .not. ok ) then
             print *,TRIM(nomfich)//' not found.'
-            write(*,*)': No hydro data in this simulation.'
+            if (verbose) write(*,*)': No hydro data in this simulation.'
         else
             sim%hydro = .true.
         endif
@@ -2964,11 +2995,11 @@ module io_ramses
         inquire(file=nomfich, exist=ok)
         if ( .not. ok ) then
             print *,TRIM(nomfich)//' not found.'
-            write(*,*)': No particles in this simulation.'
+            if (verbose) write(*,*)': No particles in this simulation.'
         else
             sim%dm = .true.
         endif
-        if (sim%dm .and. .not. sim%hydro) write(*,*)': This is a DM only simulation.'
+        if (sim%dm .and. .not. sim%hydro .and. verbose) write(*,*)': This is a DM only simulation.'
         nomfich=TRIM(repository)//'/amr_'//TRIM(nchar)//'.out00001'
         ! Verify input amr file
         inquire(file=nomfich, exist=ok)
@@ -2994,8 +3025,8 @@ module io_ramses
         amr%ncoarse = nx*ny*nz
 
         if(amr%ndim==2)then
-            write(*,*)'Output file contains 2D data'
-            write(*,*)'Aborting!'
+            if (verbose) write(*,*)'Output file contains 2D data'
+            if (verbose) write(*,*)'Aborting!'
             stop
         endif
 
@@ -3247,7 +3278,7 @@ module io_ramses
         integer,dimension(1:ncell,0:amr%twondim)::igridn,igridn_ok
         integer,dimension(1:ncell,1:amr%twondim)::icelln_ok
 
-        ! write(*,*)'ncoarse,ngridmax,twondim: ',amr%ncoarse,amr%ngridmax,amr%twondim
+        ! if (verbose) write(*,*)'ncoarse,ngridmax,twondim: ',amr%ncoarse,amr%ngridmax,amr%twondim
         ! Get father cell
         do i=1,ncell
            ind_father(i,0)=ind_cell(i)

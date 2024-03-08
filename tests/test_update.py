@@ -26,7 +26,7 @@ gal.update_attribute('noldstars',300)
 print(gal.noldstars)
 del obj,gal
 
-obj = ozy.load('fake_00010.hdf5')
+obj = ozy.load('test_00010.hdf5')
 gal = obj.galaxies[0]
 print(gal.ndm,gal.mass['gas'])
 print(gal.topology, obj._galaxy_dicts['topology']['Bx'][:])

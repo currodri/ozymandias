@@ -331,7 +331,7 @@ module maps
         real(dbl), dimension(:,:), allocatable :: kfilter
         integer,dimension(1:2) :: xpix
 
-        write(*,*)'Using gaussian smoothing with nexp_factor = ',nexp_factor
+        if (verbose) write(*,*)'Using gaussian smoothing with nexp_factor = ',nexp_factor
 
         ! Initialise map
         call get_map_size(cam,proj%n_sample)
@@ -593,27 +593,27 @@ module maps
 
         call init_amr_read(repository)
         amr%lmax = min(get_required_resolution(cam),amr%nlevelmax)
-        write(*,*)'Maximum resolution level: ',amr%nlevelmax
-        write(*,*)'Using: ',amr%lmax
+        if (verbose) write(*,*)'Maximum resolution level: ',amr%nlevelmax
+        if (verbose) write(*,*)'Using: ',amr%lmax
         cam%lmin = 1;cam%lmax = amr%lmax
         if(present(lmax)) cam%lmax = max(min(lmax,amr%nlevelmax),1)
         amr%lmax = cam%lmax
         if(present(lmin)) cam%lmin = max(1,min(lmin,amr%lmax))
-        write(*,*)'Camera using lmin, lmax: ',cam%lmin,cam%lmax
+        if (verbose) write(*,*)'Camera using lmin, lmax: ',cam%lmin,cam%lmax
         call get_bounding_box(cam,bbox)
         bbox%name = 'cube'
         bbox%bulk_velocity = cam%region_velocity
         bbox%criteria_name = 'd_euclid'
         call get_cpu_map(bbox)
-        write(*,*)'ncpu: ',amr%ncpu_read
+        if (verbose) write(*,*)'ncpu: ',amr%ncpu_read
         call get_map_box(cam,bbox)
 
-        if (cam%nsubs>0)write(*,*)'Excluding substructure: ',cam%nsubs
+        if (cam%nsubs>0 .and. verbose)write(*,*)'Excluding substructure: ',cam%nsubs
         proj%nfilter = cam%nfilter
         call get_map_size(cam,proj%n_sample)
         ! Perform projections
         if (use_neigh) then
-            write(*,*)'Loading neighbours...'
+            if (verbose) write(*,*)'Loading neighbours...'
             call project_cells_neigh
         else
             call project_cells
@@ -662,7 +662,7 @@ module maps
             do ivar=1,proj%nvars
                 if (proj%varnames(ivar)(1:4) .eq. 'grav') then
                     read_gravity = .true.
-                    write(*,*)'Reading gravity files...'
+                    if (verbose) write(*,*)'Reading gravity files...'
                     exit
                 endif
             end do
@@ -690,7 +690,7 @@ module maps
             trans_matrix = 0D0
             call new_z_coordinates(bbox%axis,trans_matrix,roterr)
             if (roterr.eq.1) then
-                write(*,*) 'Incorrect CS transformation!'
+                if (verbose) write(*,*) 'Incorrect CS transformation!'
                 stop
             endif
 
@@ -708,7 +708,7 @@ module maps
                 ! Open AMR file and skip header
                 nomfich = TRIM(repository)//'/amr_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
                 open(unit=10,file=nomfich,status='old',form='unformatted')
-                !write(*,*)'Processing file '//TRIM(nomfich)
+                !if (verbose) write(*,*)'Processing file '//TRIM(nomfich)
                 do i=1,21
                     read(10) ! Skip header
                 end do
@@ -990,7 +990,7 @@ module maps
                     endif
                 end do levelloop
             end do cpuloop
-            write(*,*)'ncells:',ncells
+            if (verbose) write(*,*)'ncells:',ncells
 
             ! Select the type of projection function needed
             select case (trim(type_projection))
@@ -1001,8 +1001,8 @@ module maps
             case ('upload_deposition')
                 call upload_projection(proj,cam,bbox,grid)
             case default
-                write(*,*)'Deposition type ',trim(type_projection),' not recognised'
-                write(*,*)'Falling back to default (upload_projection)'
+                if (verbose) write(*,*)'Deposition type ',trim(type_projection),' not recognised'
+                if (verbose) write(*,*)'Falling back to default (upload_projection)'
                 call upload_projection(proj,cam,bbox,grid)
             end select
         end subroutine project_cells
@@ -1057,7 +1057,7 @@ module maps
                 if (proj%varnames(ivar)(1:4) .eq. 'grav' .or.&
                 & trim(proj%varnames(ivar)) .eq. 'neighbour_accuracy') then
                     read_gravity = .true.
-                    write(*,*)'Reading gravity files...'
+                    if (verbose) write(*,*)'Reading gravity files...'
                     exit
                 endif
             end do
@@ -1086,7 +1086,7 @@ module maps
             trans_matrix = 0D0
             call new_z_coordinates(bbox%axis,trans_matrix,roterr)
             if (roterr.eq.1) then
-                write(*,*) 'Incorrect CS transformation!'
+                if (verbose) write(*,*) 'Incorrect CS transformation!'
                 stop
             endif
 
@@ -1110,7 +1110,7 @@ module maps
                 ! Open AMR file and skip header
                 nomfich = TRIM(repository)//'/amr_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
                 open(unit=10,file=nomfich,status='old',form='unformatted')
-                !write(*,*)'Processing file '//TRIM(nomfich)
+                !if (verbose) write(*,*)'Processing file '//TRIM(nomfich)
                 do i=1,21
                     read(10) ! Skip header
                 end do
@@ -1432,7 +1432,7 @@ module maps
                     deallocate(grav_var)
                 end if
             end do cpuloop
-            write(*,*)'ncells: ',ncells
+            if (verbose) write(*,*)'ncells: ',ncells
 
             ! Select the type of projection function needed
             select case (trim(type_projection))
@@ -1443,8 +1443,8 @@ module maps
             case ('upload_deposition')
                 call upload_projection(proj,cam,bbox,grid)
             case default
-                write(*,*)'Deposition type ',trim(type_projection),' not recognised'
-                write(*,*)'Falling back to default (upload_projection)'
+                if (verbose) write(*,*)'Deposition type ',trim(type_projection),' not recognised'
+                if (verbose) write(*,*)'Falling back to default (upload_projection)'
                 call upload_projection(proj,cam,bbox,grid)
             end select        
         end subroutine project_cells_neigh
@@ -1464,8 +1464,8 @@ module maps
 
         call init_amr_read(repository)
         amr%lmax = amr%nlevelmax !min(get_required_resolution(cam),amr%nlevelmax)
-        write(*,*)'Maximum resolution level: ',amr%nlevelmax
-        write(*,*)'Using: ',amr%lmax
+        if (verbose) write(*,*)'Maximum resolution level: ',amr%nlevelmax
+        if (verbose) write(*,*)'Using: ',amr%lmax
         if (sim%dm .and. sim%hydro) call check_families(repository)
         call get_bounding_box(cam,bbox)
         bbox%name = 'cube'
@@ -1473,7 +1473,7 @@ module maps
         bbox%criteria_name = 'd_euclid'
         call get_cpu_map(bbox)
         call get_map_box(cam,bbox)
-        if (cam%nsubs>0)write(*,*)'Excluding substructure: ',cam%nsubs
+        if (cam%nsubs>0 .and. verbose)write(*,*)'Excluding substructure: ',cam%nsubs
         if (present(tag_file)) then
             if (present(inverse_tag)) then
                 call project_particles(repository,bbox,cam,proj,tag_file,inverse_tag)
@@ -1483,7 +1483,7 @@ module maps
         else
             call project_particles(repository,bbox,cam,proj)
         endif
-        write(*,*)minval(proj%map),maxval(proj%map)
+        if (verbose) write(*,*)minval(proj%map),maxval(proj%map)
     end subroutine projection_parts
 
     subroutine project_particles(repository,bbox,cam,proj,tag_file,inverse_tag)
@@ -1533,7 +1533,7 @@ module maps
         npartsub = 0
 #ifndef IMASS
         if (sim%eta_sn .eq. -1D0) then
-            write(*,*)': eta_sn=-1 and not IMASS --> should set this up!'
+            if (verbose) write(*,*)': eta_sn=-1 and not IMASS --> should set this up!'
             stop
         end if
 #endif
@@ -1541,9 +1541,9 @@ module maps
         ! If tagged particles file exists, read and allocate array
         if (present(tag_file)) then
             open(unit=58,file=TRIM(tag_file),status='old',form='formatted')
-            write(*,*)'Reading particle tags file '//TRIM(tag_file)
+            if (verbose) write(*,*)'Reading particle tags file '//TRIM(tag_file)
             read(58,'(I11)')ntag
-            write(*,*)'Number of tagged particles in file: ',ntag
+            if (verbose) write(*,*)'Number of tagged particles in file: ',ntag
             if (allocated(tag_id)) then
                 deallocate(tag_id)
                 allocate(tag_id(1:ntag))
@@ -1554,7 +1554,7 @@ module maps
                 read(58,'(I11)')tag_id(itag)
             end do
             allocate(order(1:ntag))
-            write(*,*)'Sorting list of particle ids for binary search...'
+            if (verbose) write(*,*)'Sorting list of particle ids for binary search...'
 #ifndef LONGINT
             call quick_sort_irg(tag_id,order,ntag)
 #else
@@ -1585,7 +1585,7 @@ module maps
             call cosmology_model
         else
             sim%time_simu = sim%t
-            write(*,*)'Age simu=',sim%time_simu*sim%unit_t/(365.*24.*3600.*1d9)
+            if (verbose) write(*,*)'Age simu=',sim%time_simu*sim%unit_t/(365.*24.*3600.*1d9)
         endif
         
         ! Check number of particles in selected CPUs
@@ -1598,7 +1598,7 @@ module maps
             icpu = amr%cpu_list(k)
             call title(icpu,ncharcpu)
             nomfich=TRIM(repository)//'/part_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
-            ! write(*,*)'Processing file '//TRIM(nomfich)
+            ! if (verbose) write(*,*)'Processing file '//TRIM(nomfich)
             open(unit=1,file=nomfich,status='old',form='unformatted')
             read(1)ncpu2
             read(1)ndim2
@@ -1608,9 +1608,9 @@ module maps
             close(1)
             npart=npart+npart2
         end do
-        write(*,*)'Found ',npart,' particles.'
+        if (verbose) write(*,*)'Found ',npart,' particles.'
         if(nstar>0)then
-            write(*,*)'Found ',nstar,' star particles.'
+            if (verbose) write(*,*)'Found ',nstar,' star particles.'
         endif
 
         ! Compute projected variables using CIC smoothing
@@ -1803,8 +1803,8 @@ module maps
             if (nstar>0)deallocate(part_tags)
 #endif
         end do cpuloop
-        write(*,*)'> nparttoto: ',nparttoto
-        write(*,*)'> npartsub:  ',npartsub
+        if (verbose) write(*,*)'> nparttoto: ',nparttoto
+        if (verbose) write(*,*)'> npartsub:  ',npartsub
         deallocate(nparttoto)
     end subroutine project_particles
 
@@ -1823,12 +1823,12 @@ module maps
 
         call init_amr_read(repository)
         amr%lmax = amr%nlevelmax
-        write(*,*)'Maximum resolution level: ',amr%nlevelmax
-        write(*,*)'Using: ',amr%lmax
+        if (verbose) write(*,*)'Maximum resolution level: ',amr%nlevelmax
+        if (verbose) write(*,*)'Using: ',amr%lmax
         cam%lmin = 1;cam%lmax = amr%lmax
         if(present(lmin)) cam%lmin = max(1,min(lmin,amr%lmax))
         if(present(lmax)) cam%lmax = min(amr%lmax,max(lmax,1))
-        write(*,*)'Camera using lmin, lmax: ',cam%lmin,cam%lmax
+        if (verbose) write(*,*)'Camera using lmin, lmax: ',cam%lmin,cam%lmax
         bsphere%name = 'sphere'
         bsphere%bulk_velocity = cam%region_velocity
         bsphere%criteria_name = 'd_euclid'
@@ -1837,9 +1837,9 @@ module maps
         bsphere%rmax = cam%far_cut_depth
         bsphere%axis = cam%region_axis
         call get_cpu_map(bsphere)
-        write(*,*)'ncpu: ',amr%ncpu_read
+        if (verbose) write(*,*)'ncpu: ',amr%ncpu_read
 
-        if (cam%nsubs>0)write(*,*)'Excluding substructure: ',cam%nsubs
+        if (cam%nsubs>0 .and. verbose)write(*,*)'Excluding substructure: ',cam%nsubs
 
         ! Perform projections
         call project_cells_hpix
@@ -1887,7 +1887,7 @@ module maps
             ncells = 0
 
             ns = nside2npix(nside)-1
-            write(*,*)'Total number of healpix map: ',ns+1
+            if (verbose) write(*,*)'Total number of healpix map: ',ns+1
             ! TODO: We should also include in here the filters
             proj%nfilter = cam%nfilter
             allocate(proj%map(1:proj%nfilter,1:proj%nvars,1:1,0:ns))
@@ -1924,7 +1924,7 @@ module maps
                 ! Open AMR file and skip header
                 nomfich = TRIM(repository)//'/amr_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
                 open(unit=10,file=nomfich,status='old',form='unformatted')
-                ! write(*,*)'Processing file '//TRIM(nomfich)
+                ! if (verbose) write(*,*)'Processing file '//TRIM(nomfich)
                 do i=1,21
                     read(10) ! Skip header
                 end do
@@ -2157,7 +2157,7 @@ module maps
                     endif
                 end do levelloop
             end do cpuloop
-            write(*,*)'ncells:',ncells
+            if (verbose) write(*,*)'ncells:',ncells
 
             ! Renormalise cells to compute weighted values
             filtloopmap: do ifilt=1,proj%nfilter

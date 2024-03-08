@@ -325,7 +325,8 @@ class OZY:
     def __init__(self, filename, read_mode='r'):
         self._ds = None
         self.data_file = os.path.abspath(filename)
-        
+        self.snapname = self.data_file.split('/')[-1]
+        self.snapID = self.snapname.split('.')[0].split('_')[-1]
         self._galaxy_slist = LazyDataset(self, 'galaxy_data/lists/slist')
 
         with h5py.File(filename, read_mode) as hd:
@@ -710,10 +711,10 @@ class Galaxy(Group):
                         empty_array = np.full(self.obj.ngalaxies, 0.0)
                         self.obj._galaxy_dicts[attr][kk]._data = self.obj.array(empty_array, vv.units)
                     elif isinstance(vv, unyt_array):
-                        empty_array = np.full((self.obj.ngalaxies,len(vv)), 0.0)
+                        empty_array = np.full((self.obj.ngalaxies,)+np.shape(vv), 0.0)
                         self.obj._galaxy_dicts[attr][kk]._data = self.obj.array(empty_array, vv.units)
                     elif isinstance(vv, (np.ndarray,list)):
-                        empty_array = np.full((self.obj.ngalaxies,len(vv)), 0.0)
+                        empty_array = np.full((self.obj.ngalaxies,)+np.shape(vv), 0.0)
                         self.obj._galaxy_dicts[attr][kk]._data = empty_array
                     else:
                         empty_array = np.zeros(self.obj.ngalaxies, dtype=type(value))
@@ -739,10 +740,10 @@ class Galaxy(Group):
                     empty_array = np.full(self.obj.ngalaxies, 0.0)
                     self.obj._galaxy_dicts[attr][kk]._data = self.obj.array(empty_array, vv.units)
                 elif isinstance(vv, unyt_array):
-                    empty_array = np.full((self.obj.ngalaxies,len(vv)), 0.0)
+                    empty_array = np.full((self.obj.ngalaxies,)+np.shape(vv), 0.0)
                     self.obj._galaxy_dicts[attr][kk]._data = self.obj.array(empty_array, vv.units)
                 elif isinstance(vv, (np.ndarray,list)):
-                    empty_array = np.full((self.obj.ngalaxies,len(vv)), 0.0)
+                    empty_array = np.full((self.obj.ngalaxies,)+np.shape(vv), 0.0)
                     self.obj._galaxy_dicts[attr][kk]._data = empty_array
                 else:
                     empty_array = np.zeros(self.obj.ngalaxies, dtype=type(value))
@@ -767,10 +768,10 @@ class Galaxy(Group):
                     empty_array = np.full(self.obj.ngalaxies, 0.0)
                     self.obj._galaxy_data[attr]._data = self.obj.array(empty_array, value.units)
                 elif isinstance(value, unyt_array):
-                    empty_array = np.full((self.obj.ngalaxies,len(vv)), 0.0)
+                    empty_array = np.full((self.obj.ngalaxies,)+np.shape(vv), 0.0)
                     self.obj._galaxy_data[attr]._data = self.obj.array(empty_array, value.units)
                 elif isinstance(value, (np.ndarray,list)):
-                    empty_array = np.full((self.obj.ngalaxies,len(value)), 0.0)
+                    empty_array = np.full((self.obj.ngalaxies,)+np.shape(vv), 0.0)
                     self.obj._galaxy_data[attr]._data = empty_array
                 else:
                     empty_array = np.zeros(self.obj.ngalaxies, dtype=type(value))
