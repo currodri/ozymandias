@@ -23,15 +23,35 @@ module io_ramses
     use vectors
     use cooling_module
 
+    public :: get_ipos_from_iord
+
     type hydroID
-        integer :: nvar
+        integer :: nvar=0
         integer :: density=0,vx=0,vy=0,vz=0,thermal_pressure=0,metallicity=0
         integer :: Blx=0,Bly=0,Blz=0,Brx=0,Bry=0,Brz=0
         integer :: cr_pressure=0
         integer :: xHII=0,xHeII=0,xHeIII=0
         integer :: dust_density=0
         integer :: sigma2=0
+        integer :: chem_H=0,chem_O=0,chem_Fe=0,chem_Mg=0
+        integer :: chem_C=0,chem_N=0,chem_Si=0,chem_S=0,chem_D=0
+        integer :: smallC=0,largeC=0,smallSil=0,largeSil=0
     end type hydroID
+
+    type partvar_info
+        integer :: iord,ipos
+        character(len=1) :: variable_type
+    end type partvar_info
+    type particleID
+        integer :: nvar=0,nd=0,ni=0,nb=0
+        integer :: position_x=0,position_y=0,position_z=0
+        integer :: velocity_x=0,velocity_y=0,velocity_z=0
+        integer :: mass=0,identity=0,levelp=0,family=0,tag=0
+        integer :: birth_time=0,metallicity=0,initial_mass=0
+        integer :: chem_H=0,chem_O=0,chem_Fe=0,chem_Mg=0,chem_C=0
+        integer :: chem_N=0,chem_Si=0,chem_S=0,chem_D=0
+        type(partvar_info), dimension(:), allocatable :: pvar_infos
+    end type particleID
 
     type amr_info
         integer :: ncpu,ndim,nlevelmax,nboundary,twotondim,ndom
@@ -90,15 +110,26 @@ module io_ramses
         integer(ilg) :: id
 #endif
         type(vector) :: x,v
-        real(dbl) :: m,met,imass,age,tform
+        integer(irg) :: level
+        integer(1) :: family,tag
+        real(dbl) :: m,met,imass,birth_time,age
     end type particle
 
     ! Define global variables
-    type(sim_info) :: sim
-    type(amr_info) :: amr
-    type(hydroID)  :: varIDs
+    type(sim_info)   :: sim
+    type(amr_info)   :: amr
+    type(hydroID)    :: varIDs
+    type(particleID) :: partIDs
 
     contains
+
+    function get_ipos(self,iord) result(ipos)
+        type(particleID), intent(in) :: self
+        integer, intent(in) :: iord
+        integer :: ipos
+
+        ipos = self%pvar_infos(iord)%ipos
+    end function get_ipos
 
     subroutine retrieve_vars(repository,myvars)
         implicit none
@@ -295,6 +326,126 @@ module io_ramses
             stop
         endif
     end subroutine check_families
+    !---------------------------------------------------------------
+    ! Subroutine: READ PART IDs
+    !
+    ! This routine extracts the PART variable IDs for a given
+    ! simulation snapshot such that their order is known when
+    ! part_*.out* files are read. This only applies if the RAMSES
+    ! version includes a standarised part_file_descriptor.txt
+    !---------------------------------------------------------------    
+    subroutine read_partfile_descriptor(repository)
+        implicit none
+
+        character(128),intent(in) ::  repository
+        character(128) :: nomfich
+        logical            ::  ok
+        character(25)  ::  newVar,newType
+        integer            ::  newID,status,i
+        integer :: npart_var
+
+        nomfich=TRIM(repository)//'/part_file_descriptor.txt'
+        inquire(file=nomfich, exist=ok) ! verify input file
+        if ( ok ) then
+            npart_var = 0
+            partIDs%nvar = 0; partIDs%nd = 0; partIDs%ni = 0; partIDs%nb = 0
+            write(*,'(": Reading particle IDs from part_descriptor")')
+            ! First count the number of variable lines
+            open(unit=10,file=nomfich,status='old',form='formatted')
+            read(10,*)
+            read(10,*)
+            do
+                read(10,*,iostat=status)newID,newVar,newType
+                if (status /= 0) exit
+                npart_var = npart_var + 1
+            end do
+            close(10)
+            ! Now allocate part_info data and read everything
+            partIDs%nvar = npart_var
+            if (allocated(partIDs%pvar_infos))deallocate(partIDs%pvar_infos)
+            allocate(partIDs%pvar_infos(npart_var))
+            open(unit=10,file=nomfich,status='old',form='formatted')
+            read(10,*)
+            read(10,*)
+            do i = 1, npart_var
+                read(10,*,iostat=status)newID,newVar,newType
+                if (status /= 0) exit
+                partIDs%pvar_infos(i)%iord = i
+                partIDs%pvar_infos(i)%variable_type = trim(newType)
+                if (partIDs%pvar_infos(i)%variable_type=='d') then
+                    partIDs%nd = partIDs%nd + 1
+                    partIDs%pvar_infos(i)%ipos = partIDs%nd
+                elseif (partIDs%pvar_infos(i)%variable_type=='i') then
+                    partIDs%ni = partIDs%ni + 1
+                    partIDs%pvar_infos(i)%ipos = partIDs%ni
+                elseif (partIDs%pvar_infos(i)%variable_type=='b') then
+                    partIDs%nb = partIDs%nb + 1
+                    partIDs%pvar_infos(i)%ipos = partIDs%nb
+                else
+                    write(*,*)': This particle variable type is not recognised: ',partIDs%pvar_infos(i)%variable_type
+                    stop
+                end if
+                call select_from_partdescriptor_IDs(newVar,newID)
+            end do
+            close(10)
+            write(*,*)'npart_var=',partIDs%nvar
+        else
+            if (sim%family) then
+                write(*,'(": ",A," not found. Assuming particles only have pos,vel,m,i,l,f,t,age,met,imass.")') trim(nomfich)
+                partIDs%nvar = 14; partIDs%nd = 10; partIDs%ni = 2; partIDs%nb = 2
+                partIDs%position_x = 1; partIDs%position_y = 2; partIDs%position_z = 3
+                partIDs%velocity_x = 4; partIDs%velocity_y = 5; partIDs%velocity_z = 6
+                partIDs%mass = 7; partIDs%identity = 8; partIDs%levelp = 9
+                partIDs%family = 10; partIDs%tag = 11; partIDs%birth_time = 12
+                partIDs%metallicity = 13; partIDs%initial_mass = 14
+                allocate(partIDs%pvar_infos(partIDs%nvar))
+                do i = 1, 7
+                    partIDs%pvar_infos(i)%iord = i
+                    partIDs%pvar_infos(i)%ipos = i
+                    partIDs%pvar_infos(i)%variable_type = 'd'
+                end do
+                do i = 1, 2
+                    partIDs%pvar_infos(i)%iord = i + 7
+                    partIDs%pvar_infos(i)%ipos = i
+                    partIDs%pvar_infos(i)%variable_type = 'i'
+                end do
+                do i = 1, 2
+                    partIDs%pvar_infos(i)%iord = i + 9
+                    partIDs%pvar_infos(i)%ipos = i
+                    partIDs%pvar_infos(i)%variable_type = 'b'
+                end do
+                do i = 1, 3
+                    partIDs%pvar_infos(i)%iord = i + 11
+                    partIDs%pvar_infos(i)%ipos = i
+                    partIDs%pvar_infos(i)%variable_type = 'd'
+                end do
+            else
+                write(*,'(": ",A," not found. Assuming particles only have pos,vel,m,i,l,age,met,imass.")') trim(nomfich)
+                partIDs%nvar = 12; partIDs%nd = 10; partIDs%ni = 2; partIDs%nb = 0
+                partIDs%position_x = 1; partIDs%position_y = 2; partIDs%position_z = 3
+                partIDs%velocity_x = 4; partIDs%velocity_y = 5; partIDs%velocity_z = 6
+                partIDs%mass = 7; partIDs%identity = 8; partIDs%levelp = 9
+                partIDs%birth_time = 10; partIDs%metallicity = 11; partIDs%initial_mass = 12
+                allocate(partIDs%pvar_infos(partIDs%nvar))
+                do i = 1, 7
+                    partIDs%pvar_infos(i)%iord = i
+                    partIDs%pvar_infos(i)%ipos = i
+                    partIDs%pvar_infos(i)%variable_type = 'd'
+                end do
+                do i = 1, 2
+                    partIDs%pvar_infos(i)%iord = i + 7
+                    partIDs%pvar_infos(i)%ipos = i
+                    partIDs%pvar_infos(i)%variable_type = 'i'
+                end do
+                do i = 1, 3
+                    partIDs%pvar_infos(i)%iord = i + 9
+                    partIDs%pvar_infos(i)%ipos = i
+                    partIDs%pvar_infos(i)%variable_type = 'd'
+                end do
+            end if
+            
+        end if
+    end subroutine read_partfile_descriptor
 
     !---------------------------------------------------------------
     ! Subroutine: READ HYDRO IDs
@@ -367,9 +518,9 @@ module io_ramses
         nomfich=TRIM(repository)//'/hydro_file_descriptor.txt'
         inquire(file=nomfich, exist=ok) ! verify input file
         if ( ok ) then
+            nvhydro = 0
             write(*,'(": Reading variables IDs from hydro_descriptor")')
             open(unit=10,file=nomfich,status='old',form='formatted')
-            ! read(10,'("nvar        =",I11)')nvar
             read(10,*) igr9,igr1,igr2
             read(igr2,*,iostat=statn) nvhydro
             write(*,*)'nvar=',nvhydro
@@ -513,8 +664,94 @@ module io_ramses
             varIDs%dust_density = newID
         case ('sigma2')
             varIDs%sigma2 = newID
+        case ('chem_H')
+            varIDs%chem_H = newID
+        case ('chem_O')
+            varIDs%chem_O = newID
+        case ('chem_Fe')
+            varIDs%chem_Fe = newID
+        case ('chem_Mg')
+            varIDs%chem_Mg = newID
+        case ('chem_C')
+            varIDs%chem_C = newID
+        case ('chem_N')
+            varIDs%chem_N = newID
+        case ('chem_Si')
+            varIDs%chem_Si = newID
+        case ('chem_S')
+            varIDs%chem_S = newID
+        case ('chem_D')
+            varIDs%chem_D = newID
+        case ('dust_bin01')
+            sim%dust = .true.
+            varIDs%smallC = newID
+        case ('dust_bin02')
+            sim%dust = .true.
+            varIDs%largeC = newID
+        case ('dust_bin03')
+            sim%dust = .true.
+            varIDs%smallSil = newID
+        case ('dust_bin04')
+            sim%dust = .true.
+            varIDs%largeSil = newID
+        case ('scalar_14')
+            varIDs%sigma2 = newID
         end select
     end subroutine select_from_descriptor_IDs
+
+    subroutine select_from_partdescriptor_IDs(newVar,newID)
+        implicit none
+        integer,intent(in)           :: newID
+        character(25),intent(in) :: newvar
+        select case (TRIM(newVar))
+        case ('position_x')
+            partIDs%position_x = newID
+        case ('position_y')
+            partIDs%position_y = newID
+        case ('position_z')
+            partIDs%position_z = newID
+        case ('velocity_x')
+            partIDs%velocity_x = newID
+        case ('velocity_y')
+            partIDs%velocity_y = newID
+        case ('velocity_z')
+            partIDs%velocity_z = newID
+        case ('mass')
+            partIDs%mass = newID
+        case ('identity')
+            partIDs%identity = newID
+        case ('family')
+            partIDs%family = newID
+        case ('levelp')
+            partIDs%levelp = newID
+        case ('tag')
+            partIDs%tag = newID
+        case ('birth_time')
+            partIDs%birth_time = newID
+        case ('metallicity')
+            partIDs%metallicity = newID
+        case ('initial_mass')
+            partIDs%initial_mass = newID
+        case ('chem_H')
+            partIDs%chem_H = newID
+        case ('chem_O')
+            partIDs%chem_O = newID
+        case ('chem_Fe')
+            partIDs%chem_Fe = newID
+        case ('chem_Mg')
+            partIDs%chem_Mg = newID
+        case ('chem_C')
+            partIDs%chem_C = newID
+        case ('chem_N')
+            partIDs%chem_N = newID
+        case ('chem_Si')
+            partIDs%chem_Si = newID
+        case ('chem_S')
+            partIDs%chem_S = newID
+        case ('chem_D')
+            partIDs%chem_D = newID
+        end select
+    end subroutine select_from_partdescriptor_IDs
 
     !---------------------------------------------------------------
     ! Subroutine: READ HYDRO IDs NEW
@@ -531,11 +768,12 @@ module io_ramses
         character(128) :: nomfich
         logical            ::  ok
         character(25)  ::  newVar,newType
-        integer            ::  newID,status,nvar=0
+        integer            ::  newID,status,nvar
 
         nomfich=TRIM(repository)//'/hydro_file_descriptor.txt'
         inquire(file=nomfich, exist=ok) ! verify input file
         if ( ok ) then
+            nvar = 0
             write(*,'(": Reading variables IDs from hydro_descriptor")')
             open(unit=10,file=nomfich,status='old',form='formatted')
             read(10,*)
@@ -679,12 +917,6 @@ module io_ramses
         case ('density')
             ! Density
             value = var(0,varIDs%density)
-        case ('dust_mass')
-            ! Dust mass
-            value = (var(0,varIDs%dust_density) * var(0,varIDs%density) * (dx*dx)) * dx
-        case ('DTM')
-            ! Dust-to-metal ratio
-            value = var(0,varIDs%dust_density) / (var(0,varIDs%metallicity)*var(0,varIDs%density))
         case ('mass')
             ! Total mass, computed as density times volume of cell (dx**3)
             value = (var(0,varIDs%density) * (dx*dx)) * dx
@@ -694,14 +926,6 @@ module io_ramses
         case ('metallicity')
             ! Metallicity
             value = var(0,varIDs%metallicity)/0.02
-        case ('dust_density')
-            ! Dust density
-            ! TODO: For dust simulation it should be updated
-            if (.not. sim%dust) then
-                value = var(0,varIDs%metallicity) * (0.4d0 *var(0,varIDs%density))
-            else
-                value = var(0,varIDs%dust_density) * var(0,varIDs%density)
-            end if
         case ('temperature')
             ! Gas temperature
             value = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) !/ 1.38d-16*1.66d-24
@@ -1662,6 +1886,56 @@ module io_ramses
             v = v + reg%bulk_velocity
             tempvar(0,varIDs%vx:varIDs%vz) = v
             call cmp_sigma_turb(tempvar,value)
+        case ('sigma2')
+            if (varIDs%sigma2.ne.0) then
+                value = var(0,varIDs%sigma2)
+            else
+                tempvar(:,:) = var(:,:)
+                v = tempvar(0,varIDs%vx:varIDs%vz)
+                call rotate_vector(v,transpose(trans_matrix))
+                v = v + reg%bulk_velocity
+                tempvar(0,varIDs%vx:varIDs%vz) = v
+                call cmp_sigma_turb(tempvar,value)
+                value = value **2d0
+            end if
+        case ('dust_density')
+            ! Dust density
+            ! TODO: For dust simulation it should be updated
+            if (.not. sim%dust) then
+                value = var(0,varIDs%metallicity) * (0.4d0 *var(0,varIDs%density))
+            else
+                value = (var(0,varIDs%smallC) + var(0,varIDs%largeC) + (var(0,varIDs%smallSil) + var(0,varIDs%largeSil))/0.163d0) * var(0, varIDs%density)
+            end if
+        case ('smallC_density')
+            value = var(0,varIDs%smallC) * var(0, varIDs%density)
+        case ('largeC_density')
+            value = var(0,varIDs%largeC) * var(0, varIDs%density)
+        case ('smallSil_density')
+            value = var(0,varIDs%smallSil) * var(0, varIDs%density)/0.163d0
+        case ('largeSil_density')
+            value = var(0,varIDs%largeSil) * var(0, varIDs%density)/0.163d0
+        case ('dust_mass')
+            ! Dust mass
+            if (.not. sim%dust) then
+                value = (var(0,varIDs%metallicity) * (0.4d0 *var(0,varIDs%density)) * (dx*dx)) * dx
+            else
+                value = ((var(0,varIDs%smallC) + var(0,varIDs%largeC) + &
+                        &(var(0,varIDs%smallSil) + var(0,varIDs%largeSil))/0.163d0) * &
+                        &var(0, varIDs%density) * (dx*dx)) * dx
+            end if
+        case ('smallC_mass')
+            value = (var(0,varIDs%smallC) * var(0, varIDs%density) * (dx*dx)) * dx
+        case ('largeC_mass')
+            value = (var(0,varIDs%largeC) * var(0, varIDs%density) * (dx*dx)) * dx
+        case ('smallSil_mass')
+            value = (var(0,varIDs%smallSil) * var(0, varIDs%density)/0.163d0 * (dx*dx)) * dx
+        case ('largeSil_mass')
+            value = (var(0,varIDs%largeSil) * var(0, varIDs%density)/0.163d0 * (dx*dx)) * dx
+        case ('DTM')
+            ! Dust-to-metal ratio
+            value = (var(0,varIDs%smallC) + var(0,varIDs%largeC) + &
+                    &(var(0,varIDs%smallSil) + var(0,varIDs%largeSil))/0.163d0) / &
+                    &var(0,varIDs%metallicity)
         case default
             write(*,*)'Variable not supported: ',TRIM(varname)
             write(*,*)'Aborting!'
@@ -2682,7 +2956,7 @@ module io_ramses
         type(particle),intent(in) :: part
         character(6),intent(inout) :: ptype
 
-        if (part%age.ne.0D0) then
+        if (part%birth_time.ne.0D0) then
             ptype = 'star'
         else
             ptype = 'dm'
@@ -2997,30 +3271,34 @@ module io_ramses
                     ! Age
                     if (sim%cosmo) then
                         iii = 1
-                        do while(sim%tau_frw(iii)>part%age.and.iii<sim%n_frw)
+                        do while(sim%tau_frw(iii)>part%birth_time.and.iii<sim%n_frw)
                             iii = iii + 1
                         end do
                         ! Interpolate time
 #ifdef AGEPROPER
-                        time = part%age
+                        time = part%birth_time
 #else
-                        time = sim%t_frw(iii)*(part%age-sim%tau_frw(iii-1))/(sim%tau_frw(iii)-sim%tau_frw(iii-1))+ &
-                                & sim%t_frw(iii-1)*(part%age-sim%tau_frw(iii))/(sim%tau_frw(iii-1)-sim%tau_frw(iii))
+                        time = sim%t_frw(iii)*(part%birth_time-sim%tau_frw(iii-1))/(sim%tau_frw(iii)-sim%tau_frw(iii-1))+ &
+                                & sim%t_frw(iii-1)*(part%birth_time-sim%tau_frw(iii))/(sim%tau_frw(iii-1)-sim%tau_frw(iii))
 #endif
                         value = (sim%time_simu-time)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+                    else
+                        value = (sim%time_simu-part%birth_time)*sim%unit_t/(365.*24.*3600.*1d9)
                     endif
                 case ('birth_date')
                     ! Birth date
                     if (sim%cosmo) then
                         iii = 1
-                        do while(sim%tau_frw(iii)>part%age.and.iii<sim%n_frw)
+                        do while(sim%tau_frw(iii)>part%birth_time.and.iii<sim%n_frw)
                             iii = iii + 1
                         end do
                         ! Interpolate time
-                        time = sim%t_frw(iii)*(part%age-sim%tau_frw(iii-1))/(sim%tau_frw(iii)-sim%tau_frw(iii-1))+ &
-                                & sim%t_frw(iii-1)*(part%age-sim%tau_frw(iii))/(sim%tau_frw(iii-1)-sim%tau_frw(iii))
+                        time = sim%t_frw(iii)*(part%birth_time-sim%tau_frw(iii-1))/(sim%tau_frw(iii)-sim%tau_frw(iii-1))+ &
+                                & sim%t_frw(iii-1)*(part%birth_time-sim%tau_frw(iii))/(sim%tau_frw(iii-1)-sim%tau_frw(iii))
                         age = (sim%time_simu-value)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
                         value = (sim%time_tot+age)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+                    else
+                        value = part%birth_time
                     endif
                 end select
             else
@@ -3035,14 +3313,17 @@ module io_ramses
                     ! Birth date
                     if (sim%cosmo) then
                         iii = 1
-                        do while(sim%tau_frw(iii)>part%age.and.iii<sim%n_frw)
+                        do while(sim%tau_frw(iii)>part%birth_time.and.iii<sim%n_frw)
                             iii = iii + 1
                         end do
                         ! Interpolate time
                         current_age_univ = (sim%time_tot+sim%time_simu)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
-                        time = sim%t_frw(iii)*(part%age-sim%tau_frw(iii-1))/(sim%tau_frw(iii)-sim%tau_frw(iii-1))+ &
-                                & sim%t_frw(iii-1)*(part%age-sim%tau_frw(iii))/(sim%tau_frw(iii-1)-sim%tau_frw(iii))
+                        time = sim%t_frw(iii)*(part%birth_time-sim%tau_frw(iii-1))/(sim%tau_frw(iii)-sim%tau_frw(iii-1))+ &
+                                & sim%t_frw(iii-1)*(part%birth_time-sim%tau_frw(iii))/(sim%tau_frw(iii-1)-sim%tau_frw(iii))
                         birth_date = (sim%time_tot+time)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+                    else
+                        current_age_univ = sim%time_simu*sim%unit_t/(365.*24.*3600.*1d9)
+                        birth_date = part%birth_time*sim%unit_t/(365.*24.*3600.*1d9)
                     endif
                     ! Compute SFR by binning star particles by age
                     if (birth_date >= (current_age_univ - sfrind)) then
@@ -3061,32 +3342,36 @@ module io_ramses
                     ! Birth date
                     if (sim%cosmo) then
                         iii = 1
-                        do while(sim%tau_frw(iii)>part%age.and.iii<sim%n_frw)
+                        do while(sim%tau_frw(iii)>part%birth_time.and.iii<sim%n_frw)
                             iii = iii + 1
                         end do
                         ! Interpolate time
                         current_age_univ = (sim%time_tot+sim%time_simu)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
 #ifdef AGEPROPER
-                        time = part%age
+                        time = part%birth_time
 #else
-                        time = sim%t_frw(iii)*(part%age-sim%tau_frw(iii-1))/(sim%tau_frw(iii)-sim%tau_frw(iii-1))+ &
-                                & sim%t_frw(iii-1)*(part%age-sim%tau_frw(iii))/(sim%tau_frw(iii-1)-sim%tau_frw(iii))
+                        time = sim%t_frw(iii)*(part%birth_time-sim%tau_frw(iii-1))/(sim%tau_frw(iii)-sim%tau_frw(iii-1))+ &
+                                & sim%t_frw(iii-1)*(part%birth_time-sim%tau_frw(iii))/(sim%tau_frw(iii-1)-sim%tau_frw(iii))
 #endif
                         birth_date = (sim%time_tot+time)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+                    else
+                        current_age_univ = sim%time_simu*sim%unit_t/(365.*24.*3600.*1d9)
+                        birth_date = part%birth_time*sim%unit_t/(365.*24.*3600.*1d9)
                     endif
-                    ! write(*,*)birth_date, current_age_univ, part%age
+                    ! write(*,*)birth_date, current_age_univ, part%birth_time
                     ! Compute SFR by binning star particles by age
                     if (birth_date >= (current_age_univ - sfrind)) then
                         select case (TRIM(sfrtype))
                             case ('density')
                                 if (present(dx)) then
-                                    value = part%imass / (dx%x*dx%y*dx%z) / sfrind
+                                    value = part%imass / (dx%x*dx%y*dx%z*(sim%boxlen**3d0)) / (sfrind * (365.*24.*3600.*1d9) / sim%unit_t)
                                 else
                                     write(*,*)'Can not compute a particle density without cell size!'
                                 endif
                             case ('surface')
                                 if (present(dx)) then
-                                    value = part%imass / (dx%x*dx%y) / sfrind
+                                    ! print*,current_age_univ,birth_date,part%imass,(dx%x*dx%y),sfrind
+                                    value = part%imass / (dx%x*dx%y*(sim%boxlen**2d0)) / (sfrind * (365.*24.*3600.*1d9) / sim%unit_t)
                                 else
                                     write(*,*)'Can not compute a particle surface density without cell size!'
                                 endif

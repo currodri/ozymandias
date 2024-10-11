@@ -485,6 +485,82 @@ module utils
     return
     
     end subroutine locate
+
+    function random_gaussian(mean, stddev) result(sample)
+#ifndef NOIFPORT
+        use IFPORT
+#else
+#warning Compiling without IFPORT
+#endif
+        real(dbl), intent(in) :: mean, stddev
+        real(dbl) :: sample
+        real(dbl) :: u1, u2, z
+        integer,parameter :: myseed = 86456
+
+        ! Initialise random seed
+        call srand(myseed)
+
+        ! Generate two independent random numbers uniformly distributed in (0,1)
+        u1 = rand()
+        u2 = rand()
+
+        ! Box-Muller transform to generate a standard normal distribution (mean=0, stddev=1)
+        z = sqrt(-2.0d0 * log(u1)) * cos(2.0d0 * pi * u2)
+
+        ! Scale and shift to get the desired mean and standard deviation
+        sample = mean + stddev * z
+    end function random_gaussian
+
+    function interpolate_linear(x, y, x_interp)
+        real(dbl), dimension(:), intent(in) :: x, y
+        real(dbl), intent(in) :: x_interp
+        integer :: i, n
+        real(dbl) :: interpolate_linear
+
+        n = size(x)
+
+        ! Check if x_interp is outside the range
+        if (x_interp <= x(1)) then
+            interpolate_linear = y(1)
+        elseif (x_interp >= x(n)) then
+            interpolate_linear = y(n)
+        else
+        ! Find the index i such that x(i) <= x_interp < x(i+1)
+        i = 1
+        do while ((i < n) .and. (x(i+1) <= x_interp))
+            i = i + 1
+        end do
+
+        ! Linear interpolation formula
+        interpolate_linear = y(i) + (y(i+1) - y(i)) * (x_interp - x(i)) / (x(i+1) - x(i))
+        end if
+    end function interpolate_linear
+
+    function interpolate_log(x, y, x_interp)
+        real(dbl), dimension(:), intent(in) :: x, y
+        real(dbl), intent(in) :: x_interp
+        integer :: i, n
+        real(dbl) :: interpolate_log,logx
+
+        n = size(x)
+        logx = log10(x_interp)
+        ! Check if x_interp is outside the range
+        if (logx <= x(1)) then
+            interpolate_log = y(1)
+        elseif (logx >= x(n)) then
+            interpolate_log = y(n)
+        else
+            ! Find the index i such that x(i) <= x_interp < x(i+1)
+            i = 1
+            do while ((i < n-1) .and. (x(i+1) <= x_interp))
+                i = i + 1
+            end do
+
+            ! Linear interpolation formula
+            interpolate_log = 10d0** (y(i) + (y(i+1) - y(i)) * (logx - x(i)) / (x(i+1) - x(i)))
+        end if
+    end function interpolate_log
+
     ! subroutine bspline_regridding(n,x,y,z,fcn,o,new_n,new_x,new_y,new_z,new_fcn,extrap)
     !     use bspline_module
 

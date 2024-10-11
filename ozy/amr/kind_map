@@ -11,6 +11,7 @@
  'integer' : {'' : 'int',  
               '4' : 'int',
               'ish' : 'short',
+              '1' : 'short',
               'irg' : 'int',
               'ilg' : 'long_long',
 	            '8' : 'long_long',

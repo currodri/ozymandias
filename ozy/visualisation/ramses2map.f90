@@ -721,7 +721,7 @@ module maps
                         end do projvarlooptoto
                     end do filtlooptoto
                 end do
-            end do        
+            end do
         end subroutine project_cells
 
         subroutine project_cells_neigh(repository,bbox,cam,proj)
@@ -1220,10 +1220,21 @@ module maps
         type(region) :: bbox
 
         call init_amr_read(repository)
-        amr%lmax = amr%nlevelmax !min(get_required_resolution(cam),amr%nlevelmax)
+        if (sim%dm .and. sim%hydro) call check_families(repository)
+        ! Obtain details of the hydro variables stored
+        call read_hydrofile_descriptor(repository)
+
+        ! Initialise parameters of the AMR structure and simulation attributes
+        call init_amr_read(repository)
+        amr%lmax = amr%nlevelmax
         write(*,*)'Maximum resolution level: ',amr%nlevelmax
         write(*,*)'Using: ',amr%lmax
+
+        ! Check if particle data uses family
         if (sim%dm .and. sim%hydro) call check_families(repository)
+
+        ! Read the format of the particle data stored
+        call read_partfile_descriptor(repository)
         call get_bounding_box(cam,bbox)
         bbox%name = 'cube'
         bbox%bulk_velocity = cam%region_velocity
@@ -1274,16 +1285,17 @@ module maps
         type(particle) :: part
         integer,dimension(:),allocatable :: order
         integer,dimension(:),allocatable :: nparttoto
-#ifndef LONGINT
-        integer(irg),dimension(:),allocatable :: id,tag_id
+        real(dbl),dimension(:,:),allocatable :: part_data_d
+        integer(1),dimension(:,:),allocatable :: part_data_b
+#ifdef LONGINT
+        integer(ilg),dimension(:,:),allocatable :: part_data_i
+        integer(ilg),dimension(:),allocatable :: tag_id
 #else
-        integer(ilg),dimension(:),allocatable :: id,tag_id
+        integer(irg),dimension(:,:),allocatable :: part_data_i
+        integer(irg),dimension(:),allocatable :: tag_id
 #endif
-        integer(1),dimension(:), allocatable :: part_tags
         integer,dimension(1:2) :: n_map
-        real(dbl),dimension(:),allocatable :: m,age,met
-        real(dbl),dimension(:),allocatable :: imass
-        real(dbl),dimension(:,:),allocatable :: x,v
+        real(dbl),dimension(:,:),allocatable :: xpos
 
         npartsub = 0
 #ifndef IMASS
@@ -1382,57 +1394,30 @@ module maps
             read(1)
             read(1)
             read(1)
-            allocate(m(1:npart2))
-            if(nstar>0)then
-                allocate(age(1:npart2))
-                allocate(id(1:npart2))
-                allocate(met(1:npart2))
-                allocate(imass(1:npart2))
-#ifndef IMASS
-                if (sim%family) allocate(part_tags(1:npart2))
-#endif
-            endif
-            if (present(tag_file) .and. (.not. allocated(id))) allocate(id(1:npart2))
-            allocate(x(1:npart2,1:ndim2))
-            allocate(v(1:npart2,1:ndim2))
+            ! Allocate particle data arrays
+            allocate(part_data_d(npart2,partIDs%nd))
+            allocate(part_data_i(npart2,partIDs%ni))
+            allocate(part_data_b(npart2,partIDs%nb))
+            allocate(xpos(npart2,ndim2))
 
-            ! Read position
-            do i=1,amr%ndim
-                read(1)m
-                x(1:npart2,i) = m/sim%boxlen
+            ! Loop over variables reading in the correct way as determined
+            ! by the pvar_info details
+            do i=1,partIDs%nvar
+                if (partIDs%pvar_infos(i)%variable_type=='d') then
+                    read(1) part_data_d(:,partIDs%pvar_infos(i)%ipos)
+                elseif (partIDs%pvar_infos(i)%variable_type=='i') then
+                    read(1) part_data_i(:,partIDs%pvar_infos(i)%ipos)
+                elseif (partIDs%pvar_infos(i)%variable_type=='b') then
+                    read(1) part_data_b(:,partIDs%pvar_infos(i)%ipos)
+                end if
             end do
-
-            ! Read velocity
-            do i=1,amr%ndim
-                read(1)m
-                v(1:npart2,i) = m
-            end do
-
-            ! Read mass
-            read(1)m
-            read(1)id
-            read(1) ! Skip level
-            if (nstar>0) then
-                if (sim%family) then
-                    read(1) ! Skip family
-#ifndef IMASS
-                    read(1)part_tags
-#else
-                    read(1) ! Skip tags
-#endif
-                endif
-                read(1)age
-                read(1)met
-#ifdef IMASS
-                read(1)imass
-#endif
-            elseif (present(tag_file) .and. nstar .eq. 0) then
-                read(1)id
-            endif
             close(1)
-
+            xpos(:,1) = part_data_d(:,get_ipos(partIDs,partIDs%position_x))
+            xpos(:,2) = part_data_d(:,get_ipos(partIDs,partIDs%position_y))
+            xpos(:,3) = part_data_d(:,get_ipos(partIDs,partIDs%position_z))
+            xpos = xpos / sim%boxlen
             ! Project positions onto the camera frame
-            call project_points(cam,npart2,x)
+            call project_points(cam,npart2,xpos)
 
             ! Project variables into map for particles
             ! of interest in the region
@@ -1440,44 +1425,37 @@ module maps
                 weight = 1D0
                 distance = 0D0
                 mapvalue = 0D0
-                part%x = x(i,:)
-                part%v = v(i,:)
-                part%m = m(i)
-                if (nstar>0) then
-                    part%id = id(i)
-                    part%age = age(i)
-                    part%met = met(i)
+                part%x = xpos(i,:)
+                part%v = (/part_data_d(i,get_ipos(partIDs,partIDs%velocity_x)),&
+                            part_data_d(i,get_ipos(partIDs,partIDs%velocity_y)),&
+                            part_data_d(i,get_ipos(partIDs,partIDs%velocity_z))/)
+                part%m = part_data_d(i,get_ipos(partIDs,partIDs%mass))
+                part%id = part_data_i(i,get_ipos(partIDs,partIDs%identity))
+                part%level = part_data_i(i,get_ipos(partIDs,partIDs%levelp))
+                part%birth_time = part_data_d(i,get_ipos(partIDs,partIDs%birth_time))
+                part%met = part_data_d(i,get_ipos(partIDs,partIDs%metallicity))
 #ifdef IMASS
-                    part%imass = imass(i)
+                part%imass = part_data_d(i,get_ipos(partIDs,partIDs%initial_mass))
 #else
-                    part%imass = 0D0
-                    if (sim%family) then
-                        if (part_tags(i)==1) then
-                            part%imass = m(i)
-                        elseif (part_tags(i)==0.or.part_tags(i)==-1) then
-                            part%imass = m(i) / (1D0 - sim%eta_sn)
-                        end if
-                    else
-                        part%imass = m(i) / (1D0 - sim%eta_sn)
+                part%imass = 0D0
+                if (sim%family) then
+                    part%family = part_data_b(i,get_ipos(partIDs,partIDs%family))
+                    part%tag = part_data_b(i,get_ipos(partIDs,partIDs%tag))
+                    if (part%tag==1) then
+                        part%imass = part%m
+                    elseif (part%tag==0.or.part%tag==-1) then
+                        part%imass = part%m / (1D0 - sim%eta_sn)
                     end if
-#endif
-                elseif (present(tag_file)) then
-                    part%id = id(i)
-                    part%age = 0D0
-                    part%met = 0D0
-                    part%imass = 0D0
                 else
-                    part%id = 0
-                    part%age = 0D0
-                    part%met = 0D0
-                    part%imass = 0D0
-                endif
-                xtemp = x(i,:)
+                    part%imass = part%m / (1D0 - sim%eta_sn)
+                end if
+#endif
+                xtemp = xpos(i,:)
                 xtemp = xtemp - bbox%centre
-                x(i,:) = xtemp
-                call checkifinside(x(i,:),bbox,ok_part,distance)
+                xpos(i,:) = xtemp
+                call checkifinside(xpos(i,:),bbox,ok_part,distance)
                 xtemp = xtemp + bbox%centre
-                x(i,:) = xtemp
+                xpos(i,:) = xtemp
 
                 ! If we are avoiding substructure, check whether we are safe
                 if (cam%nsubs>0) then
@@ -1524,8 +1502,8 @@ module maps
                         call getpartvalue(bbox,part,proj%varnames(ivar),mapvalue,dcell)
                         if (weight.ne.0D0) then
                             ! TODO: Properly understand WOH is going on here
-                            ddx = (x(i,1)-bbox%xmin)/dx
-                            ddy = (x(i,2)-bbox%ymin)/dy
+                            ddx = (xpos(i,1)-bbox%xmin)/dx
+                            ddy = (xpos(i,2)-bbox%ymin)/dy
                             ix = int(ddx)
                             iy = int(ddy)
                             ddx = ddx - dble(ix)
@@ -1553,12 +1531,7 @@ module maps
                     end do projvarloop
                 endif
             end do partloop
-            deallocate(m,x,v)
-            if (allocated(id))deallocate(id)
-            if (nstar>0)deallocate(age,met,imass)
-#ifndef IMASS
-            if (nstar>0.and.sim%family)deallocate(part_tags)
-#endif
+            deallocate(xpos,part_data_d,part_data_i,part_data_b)
         end do cpuloop
         write(*,*)'> nparttoto: ',nparttoto
         write(*,*)'> npartsub:  ',npartsub

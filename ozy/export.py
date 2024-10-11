@@ -62,7 +62,7 @@ def unigrid_amr(obj, group=None, filter=None, lmax =0, n=[100,100,100], vars=['g
 
 def export2skirt(obj, group=None, filter=None, lmax =0, var='dust_density', xmin=(0,'code_length'), xmax=(1,'code_length'), ymin=(0,'code_length'),
                  ymax=(1,'code_length'), zmin=(0,'code_length'), zmax=(1,'code_length'),rmin=(0,'kpc'),rmax=(0.5,'code_length'), angmom = np.array([0,0,1]), 
-                 symlog=True, h=(30,'pc'), smoothmethod='constant',sedmethod='bruzual&charlot',recompute=False):
+                 symlog=True, h=(30,'pc'), smoothmethod='constant',sedmethod='bruzual&charlot',recompute=False,outpath=None,sspfile=None):
     
     import os
     import ozy
@@ -73,10 +73,10 @@ def export2skirt(obj, group=None, filter=None, lmax =0, var='dust_density', xmin
     from amr2 import export_amr
 
     output_path = obj.simulation.fullpath
-
+    boxlen = obj.simulation.boxsize.to('code_length')
     # Initialise region
     if group == None:
-        fake_obj = create_new_group('galaxy')
+        fake_obj = create_new_group(obj,'galaxy')
         xcentre = 0.5*(obj.quantity(xmax[0],str(xmax[1])) + obj.quantity(xmin[0],str(xmin[1])))
         ycentre = 0.5*(obj.quantity(ymax[0],str(ymax[1])) + obj.quantity(ymin[0],str(ymin[1])))
         zcentre = 0.5*(obj.quantity(zmax[0],str(zmax[1])) + obj.quantity(zmin[0],str(zmin[1])))
@@ -85,7 +85,11 @@ def export2skirt(obj, group=None, filter=None, lmax =0, var='dust_density', xmin
         selected_reg = init_region(fake_obj, 'basic_cube', xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax,
                                     zmin=zmin, zmax=zmax)
     else:
-        selected_reg = init_region(group, 'sphere', rmin=rmin, rmax=rmax)
+        if xmin[0] != 0.0 and xmax[0] != 0.0:
+            selected_reg = init_region(group, 'basic_cube', xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax,
+                                    zmin=zmin, zmax=zmax)
+        elif rmax[0] != 0.0:
+            selected_reg = init_region(group, 'sphere', rmin=(rmin[0]/boxlen,rmin[1]), rmax=(rmax[0]/boxlen,rmax[1]))
 
     # Convert smoothing length to the required units (kpc)
     h = obj.quantity(h[0],h[1])
@@ -95,18 +99,30 @@ def export2skirt(obj, group=None, filter=None, lmax =0, var='dust_density', xmin
         filt = filtering.filter()
     
     # Create name for output files
-    outid = output_path.split('/')[-1][-5:]
-    if group == None:
-        outname = os.getcwd()+'/snap_'+outid+'_noneobj'
+    outid = obj.simulation.snapID
+    if outpath == None:
+        if group == None:
+            outname = os.getcwd()+'/snap_'+outid+'_noneobj'
+        else:
+            outname = os.getcwd()+'/snap_'+outid+'_gal'+str(group.ID)
     else:
-        outname = os.getcwd()+'/snap_'+outid+'_gal'+str(group.ID)
+        if group == None:
+            outname = os.path.join(outpath,'snap_'+outid+'_noneobj')
+        else:
+            outname = os.path.join(outpath,'snap_'+outid+'_gal'+str(group.ID))
 
     # Perform particle export
     partfile = outname + '_stars.txt'
-    if os.path.exists(partfile) and recompute:
-        export_part.part2skirt(output_path,selected_reg,filt,h.to('kpc').d,smoothmethod,sedmethod,partfile)
-    elif not os.path.exists(partfile):
-        export_part.part2skirt(output_path,selected_reg,filt,h.to('kpc').d,smoothmethod,sedmethod,partfile)
+    if sspfile == None:
+        if os.path.exists(partfile) and recompute:
+            export_part.part2skirt(output_path,selected_reg,filt,h.to('kpc').d,smoothmethod,sedmethod,partfile)
+        elif not os.path.exists(partfile):
+            export_part.part2skirt(output_path,selected_reg,filt,h.to('kpc').d,smoothmethod,sedmethod,partfile)
+    else:
+        if os.path.exists(partfile) and recompute:
+            export_part.part2skirt(output_path,selected_reg,filt,h.to('kpc').d,smoothmethod,sedmethod,partfile,sspfile)
+        elif not os.path.exists(partfile):
+            export_part.part2skirt(output_path,selected_reg,filt,h.to('kpc').d,smoothmethod,sedmethod,partfile,sspfile)        
 
     # Perform hydro export
     gasfile = outname + '_gas.txt'
@@ -114,6 +130,9 @@ def export2skirt(obj, group=None, filter=None, lmax =0, var='dust_density', xmin
         export_amr.amr2skirt(output_path,selected_reg,filt,var,gasfile)
     elif not os.path.exists(gasfile):
         export_amr.amr2skirt(output_path,selected_reg,filt,var,gasfile)
+        
+    # Return file paths
+    return partfile, gasfile
 
 def export2disperse(obj, group=None, filter=None, xmin=(0,'code_length'), xmax=(1,'code_length'), ymin=(0,'code_length'),
                     ymax=(1,'code_length'), zmin=(0,'code_length'), zmax=(1,'code_length'),rmin=(0,'kpc'),rmax=(0.5,'code_length'), 

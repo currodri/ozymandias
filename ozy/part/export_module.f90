@@ -20,13 +20,69 @@
 module export_part
     use local
     use constants
+    use utils
     use io_ramses
     use filtering
     use cosmology
 
     contains
 
-    subroutine part2skirt(repository,reg,filt,h,smoothmethod,sedmethod,outpath)
+    subroutine read_ssp_mrelease(filename, time, Mtot)
+        character(len=*), intent(in) :: filename
+        real(dbl), dimension(:), allocatable, intent(out) :: time, Mtot
+        integer :: num_lines
+        integer :: iunit, i
+        real(dbl) :: dummy_line
+
+        ! Open the file
+        write(*,*) 'Reading mass release for fake SSP particles from ',trim(filename)
+        open(newunit=iunit, file=filename, status='old', action='read')
+
+        ! Skip header lines
+        do i = 1, 3
+            read(iunit, *)
+        end do
+
+        ! Count the number of lines
+        num_lines = 0
+        do
+            read(iunit, *, iostat=i)
+            if (i /= 0) exit
+            num_lines = num_lines + 1
+        end do
+
+        ! Rewind back to the beginning of the file
+        rewind(iunit)
+
+        ! Allocate memory
+        allocate(time(num_lines), Mtot(num_lines))
+
+        ! Skip header lines again
+        do i = 1, 3
+            read(iunit, *)
+        end do
+
+        ! Read time and Mtot values
+        do i = 1, num_lines
+            read(iunit, *) time(i), Mtot(i), dummy_line ! Ignore other columns
+        end do
+
+        ! Convert to logarithmic
+        time(:) = log10(time(:))
+        Mtot(:) = log10(Mtot(:))
+
+        ! Close the file
+        close(iunit)
+    end subroutine read_ssp_mrelease
+
+
+    subroutine part2skirt(repository,reg,filt,h,smoothmethod,sedmethod,outpath,ssp_fakestars)
+#ifndef NOIFPORT
+        use IFPORT
+#else
+#warning Compiling without IFPORT
+#endif
+        use utils
         use vectors
         use coordinate_systems
         use geometrical_regions
@@ -39,28 +95,32 @@ module export_part
         real(dbl),intent(in) :: h
         character(100),intent(in) :: smoothmethod,sedmethod
         character(128),intent(in) :: outpath
+        character(128),intent(in),optional :: ssp_fakestars
 
         ! Specific variables for this subroutine
-        logical :: ok_part,ok_filter
+        logical :: ok_part,ok_filter,fake_star
         integer :: roterr
         integer :: i,j,k
         integer :: ipos,icpu,binpos
         integer :: npart,npart2,nstar,inpart=0
         integer :: ncpu2,ndim2
-        integer :: nstarsaved
-        real(dbl) :: distance,tempage,dx
+        integer :: nstarsaved,nfakestars
+        real(dbl) :: distance,tempage,dx,rcyl
+        real(dbl),dimension(1:3) :: xpos
         character(5) :: nchar,ncharcpu
         character(6) :: ptype
         character(128) :: nomfich,varname
         type(vector) :: xtemp,vtemp
         type(particle) :: part
-#ifndef IMASS
-        integer(1),dimension(:), allocatable :: part_tags
+        real(dbl),dimension(:,:),allocatable :: part_data_d
+        integer(1),dimension(:,:),allocatable :: part_data_b
+#ifdef LONGINT
+        integer(ilg),dimension(:,:),allocatable :: part_data_i
+#else
+        integer(irg),dimension(:,:),allocatable :: part_data_i
 #endif
-        integer,dimension(:),allocatable :: plevel
-        real(dbl) :: particle_h
-        real(dbl),dimension(:),allocatable :: m,age,met,imass
-        real(dbl),dimension(:,:),allocatable :: x,v
+        real(dbl) :: particle_h,mreturn
+        real(dbl),dimension(:),allocatable :: ssp_time,ssp_mreturn
 
         ! Obtain details of the hydro variables stored
         call read_hydrofile_descriptor(repository)
@@ -69,14 +129,22 @@ module export_part
         call init_amr_read(repository)
         amr%lmax = amr%nlevelmax
 
+        ! Check if particle data uses family
+        if (sim%dm .and. sim%hydro) call check_families(repository)
+
+        ! Read the format of the particle data stored
+        call read_partfile_descriptor(repository)
+        
+
+#ifdef LONGINT
+        write(*,*) 'Using LONGINT for particle IDs'
+#endif
 #ifndef IMASS
         if (sim%eta_sn .eq. -1D0) then
             write(*,*)': eta_sn=-1 and not IMASS --> should set this up!'
             stop
         end if
 #endif
-        ! Check if particle data uses family
-        if (sim%dm .and. sim%hydro) call check_families(repository)
 
         ! Compute the Hilbert curve
         call get_cpu_map(reg)
@@ -90,6 +158,14 @@ module export_part
             sim%time_simu = sim%t
             write(*,*)'Age simu=',sim%time_simu*sim%unit_t/(365.*24.*3600.*1d9)
         endif
+
+        ! If a fake SSP model has been given (this is for isolated sims)
+        ! then we will read the SSP mass return evolution with time
+        ! in order to compute "fake" initial mass for the DM particles
+        ! with 0 age but mass below the minimum DM mass
+        if (present(ssp_fakestars)) then
+            call read_ssp_mrelease(ssp_fakestars,ssp_time,ssp_mreturn)
+        end if
 
         ! Check number of particles in selected CPUs
         ipos = INDEX(repository,'output_')
@@ -114,6 +190,7 @@ module export_part
         endif
 
         nstarsaved = 0
+        nfakestars = 0
         ! Open output file and add header for SKIRT format
         open(unit=7,file=TRIM(outpath),form='formatted')
         write(7,98)
@@ -149,112 +226,134 @@ module export_part
             read(1)
             read(1)
             read(1)
-            allocate(m(1:npart2))
-            if(nstar>0)then
-                allocate(age(1:npart2))
-                allocate(met(1:npart2))
-                allocate(imass(1:npart2))
-#ifndef IMASS
-                allocate(part_tags(1:npart2))
-#endif
-            ! Settup arrays for the required smoothmethod
-            if (TRIM(smoothmethod).eq.'level') then
-                allocate(plevel(1:npart2))
-            end if
-            endif
-            allocate(x(1:npart2,1:ndim2))
-            allocate(v(1:npart2,1:ndim2))
 
-            ! Read position
-            do i=1,amr%ndim
-                read(1)m
-                x(1:npart2,i) = m/sim%boxlen
-            end do
+            ! Allocate particle data arrays
+            allocate(part_data_d(partIDs%nd,npart2))
+            allocate(part_data_i(partIDs%ni,npart2))
+            allocate(part_data_b(partIDs%nb,npart2))
 
-            ! Read velocity
-            do i=1,amr%ndim
-                read(1)m
-                v(1:npart2,i) = m
-            end do
-
-            ! Read mass
-            read(1)m
-            if (nstar>0) then
-                read(1) ! Skip id
-                if (allocated(plevel)) then
-                    read(1) plevel
-                else
-                    read(1) ! Skip level
+            ! Loop over variables reading in the correct way as determined
+            ! by the pvar_info details
+            do i=1,partIDs%nvar
+                if (partIDs%pvar_infos(i)%variable_type=='d') then
+                    read(1) part_data_d(partIDs%pvar_infos(i)%ipos,:)
+                elseif (partIDs%pvar_infos(i)%variable_type=='i') then
+                    read(1) part_data_i(partIDs%pvar_infos(i)%ipos,:)
+                elseif (partIDs%pvar_infos(i)%variable_type=='b') then
+                    read(1) part_data_b(partIDs%pvar_infos(i)%ipos,:)
                 end if
-                if (sim%family) then
-                    read(1) ! Skip family
-#ifndef IMASS
-                    read(1)part_tags
-#else
-                    read(1) ! Skip tags
-#endif
-                endif
-                read(1)age
-                read(1)met
-#ifdef IMASS
-                read(1)imass
-#endif
-            endif
+            end do
             close(1)
 
             ! Get variable info for particles in the 
             ! region of interest
             partloop: do i=1,npart2
                 distance = 0D0
-                part%x = x(i,:)
-                part%v = v(i,:)
-                part%m = m(i)
-                if (nstar>0) then
-                    part%id = 0 ! We do not care about ids here
-                    part%age = age(i)
-                    part%met = met(i)
-#ifdef IMASS
-                    part%imass = imass(i)
-#else
-                    part%imass = 0D0
-                    if (part_tags(i)==1) then
-                        part%imass = m(i)
-                    elseif (part_tags(i)==0.or.part_tags(i)==-1) then
-                        part%imass = m(i) / (1D0 - sim%eta_sn)
-                    end if
-#endif
-                else
-                    part%id = 0
-                    part%age = 0D0
-                    part%met = 0D0
-                    part%imass = 0D0
-                endif
-                ! Check if particle is inside the desired region
+                fake_star = .false.
+                part%x = (/part_data_d(get_ipos(partIDs,partIDs%position_x),i),&
+                            part_data_d(get_ipos(partIDs,partIDs%position_y),i),&
+                            part_data_d(get_ipos(partIDs,partIDs%position_z),i)/)
+                part%x = part%x / sim%boxlen
                 part%x = part%x - reg%centre
-                x(i,:) = part%x
-                call checkifinside(x(i,:),reg,ok_part,distance)
-                ok_filter = filter_particle(reg,filt,part)
-                ok_part = ok_part.and.ok_filter
-                call getparttype(part,ptype)
-                if (ok_part.and.(ptype.eq.'star').and.(part%m.gt.0D0)) then
-                    nstarsaved = nstarsaved + 1
+                part%v = (/part_data_d(get_ipos(partIDs,partIDs%velocity_x),i),&
+                            part_data_d(get_ipos(partIDs,partIDs%velocity_y),i),&
+                            part_data_d(get_ipos(partIDs,partIDs%velocity_z),i)/)
+                part%m = part_data_d(get_ipos(partIDs,partIDs%mass),i)
+                part%id = part_data_i(get_ipos(partIDs,partIDs%identity),i)
+                part%level = part_data_i(get_ipos(partIDs,partIDs%levelp),i)
+                part%birth_time = part_data_d(get_ipos(partIDs,partIDs%birth_time),i)
+                part%met = part_data_d(get_ipos(partIDs,partIDs%metallicity),i)
+#ifdef IMASS
+                part%imass = part_data_d(get_ipos(partIDs,partIDs%initial_mass),i)
+                if ((part%birth_time.eq.0d0).and.(part%m<0.00102).and.(present(ssp_fakestars))) then
+                    ! In the case we encounter a fake star particle (from the ICs)
+                    ! we need to compute their fake age and fake initial mass
+                    ! assuming a particular SSP mass return
+
+                    ! 1. Obtain fake age given by their cylindrical radius (matching
+                    ! the age of the Sun at its galactocentric distance and with a
+                    ! random dispersion of 3 Gyr)
+                    varname = 'dm/r_cyl'
+                    call getpartvalue(reg,part,varname,tempage)
+                    rcyl = tempage * (sim%unit_l*sim%boxlen*cm2kpc)
+                    part%age = max(0d0,min((9d0 - 0.5d0 * rcyl) + random_gaussian(0d0,3d0),14d0)) ! in Gyr
+
+                    ! 2. Interpolate from the age what the mass return should be
+                    mreturn = interpolate_log(ssp_time,ssp_mreturn,part%age*1d9)
+                    part%imass = part%m / (1d0 - mreturn)
+                    ! 3. Set the metallicity fixed to the solar metallicity (Asplund 2009)
+                    part%met = 0.01345d0
+                    fake_star = .true.
+                end if
+#else
+                part%imass = 0D0
+                if ((part%birth_time.eq.0d0).and.(part%m<0.00102).and.(present(ssp_fakestars))) then
+                    ! In the case we encounter a fake star particle (from the ICs)
+                    ! we need to compute their fake age and fake initial mass
+                    ! assuming a particular SSP mass return
+
+                    ! 1. Obtain fake age given by their cylindrical radius (matching
+                    ! the age of the Sun at its galactocentric distance and with a
+                    ! random dispersion of 3 Gyr)
+                    varname = 'dm/r_cyl'
+                    call getpartvalue(reg,part,varname,tempage)
+                    rcyl = tempage * (sim%unit_l*sim%boxlen*cm2kpc)
+                    part%age = max(0d0,min((9d0 - 0.5d0 * rcyl) + random_gaussian(0d0,3d0),14d0)) ! in Gyr
+
+                    ! 2. Interpolate from the age what the mass return should be
+                    mreturn = interpolate_log(ssp_time,ssp_mreturn,part%age*1d9)
+                    part%imass = part%m / (1d0 - mreturn)
+
+                    ! 3. Set the metallicity fixed to the solar metallicity (Asplund 2009)
+                    part%met = 0.01345d0
+                    fake_star = .true.
+                else
+                    if (sim%family) then
+                        part%family = part_data_b(get_ipos(partIDs,partIDs%family),i)
+                        part%tag = part_data_b(get_ipos(partIDs,partIDs%tag),i)
+                        if (part%tag==1) then
+                            part%imass = part%m
+                        elseif (part%tag==0.or.part%tag==-1) then
+                            part%imass = part%m / (1D0 - sim%eta_sn)
+                        end if
+                    else
+                        part%imass = part%m / (1D0 - sim%eta_sn)
+                    end if
+                end if
+#endif
+                ! Check if particle is inside the desired region
+                xpos = part%x
+                call checkifinside(xpos,reg,ok_part,distance)
+                ! ok_filter = filter_particle(reg,filt,part)
+                ! ok_part = ok_part.and.ok_filter
+                ! call getparttype(part,ptype)
+                ! If particle mass is less than 1e6 Msun (0.00102 in code mass units)
+                ! it is consider a star particle in isolated galaxy simulations
+                if (part%imass>0d0.and.ok_part) then
+                    if (fake_star) then
+                        nfakestars = nfakestars + 1
+                    else
+                        nstarsaved = nstarsaved + 1
+                    end if
                     ! Position to kpc
-                    part%x = part%x * (sim%unit_l*cm2kpc)
+                    part%x = part%x * (sim%unit_l*sim%boxlen*cm2kpc)
                     ! Velocity with respect to COM of galaxy and in km/s
                     part%v = part%v - reg%bulk_velocity
                     part%v = part%v * (sim%unit_v*cm2km)
                     ! Initial mass in Msun
                     part%imass = part%imass * (sim%unit_m*g2msun)
                     ! Particle age in Gyr
-                    varname = 'star/age'
-                    call getpartvalue(reg,part,varname,tempage)
-                    part%age = tempage
+                    if (.not.fake_star) then
+                        varname = 'star/age'
+                        call getpartvalue(reg,part,varname,tempage)
+                        part%age = tempage
+                    end if
                     ! Get smoothing length with the choosen method
                     select case (TRIM(smoothmethod))
                         case ('constant')
                             particle_h = H
                         case ('level')
-                            particle_h = (1D0/(2**plevel(i)))*sim%unit_l*cm2pc
+                            particle_h = (1D0/(2**part%level))*sim%unit_l*cm2pc*sim%boxlen
                     end select
                     write(7,100)part%x%x,part%x%y,part%x%z,&
                                 particle_h,&
@@ -265,18 +364,15 @@ module export_part
                     100 format(3F10.6,F10.2,4F10.2,F10.6,F10.6)
                 endif
             end do partloop
-            deallocate(m,x,v)
-            if (nstar>0)deallocate(age,met,imass)
-            if (allocated(plevel)) deallocate(plevel)
-#ifndef IMASS
-            if (nstar>0)deallocate(part_tags)
-#endif
+            deallocate(part_data_d,part_data_i,part_data_b)
             inpart = inpart + npart2
         end do cpuloop
 
         close(7)
         write(*,102)nstarsaved
+        write(*,103)nfakestars
         102 format('File includes ',I12,' star particles')
+        103 format('File includes ',I12,' fake star particles')
     end subroutine part2skirt
 
     subroutine part2disperse(repository,reg,filt,prob,outpath)
@@ -424,7 +520,7 @@ module export_part
             partloop: do i=1,npart2
                 distance = 0D0
                 part%x = x(i,:)
-                part%age = age(i)
+                part%birth_time = age(i)
                 ! Check if particle is inside the desired region
                 part%x = part%x - reg%centre
                 x(i,:) = part%x

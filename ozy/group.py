@@ -87,6 +87,7 @@ class Galaxy(Group):
         self.sf_efficiency = {}
         self.pressure_support = {}
         self.velocity_dispersion = {}
+        self.dust_properties = {}
     def _process_galaxy(self):
         """Process each galaxy after creation. This means
         calculating the total mass, and then calculate the rest of masses,

@@ -10,6 +10,7 @@
  	           'dp' : 'complex_double'},
  'integer' : {'' : 'int',  
               '4' : 'int',
+              '1' : 'short',
               'ish' : 'short',
               'irg' : 'int',
               'ilg' : 'long_long',

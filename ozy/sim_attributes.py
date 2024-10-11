@@ -20,7 +20,7 @@ class SimulationAttributes(object):
         self.fullpath        = fullpath
         self.snapID          = fullpath.split('/')[-1].split('_')[-1]
         self.hubble_constant = obj._info['H0']
-        self.boxsize = obj.quantity(obj._info['unit_l'],'cm').to(obj.units['length'])
+        self.boxsize = obj.quantity(obj._info['unit_l']*obj._info['boxlen'],'cm').to(obj.units['length'])
         # TODO: Read this from simulation file. Right now for NUT:
         self.zoom = True
         

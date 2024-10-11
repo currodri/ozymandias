@@ -123,6 +123,7 @@ def read_infofile(infopath):
             if (linehead == "ngridmax")  : info['ngridmax']  = int(newline[13:].strip())
             if (linehead == "nstep_coarse")  : info['nstep_coarse'] = int(newline[13:].strip())
 
+            if (linehead == "boxlen")  : info['boxlen']  = float(newline[13:].strip())
             if (linehead == "aexp")  : info['aexp']  = float(newline[13:].strip())
             if (linehead == "time")  : info['time'] = float(newline[13:].strip())
             if (linehead == "H0"): info['H0']  = float(newline[13:].strip())

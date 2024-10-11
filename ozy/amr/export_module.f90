@@ -823,11 +823,11 @@ module export_amr
         integer :: nvarh
         integer :: roterr
         character(5) :: nchar,ncharcpu
-        character(128) :: nomfich
+        character(128) :: nomfich,dust_names
         real(dbl) :: distance,dx,dx2kpc
-        real(dbl) :: myval
+        real(dbl) :: myval,total_dust_mass,smallC_rho,largeC_rho,smallSil_rho,largeSil_rho
         type(vector) :: xtemp,vtemp,xtempmin,xtempmax
-        logical :: ok_cell,ok_filter,ok_cell_each,read_gravity
+        logical :: ok_cell,ok_filter,ok_cell_each,read_gravity,separate_dust
         integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
         real(dbl),dimension(1:8,1:3) :: xc
         real(dbl),dimension(3,3) :: trans_matrix
@@ -844,6 +844,8 @@ module export_amr
 
         total_ncell = 0
         cpu_ncell = 0
+        total_dust_mass = 0d0
+        separate_dust = .false.
 
         ! Obtain details of the hydro variables stored
         call read_hydrofile_descriptor(repository)
@@ -863,6 +865,15 @@ module export_amr
             write(*,*)'Reading gravity files...'
         end if
 
+        ! Check whether we want to separate the different dust species
+        if (sim%dust .and. (trim(varname) .eq. 'all_dust')) then
+            separate_dust = .true.
+        elseif ((.not.sim%dust) .and. (trim(varname) .eq. 'all_dust')) then
+            write(*,*)'You cannot separate the dust species if sim%dust=.false.!!'
+            stop
+        end if
+
+
         ! Allocate grids
         allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
         allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
@@ -881,12 +892,27 @@ module export_amr
         write(7,98)
         write(7,99)TRIM(varname)
         write(7,97)
-        write(7,101)
+        if (separate_dust) then
+            write(7,101)
+        else
+            write(7,102)
+        end if
         write(7,97)
         97 format('#')
         98 format('# Gas cell data for simulated galaxy in RAMSES simulation')
         99 format('# SKIRT 9 import format for a medium source using ',A,' method')
         101 format('# Column 1: x-min (kpc)',/, &
+                    '# Column 2: y-min (kpc)',/,&
+                    '# Column 3: z-min (kpc)',/,&
+                    '# Column 4: x-max (kpc)',/, &
+                    '# Column 5: y-max (kpc)',/,&
+                    '# Column 6: z-max (kpc)',/,&
+                    '# Column 7: dust mass density (Msun/pc3)',/,&
+                    '# Column 8: small carbonaceous density (Msun/pc3)',/,&
+                    '# Column 9: large carbonaceous density (Msun/pc3)',/,&
+                    '# Column 10: small silicates density (Msun/pc3)',/,&
+                    '# Column 11: large silicates density (Msun/pc3)')
+        102 format('# Column 1: x-min (kpc)',/, &
                     '# Column 2: y-min (kpc)',/,&
                     '# Column 3: z-min (kpc)',/,&
                     '# Column 4: x-max (kpc)',/, &
@@ -967,7 +993,7 @@ module export_amr
             levelloop: do ilevel=1,amr%lmax
                 ! Geometry
                 dx = 0.5**ilevel
-                dx2kpc = dx * (sim%unit_l*cm2kpc)
+                dx2kpc = dx * (sim%unit_l*sim%boxlen*cm2kpc)
                 nx_full = 2**ilevel
                 ny_full = 2**ilevel
                 nz_full = 2**ilevel
@@ -1150,22 +1176,48 @@ module export_amr
                             cpu_ncell = cpu_ncell + 1
                             if (ok_cell_each) then
                                 total_ncell = total_ncell + 1
-                                if (read_gravity) then
-                                    call getvarvalue(reg,dx,xtemp,tempvar,tempson,varname,myval,trans_matrix,tempgrav_var)
-                                else
-                                    call getvarvalue(reg,dx,xtemp,tempvar,tempson,varname,myval,trans_matrix)
-                                endif
                                 ! Position to kpc
-                                xtemp = xtemp * (sim%unit_l*cm2kpc)
+                                xtemp = xtemp * (sim%unit_l*sim%boxlen*cm2kpc)
                                 x(i,:) = xtemp
                                 xtempmin = x(i,:) - dx2kpc/2D0
                                 xtempmax = x(i,:) + dx2kpc/2D0
-                                ! TODO: Change for the different methods
-                                myval = myval * (sim%unit_d*gcm32msunpc3)
-                                write(7,100)xtempmin%x,xtempmin%y,xtempmin%z,&
-                                            xtempmax%x,xtempmax%y,xtempmax%z,&
-                                            myval
-                                100 format(6F10.6,F16.12)
+                                if (separate_dust) then
+                                    ! In case we want the separate dust species
+                                    dust_names = 'smallC_density'
+                                    call getvarvalue(reg,dx,xtemp,tempvar,tempson,dust_names,smallC_rho,trans_matrix)
+                                    smallC_rho = smallC_rho * (sim%unit_d*gcm32msunpc3)
+
+                                    dust_names = 'largeC_density'
+                                    call getvarvalue(reg,dx,xtemp,tempvar,tempson,dust_names,largeC_rho,trans_matrix)
+                                    largeC_rho = largeC_rho * (sim%unit_d*gcm32msunpc3)
+
+                                    dust_names = 'smallSil_density'
+                                    call getvarvalue(reg,dx,xtemp,tempvar,tempson,dust_names,smallSil_rho,trans_matrix)
+                                    smallSil_rho = smallSil_rho * (sim%unit_d*gcm32msunpc3)
+
+                                    dust_names = 'largeSil_density'
+                                    call getvarvalue(reg,dx,xtemp,tempvar,tempson,dust_names,largeSil_rho,trans_matrix)
+                                    largeSil_rho = largeSil_rho * (sim%unit_d*gcm32msunpc3)
+
+                                    dust_names = 'dust_density'
+                                    call getvarvalue(reg,dx,xtemp,tempvar,tempson,dust_names,myval,trans_matrix)
+                                    myval = myval * (sim%unit_d*gcm32msunpc3)
+                                    total_dust_mass = total_dust_mass + myval * ((dx2kpc*1d3) ** 3d0)
+
+                                    write(7,120)xtempmin%x,xtempmin%y,xtempmin%z,&
+                                                xtempmax%x,xtempmax%y,xtempmax%z,&
+                                                myval,smallC_rho,largeC_rho,&
+                                                smallSil_rho,largeSil_rho 
+                                    120 format(6F10.6,5F16.12)
+                                else
+                                    call getvarvalue(reg,dx,xtemp,tempvar,tempson,varname,myval,trans_matrix)
+                                    myval = myval * (sim%unit_d*gcm32msunpc3)
+                                    total_dust_mass = total_dust_mass + myval * ((dx2kpc*1d3) ** 3d0)
+                                    write(7,130)xtempmin%x,xtempmin%y,xtempmin%z,&
+                                                xtempmax%x,xtempmax%y,xtempmax%z,&
+                                                myval
+                                    130 format(6F10.6,F16.12)
+                                end if
                             endif
                             deallocate(tempvar,tempson)
                             if (read_gravity) deallocate(tempgrav_var)
@@ -1185,7 +1237,8 @@ module export_amr
         end do cpuloop
 
         close(7)
-        write(*,*)'Number of cells in the CPU read: ', cpu_ncell
-        write(*,*)'Total number of cells used:      ', total_ncell
+        write(*,*)'Number of cells in the CPU read:        ', cpu_ncell
+        write(*,*)'Total number of cells used:             ', total_ncell
+        write(*,*)'Total dust mass [Msun] in cells used:   ', total_dust_mass
     end subroutine amr2skirt
 end module export_amr
