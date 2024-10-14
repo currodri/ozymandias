@@ -40,16 +40,6 @@ class Snapshot(object):
         obj.save(self.outfile)
         
         obj = None
-        
-def print_art():
-    from art import text2art
-
-    from ozy.__version__ import VERSION
-    copywrite = '   (C) 2021 F. Rodriguez Montero'
-    version   = '   Version %s' % VERSION
-
-    art =  text2art("Ozymandias","ogre")
-    print('\n%s\n%s\n%s\n' % (art, copywrite, version))
 
 def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
           build_HaloMaker=True, extension='hdf5', prefix='ozy_', **kwargs):
@@ -74,8 +64,6 @@ def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
         nprocs = 1
         rank = 0
     
-    if rank == 0:
-        print_art()
     snaps = []
     for snapdir in snapdirs:
         for snapindex in snapindexes:
@@ -88,6 +76,3 @@ def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
     
     if progen:
         ozy.progen.run_progen(snapdirs, snapname, snapindexes, prefix=prefix, extension=extension, **kwargs)
-
-if __name__ == '__main__':
-    print_art()

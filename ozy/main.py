@@ -173,21 +173,26 @@ class OZY(object):
             # Make assignment
             assign.galaxies_to_halos(self)
 
-            # Now process galaxies using their assigned halo
-            main_gal_ID = -1
-            if 'main_gal' in self._kwargs:
-                if self._kwargs['main_gal']:
-                    print('Computing details just for main galaxy in simulation.')
-                    masses = [i.virial_quantities['mass'] for i in self.galaxies]
-                    main_gal_ID = self.galaxies[np.argmax(masses)].ID
-                    
-            if main_gal_ID != -1:
-                for gal in self.galaxies:
-                    gal._empty_galaxy()
-                self.galaxies[np.argmax(masses)]._process_galaxy()
+            if 'process_galaxies' in self._kwargs:
+                if self._kwargs['process_galaxies']:
+                    # Now process galaxies using their assigned halo
+                    print('Starting analysis of galaxies...')
+                    main_gal_ID = -1
+                    if 'main_gal' in self._kwargs:
+                        if self._kwargs['main_gal']:
+                            print('Computing details just for main galaxy in simulation.')
+                            masses = [i.virial_quantities['mass'] for i in self.galaxies]
+                            main_gal_ID = self.galaxies[np.argmax(masses)].ID
+                            
+                    if main_gal_ID != -1:
+                        for gal in self.galaxies:
+                            gal._empty_galaxy()
+                        self.galaxies[np.argmax(masses)]._process_galaxy()
+                    else:
+                        for gal in self.galaxies:
+                            gal._process_galaxy()
             else:
-                for gal in self.galaxies:
-                    gal._process_galaxy()
+                print('Galaxies not being processed, so just basic catalogue!')
 
             # Link objects between each other
             link.galaxies_to_halos(self)
@@ -206,4 +211,3 @@ class OZY(object):
         """Method to briefly print information for the most massive halos in the catalogue."""
         from ozy.utils import info_printer
         info_printer(self, 'halo', top)
-

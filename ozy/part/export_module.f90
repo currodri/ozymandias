@@ -24,7 +24,23 @@ module export_part
     use filtering
     use cosmology
 
+    type chunk_handler
+        integer :: nvars,npart,npartsaved
+        character(128),dimension(:),allocatable :: varnames
+        character(128) :: ptype
+        type(filter) :: filt
+        real(dbl),dimension(:,:),allocatable :: data
+    end type chunk_handler
+
     contains
+
+    subroutine allocate_chunk_handler(chunk)
+        implicit none
+        type(chunk_handler),intent(inout) :: chunk
+
+        if (.not.allocated(chunk%varnames)) allocate(chunk%varnames(1:chunk%nvars))
+    end subroutine allocate_chunk_handler
+
 
     subroutine part2skirt(repository,reg,filt,h,smoothmethod,sedmethod,outpath)
         use vectors
@@ -450,5 +466,222 @@ module export_part
         write(*,102)npartsaved
         102 format('File includes ',I12,' DM particles')
     end subroutine part2disperse
+
+    subroutine part2chunk(repository,reg,chunk)
+        use vectors
+        use coordinate_systems
+        use geometrical_regions
+
+        implicit none
+        ! Input/output variables
+        character(128),intent(in) :: repository
+        type(region),intent(in) :: reg
+        type(chunk_handler),intent(inout) :: chunk
+
+        ! Specific variables for this subroutine
+        logical :: ok_part,ok_filter
+        integer :: roterr
+        integer :: i,j,k
+        integer :: ipos,icpu,binpos,ivar
+        integer :: npart,npart2,nstar,inpart=0
+        integer :: ncpu2,ndim2
+        integer :: npartsaved
+        real(dbl) :: distance,tempage,dx,mapvalue
+        character(5) :: nchar,ncharcpu
+        character(6) :: ptype
+        character(128) :: nomfich,varname
+        type(vector) :: xtemp,vtemp
+        type(particle) :: part
+#ifndef LONGINT
+        integer(irg),dimension(:),allocatable :: id
+#else
+        integer(ilg),dimension(:),allocatable :: id
+#endif
+        integer(1),dimension(:), allocatable :: part_tags
+        real(dbl),dimension(:),allocatable :: m,age,met
+        real(dbl),dimension(:),allocatable :: imass
+        real(dbl),dimension(:,:),allocatable :: x,v
+
+        ! Obtain details of the hydro variables stored
+        call read_hydrofile_descriptor(repository)
+
+        ! Initialise parameters of the AMR structure and simulation attributes
+        call init_amr_read(repository)
+        amr%lmax = amr%nlevelmax
+
+        ! Check if particle data uses family
+        if (sim%dm .and. sim%hydro) call check_families(repository)
+
+        ! Compute the Hilbert curve
+        call get_cpu_map(reg)
+        write(*,*)'ncpu_read:',amr%ncpu_read
+
+        ! Cosmological model
+        if (sim%aexp.eq.1.and.sim%h0.eq.1)sim%cosmo=.false.
+        if (sim%cosmo) then
+            call cosmology_model
+        else
+            sim%time_simu = sim%t
+            write(*,*)'Age simu=',sim%time_simu*sim%unit_t/(365.*24.*3600.*1d9)
+        endif
+
+#ifndef IMASS
+        if (sim%eta_sn .eq. -1D0) then
+            write(*,*)': eta_sn=-1 and not IMASS --> should set this up!'
+            stop
+        end if
+#endif
+
+        ! Check number of particles in selected CPUs
+        ipos = INDEX(repository,'output_')
+        nchar = repository(ipos+7:ipos+13)
+        npart = 0
+        do k=1,amr%ncpu_read
+            icpu = amr%cpu_list(k)
+            call title(icpu,ncharcpu)
+            nomfich=TRIM(repository)//'/part_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+            open(unit=1,file=nomfich,status='old',form='unformatted')
+            read(1)ncpu2
+            read(1)ndim2
+            read(1)npart2
+            read(1)
+            read(1)nstar
+            close(1)
+            npart=npart+npart2
+        end do
+        write(*,*)'Found ',npart,' particles.'
+        if(nstar>0)then
+            write(*,*)'Found ',nstar,' star particles.'
+        endif
+
+        ! Allocate the data chunk
+        if (.not.allocated(chunk%data)) allocate(chunk%data(1:chunk%nvars,1:npart))
+
+
+        npartsaved = 0
+
+        cpuloop: do k=1,amr%ncpu_read
+            icpu = amr%cpu_list(k)
+            call title(icpu,ncharcpu)
+            nomfich=TRIM(repository)//'/part_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+            open(unit=1,file=nomfich,status='old',form='unformatted')
+            read(1)ncpu2
+            read(1)ndim2
+            read(1)npart2
+            read(1)
+            read(1)
+            read(1)
+            read(1)
+            read(1)
+            allocate(m(1:npart2))
+            allocate(id(1:npart2))
+            if(nstar>0)then
+                allocate(age(1:npart2))
+                allocate(met(1:npart2))
+                allocate(imass(1:npart2))
+#ifndef IMASS
+                if (sim%family) allocate(part_tags(1:npart2))
+#endif
+            endif
+            allocate(x(1:npart2,1:ndim2))
+            allocate(v(1:npart2,1:ndim2))
+
+            ! Read position
+            do i=1,amr%ndim
+                read(1)m
+                x(1:npart2,i) = m/sim%boxlen
+            end do
+
+            ! Read velocity
+            do i=1,amr%ndim
+                read(1)m
+                v(1:npart2,i) = m
+            end do
+
+            ! Read mass
+            read(1)m
+            read(1)id
+            read(1) ! Skip level
+            if (nstar>0) then
+                if (sim%family) then
+                    read(1) ! Skip family
+#ifndef IMASS
+                    read(1)part_tags
+#else
+                    read(1) ! Skip tags
+#endif
+                endif
+                read(1)age
+                read(1)met
+#ifdef IMASS
+                read(1)imass
+#endif
+            elseif (nstar .eq. 0) then
+                read(1)id
+            endif
+            close(1)
+
+            ! Get variable info for particles in the 
+            ! region of interest
+            partloop: do i=1,npart2
+                distance = 0D0
+                mapvalue = 0D0
+                part%x = x(i,:)
+                part%v = v(i,:)
+                part%m = m(i)
+                if (nstar>0) then
+                    part%id = id(i)
+                    part%age = age(i)
+                    part%met = met(i)
+#ifdef IMASS
+                    part%imass = imass(i)
+#else
+                    part%imass = 0D0
+                    if (sim%family) then
+                        if (part_tags(i)==1) then
+                            part%imass = m(i)
+                        elseif (part_tags(i)==0.or.part_tags(i)==-1) then
+                            part%imass = m(i) / (1D0 - sim%eta_sn)
+                        end if
+                    else
+                        part%imass = m(i) / (1D0 - sim%eta_sn)
+                    end if
+#endif
+                else
+                    part%id = 0
+                    part%age = 0D0
+                    part%met = 0D0
+                    part%imass = 0D0
+                endif
+                ! Check if particle is inside the desired region
+                part%x = part%x - reg%centre
+                x(i,:) = part%x
+                call checkifinside(x(i,:),reg,ok_part,distance)
+                ok_filter = filter_particle(reg,chunk%filt,part)
+                ok_part = ok_part.and.ok_filter
+                call getparttype(part,ptype)
+                if (ok_part.and.(ptype.eq.chunk%ptype)) then
+                    npartsaved = npartsaved + 1
+                    part%x = part%x + reg%centre
+                    partvarloop: do ivar=1,chunk%nvars
+                        call getpartvalue(reg,part,chunk%varnames(ivar),mapvalue,xtemp)
+                        chunk%data(ivar,npartsaved) = mapvalue
+                    end do partvarloop
+                endif
+            end do partloop
+            inpart = inpart + npart2
+            deallocate(m,x,v)
+            if (allocated(id))deallocate(id)
+            if (nstar>0)deallocate(age,met,imass)
+#ifndef IMASS
+            if (nstar>0.and.sim%family)deallocate(part_tags)
+#endif
+        end do cpuloop
+        
+        close(7)
+        write(*,102)npartsaved
+        102 format('Particles saved in chunk: ',I12)
+        chunk%npartsaved = npartsaved
+    end subroutine part2chunk
 
 end module export_part
