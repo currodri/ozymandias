@@ -1,5 +1,6 @@
 import numpy as np
 from ozy.sim_attributes import SimulationAttributes
+from ozy.utils import get_mu,get_electron_mu
 from unyt import UnitRegistry,unyt_array,unyt_quantity
 
 class OZY(object):
@@ -63,13 +64,14 @@ class OZY(object):
 
     def _get_unit_registry(self):
         from unyt.dimensions import length,mass,time,temperature,dimensionless,magnetic_field_cgs
-        from unyt import mp,kb
+        from unyt import mp,kb,erg,K,g
         
         registry = UnitRegistry(unit_system='cgs')
 
         _X = 0.76  # H fraction, hardcoded
         _Y = 0.24  # He fraction, hardcoded
-        mean_molecular_weight_factor = _X ** -1
+        mean_molecular_weight_factor = get_mu(_X, _Y)
+        electron_molecular_weight_factor = get_electron_mu(_X, _Y)
 
         # unyt stores internally in MKS units (m,kg,s), so a couple of
         # transformations are required to the CGS units in RAMSES
@@ -77,11 +79,14 @@ class OZY(object):
         density_unit = self._info["unit_d"] * 1e+3 # g/cm**3 to kg/m**3
         time_unit = self._info["unit_t"]
         mass_unit = density_unit * length_unit ** 3
-        magnetic_unit = length_unit * (density_unit**0.5) / time_unit
+        magnetic_unit = np.sqrt(4. *np.pi) * length_unit * (density_unit**0.5) / time_unit
         velocity_unit = length_unit / time_unit
         pressure_unit = density_unit * (length_unit / time_unit) ** 2
         temperature_unit = velocity_unit ** 2 * mp.to('kg').d * mean_molecular_weight_factor / kb.to('kg*m**2/(K*s**2)').d
-        s_entropy_unit = mean_molecular_weight_factor * kb.to('kg*m**2/(K*s**2)').d / mp.to('kg').d
+        s_entropy_unit = 1.4e+8 * erg / K / g
+        s_entropy_unit = float(s_entropy_unit.to('m**2/s**2/K').d)
+        pseudo_entropy_unit = (mp.to('kg').d**(5./3.)) * mean_molecular_weight_factor * electron_molecular_weight_factor**(2./3.) * pressure_unit / (density_unit**(5./3.))
+
 
         # Code length
         registry.add("code_length", base_value=length_unit, dimensions=length)
@@ -101,6 +106,7 @@ class OZY(object):
         # Code specific energy
         registry.add("code_specific_energy", base_value=velocity_unit**2, 
                     dimensions=(length**2)/(time**2))
+
         # Code magnetic in Lorentz-Heavyside rational units
         registry.add("code_magnetic", base_value=magnetic_unit, 
                     dimensions=magnetic_field_cgs)
@@ -117,6 +123,9 @@ class OZY(object):
         # Code specific entropy
         registry.add("code_specific_entropy", base_value=s_entropy_unit, 
                     dimensions=(length**2)/(temperature*time**2))
+        # Code pseudo-entropy
+        registry.add('code_pseudo_entropy',base_value=pseudo_entropy_unit,
+                    dimensions=mass*(length**4)/(time**2))
 
         return registry
 

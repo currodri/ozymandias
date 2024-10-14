@@ -95,27 +95,34 @@ class Projection(object):
                         if numflag:
                             sfrstr = field.split('/')[1].split('_')[0] +'_'+ field.split('/')[1].split('_')[1]
                             code_units = get_code_units(sfrstr)
+                            units = plotting_dictionary[sfrstr]['units']
                         else:
                             code_units = get_code_units(field.split('/')[1])
-                        temp_map = self.group.obj.array(imap[i],code_units)
-                        first_unit = True
-                        make_div = False
-                        if len(code_units.split('/')) != 1:
-                            make_div = True
-                            code_units = code_units.replace('/','*')
-                        for u in code_units.split('*'):
-                            if first_unit:
-                                units = unit_system[u]
-                                first_unit = False
-                                units_check = u
+                            if datatype == 'star' or datatype == 'dm':
+                                field_str = field.split('/')[0] + '_' + field.split('/')[1]
                             else:
-                                if make_div:
-                                    units += '/'+unit_system[u]
-                                else:
-                                    units += '*'+unit_system[u]
-                                units_check +='_'+u
-                        if units_check in unit_system:
-                            units = unit_system[units_check]
+                                field_str = field.split('/')[1]
+                            units = plotting_dictionary[field_str]['units']                            
+                        temp_map = self.group.obj.array(imap[i],code_units)
+                        # first_unit = True
+                        # make_div = False
+                        # if len(code_units.split('/')) != 1:
+                        #     make_div = True
+                        #     code_units = code_units.replace('/','*')
+                        # for u in code_units.split('*'):
+                        #     if first_unit:
+                        #         units = unit_system[u]
+                        #         first_unit = False
+                        #         units_check = u
+                        #     else:
+                        #         if make_div:
+                        #             units += '/'+unit_system[u]
+                        #         else:
+                        #             units += '*'+unit_system[u]
+                        #         units_check +='_'+u
+                        # if units_check in unit_system:
+                        #     units = unit_system[units_check]
+                        
                         if first:
                             hdu = fits.PrimaryHDU(np.array(temp_map.in_units(units)))
                             first = False
@@ -352,11 +359,13 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
                     pov='faceon',lmax=100,lmin=1,type_projection='gauss_deposition', window=(0.0,'kpc'),
                     rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(0.0,'rvir'), xmax=(0.2,'rvir'),
                     ymin=(0.0,'rvir'), ymax=(0.2,'rvir'),zmin=(0.0,'rvir'), zmax=(0.2,'rvir'),
-                    mycentre=([0.5,0.5,0.5],'rvir'), myaxis=np.array([1.,0.,0.]), thickness=(0.0,'kpc'),
+                    mycentre=([0.5,0.5,0.5],'rvir'), myaxis=np.array([1.,0.,0.]),up_axis=np.array([1.,0.,0.]),
+                    thickness=(0.0,'kpc'),
                     nexp_factor = 1.0,
                     tag_file=None,
                     inverse_tag=False, remove_subs=False,
-                    filter_conds=['none'],filter_name=['none']):
+                    filter_conds=['none'],filter_name=['none'],
+                    verbose=False):
     """Function which computes a 2D projection centered on an objected from an OZY file."""
 
     if not isinstance(weight,list):
@@ -499,8 +508,13 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         up_vector.x, up_vector.y, up_vector.z = 0.0, 1.0, 0.0
         rmax = window
         region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
-        distance = rmax
-        far_cut_depth = rmax
+        if thickness[0] != 0.0:
+            thickness_value = group.obj.quantity(thickness[0],thickness[1]).in_units('code_length').d
+            distance = 0.5*thickness_value
+            far_cut_depth = 0.5*thickness_value
+        else:
+            distance = rmax
+            far_cut_depth = rmax
         enclosing_sphere_p = group.position
         enclosing_sphere_r = rmax
     elif proj.pov == 'y':
@@ -512,8 +526,13 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         up_vector.x, up_vector.y, up_vector.z = 1.0, 0.0, 0.0
         rmax = window
         region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
-        distance = rmax
-        far_cut_depth = rmax
+        if thickness[0] != 0.0:
+            thickness_value = group.obj.quantity(thickness[0],thickness[1]).in_units('code_length').d
+            distance = 0.5*thickness_value
+            far_cut_depth = 0.5*thickness_value
+        else:
+            distance = rmax
+            far_cut_depth = rmax
         enclosing_sphere_p = group.position
         enclosing_sphere_r = rmax
     elif proj.pov == 'z':
@@ -525,8 +544,13 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         up_vector.x, up_vector.y, up_vector.z = 1.0, 0.0, 0.0
         rmax = window
         region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
-        distance = rmax
-        far_cut_depth = rmax
+        if thickness[0] != 0.0:
+            thickness_value = group.obj.quantity(thickness[0],thickness[1]).in_units('code_length').d
+            distance = 0.5*thickness_value
+            far_cut_depth = 0.5*thickness_value
+        else:
+            distance = rmax
+            far_cut_depth = rmax
         enclosing_sphere_p = group.position
         enclosing_sphere_r = rmax
     elif proj.pov == 'top_midplane':
@@ -568,11 +592,10 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
         axis = vectors.vector()
         norm_L = myaxis/np.linalg.norm(myaxis)
-        up = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
-        up /= np.linalg.norm(up)
+        up = up_axis / np.linalg.norm(up_axis)
         axis.x,axis.y,axis.z = norm_L[0], norm_L[1], norm_L[2]
         up_vector = vectors.vector()
-        up_vector.x, up_vector.y, up_vector.z = -up[0], -up[1], -up[2]
+        up_vector.x, up_vector.y, up_vector.z = up[0], up[1], up[2]
         rmax = window
         region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
         distance = rmax
@@ -697,7 +720,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     
     # COMPUTE HYDRO PROJECTION
     if len(proj.vars['gas']) != 0:
-        print('Performing hydro projection for '+str(len(proj.vars['gas']))+' variables')
+        if verbose: print('Performing hydro projection for '+str(len(proj.vars['gas']))+' variables')
         if lmax != 0 or lmin != 0:
             maps.projection_hydro(group.obj.simulation.fullpath,type_projection,cam,use_neigh,
                                   hydro_handler,int(lmax),int(lmin),nexp_factor)
@@ -904,7 +927,6 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
             else:
                 cImage = hdul[h].data.T
             if logscale and fields[ivar].split('/')[1] not in symlog_variables:
-                
                 plot = ax[i,j].imshow(np.log10(cImage), cmap=plotting_def['cmap'],
                                 origin='upper',vmin=np.log10(plotting_def['vmin'+type_scale]),
                                 vmax=np.log10(plotting_def['vmax'+type_scale]),extent=ex,
@@ -1762,7 +1784,7 @@ def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=(3,'kpc'),r
 
 def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,pov='edgeon',
                           r=(1.0,'rvir'),dr=(1./150.,'rvir'),rmin=None,lmax=100,lmin=1,remove_subs=False,
-                          filter_conds=['none'],filter_name=['none'],use_neigh=False):
+                          filter_conds=['none'],filter_name=['none'],use_neigh=False,myaxis=np.array([1.,0.,0.])):
     """Function which computes a 2D spherical projection of particular object using the HEALPix
         pixelisation scheme."""
     
@@ -1823,6 +1845,38 @@ def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,
     region_axis.x,region_axis.y,region_axis.z = norm_L[0], norm_L[1], norm_L[2]
     
     if pov == 'edgeon':
+        los = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
+        los /= np.linalg.norm(los)
+        axis = vectors.vector()
+        axis.x,axis.y,axis.z = los[0], los[1], los[2]
+        up_vector = vectors.vector()
+        up_vector.x,up_vector.y,up_vector.z = norm_L[0], norm_L[1], norm_L[2]
+        if r[1] == 'rvir':
+            rmax = r[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius']
+        else:
+            rmax = group.obj.quantity(r[0],r[1]).in_units('code_length')
+        if rmin == None:
+            if dr[1] == 'rvir':
+                dr = dr[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius']
+            else:
+                dr = group.obj.quantity(dr[0],dr[1]).in_units('code_length')
+            distance = rmax - 0.5*dr
+            far_cut_depth = rmax + 0.5*dr
+        else:
+            if rmin[1] == 'rvir':
+                rmin = rmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius']
+            else:
+                rmin = group.obj.quantity(rmin[0],rmin[1]).in_units('code_length')
+            distance = rmin
+            far_cut_depth = rmax
+        region_size = np.array([2.0*far_cut_depth,2.0*far_cut_depth],order='F',dtype=np.float64)
+
+        # Update projection details with the ones used for the region
+        proj.up_vector = norm_L
+        proj.centre = group.position[:]
+        proj.nside = nside
+    elif pov == 'custom':
+        norm_L = myaxis/np.linalg.norm(myaxis)
         los = cartesian_basis['x'] - np.dot(cartesian_basis['x'],norm_L)*norm_L
         los /= np.linalg.norm(los)
         axis = vectors.vector()
@@ -1986,7 +2040,8 @@ def load_single_galaxy_healpix(proj_FITS,field,filter_name='none'):
 
     return data,nside,target_wcs
 
-def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False,fig_format='png'):
+def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False,fig_format='png',
+                               type_scale='',filter_name='none'):
     """This function uses the HEALPix projection information in a FITS file following
         the OZY format and plots it using the OZY standards."""
 
@@ -2002,24 +2057,30 @@ def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False,fig
     from astropy.wcs import WCS
     from astropy.visualization.wcsaxes.frame import EllipticalFrame
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-    sns.set(style="dark")
-    plt.rcParams["axes.axisbelow"] = False
-    # plt.rc('text', usetex=True)
-    # plt.rc('font', family='serif')
-    # hfont = {'fontname':'Helvetica'}
-    # matplotlib.rc('text', usetex = True)
-    # matplotlib.rc('font', **{'family' : "serif"})
-    # params= {'text.latex.preamble' : [r'\usepackage{amsmath}']}
-    # matplotlib.rcParams.update(params)
+    from ozy.utils import invert_tick_colours
+    sns.set_theme(style="dark")
+    plt.rcParams.update({
+    "text.usetex": True,
+    "font.family": "serif",
+    "font.serif": "Computer Modern Roman",
+    })
 
     # First, check that the FITS file actually exists
     if not os.path.exists(proj_FITS):
         raise ImportError('File not found. Please check!')
     
+    # Add filter identification to the field
+    hdul = fits.open(proj_FITS)
+    hdul_filtername = ['COND_0' in h.header for h in hdul]
+    if any(hdul_filtername):
+        for f in range(0,len(fields)):
+            fields[f] = fields[f] + '/' + filter_name
+    else:
+        print('WARNING: This FITS file does not have filter information, so anything you added will be ignored!')
+    
     # Load FITS file
     hdul = fits.open(proj_FITS)[1]
     hdul_fields = hdul.data.columns.names
-
     # Check that the required fields for plotting are in this FITS
     for i,f in enumerate(fields):
         if f not in hdul_fields:
@@ -2034,7 +2095,7 @@ def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False,fig
     # Since everything is fine, we begin plotting…
     nside = hdul.header["NSIDE"]
     ncolumns = int(len(fields)/2)
-    figsize = plt.figaspect(float(8 * 2) / float(9 * ncolumns))
+    figsize = plt.figaspect(float(6 * 2) / float(9 * ncolumns))
     fig = plt.figure(figsize=figsize)
     plot_grid = fig.add_gridspec(2, ncolumns)
     axes = []
@@ -2071,16 +2132,18 @@ def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False,fig
                 plotting_def = plotting_dictionary[fields[ivar].split('/')[1]]
             if logscale:
                 if fields[ivar].split('/')[1] not in symlog_variables:
-                    plot = ax.imshow(array, cmap=plotting_def['cmap'],
-                                    norm=LogNorm(vmin=plotting_def['vmin_cgm'],
-                                    vmax=plotting_def['vmax_cgm']))
+                    plot = ax.imshow(np.log10(array), cmap=plotting_def['cmap'],
+                                    vmin=np.log10(plotting_def['vmin'+type_scale]),
+                                    vmax=np.log10(plotting_def['vmax'+type_scale]))
                 else:
                     plot = ax.imshow(array, cmap=plotting_def['cmap'],
-                                    vmin=plotting_def['vmin_cgm'],
-                                    vmax=plotting_def['vmax_cgm'])
+                                    norm=SymLogNorm(linthresh=plotting_def['linthresh'], 
+                                                                   linscale=plotting_def['linscale'],
+                                                                   vmin=plotting_def['vmin'+type_scale], 
+                                                                   vmax=plotting_def['vmax'+type_scale]))
             else:
                 plot = ax.imshow(array, cmap=plotting_def['cmap'],
-                                vmin=plotting_def['vmin_cgm'],vmax=plotting_def['vmax_cgm'])
+                                vmin=plotting_def['vmin'+type_scale],vmax=plotting_def['vmax'+type_scale])
             ax.coords.grid(color=plotting_def['text_over'],linewidth=0.8,alpha=0.4,linestyle=':')
             # ax.coords['ra'].set_ticklabel(color=plotting_def['text_over'])
             ax.coords['ra'].set_ticklabel_visible(False)
@@ -2089,25 +2152,40 @@ def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False,fig
             ax.coords['dec'].set_ticklabel_position('lb')
             fontprops = fm.FontProperties(size=14)
             if i == 0:
-                cbaxes = inset_axes(ax, width="80%", height="7%", loc='upper center',
+                cbaxes = inset_axes(ax, width="80%", height="10%", loc='upper center',
                                     bbox_to_anchor=(0.0, 0.2, 1, 1.),
                                     bbox_transform=ax.transAxes)
-                axcb = fig.colorbar(plot, cax = cbaxes, orientation='horizontal',pad=2)
-                axcb.set_label(plotting_def['label'], fontsize=16,labelpad=-50, y=0.85)
-                axcb.ax.xaxis.set_ticks_position("top")
+                axcb = fig.colorbar(plot, cax = cbaxes, orientation='horizontal',pad=0.3)
+                if logscale and fields[ivar].split('/')[1] not in symlog_variables:
+                    axcb.set_label(plotting_def['label_log'],color='black',fontsize=14,labelpad=-32)
+                else:
+                    axcb.set_label(plotting_def['label'],color='black',fontsize=14,labelpad=-32)
+                axcb.ax.tick_params(axis='x', pad=-10, labelsize=12,labelcolor='white')
+                axcb.outline.set_linewidth(1)
+                axcb.ax.set_axisbelow(False)
+                invert_tick_colours(axcb.ax,fields[ivar].split('/')[1],'_cgm')
+                axcb.ax.tick_params(length=0,width=0)
             else:
-                cbaxes = inset_axes(ax, width="80%", height="7%", loc='lower center',
+                cbaxes = inset_axes(ax, width="80%", height="10%", loc='lower center',
                                     bbox_to_anchor=(0.0, -0.2, 1., 1.),
                                     bbox_transform=ax.transAxes)
                 axcb = fig.colorbar(plot, cax = cbaxes, orientation='horizontal',pad=0.3)
-                axcb.set_label(plotting_def['label'], fontsize=16)
+                if logscale and fields[ivar].split('/')[1] not in symlog_variables:
+                    axcb.set_label(plotting_def['label_log'],color='black',fontsize=14)
+                else:
+                    axcb.set_label(plotting_def['label'],color='black',fontsize=14)
+                axcb.ax.tick_params(axis='x', pad =-10, labelsize=12,labelcolor='white')
+                axcb.outline.set_linewidth(1)
+                axcb.ax.set_axisbelow(False)
+                invert_tick_colours(axcb.ax,fields[ivar].split('/')[1],'_cgm')
+                axcb.ax.tick_params(length=0,width=0)
     if redshift:
         fig.text(0.5, 0.5, 'z = '+str(round(hdul.header['REDSHIFT'], 2)),
                 fontsize=18,va='center',
                 color=plotting_def['text_over'])
-    # fig.subplots_adjust(hspace=0, wspace=0,top = 0.95,bottom = 0.02,left = 0.02,right = 0.98)
-    if stellar:
-        fig.savefig(proj_FITS.split('.')[0]+f'_stars.{fig_format}',format=fig_format,dpi=300)
+    fig.subplots_adjust(hspace=0, wspace=0,top = 0.90,bottom = 0.12,left = 0.02,right = 0.98)
+    if filter_name != 'none':
+        fig.savefig(proj_FITS.split('.')[0]+'_'+filter_name+f'.{fig_format}',format=fig_format,dpi=300)
     else:
         fig.savefig(proj_FITS.split('.')[0]+f'.{fig_format}',format=fig_format,dpi=300)
 

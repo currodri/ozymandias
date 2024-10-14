@@ -3,6 +3,7 @@ import os
 import h5py
 import numpy as np
 from unyt import unyt_array, unyt_quantity
+from ozy.lazy_classes import LazyList,LazyDataset,LazyDict
 
 blacklist = [
     'G', 'initial_mass',
@@ -104,17 +105,24 @@ def _write_attrib(obj_list, k, v, hd):
 
 def _write_dict(obj_list, k, v, hd):
     for kk, vv in v.items():
-        unit = False
         if isinstance(vv, (unyt_quantity, unyt_array)):
             data = np.array([getattr(i,k)[kk].d for i in obj_list])
             unit = True
+        elif isinstance(vv, LazyDataset):
+            if vv.units != None:
+                data = np.array([getattr(i,k)[kk].d for i in obj_list])
+                unit = True
+            else:
+                data = np.array([getattr(i,k)[kk] for i in obj_list])
+                unit =False
         else:
             data = np.array([getattr(i,k)[kk] for i in obj_list])
+            unit =False
             
         indices = [i._index for i in obj_list]
         
         _write_dataset('%s.%s' % (k,kk), data, hd, indices)
-        
+
         if unit:
             if not 'unit' in hd['%s.%s' % (k,kk)].attrs:
                 hd['%s.%s' % (k,kk)].attrs.create('unit', str(vv.units).encode('utf8'))

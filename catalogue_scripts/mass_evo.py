@@ -16,7 +16,8 @@ import seaborn as sns
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
-sns.set(style="white")
+import resource
+sns.set_theme(style="white")
 plt.rcParams.update({
     "text.usetex": True,
     "font.family": "serif",
@@ -43,6 +44,11 @@ names = {'cosmoNUThd':'HD',
         'cosmoNUTcrmhd\_3e29':'3e29CRMHD',
         'cosmoNUTrtcrmhd':'RTCRMHD'
         }
+def memory_usage():
+    """
+    Get the current memory usage of the process in gigabytes.
+    """
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1024 * 1024)
 
 if __name__ == '__main__':
 
@@ -416,14 +422,17 @@ if __name__ == '__main__':
                 except:
                     print('I have lost this galaxy in the snapshot %s'%ozyfile)
                     progind = -1
+                del sim
+            # Print the current memory usage in gigabytes
+            print(f"Memory usage: {memory_usage():.2f} GB")
 
             stellar_mass = galaxy_masses[::-1]
             gas_mass = galaxy_gas[::-1]
             cold_mass = galaxy_cold[::-1]
             time = galaxy_time[::-1]
-            axes[0].plot(time, stellar_mass, marker='o', markersize=2, label=names[args.model[i]], color=line_dict[args.model[i]])
-            axes[1].plot(time, gas_mass, marker='o', markersize=2, label=names[args.model[i]], color=line_dict[args.model[i]])
-            axes[1].plot(time, cold_mass, marker='v', markersize=2, linestyle='--', color=line_dict[args.model[i]], alpha=0.6)
+            axes[0].plot(time, stellar_mass, linewidth=3, label=names[args.model[i]], color=line_dict[args.model[i]])
+            axes[1].plot(time, gas_mass, linewidth=3, label=names[args.model[i]], color=line_dict[args.model[i]])
+            axes[1].plot(time, cold_mass, linewidth=2, linestyle='--', color=line_dict[args.model[i]], alpha=0.6)
             
         ax = axes[0]
         ax.set_xlabel(r'$t$ [Gyr]', fontsize=20)

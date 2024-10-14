@@ -24,6 +24,7 @@ class Group(object):
         """Initialise basic properties of group object."""
         self.obj      = obj
         self.ID       = -1
+        self._index   = -1
         self.level    = -1
         self.host     = -1
         self.hostsub  = -1
@@ -269,6 +270,7 @@ class Galaxy(Group):
         # - wvarnames:  names of variables for weighting
         # - data: organised in numpy array of shape (nvars,nwvars,4)
         #           each of those 4 values are (final, min, max, sum of weights)
+        
         glob_attrs = part_integrator.part_region_attrs()
         glob_attrs.nvars = 11
         glob_attrs.nwvars = 2

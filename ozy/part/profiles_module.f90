@@ -2,19 +2,25 @@ module part_profiles
     use local
     use io_ramses
     use filtering
+    use geometrical_regions
+    use stats_utils
     use cosmology
 
     type profile_handler
-        logical :: logscale
-        integer :: profdim
+        character(128) :: scaletype
+        integer :: profdim,nfilter=1,zero_index
         character(128) :: xvarname
         integer :: nyvar
         character(128),dimension(:),allocatable :: yvarnames
         integer :: nbins
         integer :: nwvar
+        integer :: nsubs=0
         character(128),dimension(:),allocatable :: wvarnames
+        real(dbl) :: linthresh
         real(dbl),dimension(:),allocatable :: xdata
-        real(dbl),dimension(:,:,:,:),allocatable :: ydata
+        type(pdf_handler),dimension(:),allocatable :: ydata
+        type(region),dimension(:),allocatable :: subs
+        type(filter),dimension(:),allocatable :: filters
     end type profile_handler
 
     contains
@@ -22,157 +28,159 @@ module part_profiles
         implicit none
         type(profile_handler),intent(inout) :: prof
 
-        if (.not.allocated(prof%yvarnames)) allocate(prof%yvarnames(prof%nyvar))
-        if (.not.allocated(prof%wvarnames)) allocate(prof%wvarnames(prof%nwvar))
+        if (.not.allocated(prof%yvarnames)) allocate(prof%yvarnames(1:prof%nyvar))
+        if (.not.allocated(prof%wvarnames)) allocate(prof%wvarnames(1:prof%nwvar))
         if (.not.allocated(prof%xdata)) allocate(prof%xdata(0:prof%nbins))
-        if (.not.allocated(prof%ydata)) allocate(prof%ydata(prof%nbins,prof%nyvar,prof%nwvar,4))
+        if (.not.allocated(prof%ydata)) allocate(prof%ydata(1:prof%nbins))
+
+        if (.not.allocated(prof%subs).and.(prof%nsubs>0)) allocate(prof%subs(1:prof%nsubs))
+        if (.not.allocated(prof%filters)) allocate(prof%filters(1:prof%nfilter))
     end subroutine allocate_profile_handler
 
-    subroutine makebins(reg,varname,nbins,bins,logscale)
-        use geometrical_regions
-
-        implicit none
-        type(region),intent(in) :: reg
-        character(128),intent(in) :: varname
-        integer,intent(in) :: nbins
-        real(dbl),dimension(0:nbins) :: bins
-        logical,intent(in)::logscale
-        integer :: n
-        character(128) :: tempvar,vartype,var
-        integer :: index
-        real(dbl) :: rmin
-
-        tempvar = TRIM(varname)
-        index = scan(tempvar,'/')
-        vartype = tempvar(1:index-1)
-        var = tempvar(index+1:)
-        select case (TRIM(var))
-        case('r_sphere','r_cyl')
-            rmin = max(1D0/(2D0**(amr%nlevelmax-1)),1D-3*reg%rmax)
-            do n=0,nbins
-                if (logscale) then
-                    if (reg%rmin.eq.0D0) then
-                        bins(n) = dble(n)*(log10(reg%rmax)-log10(rmin))/dble(nbins) + log10(rmin)
-                    else
-                        bins(n) = dble(n)*(log10(reg%rmax)-log10(reg%rmin))/dble(nbins) + log10(reg%rmin)
-                    end if
-                else
-                    bins(n) = dble(n)*(reg%rmax-reg%rmin)/dble(nbins) + reg%rmin
-                endif
-            end do
-        case('z')
-            do n=0,nbins
-                if (logscale) then
-                    bins(n) = dble(n)*(log10(reg%zmax)-log10(reg%zmin))/dble(nbins)
-                    if (reg%zmin > 0D0) bins(n) = bins(n) + log10(reg%zmin)
-                else
-                    bins(n) = dble(n)*(reg%zmax-reg%zmin)/dble(nbins) + reg%zmin
-                endif
-            end do
-        !TODO: Add more cases
-        end select
-    end subroutine makebins
-
-    subroutine findbinpos(reg,distance,part,prof,ibin)
-        use vectors
-        use geometrical_regions
-        implicit none
-        type(region),intent(in) :: reg
-        real(dbl),intent(in) :: distance
-        type(particle),intent(in) :: part
-        type(profile_handler),intent(in) :: prof
-        integer,intent(inout) :: ibin
-        real(dbl) :: value
-
-        if (prof%xvarname.eq.reg%criteria_name) then
-            value = distance
-        else
-            call getpartvalue(reg,part,prof%xvarname,value)
-        endif
-        if (prof%logscale) value = log10(value)
-
-        ibin = int(dble(prof%nbins)*(value-prof%xdata(0))/(prof%xdata(prof%nbins)-prof%xdata(0))) + 1
-        if (value .eq. prof%xdata(prof%nbins)) then
-            ibin = prof%nbins
-        else if (value<prof%xdata(0).or.value>prof%xdata(prof%nbins)) then
-            ibin = 0
-        end if
-    end subroutine findbinpos
-
-
-    subroutine bindata(reg,part,prof,ibin)
+    subroutine bindata(reg,part,prof,trans_matrix,ifilt,ibin)
         use vectors
         use geometrical_regions
         implicit none
         type(region),intent(in) :: reg
         type(particle),intent(in) :: part
         type(profile_handler),intent(inout) :: prof
-        integer,intent(in) :: ibin
-        integer :: i,j,index
-        real(dbl) :: ytemp,wtemp,bigwtemp,bigatemp
+        real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
+        integer,intent(in) :: ifilt,ibin
+
+        ! Local variables
+        integer :: i,j,ipdf,index
+        real(dbl) :: ytemp,wtemp,ytemp2
         character(128) :: tempvar,vartype,varname
-        yvarloop: do i=1,prof%nyvar
-            call getpartvalue(reg,part,prof%yvarnames(i),ytemp)
-            if (ytemp/=0D0) then
-                wvarloop: do j=1,prof%nwvar
-                    tempvar = TRIM(prof%wvarnames(j))
+        
+        yvarloop: do i=1,prof%ydata(ibin)%nvars
+            if (prof%ydata(ibin)%do_binning(i)) then
+                ! Get variable
+                call findbinpos_part(reg,part,ipdf,ytemp,trans_matrix,&
+                                & prof%ydata(ibin)%scaletype(i),prof%ydata(ibin)%nbins,&
+                                & prof%ydata(ibin)%bins(:,i),prof%ydata(ibin)%linthresh(i),&
+                                & prof%ydata(ibin)%zero_index(i),prof%ydata(ibin)%varname(i))
+                if (ytemp.eq.0d0) cycle
+                ! Get min and max
+                if (prof%ydata(ibin)%minv(i,ifilt).eq.0d0) then
+                    prof%ydata(ibin)%minv(i,ifilt) = ytemp ! Just to make sure that the initial min is not zero
+                else
+                    prof%ydata(ibin)%minv(i,ifilt) = min(ytemp,prof%ydata(ibin)%minv(i,ifilt)) ! Min value
+                end if
+                prof%ydata(ibin)%maxv(i,ifilt) = max(ytemp,prof%ydata(ibin)%maxv(i,ifilt)) ! Max value
+                prof%ydata(ibin)%nvalues(i,ifilt) = prof%ydata(ibin)%nvalues(i,ifilt) + 1
+
+                if (ipdf.gt.0) then
+                    wvarloop1: do j=1,prof%ydata(ibin)%nwvars
+                        ! Get weights
+                        tempvar = TRIM(prof%ydata(ibin)%wvarnames(j))
+                        index = scan(tempvar,'/')
+                        vartype = tempvar(1:index-1)
+                        varname = tempvar(index+1:)
+                        ytemp2 = ytemp
+                        if (trim(varname)=='counts') then
+                            wtemp =  1D0
+                        else if (trim(varname)=='cumulative') then
+                            wtemp = ytemp2
+                        else
+                            call getpartvalue(reg,part,prof%ydata(ibin)%wvarnames(j),&
+                                            & wtemp)
+                        endif
+
+                        ! Save to PDFs
+                        prof%ydata(ibin)%heights(i,ifilt,j,ipdf) = prof%ydata(ibin)%heights(i,ifilt,j,ipdf) + wtemp ! Weight to the PDF bin
+                        prof%ydata(ibin)%totweights(i,ifilt,j) = prof%ydata(ibin)%totweights(i,ifilt,j) + wtemp       ! Weight
+
+                        ! Now do it for the case of no binning (old integration method)
+                        ! Get weights
+                        if (trim(varname)=='counts') then
+                            wtemp =  1D0
+                            ytemp2 = 1D0
+                        else if (trim(varname)=='cumulative') then
+                            wtemp = 1D0
+                        endif
+                        
+                        ! Save to attrs
+                        prof%ydata(ibin)%total(i,ifilt,j,1) = prof%ydata(ibin)%total(i,ifilt,j,1) + ytemp2*wtemp ! Value (weighted or not)
+                        prof%ydata(ibin)%total(i,ifilt,j,2) = prof%ydata(ibin)%total(i,ifilt,j,2) + wtemp       ! Weight
+                    end do wvarloop1
+                else
+                    prof%ydata(ibin)%nout(i,ifilt) = prof%ydata(ibin)%nout(i,ifilt) + 1
+                end if
+            else
+                ! Get variable
+                call getpartvalue(reg,part,prof%ydata(ibin)%varname(i),ytemp)
+                ! Get min and max
+                if (prof%ydata(ibin)%minv(i,ifilt).eq.0D0) then
+                    prof%ydata(ibin)%minv(i,ifilt) = ytemp ! Just to make sure that the initial min is not zero
+                else
+                    prof%ydata(ibin)%minv(i,ifilt) = min(ytemp,prof%ydata(ibin)%minv(i,ifilt))    ! Min value
+                endif
+                prof%ydata(ibin)%maxv(i,ifilt) = max(ytemp,prof%ydata(ibin)%maxv(i,ifilt))    ! Max value
+                prof%ydata(ibin)%nvalues(i,ifilt) = prof%ydata(ibin)%nvalues(i,ifilt) + 1
+
+                wvarloop2: do j=1,prof%ydata(ibin)%nwvars
+                    ! Get weights
+                    ytemp2 = ytemp
+                    tempvar = TRIM(prof%ydata(ibin)%wvarnames(j))
                     index = scan(tempvar,'/')
                     vartype = tempvar(1:index-1)
                     varname = tempvar(index+1:)
-                    wtemp = 0D0
-                    if (varname=='counts'.or.varname=='cumulative') then
+                    if (trim(varname)=='counts') then
+                        wtemp =  1D0
+                        ytemp2 = 1D0
+                    else if (trim(varname)=='cumulative') then
                         wtemp = 1D0
                     else
-                        call getpartvalue(reg,part,prof%wvarnames(j),wtemp)
+                        call getpartvalue(reg,part,prof%ydata(ibin)%wvarnames(j),wtemp)
                     endif
-                    ! Unbiased STD method. See: https://en.wikipedia.org/wiki/Reduced_chi-squared_statistic
-                    ! Q_k
-                    prof%ydata(ibin,i,j,1) = prof%ydata(ibin,i,j,1) + ytemp*wtemp
-
-                    ! W_k
-                    prof%ydata(ibin,i,j,2) = prof%ydata(ibin,i,j,2) + wtemp
-
-                    ! V_k
-                    prof%ydata(ibin,i,j,3) = prof%ydata(ibin,i,j,3) + wtemp**2
-
-                    !A_k
-                    prof%ydata(ibin,i,j,4) = prof%ydata(ibin,i,j,4) + wtemp*(ytemp**2)
-                end do wvarloop
-            endif
+                    
+                    ! Save to attrs
+                    prof%ydata(ibin)%total(i,ifilt,j,1) = prof%ydata(ibin)%total(i,ifilt,j,1) + ytemp2*wtemp ! Value (weighted or not)
+                    prof%ydata(ibin)%total(i,ifilt,j,2) = prof%ydata(ibin)%total(i,ifilt,j,2) + wtemp       ! Weight
+                end do wvarloop2
+            end if
         end do yvarloop
     end subroutine bindata
 
-    subroutine renormalise_bins(prof_data)
+    subroutine renormalise_bins(prof)
         implicit none
-        type(profile_handler),intent(inout) :: prof_data
-        integer :: ibin,iy,iw,index
-        real(dbl) :: Q_k,W_k,V_k,A_k
+        type(profile_handler),intent(inout) :: prof
+        integer :: i,j,ibin,ifilt,index
         character(128) :: tempvar,vartype,varname
-        binloop: do ibin=1,prof_data%nbins
-            yloop: do iy=1,prof_data%nyvar
-                wloop: do iw=1,prof_data%nwvar
-                    Q_k = prof_data%ydata(ibin,iy,iw,1)
-                    W_k = prof_data%ydata(ibin,iy,iw,2)
-                    V_k = prof_data%ydata(ibin,iy,iw,3)
-                    A_k = prof_data%ydata(ibin,iy,iw,4)
-                    tempvar = TRIM(prof_data%wvarnames(iw))
-                    index = scan(tempvar,'/')
-                    vartype = tempvar(1:index-1)
-                    varname = tempvar(index+1:)
-                    if (varname /= 'cumulative') then
-                        ! Mean value or mean weighted value
-                        prof_data%ydata(ibin,iy,iw,1) = Q_k / W_k
-                        ! Standard deviation or weighted standard deviation
-                        prof_data%ydata(ibin,iy,iw,2) = (A_k*W_k - Q_k**2) &
-                                                        &/ (W_k**2 - V_k)
-                        prof_data%ydata(ibin,iy,iw,2) = sqrt(prof_data%ydata(ibin,iy,iw,2))
-                    endif
-                end do wloop
-            end do yloop
+
+        binloop: do ibin=1,prof%nbins
+            filterloop: do ifilt=1,prof%ydata(ibin)%nfilter
+                varloop: do i=1,prof%ydata(ibin)%nvars
+                    if (prof%ydata(ibin)%do_binning(i)) then
+                        wvarloop1: do j=1,prof%ydata(ibin)%nwvars
+                            tempvar = TRIM(prof%ydata(ibin)%wvarnames(j))
+                            index = scan(tempvar,'/')
+                            vartype = tempvar(1:index-1)
+                            varname = tempvar(index+1:)
+                            if (trim(varname) /= 'cumulative' .and. trim(varname) /= 'counts') then
+                                prof%ydata(ibin)%heights(i,ifilt,j,:) = prof%ydata(ibin)%heights(i,ifilt,j,:) / prof%ydata(ibin)%totweights(i,ifilt,j)
+                                prof%ydata(ibin)%total(i,ifilt,j,1) = prof%ydata(ibin)%total(i,ifilt,j,1) / prof%ydata(ibin)%total(i,ifilt,j,2)
+                            endif
+                        end do wvarloop1
+                    else
+                        wvarloop2: do j=1,prof%ydata(ibin)%nwvars
+                            tempvar = TRIM(prof%ydata(ibin)%wvarnames(j))
+                            index = scan(tempvar,'/')
+                            vartype = tempvar(1:index-1)
+                            varname = tempvar(index+1:)
+                            if (trim(varname) /= 'cumulative' .and. trim(varname) /= 'counts') then
+                                prof%ydata(ibin)%total(i,ifilt,j,1) = prof%ydata(ibin)%total(i,ifilt,j,1) / prof%ydata(ibin)%total(i,ifilt,j,2)
+                            endif
+                        end do wvarloop2
+                    end if
+                end do varloop
+            end do filterloop
         end do binloop
+
+        if (trim(prof%scaletype).eq.'log_even') prof%xdata = 10**prof%xdata
     end subroutine renormalise_bins
 
-    subroutine get_parts_onedprofile(repository,reg,filt,prof_data,tag_file,inverse_tag)
+    subroutine get_parts_onedprofile(repository,reg,prof_data,tag_file,inverse_tag)
 #ifndef LONGINT
         use utils, only:quick_sort_irg,binarysearch_irg
 #else
@@ -184,18 +192,17 @@ module part_profiles
         implicit none
         character(128),intent(in) :: repository
         type(region), intent(in)  :: reg
-        type(filter),intent(in) :: filt
         type(profile_handler),intent(inout) :: prof_data
         character(128),intent(in),optional :: tag_file
         logical,intent(in),optional :: inverse_tag
 
         logical :: ok_part,ok_filter,ok_tag
         integer :: roterr
-        integer :: i,j,k,itag
+        integer :: i,j,k,itag,ifilt
         integer :: ipos,icpu,binpos
         integer :: npart,npart2,nstar,ntag
         integer :: ncpu2,ndim2
-        real(dbl) :: distance
+        real(dbl) :: distance,ytemp
         real(dbl),dimension(1:3,1:3) :: trans_matrix
         character(5) :: nchar,ncharcpu
         character(128) :: nomfich
@@ -223,9 +230,9 @@ module part_profiles
         ! If tagged particles file exists, read and allocate array
         if (present(tag_file)) then
             open(unit=58,file=TRIM(tag_file),status='old',form='formatted')
-            write(*,*)'Reading particle tags file '//TRIM(tag_file)
+            if (verbose) write(*,*)'Reading particle tags file '//TRIM(tag_file)
             read(58,'(I11)')ntag
-            write(*,*)'Number of tagged particles in file: ',ntag
+            if (verbose) write(*,*)'Number of tagged particles in file: ',ntag
             if (allocated(tag_id)) then
                 deallocate(tag_id)
                 allocate(tag_id(1:ntag))
@@ -236,7 +243,7 @@ module part_profiles
                 read(58,'(I11)')tag_id(itag)
             end do
             allocate(order(1:ntag))
-            write(*,*)'Sorting list of particle ids for binary search...'
+            if (verbose) write(*,*)'Sorting list of particle ids for binary search...'
 #ifndef LONGINT
             call quick_sort_irg(tag_id,order,ntag)
 #else
@@ -260,7 +267,7 @@ module part_profiles
             call cosmology_model
         else
             sim%time_simu = sim%t
-            write(*,*)'Age simu=',sim%time_simu*sim%unit_t/(365.*24.*3600.*1d9)
+            if (verbose) write(*,*)'Age simu=',sim%time_simu*sim%unit_t/(365.*24.*3600.*1d9)
         endif
 
         ! Check number of particles in selected CPUs
@@ -280,8 +287,8 @@ module part_profiles
             close(1)
             npart=npart+npart2
         end do
-        write(*,*)'Found ',npart,' particles.'
-        if(nstar>0)then
+        if (verbose) write(*,*)'Found ',npart,' particles.'
+        if(nstar>0.and.verbose)then
             write(*,*)'Found ',nstar,' star particles.'
         endif
 
@@ -385,8 +392,6 @@ module part_profiles
                 call rotate_vector(part%x,trans_matrix)
                 x(i,:) = part%x
                 call checkifinside(x(i,:),reg,ok_part,distance)
-                ok_filter = filter_particle(reg,filt,part)
-                ok_part = ok_part.and.ok_filter
                 ! Check if tags are present for particles
                 if (present(tag_file) .and. ok_part) then
                     ok_tag = .false.      
@@ -401,12 +406,19 @@ module part_profiles
                     ok_part = ok_tag .and. ok_part
                 endif
                 if (ok_part) then
-                    if (part%m < 2.842170943040401D-014) write(*,*)part%m
-                    part%v = part%v -reg%bulk_velocity
-                    call rotate_vector(part%v,trans_matrix)
-                    binpos = 0
-                    call findbinpos(reg,distance,part,prof_data,binpos)
-                    if (binpos.ne.0)  call bindata(reg,part,prof_data,binpos)
+                    do ifilt=1,prof_data%nfilter
+                        ok_filter = filter_particle(reg,prof_data%filters(ifilt),part)
+                        if (ok_filter) then
+                            part%v = part%v -reg%bulk_velocity
+                            call rotate_vector(part%v,trans_matrix)
+                            binpos = 0
+                            call findbinpos_part(reg,part,binpos,ytemp,&
+                                                &trans_matrix,prof_data%scaletype,&
+                                                &prof_data%nbins,prof_data%xdata,&
+                                                &prof_data%linthresh,prof_data%zero_index,prof_data%xvarname)
+                            if (binpos.ne.0)  call bindata(reg,part,prof_data,trans_matrix,ifilt,binpos)
+                        end if
+                    end do
                 endif
             end do partloop
             deallocate(m,x,v)
@@ -418,15 +430,13 @@ module part_profiles
         end do cpuloop
     end subroutine get_parts_onedprofile
 
-    subroutine onedprofile(repository,reg,filt,prof_data,lmax,logscale,tag_file,inverse_tag)
+    subroutine onedprofile(repository,reg,prof_data,lmax,tag_file,inverse_tag)
         use geometrical_regions
         implicit none
         character(128),intent(in) :: repository
         type(region),intent(inout) :: reg
-        type(filter),intent(in) :: filt
         type(profile_handler),intent(inout) :: prof_data
         integer,intent(in) :: lmax
-        logical,intent(in) :: logscale
         character(128),intent(in),optional :: tag_file
         logical,intent(in),optional :: inverse_tag
 
@@ -437,23 +447,18 @@ module part_profiles
         if (lmax.eq.0) amr%lmax = amr%nlevelmax
         ! Check if particle data uses family
         if (sim%dm .and. sim%hydro) call check_families(repository)
-        prof_data%xdata = 0D0
-        prof_data%ydata = 0D0
-        prof_data%logscale = logscale
-        call makebins(reg,prof_data%xvarname,prof_data%nbins,prof_data%xdata,logscale)
 
         call get_cpu_map(reg)
-        write(*,*)'ncpu_read:',amr%ncpu_read
+        if (verbose) write(*,*)'ncpu_read:',amr%ncpu_read
         if (present(tag_file)) then
             if (present(inverse_tag)) then
-                call get_parts_onedprofile(repository,reg,filt,prof_data,tag_file,inverse_tag)
+                call get_parts_onedprofile(repository,reg,prof_data,tag_file,inverse_tag)
             else
-                call get_parts_onedprofile(repository,reg,filt,prof_data,tag_file)
+                call get_parts_onedprofile(repository,reg,prof_data,tag_file)
             endif
         else
-            call get_parts_onedprofile(repository,reg,filt,prof_data)
+            call get_parts_onedprofile(repository,reg,prof_data)
         endif
         call renormalise_bins(prof_data)
-        if (logscale) prof_data%xdata = 10.**(prof_data%xdata)
     end subroutine onedprofile
 end module part_profiles

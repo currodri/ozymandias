@@ -16,7 +16,7 @@ PYTHON   = python
 ifeq ($(F90),gfortran)
 	FPP      = gfortran -E
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC -g
-	F90FLAGS = -O3 -fPIC -cpp -ffree-line-length-256 -DIMASS -DNOIFPORT
+	F90FLAGS = -Ofast -fPIC -cpp -ffree-line-length-256 -DIMASS -DNOIFPORT
     FCOMP    = gfortran
     LIBS     =
 endif
@@ -65,7 +65,7 @@ VPATH = ../fortran_commons
 
 # names (without suffix), f90 sources
 LIBSRC_SOURCES = local utils linalg_module coordinates_module cooling_module \
- 				read_amr_module \
+ 				read_amr_module statistics \
 				cosmology_module profiles_module integrator_module \
 				export_module
 
@@ -84,8 +84,8 @@ LIBSRC_FPP_FILES = $(addsuffix .fpp,${LIBSRC_SOURCES})
 
 # names (without suffix), f90 sources
 LIBSRC_WRAP_SOURCES = linalg_module coordinates_module read_amr_module \
-					cosmology_module profiles_module integrator_module \
-					export_module
+					statistics cosmology_module profiles_module \
+					integrator_module export_module
 
 # file names
 LIBSRC_WRAP_FILES = $(addsuffix .f90,${LIBSRC_WRAP_SOURCES})

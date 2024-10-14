@@ -1,160 +1,18 @@
 import functools
 import os.path
-from collections import defaultdict
-from collections.abc import Mapping, Sequence
 from pprint import pprint
 
 import h5py
 import numpy as np
 from unyt import UnitRegistry,unyt_array,unyt_quantity
-
+from collections import defaultdict
 from ozy.sim_attributes import SimulationAttributes
 from ozy.utils import info_printer
 from ozy.saver import _write_attrib, _write_dict
+from ozy.lazy_classes import LazyList,LazyDataset,LazyDict
+from unyt.dimensions import length,mass,time,temperature
+from unyt import mp,erg,K,g,kb
 
-class LazyDataset:
-    """A lazily-loaded HDF5 dataset.
-    """
-    def __init__(self, obj, dataset_path):
-        self._obj = obj
-        self._dataset_path = dataset_path
-        self._data = None
-    def __getitem__(self, index):
-        if self._data is None:
-            with h5py.File(self._obj.data_file, 'r') as hd:
-                dataset = hd[self._dataset_path]
-                if 'unit' in dataset.attrs:
-                    self._data = unyt_array(dataset[:],
-                                         dataset.attrs['unit'],
-                                         registry=self._obj.unit_registry)
-                else:
-                    self._data = dataset[:]
-        return self._data.__getitem__(index)
-    
-    def __setitem__(self, index, value):
-        if self._data is not None:
-            self._data.__setitem__(index, value)
-        else:
-            raise ValueError("Cannot perform item assignment before loading the dataset.")
-
-class LazyList(Sequence):
-    """This type should be indistinguishable from the built-in list.
-    Any observable difference except the explicit type and performance
-    is considered a bug.
-    The implementation wraps a list which is initially filled with None,
-    which is very fast to create at any size because None is a singleton.
-    The initial elements are replaced by calling the passed-in callable
-    as they are accessed.
-    """
-    def __init__(self, length, builder):
-        self._inner = [None] * length
-        self._builder = builder
-
-    def __contains__(self, value):
-        for i in range(len(self)):
-            if self[i] == value:
-                return True
-        return False
-
-    def __getitem__(self, index):
-        trial_output = self._inner[index]
-
-        # Handle uninitialized elements for integer indices
-        if trial_output is None:
-            self._inner[index] = self._builder(index)
-
-        # And for all other kinds of indices
-        if isinstance(trial_output, list) and None in trial_output:
-            for i in range(len(self))[index]:
-                if self._inner[i] is None:
-                    self._inner[i] = self._builder(i)
-
-        return self._inner[index]
-
-    def __iter__(self):
-        for i in range(len(self)):
-            yield self[i]
-
-    def __reversed__(self):
-        LazyList(len(self), lambda i: self._builder(len(self) - i))
-
-    def count(self, value):
-        return sum(i == value for i in self)
-
-    def index(self, value, start=0, stop=None):
-        if stop is None:
-            stop = len(self)
-        for i in range(start, stop):
-            if self[i] == value:
-                return i
-        raise ValueError('{} is not in LazyList'.format(value))
-
-    def __len__(self):
-        return len(self._inner)
-
-class LazyDict(Mapping):
-    """This type should be indistinguishable from the built-in dict.
-    Any observable difference except the explicit type and performance
-    is considered a bug.
-    The implementation wraps a dict which initially maps every key to None,
-    and are replaced by calling the passed-in callable as they are accessed.
-    """
-    def __init__(self, keys, builder):
-        self._inner = {k: None for k in keys}
-        self._builder = builder
-
-    def _init_all(self):
-        """Internal use only, for operations that need all values"""
-        for k in self._inner:
-            self[k]
-
-    def __contains__(self, key):
-        return key in self._inner
-
-    def __eq__(self, other):
-        self._init_all()
-        return self._inner == other
-
-    def __getitem__(self, key):
-        value = self._inner[key]
-        if value is None:
-            value = self._builder(key)
-            self._inner[key] = value
-        return value
-    
-    def __setitem__(self, key, value):
-        self._inner[key] = value
-
-    def get(self, key, default=None):
-        if key in self._inner:
-            return self[key]
-        return default
-
-    def items(self):
-        for k in self._inner:
-            yield (k, self[k])
-
-    def keys(self):
-        return self._inner.keys()
-
-    def values(self):
-        for k in self._inner:
-            yield self[k]
-
-    def __len__(self):
-        return len(self._inner)
-
-    def __iter__(self):
-        return iter(self._inner)
-
-    def __str__(self):
-        return str(dict(self))
-
-    def __repr__(self):
-        return repr(dict(self))
-
-    def _repr_pretty_(self, p, cycle):
-        p.pretty(dict(self))
 
 class Profile:
     def __init__(self, obj, index, group_type, key, hd, nosubs):
@@ -212,7 +70,7 @@ class Profile:
                 self.xdata = unyt_array(profile_gp['xdata'][:], profile_gp['xdata'].attrs['units'], registry=self.obj.unit_registry)
 
 class PhaseDiagram:
-    def __init__(self,obj,index,group_type,key,hd):
+    def __init__(self,obj,index,group_type,key,hd,nosubs):
         self.obj = obj
         self._index = index
         self.group_type = group_type
@@ -228,6 +86,7 @@ class PhaseDiagram:
         self.xdata = None
         self.ydata = None
         self.zdata = {}
+        self.nosubs = nosubs
 
         self.blacklist = [
             'obj','_index','group_type','region',
@@ -236,7 +95,10 @@ class PhaseDiagram:
         self._unpack(hd)
 
     def _unpack(self, hd):
-        path = str(self.group_type+'_data/phase_diagrams/'+str(self._index)+'/'+self.key)
+        if self.nosubs:
+            path = str(self.group_type+'_data/phase_diagrams_nosubs/'+str(self._index)+'/'+self.key)
+        else:
+            path = str(self.group_type+'_data/phase_diagrams/'+str(self._index)+'/'+self.key)            
         phase_diagrams_gp = hd[path]
         for k,v in phase_diagrams_gp.attrs.items():
             if k in self.blacklist:
@@ -329,138 +191,154 @@ class OZY:
         self.snapID = self.snapname.split('.')[0].split('_')[-1]
         self._galaxy_slist = LazyDataset(self, 'galaxy_data/lists/slist')
 
-        with h5py.File(filename, read_mode) as hd:
-            
-            # This should be the ozy_version with which the dataset was created.
-            self.ozy = hd.attrs['ozy']
-            self.unit_registry = UnitRegistry.from_json(
-                hd.attrs['unit_registry_json'])
-            
-            # Load the simulation attributes.
-            self.simulation = SimulationAttributes()
-            self.simulation._unpack(self, hd)
-            # self.simulation._update(self, hd)
-            
-            
-            # Halo data is loaded ALWAYS.
-            # TODO: Change this so that it's just a flag.
-            self._galaxy_index_list = None
-            if 'halo_data/lists/galaxy_index_list' in hd:
-                self._galaxy_index_list = LazyDataset(
-                    self, 'halo_data/lists/galaxy_index_list')
-            
-            self._halo_data = {}
-            for k, v in hd['halo_data'].items():
+        hd = h5py.File(filename, read_mode)
+        # This should be the ozy_version with which the dataset was created.
+        self.ozy = hd.attrs['ozy']
+        self.unit_registry = UnitRegistry.from_json(
+            hd.attrs['unit_registry_json'])
+
+        # Load the simulation attributes.
+        self.simulation = SimulationAttributes()
+        self.simulation._unpack(self, hd)
+        # self.simulation._update(self, hd)
+        
+        
+        # Halo data is loaded ALWAYS.
+        # TODO: Change this so that it's just a flag.
+        self._galaxy_index_list = None
+        if 'halo_data/lists/galaxy_index_list' in hd:
+            self._galaxy_index_list = LazyDataset(
+                self, 'halo_data/lists/galaxy_index_list')
+        
+        self._halo_data = {}
+        for k, v in hd['halo_data'].items():
+            if type(v) is h5py.Dataset:
+                self._halo_data[k] = LazyDataset(self, 'halo_data/' + k)
+
+        self._halo_dicts = defaultdict(dict)
+        for k in hd['halo_data/dicts']:
+            dictname, arrname = k.split('.')
+            self._halo_dicts[dictname][arrname] = LazyDataset(
+                self, 'halo_data/dicts/' + k)
+        
+        self.nhalos = hd.attrs['nhalos']
+        self.halos  = LazyList(self.nhalos, lambda i: Halo(self, i))
+        
+        # Not all snaps will have galaxies, so we need to load firstly 
+        # default values for everything.
+        self.have_flows = False
+        self.have_flows_nosubs = False
+        self.have_profiles = False
+        self.have_profiles_nosubs = False
+        self.have_phase_diagrams = False
+        self.have_phase_diagrams_nosubs = False
+        self._galaxy_data  = {}
+        self._galaxy_dicts = defaultdict(dict)
+        self.ngalaxies     = 0
+        self.galaxies      = LazyList(self.ngalaxies, lambda i: Galaxy(self, i))
+        if 'galaxy_data' in hd:
+            self._cloud_index_list = None
+            if 'galaxy_data/lists/cloud_index_list' in hd:
+                self._cloud_index_list = LazyDataset(
+                    self, 'galaxy_data/lists/cloud_index_list')
+
+            if 'tree_data/progen_galaxy_star' in hd:
+                self._galaxy_data['progen_galaxy_star'] = self._progen_galaxy_star = LazyDataset(
+                    self, 'tree_data/progen_galaxy_star')
+                
+            if 'tree_data/descend_galaxy_star' in hd:
+                self._galaxy_data['descend_galaxy_star'] = self._descend_galaxy_star = LazyDataset(
+                    self, 'tree_data/descend_galaxy_star')
+
+            for k, v in hd['galaxy_data'].items():
                 if type(v) is h5py.Dataset:
-                    self._halo_data[k] = LazyDataset(self, 'halo_data/' + k)
+                    self._galaxy_data[k] = LazyDataset(
+                        self, 'galaxy_data/' + k)
 
-            self._halo_dicts = defaultdict(dict)
-            for k in hd['halo_data/dicts']:
+            for k in hd['galaxy_data/dicts']:
                 dictname, arrname = k.split('.')
-                self._halo_dicts[dictname][arrname] = LazyDataset(
-                    self, 'halo_data/dicts/' + k)
-            
-            self.nhalos = hd.attrs['nhalos']
-            self.halos  = LazyList(self.nhalos, lambda i: Halo(self, i))
-            
-            # Not all snaps will have galaxies, so we need to load firstly 
-            # default values for everything.
-            self.have_flows = False
-            self.have_flows_nosubs = False
-            self.have_profiles = False
-            self.have_profiles_nosubs = False
-            self._galaxy_data  = {}
-            self._galaxy_dicts = defaultdict(dict)
-            self.ngalaxies     = 0
-            self.galaxies      = LazyList(self.ngalaxies, lambda i: Galaxy(self, i))
-            if 'galaxy_data' in hd:
-                self._cloud_index_list = None
-                if 'galaxy_data/lists/cloud_index_list' in hd:
-                    self._cloud_index_list = LazyDataset(
-                        self, 'galaxy_data/lists/cloud_index_list')
+                self._galaxy_dicts[dictname][arrname] = LazyDataset(
+                    self, 'galaxy_data/dicts/' + k)
 
-                if 'tree_data/progen_galaxy_star' in hd:
-                    self._galaxy_data['progen_galaxy_star'] = self._progen_galaxy_star = LazyDataset(
-                        self, 'tree_data/progen_galaxy_star')
-                    
-                if 'tree_data/descend_galaxy_star' in hd:
-                    self._galaxy_data['descend_galaxy_star'] = self._descend_galaxy_star = LazyDataset(
-                        self, 'tree_data/descend_galaxy_star')
+            self.ngalaxies = hd.attrs['ngalaxies']
+            self.galaxies = LazyList(self.ngalaxies,
+                                        lambda i: Galaxy(self, i))
 
-                for k, v in hd['galaxy_data'].items():
-                    if type(v) is h5py.Dataset:
-                        self._galaxy_data[k] = LazyDataset(
-                            self, 'galaxy_data/' + k)
-
-                for k in hd['galaxy_data/dicts']:
-                    dictname, arrname = k.split('.')
-                    self._galaxy_dicts[dictname][arrname] = LazyDataset(
-                        self, 'galaxy_data/dicts/' + k)
-
-                self.ngalaxies = hd.attrs['ngalaxies']
-                self.galaxies = LazyList(self.ngalaxies,
-                                         lambda i: Galaxy(self, i))
-
-                if 'galaxy_data/profiles' in hd:
-                    self.have_profiles = True
-                    prof_indices = []
-                    prof_keys = []
-                    for k in hd['galaxy_data/profiles'].keys():
-                        for j in hd['galaxy_data/profiles/'+k].keys():
-                            prof_indices.append(int(k))
-                            prof_keys.append(j)
-                    self._galaxy_profile_index_list = LazyList(
-                        len(prof_indices), lambda i: int(prof_indices[i])
-                    )
-                    self._galaxy_profiles = [Profile(self,int(prof_indices[i]),'galaxy', prof_keys[i],hd,False) for i in range(0, len(prof_indices))]
-                if 'galaxy_data/profiles_nosubs' in hd:
-                    self.have_profiles_nosubs = True
-                    prof_nosubs_indices = []
-                    prof_nosubs_keys = []
-                    for k in hd['galaxy_data/profiles_nosubs'].keys():
-                        for j in hd['galaxy_data/profiles_nosubs/'+k].keys():
-                            prof_nosubs_indices.append(int(k))
-                            prof_nosubs_keys.append(j)
-                    self._galaxy_profile_nosubs_index_list = LazyList(
-                        len(prof_nosubs_indices), lambda i: int(prof_nosubs_indices[i])
-                    )
-                    self._galaxy_profiles_nosubs = [Profile(self,int(prof_nosubs_indices[i]),'galaxy', prof_nosubs_keys[i],hd,True) for i in range(0, len(prof_nosubs_indices))]
-                if 'galaxy_data/phase_diagrams' in hd:
-                    pd_indices = []
-                    pd_keys = []
-                    for k in hd['galaxy_data/phase_diagrams'].keys():
-                        for j in hd['galaxy_data/phase_diagrams/'+k].keys():
-                            pd_indices.append(int(k))
-                            pd_keys.append(j)
-                    self._galaxy_phasediag_index_list = LazyList(
-                        len(pd_indices), lambda i: int(pd_indices[i])
-                    )
-                    self._galaxy_phasediag = [PhaseDiagram(self,int(pd_indices[i]),'galaxy', pd_keys[i],hd) for i in range(0, len(pd_indices))]
-                if 'galaxy_data/flows' in hd:
-                    self.have_flows = True
-                    gf_indices = []
-                    gf_keys = []
-                    for k in hd['galaxy_data/flows'].keys():
-                        for j in hd['galaxy_data/flows/'+k].keys():
-                            gf_indices.append(int(k))
-                            gf_keys.append(j)
-                    self._galaxy_flows_index_list = LazyList(
-                        len(gf_indices), lambda i: int(gf_indices[i])
-                    )
-                    self._galaxy_flows = [GalacticFlow(self,int(gf_indices[i]),'galaxy',gf_keys[i],hd,False) for i in range(0, len(gf_indices))]
-                if 'galaxy_data/flows_nosubs' in hd:
-                    self.have_flows_nosubs = True
-                    gf_nosubs_indices = []
-                    gf_nosubs_keys = []
-                    for k in hd['galaxy_data/flows_nosubs'].keys():
-                        for j in hd['galaxy_data/flows_nosubs/'+k].keys():
-                            gf_nosubs_indices.append(int(k))
-                            gf_nosubs_keys.append(j)
-                    self._galaxy_flows_nosubs_index_list = LazyList(
-                        len(gf_nosubs_indices), lambda i: int(gf_nosubs_indices[i])
-                    )
-                    self._galaxy_flows_nosubs = [GalacticFlow(self,int(gf_nosubs_indices[i]),'galaxy',gf_nosubs_keys[i],hd,True) for i in range(0, len(gf_nosubs_indices))]
+            if 'galaxy_data/profiles' in hd:
+                self.have_profiles = True
+                prof_indices = []
+                prof_keys = []
+                for k in hd['galaxy_data/profiles'].keys():
+                    for j in hd['galaxy_data/profiles/'+k].keys():
+                        prof_indices.append(int(k))
+                        prof_keys.append(j)
+                self._galaxy_profile_index_list = LazyList(
+                    len(prof_indices), lambda i: int(prof_indices[i])
+                )
+                self._galaxy_profiles = [Profile(self,int(prof_indices[i]),'galaxy', prof_keys[i],hd,False) for i in range(0, len(prof_indices))]
+            if 'galaxy_data/profiles_nosubs' in hd:
+                self.have_profiles_nosubs = True
+                prof_nosubs_indices = []
+                prof_nosubs_keys = []
+                for k in hd['galaxy_data/profiles_nosubs'].keys():
+                    for j in hd['galaxy_data/profiles_nosubs/'+k].keys():
+                        prof_nosubs_indices.append(int(k))
+                        prof_nosubs_keys.append(j)
+                self._galaxy_profile_nosubs_index_list = LazyList(
+                    len(prof_nosubs_indices), lambda i: int(prof_nosubs_indices[i])
+                )
+                self._galaxy_profiles_nosubs = [Profile(self,int(prof_nosubs_indices[i]),'galaxy', prof_nosubs_keys[i],hd,True) for i in range(0, len(prof_nosubs_indices))]
+            if 'galaxy_data/phase_diagrams' in hd:
+                self.have_phase_diagrams = True
+                pd_indices = []
+                pd_keys = []
+                for k in hd['galaxy_data/phase_diagrams'].keys():
+                    for j in hd['galaxy_data/phase_diagrams/'+k].keys():
+                        pd_indices.append(int(k))
+                        pd_keys.append(j)
+                self._galaxy_phasediag_index_list = LazyList(
+                    len(pd_indices), lambda i: int(pd_indices[i])
+                )
+                self._galaxy_phasediag = [PhaseDiagram(self,int(pd_indices[i]),'galaxy', pd_keys[i],hd,False) for i in range(0, len(pd_indices))]
+            if 'galaxy_data/phase_diagrams_nosubs' in hd:
+                self.have_phase_diagrams_nosubs = True
+                pd_nosubs_indices = []
+                pd_nosubs_keys = []
+                for k in hd['galaxy_data/phase_diagrams_nosubs'].keys():
+                    for j in hd['galaxy_data/phase_diagrams_nosubs/'+k].keys():
+                        pd_nosubs_indices.append(int(k))
+                        pd_nosubs_keys.append(j)
+                self._galaxy_phasediag_nosubs_index_list = LazyList(
+                    len(pd_nosubs_indices), lambda i: int(pd_nosubs_indices[i])
+                )
+                self._galaxy_phasediag_nosubs = [PhaseDiagram(self,int(pd_nosubs_indices[i]),'galaxy', pd_nosubs_keys[i],hd,True) for i in range(0, len(pd_nosubs_indices))]
+            if 'galaxy_data/flows' in hd:
+                self.have_flows = True
+                gf_indices = []
+                gf_keys = []
+                for k in hd['galaxy_data/flows'].keys():
+                    for j in hd['galaxy_data/flows/'+k].keys():
+                        gf_indices.append(int(k))
+                        gf_keys.append(j)
+                self._galaxy_flows_index_list = LazyList(
+                    len(gf_indices), lambda i: int(gf_indices[i])
+                )
+                self._galaxy_flows = [GalacticFlow(self,int(gf_indices[i]),'galaxy',gf_keys[i],hd,False) for i in range(0, len(gf_indices))]
+            if 'galaxy_data/flows_nosubs' in hd:
+                self.have_flows_nosubs = True
+                gf_nosubs_indices = []
+                gf_nosubs_keys = []
+                for k in hd['galaxy_data/flows_nosubs'].keys():
+                    for j in hd['galaxy_data/flows_nosubs/'+k].keys():
+                        gf_nosubs_indices.append(int(k))
+                        gf_nosubs_keys.append(j)
+                self._galaxy_flows_nosubs_index_list = LazyList(
+                    len(gf_nosubs_indices), lambda i: int(gf_nosubs_indices[i])
+                )
+                self._galaxy_flows_nosubs = [GalacticFlow(self,int(gf_nosubs_indices[i]),'galaxy',gf_nosubs_keys[i],hd,True) for i in range(0, len(gf_nosubs_indices))]
     
+        hd.close()
+        del hd
     @property
     def central_galaxies(self):
         return [h.central_galaxy for h in self.halos]
@@ -569,9 +447,12 @@ class Halo(Group):
         haloIDs = self.obj._halo_data['ID'][:]
         nexti = self.nextsub
         while nexti != -1:
-            nextindex = np.where(nexti == haloIDs)[0][0]
-            subs.append(self.obj.halos[nextindex])
-            nexti = self.obj.halos[nextindex].nextsub
+            try:
+                nextindex = np.where(nexti == haloIDs)[0][0]
+                subs.append(self.obj.halos[nextindex])
+                nexti = self.obj.halos[nextindex].nextsub
+            except:
+                nexti = -1
         return subs
 
 
@@ -617,10 +498,18 @@ class Galaxy(Group):
     
     def _init_phase_diagrams(self):
         self.phase_diagrams = []
-        for p,phasediag_index in enumerate(self.obj._galaxy_phasediag_index_list):
-            if phasediag_index == self._index:
-                phasediag = self.obj._galaxy_phasediag[p]
-                self.phase_diagrams.append(phasediag)
+        if self.obj.have_phase_diagrams:
+            for p,phasediag_index in enumerate(self.obj._galaxy_phasediag_index_list):
+                if phasediag_index == self._index:
+                    phasediag = self.obj._galaxy_phasediag[p]
+                    self.phase_diagrams.append(phasediag)
+        
+        self.phase_diagrams_nosubs = []
+        if self.obj.have_phase_diagrams_nosubs:
+            for p,phasediag_index in enumerate(self.obj._galaxy_phasediag_nosubs_index_list):
+                if phasediag_index == self._index:
+                    phasediag = self.obj._galaxy_phasediag_nosubs[p]
+                    self.phase_diagrams_nosubs.append(phasediag)
 
     def _init_flows(self):
         self.flows = []
@@ -662,6 +551,33 @@ class Galaxy(Group):
         """Clear the cache for the __getattr__ method."""
         self.__getattr__.cache_clear()
         
+    def delete_attribute(self,attr):
+        if attr in self.obj._galaxy_data:
+            # A. The attribute is a single data point (no dict)
+            del self.obj._galaxy_data[attr]
+            hd = h5py.File(self.obj.data_file, 'r+')
+            del hd[f'galaxy_data/{attr}']
+            hd.close()
+            self.clear_cache()
+        elif attr in self.obj._galaxy_dicts:
+            # B. The attribute is a dictionary with keys and values
+            hd = h5py.File(self.obj.data_file, 'r+')
+            for kk in self.obj._galaxy_dicts[attr].keys():
+                del hd[f'galaxy_data/dicts/{attr}.{kk}']
+            hd.close()
+            del self.obj._galaxy_dicts[attr]
+            self.clear_cache()
+        elif attr.split('.')[0] in self.obj._galaxy_dicts \
+            and attr.split('.')[1] in self.obj._galaxy_dicts[attr.split('.')[0]]:
+            # C. The attribute is a single key of a dictionary already present
+            dictname = attr.split('.')[0]
+            keyname = attr.split('.')[1]
+            hd = h5py.File(self.obj.data_file, 'r+')
+            del hd[f'galaxy_data/dicts/{dictname}.{keyname}']
+            hd.close()
+            del self.obj._galaxy_dicts[dictname][keyname]
+            self.clear_cache()
+        
     def update_attribute(self,attr,value):
         if attr in self.obj._galaxy_data:
             # A. The attribute is a single data point (no dict)
@@ -684,7 +600,8 @@ class Galaxy(Group):
             # 2. Update the original HDF5 file for future reference
             with h5py.File(self.obj.data_file, 'a') as hd:
                 _write_dict(self.obj.galaxies, attr, value, hd['galaxy_data/dicts'])
-        elif attr.split('.')[0] in self.obj._galaxy_dicts:
+        elif attr.split('.')[0] in self.obj._galaxy_dicts \
+            and attr.split('.')[1] in self.obj._galaxy_dicts[attr.split('.')[0]]:
             # C. The attribute is a single key of a dictionary already present
             # 1. Update the single key of the dictionary in the currently loaded OZY object
             dictname = attr.split('.')[0]
@@ -692,7 +609,6 @@ class Galaxy(Group):
             data = self.obj._galaxy_dicts[dictname][keyname][:]
             data[self._index] = value
             self.clear_cache()
-            
             # 2. Update the original HDF5 file for future reference
             with h5py.File(self.obj.data_file, 'a') as hd:
                 _write_dict(self.obj.galaxies, dictname, self.obj._galaxy_dicts[dictname], hd['galaxy_data/dicts'])
@@ -736,19 +652,21 @@ class Galaxy(Group):
                 self.obj._galaxy_dicts[dictname][keyname] = LazyDataset(
                         self.obj, 'galaxy_data/dicts/' + attr
                     )
-                if isinstance(vv, unyt_quantity):
+                if isinstance(value, unyt_quantity):
                     empty_array = np.full(self.obj.ngalaxies, 0.0)
-                    self.obj._galaxy_dicts[attr][kk]._data = self.obj.array(empty_array, vv.units)
-                elif isinstance(vv, unyt_array):
-                    empty_array = np.full((self.obj.ngalaxies,)+np.shape(vv), 0.0)
-                    self.obj._galaxy_dicts[attr][kk]._data = self.obj.array(empty_array, vv.units)
-                elif isinstance(vv, (np.ndarray,list)):
-                    empty_array = np.full((self.obj.ngalaxies,)+np.shape(vv), 0.0)
-                    self.obj._galaxy_dicts[attr][kk]._data = empty_array
+                    self.obj._galaxy_dicts[dictname][keyname]._data = self.obj.array(empty_array, value.units)
+                    self.obj._galaxy_dicts[dictname][keyname].units = value.units
+                elif isinstance(value, unyt_array):
+                    empty_array = np.full((self.obj.ngalaxies,)+np.shape(value), 0.0)
+                    self.obj._galaxy_dicts[dictname][keyname]._data = self.obj.array(empty_array, value.units)
+                    self.obj._galaxy_dicts[dictname][keyname].units = value.units
+                elif isinstance(value, (np.ndarray,list)):
+                    empty_array = np.full((self.obj.ngalaxies,)+np.shape(value), 0.0)
+                    self.obj._galaxy_dicts[dictname][keyname]._data = empty_array
                 else:
                     empty_array = np.zeros(self.obj.ngalaxies, dtype=type(value))
-                    self.obj._galaxy_dicts[attr][kk]._data = empty_array
-                self.obj._galaxy_dicts[attr][kk][self._index] = value
+                    self.obj._galaxy_dicts[dictname][keyname]._data = empty_array
+                self.obj._galaxy_dicts[dictname][keyname][self._index] = value
 
                 # 2. Clean cache to reload Galaxy details
                 self.clear_cache()
@@ -768,10 +686,10 @@ class Galaxy(Group):
                     empty_array = np.full(self.obj.ngalaxies, 0.0)
                     self.obj._galaxy_data[attr]._data = self.obj.array(empty_array, value.units)
                 elif isinstance(value, unyt_array):
-                    empty_array = np.full((self.obj.ngalaxies,)+np.shape(vv), 0.0)
+                    empty_array = np.full((self.obj.ngalaxies,)+np.shape(value), 0.0)
                     self.obj._galaxy_data[attr]._data = self.obj.array(empty_array, value.units)
                 elif isinstance(value, (np.ndarray,list)):
-                    empty_array = np.full((self.obj.ngalaxies,)+np.shape(vv), 0.0)
+                    empty_array = np.full((self.obj.ngalaxies,)+np.shape(value), 0.0)
                     self.obj._galaxy_data[attr]._data = empty_array
                 else:
                     empty_array = np.zeros(self.obj.ngalaxies, dtype=type(value))

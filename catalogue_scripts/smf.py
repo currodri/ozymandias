@@ -636,13 +636,13 @@ if __name__ == '__main__':
             mhalo[j] = sim.galaxies[progind].halo.mass['total'].to('Msun') + sim.galaxies[progind].mass['baryon'].to('Msun') +sim.galaxies[progind].mass['halo_gas'].to('Msun')
         if not sim.simulation.physics['cr'] and not sim.simulation.physics['magnetic']:
             ax.plot(mhalo,mstellar, markersize=10, marker="d", markeredgecolor='b',
-                    markerfacecolor='b',label=args.model[i],color='b')
+                    markerfacecolor='b',label='HD',color='b')
         elif not sim.simulation.physics['cr'] and sim.simulation.physics['magnetic']:
             ax.plot(mhalo,mstellar, markersize=10,marker='*', markeredgecolor='m',
-                    markerfacecolor='m',label=args.model[i],color='m')
+                    markerfacecolor='m',label='MHD',color='m')
         elif sim.simulation.physics['cr']:
             ax.plot(mhalo,mstellar, markersize=10,marker='v', markeredgecolor='g',
-                    markerfacecolor='g',label=args.model[i],color='g')
+                    markerfacecolor='g',label='CRMHD',color='g')
         # if i == 0:
         #     # Add fixed fb to plot
         #     omega_dm = 1.0 - (sim.simulation.omega_lambda + sim.simulation.omega_k + sim.simulation.omega_baryon)
@@ -674,6 +674,8 @@ if __name__ == '__main__':
     # ax.plot([4e+9,1e+10],[1e6,1e+11],'k--',alpha=0.3) # z=3
     ax.plot([1.2e+11,1.2e+11],[1e6,1e+11],'k--',alpha=0.3) # z=1.5
     ax.text(1.7e+11,2e+6, r'$z=1.5$', fontsize=20, color='k',alpha=0.5)
+    
+    ax.legend(loc='upper left',frameon=False,fontsize=20)
 
     fig.subplots_adjust(top=0.97, bottom=0.1,right=0.99,hspace=0.0)
     if args.NUT:

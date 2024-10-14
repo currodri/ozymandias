@@ -20,16 +20,19 @@
 
 module part_integrator
     use local
+    use geometrical_regions
     use io_ramses
     use filtering
     use cosmology
+    use stats_utils
 
     type part_region_attrs
-        integer :: nvars
+        integer :: nvars=1
         character(128),dimension(:),allocatable :: varnames
-        integer :: nwvars
-        character(128),dimension(:),allocatable :: wvarnames
-        real(dbl),dimension(:,:,:),allocatable :: data
+        integer :: nfilter=1,nsubs=0
+        type(filter),dimension(:),allocatable :: filters
+        type(region),dimension(:),allocatable :: subs
+        type(pdf_handler) :: result
         integer(irg) :: ndm,nstar,nids,ncont
 #ifndef LONGINT
         integer(irg), dimension(:),allocatable :: ids
@@ -47,11 +50,11 @@ module part_integrator
         type(part_region_attrs),intent(inout) :: attrs
 
         if (.not.allocated(attrs%varnames)) allocate(attrs%varnames(attrs%nvars))
-        if (.not.allocated(attrs%wvarnames)) allocate(attrs%wvarnames(attrs%nwvars))
-        if (.not.allocated(attrs%data)) allocate(attrs%data(attrs%nvars,attrs%nwvars,4))
+        if (.not.allocated(attrs%filters)) allocate(attrs%filters(attrs%nfilter))
+        if (.not.allocated(attrs%subs).and.attrs%nsubs>0) allocate(attrs%subs(attrs%nsubs))
     end subroutine allocate_part_regions_attrs
 
-    subroutine extract_data(reg,part,attrs)
+    subroutine extract_data(reg,part,attrs,ifilt,trans_matrix)
         use vectors
         use geometrical_regions
         implicit none
@@ -59,41 +62,101 @@ module part_integrator
         ! Input/output variables
         type(region),intent(in) :: reg
         type(particle),intent(in) :: part
+        integer, intent(in) :: ifilt
         type(part_region_attrs),intent(inout) :: attrs
+        real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
 
         ! Local variables
-        integer :: i,j,index
-        real(dbl) :: ytemp,wtemp
+        integer :: i,j,index,ibin
+        real(dbl) :: ytemp,wtemp,ytemp2
         character(128) :: tempvar,vartype,varname
 
-        varloop: do i=1,attrs%nvars
-            ! Get variable
-            call getpartvalue(reg,part,attrs%varnames(i),ytemp)
-            if (ytemp/=0D0) then
-                wvarloop: do j=1,attrs%nwvars
-                    tempvar = TRIM(attrs%wvarnames(j))
+        varloop: do i=1,attrs%result%nvars
+            if (attrs%result%do_binning(i)) then
+                ! Get variable
+                call findbinpos_part(reg,part,ibin,ytemp,trans_matrix,attrs%result%scaletype(i),&
+                                    & attrs%result%nbins,attrs%result%bins(:,i),&
+                                    & attrs%result%linthresh(i),attrs%result%zero_index(i),&
+                                    & attrs%result%varname(i))
+                if (ytemp.eq.0d0) cycle
+                ! Get min and max
+                if (attrs%result%minv(i,ifilt).eq.0D0) then
+                    attrs%result%minv(i,ifilt) = ytemp ! Just to make sure that the initial min is not zero
+                else
+                    attrs%result%minv(i,ifilt) = min(ytemp,attrs%result%minv(i,ifilt))    ! Min value
+                endif
+                attrs%result%maxv(i,ifilt) = max(ytemp,attrs%result%maxv(i,ifilt))    ! Max value
+                attrs%result%nvalues(i,ifilt) = attrs%result%nvalues(i,ifilt) + 1
+                
+                if (ibin.gt.0) then
+                    wvarloop1: do j=1,attrs%result%nwvars
+                        ! Get weights
+                        ytemp2 = ytemp
+                        tempvar = TRIM(attrs%result%wvarnames(j))
+                        index = scan(tempvar,'/')
+                        vartype = tempvar(1:index-1)
+                        varname = tempvar(index+1:)
+                        if (trim(varname)=='counts') then
+                            wtemp =  1D0
+                        else if (trim(varname)=='cumulative') then
+                            wtemp = ytemp2
+                        else
+                            call getpartvalue(reg,part,attrs%result%wvarnames(j),wtemp)
+                        endif
+                        
+                        ! Save to PDFs
+                        attrs%result%heights(i,ifilt,j,ibin) = attrs%result%heights(i,ifilt,j,ibin) + wtemp ! Weight to the PDF bin
+                        attrs%result%totweights(i,ifilt,j) = attrs%result%totweights(i,ifilt,j) + wtemp       ! Weight
+
+                        ! Now do it for the case of no binning (old integration method)
+                        ! Get weights
+                        if (trim(varname)=='counts') then
+                            wtemp =  1D0
+                            ytemp2 = 1D0
+                        else if (trim(varname)=='cumulative') then
+                            wtemp = 1D0
+                        endif
+                        
+                        ! Save to attrs
+                        attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) + ytemp2*wtemp ! Value (weighted or not)
+                        attrs%result%total(i,ifilt,j,2) = attrs%result%total(i,ifilt,j,2) + wtemp       ! Weight
+                    end do wvarloop1
+                else
+                    attrs%result%nout(i,ifilt) = attrs%result%nout(i,ifilt) + 1
+                end if
+            else
+                ! Get variable
+                call getpartvalue(reg,part,attrs%result%varname(i),ytemp)
+                ! Get min and max
+                if (attrs%result%minv(i,ifilt).eq.0D0) then
+                    attrs%result%minv(i,ifilt) = ytemp ! Just to make sure that the initial min is not zero
+                else
+                    attrs%result%minv(i,ifilt) = min(ytemp,attrs%result%minv(i,ifilt))    ! Min value
+                endif
+                attrs%result%maxv(i,ifilt) = max(ytemp,attrs%result%maxv(i,ifilt))    ! Max value
+                attrs%result%nvalues(i,ifilt) = attrs%result%nvalues(i,ifilt) + 1
+
+                wvarloop2: do j=1,attrs%result%nwvars
+                    ! Get weights
+                    ytemp2 = ytemp
+                    tempvar = TRIM(attrs%result%wvarnames(j))
                     index = scan(tempvar,'/')
                     vartype = tempvar(1:index-1)
                     varname = tempvar(index+1:)
-                    wtemp = 0D0
-                    ! Get weights
-                    if (varname=='counts'.or.varname=='cumulative') then
+                    if (trim(varname)=='counts') then
+                        wtemp =  1D0
+                        ytemp2 = 1D0
+                    else if (trim(varname)=='cumulative') then
                         wtemp = 1D0
                     else
-                        call getpartvalue(reg,part,attrs%wvarnames(j),wtemp)
+                        call getpartvalue(reg,part,attrs%result%wvarnames(j),wtemp)
                     endif
+                    
                     ! Save to attrs
-                    attrs%data(i,j,1) = attrs%data(i,j,1) + ytemp*wtemp ! Value (weighted or not)
-                    if (attrs%data(i,j,2).eq.0D0) then
-                        attrs%data(i,j,2) = ytemp ! Just to make sure that the initial min is not zero
-                    else
-                        attrs%data(i,j,2) = min(ytemp,attrs%data(i,j,2))    ! Min value
-                    endif
-                    attrs%data(i,j,3) = max(ytemp,attrs%data(i,j,3))    ! Max value
-                    attrs%data(i,j,4) = attrs%data(i,j,4) + wtemp       ! Weight
-
-                end do wvarloop
-            endif
+                    attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) + ytemp2*wtemp ! Value (weighted or not)
+                    attrs%result%total(i,ifilt,j,2) = attrs%result%total(i,ifilt,j,2) + wtemp       ! Weight
+                end do wvarloop2
+            end if
         end do varloop
 
     end subroutine extract_data
@@ -105,34 +168,54 @@ module part_integrator
         type(part_region_attrs),intent(inout) :: attrs
 
         ! Local variable
-        integer :: i,j,index,index2,indexw
+        integer :: i,j,index,index2,indexw,ifilt
         character(128) :: tempvar,vartype,varname,sfrstr
         character(128) :: tempwvar,wvartype,wvarname
         real(dbl) :: sfrind
 
-        varloop: do i=1,attrs%nvars
-            tempvar = TRIM(attrs%varnames(i))
-            index = scan(tempvar,'/')
-            vartype = tempvar(1:index-1)
-            varname = tempvar(index+1:)
-            index2 = scan(varname,'_')
-            wvarloop: do j=1,attrs%nwvars
-                tempwvar = TRIM(attrs%wvarnames(j))
-                indexw = scan(tempwvar,'/')
-                wvartype = tempwvar(1:indexw-1)
-                wvarname = tempwvar(indexw+1:)
-                if (wvarname .eq. 'cumulative' .and. index2.ne.0 .and. varname(1:index2-1).eq.'sfr') then
-                    sfrstr = varname(index2+1:)
-                    read(sfrstr,'(F10.0)') sfrind
-                    attrs%data(i,j,1) = attrs%data(i,j,1) * sim%unit_m/ (sfrind*1D6*2D33) ! We now have it in Msun/yr
-                elseif (wvarname /= 'cumulative' .and. index2.eq.0) then
-                    attrs%data(i,j,1) = attrs%data(i,j,1) / attrs%data(i,j,4)
-                endif
-            end do wvarloop
-        end do varloop
+        filterloop: do ifilt=1,attrs%nfilter
+            varloop: do i=1,attrs%result%nvars
+                tempvar = TRIM(attrs%result%varname(i))
+                index = scan(tempvar,'/')
+                vartype = tempvar(1:index-1)
+                varname = tempvar(index+1:)
+                index2 = scan(varname,'_')
+                if (attrs%result%do_binning(i)) then
+                    wvarloop1: do j=1,attrs%result%nwvars
+                        tempwvar = TRIM(attrs%result%wvarnames(j))
+                        indexw = scan(tempwvar,'/')
+                        wvartype = tempwvar(1:indexw-1)
+                        wvarname = tempwvar(indexw+1:)
+                        if (trim(wvarname) .eq. 'cumulative' .and. index2.ne.0 .and. trim(varname(1:index2-1)).eq.'sfr') then
+                            sfrstr = varname(index2+1:)
+                            read(sfrstr,'(F10.0)') sfrind
+                            attrs%result%heights(i,ifilt,j,:) = attrs%result%heights(i,ifilt,j,:) / attrs%result%totweights(i,ifilt,j) * sim%unit_m/ (sfrind*1D6*2D33) ! We now have it in Msun/yr
+                            attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) / attrs%result%total(i,ifilt,j,2) * sim%unit_m/ (sfrind*1D6*2D33) ! We now have it in Msun/yr
+                        elseif (trim(wvarname) /= 'cumulative' .and. index2.eq.0) then
+                            attrs%result%heights(i,ifilt,j,:) = attrs%result%heights(i,ifilt,j,:) / attrs%result%totweights(i,ifilt,j)
+                            attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) / attrs%result%total(i,ifilt,j,2)
+                        endif
+                    end do wvarloop1
+                else
+                    wvarloop2: do j=1,attrs%result%nwvars
+                        tempwvar = TRIM(attrs%result%wvarnames(j))
+                        indexw = scan(tempwvar,'/')
+                        wvartype = tempwvar(1:indexw-1)
+                        wvarname = tempwvar(indexw+1:)
+                        if (trim(wvarname) .eq. 'cumulative' .and. index2.ne.0 .and. trim(varname(1:index2-1)).eq.'sfr') then
+                            sfrstr = varname(index2+1:)
+                            read(sfrstr,'(F10.0)') sfrind
+                            attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) / attrs%result%total(i,ifilt,j,2) * sim%unit_m/ (sfrind*1D6*2D33) ! We now have it in Msun/yr
+                        elseif (trim(wvarname) /= 'cumulative' .and. index2.eq.0) then
+                            attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) / attrs%result%total(i,ifilt,j,2)
+                        endif
+                    end do wvarloop2
+                end if
+            end do varloop
+        end do filterloop
     end subroutine renormalise
 
-    subroutine integrate_region(repository,reg,filt,attrs,get_ids,check_contamination)
+    subroutine integrate_region(repository,reg,attrs,get_ids,check_contamination)
         use utils, only:quick_sort_dp
         use vectors
         use coordinate_systems
@@ -142,16 +225,15 @@ module part_integrator
         ! Input/output variables
         character(128),intent(in) :: repository
         type(region),intent(inout) :: reg
-        type(filter),intent(in) :: filt
         type(part_region_attrs),intent(inout) :: attrs
         logical,intent(in),optional :: get_ids
         logical,intent(in),optional :: check_contamination
 
         ! Specific variables for this subroutine
-        logical :: ok_part,ok_filter
+        logical :: ok_part,ok_filter,ok_sub
         integer :: roterr
         integer :: i,j,k
-        integer :: ipos,icpu,binpos
+        integer :: ipos,icpu,binpos,ifilt,isub
         integer :: npart,npart2,nstar,inpart=0
         integer :: ncpu2,ndim2
         real(dbl) :: distance
@@ -204,7 +286,6 @@ module part_integrator
         write(*,*)'ncpu_read:',amr%ncpu_read
 
         ! Just make sure that initial values are zero
-        attrs%data = 0D0
         attrs%nstar = 0
         attrs%ndm = 0
 
@@ -374,8 +455,15 @@ module part_integrator
                 call rotate_vector(part%x,trans_matrix)
                 x(i,:) = part%x
                 call checkifinside(x(i,:),reg,ok_part,distance)
-                ok_filter = filter_particle(reg,filt,part)
-                ok_part = ok_part.and.ok_filter
+
+                ! If we are avoiding substructure, check whether we are safe
+                if (attrs%nsubs>0) then
+                    ok_sub = .true.
+                    do isub=1,attrs%nsubs
+                        ok_sub = ok_sub .and. filter_sub(attrs%subs(isub),x(i,:))
+                    end do
+                    ok_part = ok_part .and. ok_sub
+                end if
                 if (ok_part) then
                     if (present(get_ids)) then
                         if (get_ids) attrs%ids(inpart+i) = part%id
@@ -401,7 +489,10 @@ module part_integrator
                     if (ptype.eq.'dm') attrs%ndm = attrs%ndm + 1
                     if (ptype.eq.'star') attrs%nstar = attrs%nstar + 1
                     call rotate_vector(part%v,trans_matrix)
-                    call extract_data(reg,part,attrs)
+                    filterloop: do ifilt=1,attrs%nfilter
+                        ok_filter = filter_particle(reg,attrs%filters(ifilt),part)
+                        if (ok_filter) call extract_data(reg,part,attrs,ifilt,trans_matrix)
+                    end do filterloop  
                 endif
             end do partloop
             deallocate(m,x,v)

@@ -26,6 +26,7 @@ class PhaseDiagram(object):
         self.yvar = None
         self.region = None
         self.filter = None
+        self.rm_subs = False
         self.lmax = 0
         self.zvars = {}
         self.weightvars = {}
@@ -76,24 +77,36 @@ class PhaseDiagram(object):
                 cond_str = cond_var+'/'+cond_op+'/'+str(cond_value.d)+'/'+cond_units
                 self.filter['conditions'].append(cond_str)
 
-def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins=[100,100],region_type='sphere',
-                            filter_conds='none',filter_name='none',scaletype='log_even',recompute=False,save=False,
+def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,minval,maxval,linthresh=None,
+                            lmax=0,nbins=[100,100],region_type='sphere',
+                            filter_conds=['none'],filter_name=['none'],scaletype=['log_even','log_even'],
+                            recompute=False,save=False,
                             rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(0.0,'rvir'), zmax=(0.2,'rvir'),
-                            cr_st=False,cr_heat=False,Dcr=0.0):
+                            mycentre=([0.5,0.5,0.5],'rvir'), myaxis=np.array([1.,0.,0.]),
+                            remove_subs=False,cr_st=False,cr_heat=False,Dcr=0.0,verbose=False):
     """Function which computes a phase diagram (2D profile) for a given group object."""
-
+    from ozy.utils import structure_regions,get_code_bins
     if not isinstance(xvar,str) or not isinstance(yvar,str):
         print('Only single x and y variable supported!')
         exit
     if len(nbins) != 2 or not isinstance(nbins,list):
         print('Number of bins should be given for both x and y axis. No more, no less!')
         exit
-    pd = PhaseDiagram(group)
-    pd.nbins = nbins
-    pd.xvar = xvar
-    pd.yvar = yvar
-    pd.zvars = dict(hydro = [],for_star = [], for_dm = [])
-    pd.weightvars = dict(hydro = [],for_star = [], for_dm = [])
+    remove_all = False
+    if remove_subs =='all':
+        remove_all = True
+        remove_subs = True
+    nfilter = len(filter_name)
+    pds = []
+    for i in range(0,nfilter):
+        pd = PhaseDiagram(group)
+        pd.rm_subs = remove_subs
+        pd.nbins = nbins
+        pd.xvar = xvar
+        pd.yvar = yvar
+        pd.zvars = dict(hydro = [],for_star = [], for_dm = [])
+        pd.weightvars = dict(hydro = [],for_star = [], for_dm = [])
+        pds.append(pd)
     # Begin by checking the combination of variables is correct
     # Variables should be given in the form "type"/"variable":
     # e.g. gas/density or star/ang_momentum_x
@@ -102,17 +115,20 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins
         var_name = var.split('/')[1]
         if var_type == 'gas':
             if var_name in common_variables or var_name in grid_variables:
-                pd.zvars['hydro'].append(var_name)
+                for i in range(0, nfilter):
+                    pds[i].zvars['hydro'].append(var_name)
             else:
                 raise KeyError('This gas variable is not supported. Please check!: %s', var)
         elif var_type == 'star':
             if var_name in common_variables or var_name in particle_variables:
-                pd.zvars['for_star'].append(var_name)
+                for i in range(0, nfilter):
+                    pds[i].zvars['for_star'].append(var_name)
             else:
                 raise KeyError('This star variable is not supported. Please check!')
         elif var_type == 'dm':
             if var_name in common_variables or var_name in particle_variables:
-                pd.zvars['for_dm'].append(var_name)
+                for i in range(0, nfilter):
+                    pds[i].zvars['for_dm'].append(var_name)
             else:
                 raise KeyError('This DM variable is not supported. Please check!')
     for var in weightvars:
@@ -120,79 +136,174 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins
         var_name = var.split('/')[1]
         if var_type == 'gas':
             if var_name in common_variables or var_name in grid_variables:
-                pd.weightvars['hydro'].append(var_name)
+                for i in range(0, nfilter):
+                    pds[i].weightvars['hydro'].append(var_name)
             else:
                 raise KeyError('This gas variable is not supported. Please check!')
         elif var_type == 'star':
             if var_name in common_variables or var_name in particle_variables:
-                pd.weightvars['for_star'].append(var_name)
+                for i in range(0, nfilter):
+                    pds[i].weightvars['for_star'].append(var_name)
             else:
                 raise KeyError('This star variable is not supported. Please check!')
         elif var_type == 'dm':
             if var_name in common_variables or var_name in particle_variables:
-                pd.weightvars['for_dm'].append(var_name)
+                for i in range(0, nfilter):
+                    pds[i].weightvars['for_dm'].append(var_name)
             else:
                 raise KeyError('This DM variable is not supported. Please check!')
 
     # Check that we do not have any inconsistency...
-    if xvar in grid_variables and len(pd.zvars['for_star'])>0 or xvar in grid_variables and len(pd.zvars['for_dm'])>0:
+    if xvar in grid_variables and len(pds[0].zvars['for_star'])>0 or xvar in grid_variables and len(pds[0].zvars['for_dm'])>0:
         raise KeyError("Having grid vs particle phase diagrams is not well-defined.")
-    elif xvar in particle_variables and len(pd.zvars['hydro'])>0:
+    elif xvar in particle_variables and len(pds[0].zvars['hydro'])>0:
         raise KeyError("Having particle vs grid phase diagrams is not well-defined.")
+    
+    # Check that the xaxis min and max quantities have the units expected for that variable
+    try:
+        minval[0] = minval[0].to(get_code_units(xvar))
+        maxval[0] = maxval[0].to(get_code_units(xvar))
+    except:
+        raise ValueError(f"It seems the dimensions of your bins min ({minval[0].units}) and max ({maxval[0].units}) values do not agree with the dimensions of the chosen xvar ({xvar},{get_code_units(xvar)})")
+    # Check that the yaxis min and max quantities have the units expected for that variable
+    try:
+        minval[1] = minval[1].to(get_code_units(yvar))
+        maxval[1] = maxval[1].to(get_code_units(yvar))
+    except:
+        raise ValueError(f"It seems the dimensions of your bins min ({minval[1].units}) and max ({maxval[1].units}) values do not agree with the dimensions of the chosen yvar ({yvar},{get_code_units(yvar)})")
+
 
     # Now create region
+    
     if isinstance(region_type, geo.region):
         selected_reg = region_type
+        enclosing_sphere_r = rmax
+        enclosing_sphere_p = group.position
+        if not np.array_equal(mycentre,group.position):
+            enclosing_sphere_p = mycentre
     else:
-        selected_reg = init_region(group,region_type,rmin=rmin,rmax=rmax,zmin=zmin,zmax=zmax)
-
-    # Save region details to PhaseDiagram object
-    pd._get_python_region(selected_reg)
-
-    # Now create filter, if any conditions have been given…
-    filt = init_filter(filter_conds, filter_name, group)
-    # ...and save to PhaseDiagram object
-    pd._get_python_filter(filt)
+        if not np.array_equal(mycentre, group.position) and not np.array_equal(myaxis,group.angular_mom['total']):
+            selected_reg,enclosing_sphere_p,enclosing_sphere_r = init_region(group,region_type,rmin=rmin,
+                                                                            rmax=rmax,zmin=zmin,zmax=zmax,
+                                                                            mycentre=mycentre,myaxis=myaxis,
+                                                                            return_enclosing_sphere=True)
+        elif not np.array_equal(mycentre,group.position):
+            selected_reg,enclosing_sphere_p,enclosing_sphere_r = init_region(group,region_type,rmin=rmin,
+                                                                            rmax=rmax,zmin=zmin,zmax=zmax,
+                                                                            mycentre=mycentre,
+                                                                            return_enclosing_sphere=True)
+        elif not np.array_equal(myaxis,group.angular_mom['total']):
+            selected_reg,enclosing_sphere_p,enclosing_sphere_r = init_region(group,region_type,rmin=rmin,
+                                                                            rmax=rmax,zmin=zmin,zmax=zmax,
+                                                                            myaxis=myaxis,
+                                                                            return_enclosing_sphere=True)
+        else:
+            selected_reg,enclosing_sphere_p,enclosing_sphere_r = init_region(group,region_type,rmin=rmin,
+                                                                            rmax=rmax,zmin=zmin,zmax=zmax,
+                                                                            return_enclosing_sphere=True)
+    # Now create filters and regions for each phase diagram
+    filts = []
+    for i in range(0,nfilter):
+        filt = init_filter(filter_conds[i], filter_name[i], group)
+        filts.append(filt)
+        # Save region details to phase diagram object
+        pd = pds[i]
+        pd._get_python_region(selected_reg)
+        # And save to phase diagram object
+        pd._get_python_filter(filt)
 
     # Check if phase data is already present and if it coincides with the new one
     f = h5py.File(ozy_file, 'r+')
-    pd_present, pd_key = check_if_same_phasediag(f,pd)
-    if pd_present:
-        group._init_phase_diagrams()
-        for i,p in enumerate(group.phase_diagrams):
-            if p.key == pd_key:
-                selected_pd = i
-                break
-        pd_temp = group.phase_diagrams[selected_pd]
-        # TODO: This should be done for all type of variables, not just hydro
-        for pd_field in pd.zvars['hydro']:
-            if not pd_field in pd_temp.zvars['hydro']:
-                print('Recomputing phase-diagram because of missing requested variables!')
-                recompute = True
-                break
-    if pd_present and recompute:
-        del f[str(pd.group.type)+'_data/phase_diagrams/'+str(group._index)+'/'+str(pd_key)]
-        print('Overwriting phase diagram data in %s_data'%group.type)
-    elif pd_present and not recompute:
-        print('Phase diagram data with same details already present for galaxy %s. No overwritting!'%group._index)
-        group._init_phase_diagrams()
-        for i,p in enumerate(group.phase_diagrams):
-            if p.key == pd_key:
-                selected_pd = i
-                break
-        return group.phase_diagrams[selected_pd]
-    else:
-        print('Writing phase diagram data in %s_data'%group.type)
+    pds_fr = []
+    for i in range(0,nfilter):
+        pd = pds[i]
+        pd_present, pd_key = check_if_same_phasediag(f,pd)
+        if pd_present:
+            group._init_phase_diagrams()
+            if remove_subs:
+                for i,p in enumerate(group.phase_diagrams_nosubs):
+                    if p.key == pd_key:
+                        selected_pd = i
+                        break
+                pd_temp = group.phase_diagrams_nosubs[selected_pd]
+                # TODO: This should be done for all type of variables, not just hydro
+                for pd_field in pd.zvars['hydro']:
+                    if not pd_field in pd_temp.zvars['hydro']:
+                        if verbose: print('Recomputing phase-diagram because of missing requested variables!')
+                        recompute = True
+                        pds_fr.append(True)
+                        break
+            else:
+                for i,p in enumerate(group.phase_diagrams):
+                    if p.key == pd_key:
+                        selected_pd = i
+                        break
+                pd_temp = group.phase_diagrams[selected_pd]
+                # TODO: This should be done for all type of variables, not just hydro
+                for pd_field in pd.zvars['hydro']:
+                    if not pd_field in pd_temp.zvars['hydro']:
+                        if verbose: print('Recomputing phase-diagram because of missing requested variables!')
+                        recompute = True
+                        pds_fr.append(True)
+                        break
+        if pd_present and recompute:
+            if remove_subs:
+                del f[str(pd.group.type)+'_data/phase_diagrams_nosubs/'+str(group._index)+'/'+str(pd_key)]
+            else:
+                del f[str(pd.group.type)+'_data/phase_diagrams/'+str(group._index)+'/'+str(pd_key)]
+            pds_fr.append(True)
+            if verbose: print('Overwriting phase diagram data in %s_data'%group.type)
+        elif pd_present and not recompute:
+            if verbose: print('Phase diagram data with same details already present for galaxy %s. No overwritting!'%group._index)
+            group._init_phase_diagrams()
+            if remove_subs:
+                for i,p in enumerate(group.phase_diagrams_nosubs):
+                    if p.key == pd_key:
+                        selected_pd = i
+                        break
+                pds_fr.append(group.phase_diagrams_nosubs[selected_pd])
+            else:
+                for i,p in enumerate(group.phase_diagrams):
+                    if p.key == pd_key:
+                        selected_pd = i
+                        break
+                pds_fr.append(group.phase_diagrams[selected_pd])
+        else:
+            pds_fr.append(True)
+            if verbose: print('Writing phase diagram data in %s_data'%group.type)
     f.close()
+    
+    nfilter_real = pds_fr.count(True)
+    if nfilter_real == 0:
+        if nfilter > 1:
+            return pds_fr
+        else:
+            return pds_fr[0]
+        
+    # If substructre is removed, obtain regions
+    if remove_all:
+        subs = structure_regions(group, add_substructure=True, add_neighbours=False,
+                                    add_intersections=True,position=enclosing_sphere_p,
+                                    radius=enclosing_sphere_r,tidal_method='BT87_simple')
+        nsubs = len(subs)
+    elif remove_subs:
+        if verbose: print('Removing substructure!')
+        subs = structure_regions(group, add_substructure=True, add_neighbours=False,
+                                    tidal_method='BT87_simple')
+        nsubs = len(subs)
+    else:
+        nsubs = 0
 
     # Initialise hydro phase diagram data object
     hydro_data = amrprofmod.profile_handler_twod()
     hydro_data.profdim = 2
     hydro_data.xvarname = xvar
     hydro_data.yvarname = yvar
+    hydro_data.nfilter = nfilter_real
     hydro_data.nzvar = len(pd.zvars['hydro'])
     hydro_data.nwvar = len(pd.weightvars['hydro'])
     hydro_data.nbins = np.asarray(nbins,order='F')
+    hydro_data.nsubs = nsubs
     hydro_data.cr_st = cr_st
     hydro_data.cr_heat = cr_heat
     hydro_data.Dcr = Dcr
@@ -203,32 +314,66 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins
     for i in range(0, len(pd.weightvars['hydro'])):
         hydro_data.wvarnames.T.view('S128')[i] = pd.weightvars['hydro'][i].ljust(128)
     
+    if remove_subs and nsubs>0:
+        for i in range(0,nsubs):
+            hydro_data.subs[i] = subs[i]
+    
+    # Add the scaletype for the xaxis and the preo-computed bin edges
+    bin_edges, stype, zero_index, linthresh = get_code_bins(group.obj,'gas/'+xvar,nbins=nbins[0],logscale=scaletype[0],
+                                        minval=minval[0],maxval=maxval[0],linthresh=linthresh)
+    hydro_data.xdata = bin_edges
+    hydro_data.scaletype.T.view('S128')[0] = stype.ljust(128)
+    hydro_data.linthresh[0] = linthresh
+    hydro_data.zero_index[0] = zero_index
+    # Add the scaletype for the yaxis and the preo-computed bin edges
+    bin_edges, stype, zero_index, linthresh = get_code_bins(group.obj,'gas/'+yvar,nbins=nbins[1],logscale=scaletype[1],
+                                        minval=minval[1],maxval=maxval[1],linthresh=linthresh)
+    hydro_data.ydata = bin_edges
+    hydro_data.scaletype.T.view('S128')[1] = stype.ljust(128)
+    hydro_data.linthresh[1] = linthresh
+    hydro_data.zero_index[1] = zero_index
+    
+    counter = 0
+    for i in range(0,nfilter):
+        if pds_fr[i] == True:
+            hydro_data.filters[counter] = filts[i]
+            counter += 1
+            
     # And now, compute hydro data phase diagrams!
     if hydro_data.nzvar > 0 and hydro_data.nwvar > 0:
-        amrprofmod.twodprofile(group.obj.simulation.fullpath,selected_reg,filt,hydro_data,lmax,scaletype)
+        amrprofmod.twodprofile(group.obj.simulation.fullpath,selected_reg,hydro_data,lmax)
     
-    code_units = get_code_units(pd.xvar)
-    copy_data = np.copy(hydro_data.xdata)
-    copy_data = 0.5*(copy_data[:-1]+copy_data[1:])
-    pd.xdata.append(group.obj.array(copy_data, code_units))
-
-    code_units = get_code_units(pd.yvar)
-    copy_data = np.copy(hydro_data.ydata)
-    copy_data = 0.5*(copy_data[:-1]+copy_data[1:])
-    pd.ydata.append(group.obj.array(copy_data, code_units))
-    pd.zdata['hydro'] = []
-    for i in range(0, len(pd.zvars['hydro'])):
-        code_units = get_code_units(pd.zvars['hydro'][i])
-        copy_data = np.copy(hydro_data.zdata[:,:,i,:,::2])
-        pd.zdata['hydro'].append(group.obj.array(copy_data, code_units))
+    xdata = 0.5*(hydro_data.xdata[:-1]+hydro_data.xdata[1:])
+    ydata = 0.5*(hydro_data.ydata[:-1]+hydro_data.ydata[1:])
+    
+    counter = 0
+    for i in range(0,nfilter):
+        if pds_fr[i] == True:
+            pd  = pds[i]
+            pd.xdata.append(group.obj.array(xdata, get_code_units(pd.xvar)))
+            pd.ydata.append(group.obj.array(ydata, get_code_units(pd.yvar)))
+            pd.zdata['hydro'] = []
+            
+            for j in range(0, len(pd.zvars['hydro'])):
+                code_units = get_code_units(pd.zvars['hydro'][j])
+                copy_data = np.copy(hydro_data.zdata[counter,:,:,j,:,::2])
+                pd.zdata['hydro'].append(group.obj.array(copy_data, code_units))
+            counter += 1
 
     # TODO: Add phase diagram for particles
     star_data = None
     dm_data = None
     if save:
-        write_phasediag(group.obj, ozy_file, hydro_data, star_data, dm_data, pd)
+        pds_to_save = [pds[i] for i in range(0,nfilter) if pds_fr[i] == True]
+        write_phasediag(group.obj, nfilter_real, ozy_file, hydro_data, star_data, dm_data, pds_to_save)
     
-    return pd
+    for index, porig in enumerate(pds_fr):
+        if porig != True:
+            pds[index] = pds_fr[index]
+    if nfilter > 1:
+        return pds
+    else:
+        return pds[0]
 
 def get_phasediag_name(phasediag_group,pd):
     """Create an individual phase diagram identifier name."""
@@ -241,9 +386,13 @@ def get_phasediag_name(phasediag_group,pd):
 
 def check_if_same_phasediag(hd,pd):
     """This function checks if a phase diagram for a group already exists with the same attributes."""
-    if not str(pd.group.type)+'_data/phase_diagrams/'+str(pd.group._index) in hd:
+    if pd.rm_subs:
+        prof_key = '_data/phase_diagrams_nosubs/'
+    else:
+        prof_key = '_data/phase_diagrams/'
+    if not str(pd.group.type)+prof_key+str(pd.group._index) in hd:
         return False, 'none'
-    for p in hd[str(pd.group.type)+'_data/phase_diagrams/'+str(pd.group._index)].keys():
+    for p in hd[str(pd.group.type)+prof_key+str(pd.group._index)].keys():
         check_xvar = (p.split('|')[0] == pd.xvar+'_'+pd.yvar)
         check_filtername = (p.split('|')[1] == pd.filter['name'])
         check_regiontype = (p.split('|')[2] == pd.region['type'])
@@ -251,51 +400,58 @@ def check_if_same_phasediag(hd,pd):
             return True, p
     return False, 'none'
 
-def write_phasediag(obj,ozy_file,hydro,star,dm,pd):
+def write_phasediag(obj,nfilter,ozy_file,hydro,star,dm,pds):
     """This function writes the resulting phase diagram for this group to the original OZY HDF5 file."""
 
     f = h5py.File(ozy_file, 'r+')
+    
+    if pds[0].rm_subs:
+        prof_key = '_data/phase_diagrams_nosubs/'
+    else:
+        prof_key = '_data/phase_diagrams/'
 
     # Create group in HDF5 file
     try:
-        phase_diagrams = f.create_group(str(pd.group.type)+'_data/phase_diagrams/'+str(pd.group._index))
+        phase_diagrams = f.create_group(str(pds[0].group.type)+prof_key+str(pds[0].group._index))
     except:
-        phase_diagrams = f[str(pd.group.type)+'_data/phase_diagrams/'+str(pd.group._index)]
+        phase_diagrams = f[str(pds[0].group.type)+prof_key+str(pds[0].group._index)]
     
-    # Clean data and save to dataset
-    pd_name = get_phasediag_name(phase_diagrams,pd)
-    hdpd = phase_diagrams.create_group(pd_name)
-    pd._serialise(hdpd)
+    for i in range(0,nfilter):
+        pd = pds[i]
+        # Clean data and save to dataset
+        pd_name = get_phasediag_name(phase_diagrams,pd)
+        hdpd = phase_diagrams.create_group(pd_name)
+        pd._serialise(hdpd)
 
-    # Save x and y data
-    xdata = np.zeros((3,pd.nbins[0]))
-    if hydro != None:
-        xdata[0,:] = hydro.xdata[1:]
-    if star != None:
-        xdata[1,:] = star.xdata[1:]
-    if dm != None:
-        xdata[2,:] = dm.xdata[1:]
-    hdpd.create_dataset('xdata', data=xdata)
-    hdpd['xdata'].attrs.create('units', get_code_units(pd.xvar))
+        # Save x and y data
+        xdata = np.zeros((3,pd.nbins[0]))
+        if hydro != None:
+            xdata[0,:] = hydro.xdata[1:]
+        if star != None:
+            xdata[1,:] = star.xdata[1:]
+        if dm != None:
+            xdata[2,:] = dm.xdata[1:]
+        hdpd.create_dataset('xdata', data=xdata)
+        hdpd['xdata'].attrs.create('units', get_code_units(pd.xvar))
 
-    ydata = np.zeros((3,pd.nbins[1]))
-    if hydro != None:
-        ydata[0,:] = hydro.ydata[1:]
-    if star != None:
-        ydata[1,:] = star.ydata[1:]
-    if dm != None:
-        ydata[2,:] = dm.ydata[1:]
-    hdpd.create_dataset('ydata', data=ydata)
-    hdpd['ydata'].attrs.create('units', get_code_units(pd.yvar))
+        ydata = np.zeros((3,pd.nbins[1]))
+        if hydro != None:
+            ydata[0,:] = hydro.ydata[1:]
+        if star != None:
+            ydata[1,:] = star.ydata[1:]
+        if dm != None:
+            ydata[2,:] = dm.ydata[1:]
+        hdpd.create_dataset('ydata', data=ydata)
+        hdpd['ydata'].attrs.create('units', get_code_units(pd.yvar))
 
-    # Save hydro z data
-    if hydro != None:
-        clean_hydro = hdpd.create_group('hydro')
-        for v,var in enumerate(pd.zvars['hydro']):
-            clean_hydro.create_dataset(var, data=hydro.zdata[:,:,v,:,::2])
-            clean_hydro[var].attrs.create('units', get_code_units(pd.zvars['hydro'][v]))
-        clean_hydro.create_dataset('weightvars', data=pd.weightvars['hydro'][:])
-    # TODO: Save particle data
+        # Save hydro z data
+        if hydro != None:
+            clean_hydro = hdpd.create_group('hydro')
+            for v,var in enumerate(pd.zvars['hydro']):
+                clean_hydro.create_dataset(var, data=hydro.zdata[i,:,:,v,:,::2])
+                clean_hydro[var].attrs.create('units', get_code_units(pd.zvars['hydro'][v]))
+            clean_hydro.create_dataset('weightvars', data=pd.weightvars['hydro'][:])
+        # TODO: Save particle data
     f.close()
     return
 
@@ -355,10 +511,10 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
     ax.set_xscale('log')
     ax.set_yscale('log')
     code_units_x = get_code_units(pd.xvar)
-    x = pd.obj.array(10**pd.xdata[0].d,code_units_x)
+    x = pd.obj.array(pd.xdata[0].d,code_units_x)
     x = x.in_units(plotting_x['units'])
     code_units_y = get_code_units(pd.yvar)
-    y = pd.obj.array(10**pd.ydata[0].d,code_units_y)
+    y = pd.obj.array(pd.ydata[0].d,code_units_y)
     y = y.in_units(plotting_y['units'])
     code_units_z = get_code_units(field)
     z = np.array(pd.zdata['hydro'][field_index][:,:,weight_index].d,order='F')
@@ -399,28 +555,28 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
                     color='black')
     if stats == 'mean':
         y_mean = np.zeros(len(x))
-        z = z.T
         for i in range(0, len(x)):
-            a = np.nansum(y * z[:,i])
-            b = np.nansum(z[:,i])
+            a = np.nansum(y * z[:,i].T)
+            b = np.nansum(z[:,i].T)
             y_mean[i] = a/b
         ax.plot(x,y_mean,color='r',linewidth=2)
 
     if gent:
         XX,YY = np.meshgrid(x,y)
         ax.fill_between([1e-30,8e-20], [gent_curve_T('cold',1e-30),gent_curve_T('cold',8e-20)],
-                            [1,1],color='b', zorder=1,alpha=0.2)
+                            [1,1],color='b', zorder=-10,alpha=0.2)
         ax.fill_between([1e-30,8e-20], [gent_curve_T('cold',1e-30),gent_curve_T('cold',8e-20)],
                             [gent_curve_T('hot',1e-30),gent_curve_T('hot',8e-20)],color='orange', 
-                            zorder=1,alpha=0.2)
+                            zorder=-10,alpha=0.2)
         ax.fill_between([1e-30,8e-20], [gent_curve_T('hot',1e-30),gent_curve_T('hot',8e-20)],
-                        [1e8,1e8],color='r', zorder=1,alpha=0.2)
+                        [1e8,1e8],color='r', zorder=-10,alpha=0.2)
         if field == 'mass':
-            z_cold = np.sum(z.T[YY<gent_curve_T('cold',XX)])
-            z_warm = np.sum(z.T[(YY>gent_curve_T('cold',XX)) & (YY<gent_curve_T('hot',XX))])
-            z_hot = np.sum(z.T[YY>gent_curve_T('hot',XX)])
-            z_tot = np.sum(z)
+            z_cold = np.sum(z[:,:,0].T[YY<gent_curve_T('cold',XX)])
+            z_warm = np.sum(z[:,:,0].T[(YY>gent_curve_T('cold',XX)) & (YY<gent_curve_T('hot',XX))])
+            z_hot = np.sum(z[:,:,0].T[YY>gent_curve_T('hot',XX)])
+            z_tot = np.sum(z[:,:,0])
             print(z_cold,z_warm,z_hot)
+            print('Distribution of masses in the Gent phases:')
             print('Cold: %.3f, %.3e'%(100*z_cold/z_tot,z_cold))
             print('Warm: %.3f, %.3e'%(100*z_warm/z_tot,z_warm))
             print('Hot: %.3f, %.3e'%(100*z_hot/z_tot, z_hot))
@@ -764,21 +920,22 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
         field_indexes.append([])
         weight_indexes.append([])
         if doflows or do_sf:
-            if field[i] not in pd[0][0].zvars['hydro']:
-                raise KeyError('The field %s is not included in this PhaseDiagram object. Aborting!'%field[i])
-            else:
-                for f in range(0,len(pd[0][0].zvars['hydro'])):
-                    if pd[0][0].zvars['hydro'][f] == field[i]:
-                        field_indexes.append(f)
-                        break
-                if weightvar not in pd[0][0].weightvars['hydro']:
-                    raise KeyError('The weight field %s is not included in this PhaseDiagram object. Aborting!'%weightvar)
-                    exit
+            for pd2 in pd:
+                if field[i] not in pd2[0].zvars['hydro']:
+                    raise KeyError('The field %s is not included in this PhaseDiagram object. Aborting!'%field[i])
                 else:
-                    for w in range(0, len(pd[0][0].weightvars['hydro'])):
-                        if pd[0][0].weightvars['hydro'][w] == weightvar:
-                            weight_indexes.append(w)
+                    for f in range(0,len(pd2[0].zvars['hydro'])):
+                        if pd2[0].zvars['hydro'][f] == field[i]:
+                            field_indexes[-1].append(f)
                             break
+                    print(pd2[0].weightvars['hydro'])
+                    if weightvar not in pd2[0].weightvars['hydro']:
+                        raise KeyError('The weight field %s is not included in this PhaseDiagram object. Aborting!'%weightvar)
+                    else:
+                        for w in range(0, len(pd2[0].weightvars['hydro'])):
+                            if pd2[0].weightvars['hydro'][w] == weightvar:
+                                weight_indexes[-1].append(w)
+                                break
         else:
             for pd2 in pd:
                 if field[i] not in pd2.zvars['hydro']:
@@ -790,7 +947,6 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
                             break
                     if weightvar not in pd2.weightvars['hydro']:
                         raise KeyError('The weight field %s is not included in this PhaseDiagram object. Aborting!'%weightvar)
-                        exit
                     else:
                         for w in range(0, len(pd2.weightvars['hydro'])):
                             if pd2.weightvars['hydro'][w] == weightvar:
@@ -885,17 +1041,18 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
                 else:
                     temp_pd = pd[w]
                     temp_weight = pd_weight[w]
-                x = temp_pd.obj.array(10**temp_pd.xdata[0].d,code_units_x)
+                x = temp_pd.xdata[0]
+                print(x)
                 x = x.in_units(plotting_x['units'])
                 code_units_y = get_code_units(temp_pd.yvar)
-                y = temp_pd.obj.array(10**temp_pd.ydata[0].d,code_units_y)
+                y = temp_pd.ydata[0]
                 y = y.in_units(plotting_y['units'])
                 code_units_z = get_code_units(field[ipd])
+                XX,YY = np.meshgrid(x,y)
                 ztemp = np.array(temp_pd.zdata['hydro'][field_indexes[ipd][w]][:,:,weight_indexes[ipd][w],0].d,order='F')
-                print(field_indexes[ipd][w],weight_indexes[ipd][w],temp_pd.zvars['hydro'][field_indexes[ipd][w]])
+                ztemp = np.nan_to_num(ztemp, nan=0)
                 ztemp = temp_pd.obj.array(ztemp,code_units_z).in_units(plotting_z['units'])
                 z = z + ztemp.d*temp_weight
-                print(extra_labels[ipd],np.nanmin(ztemp).to(plotting_z['units']),np.nanmax(ztemp).to(plotting_z['units']),temp_weight,temp_pd.obj.simulation.redshift)
                 tot_weight = tot_weight + temp_weight
                 sim_z[w] = temp_pd.obj.simulation.redshift
                 h = temp_pd.obj.simulation.hubble_constant
@@ -929,7 +1086,7 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
                 plot = ax[i,j].pcolormesh(x,y,
                                     z.T,
                                     shading='auto',
-                                    cmap=plotting_z['cmap'],
+                                    cmap=sns.color_palette("Spectral", as_cmap=True),
                                     norm=LogNorm(vmin=plotting_z['vmin_galaxy'],
                                     vmax=plotting_z['vmax_galaxy']),
                                     rasterized=True,
@@ -978,7 +1135,6 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
                     b = np.nansum(z[:,k])
                     y_mean[k] = a/b
                     n_points[k] = np.nansum(z[:,k])/z_tot
-                print(n_points)
                 ax[i,j].plot(x[n_points>1e-5],y_mean[n_points>1e-5],color='w',linewidth=2, linestyle='--')
             
             if ipd==0:

@@ -85,6 +85,7 @@ module constants
   real(dbl),parameter :: cVHydrogen=1.4D8 !123746.76463754028 ! Specific heat capacity at constat volume, in erg/(K*g)
   real(dbl),parameter :: XH=0.76 ! Hydrogen fraction
   real(dbl),parameter :: YHe=0.24 ! Helium fraction
+  real(dbl),parameter :: mu=0.5882352941176471 ! Primordial, fully ionised mean molecular weight
   real(dbl),parameter :: gamma_gas=1.6666667   ! Always assuming monatomic adiabatic gas
   real(dbl),parameter :: gamma_crs=1.3333333   ! Cosmic rays assumed always relativistic
   ! Cosmology
