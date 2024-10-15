@@ -2647,7 +2647,7 @@ module io_ramses
                     jpos = index(line,'!')
                     read(line(ipos+1:jpos-1),'(F10.0)')pvalue
                     sim%eta_sn = pvalue
-                    if (verbose) write(*,*)': Found eta_sn=',sim%eta_sn
+                    write(*,*)': Found eta_sn=',sim%eta_sn
                     ok_found = .true.
                     exit
                 end if
@@ -2657,51 +2657,8 @@ module io_ramses
                 sim%eta_sn = 0.317D0
             end if
         else
-            if (verbose) write(*,'(": Namelist not found: eta_sn set to 0.317")')
+            write(*,'(": Namelist not found: eta_sn set to 0.2")')
             sim%eta_sn = 0.317D0 !2D-1
-        end if
-
-    end subroutine get_eta_sn
-
-    !---------------------------------------------------------------
-    ! Subroutine: GET Dcr
-    !
-    ! When we have a CRMHD simulation, look for the diffusion
-    ! constant value as defined in the namelist
-    ! TODO: This only works for NUT sims!
-    !---------------------------------------------------------------
-    subroutine get_Dcr(repository)
-        implicit none
-        character(128), intent(in) :: repository
-        integer :: i,status,ipos,jpos
-        character(128) :: nomfich
-        character(6)  ::  param
-        real(dbl) ::  pvalue
-        character(200) :: line
-        logical :: ok
-
-        nomfich=TRIM(repository)//'/../CRiMHD+SfFb.nml'
-        
-        inquire(file=nomfich, exist=ok) ! verify input file
-        if (ok) then
-            if (verbose) write(*,'(": Reading Dcr from namelist.txt")')
-            open(unit=15,file=nomfich,status='old',form='formatted')
-            do
-                read(15,'(A)',iostat=status)line
-                if (status /= 0) exit
-                param = line(1:3)
-                if (param=='Dcr') then
-                    ipos = index(line,'=')
-                    jpos = index(line,'!')
-                    read(line(ipos+1:jpos-1),'(F10.0)')pvalue
-                    sim%Dcr = pvalue
-                    if (verbose) write(*,*)': Found Dcr=',sim%Dcr
-                    exit
-                end if
-            end do
-        else
-            if (verbose) write(*,'(": Namelist not found: Dcr set to 3.0d28")')
-            sim%Dcr = 3.0d28
         end if
 
     end subroutine get_Dcr
