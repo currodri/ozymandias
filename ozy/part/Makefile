@@ -4,8 +4,8 @@
 
 CC       = gcc
 #CC       = ifort
-F90      = gfortran
-#F90      = ifx
+#F90      = gfortran
+F90      = ifx
 #F90      =  /opt/intel/composer_xe_2015.3.187/bin/intel64/ifort
 PYTHON   = python
 
@@ -25,7 +25,7 @@ ifeq ($(F90),ifx)
 
 	FPP      = gfortran -E # gfortran f90wrap temp files only. not compilation
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
-	F90FLAGS = -O3 -cpp -fpscomp logicals -fPIC # use 1 and 0 for True and False
+	F90FLAGS = -O3 -cpp -fp-model source -fPIC # use 1 and 0 for True and False
 	#F90FLAGS = -g -traceback -check bounds -cpp -fpscomp logicals -fPIC # use 1 and 0 for True and False
     FCOMP    = intelem # for f2py
     LIBS =

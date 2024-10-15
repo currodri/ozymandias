@@ -95,7 +95,8 @@ class Projection(object):
                         if numflag:
                             sfrstr = field.split('/')[1].split('_')[0] +'_'+ field.split('/')[1].split('_')[1]
                             code_units = get_code_units(sfrstr)
-                            units = plotting_dictionary[sfrstr]['units']
+                            field_str = field.split('/')[0] + '_' + field.split('/')[1]
+                            units = plotting_dictionary[field_str]['units']
                         else:
                             code_units = get_code_units(field.split('/')[1])
                             if datatype == 'star' or datatype == 'dm':
