@@ -134,7 +134,7 @@ setup(
     # 'Programming Language' classifiers above, 'pip install' will check this
     # and refuse to install the project if the version does not match. See
     # https://packaging.python.org/guides/distributing-packages-using-setuptools/#python-requires
-    python_requires='>=3.6, <4',
+    python_requires='>=3.9, <4',
 
     # This field lists other packages that your project depends on to run.
     # Any package you put here will be installed by pip when your project is
@@ -143,7 +143,7 @@ setup(
     # For an analysis of "install_requires" vs pip's requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=['six','numpy', 'unyt', 'h5py','f90wrap','joblib',
-                        'matplotlib','scipy','mpi4py'],  # Optional
+                        'matplotlib','scipy','mpi4py','art'],  # Optional
 
     # List additional groups of dependencies here (e.g. development
     # dependencies). Users will be able to install these using the "extras"

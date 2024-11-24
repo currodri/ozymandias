@@ -4069,6 +4069,15 @@ module io_ramses
             case ('z')
                 ! z - coordinate
                 value = part%x%z
+            case ('vx')
+                ! velocity x - component
+                value = part%v%x
+            case ('vy')
+                ! velocity y - component
+                value = part%v%y
+            case ('vz')
+                ! velocity z - component
+                value = part%v%z
             case ('d_euclid')
                 ! Euclidean distance
                 value = magnitude(part%x)
@@ -4238,6 +4247,15 @@ module io_ramses
                 case ('z')
                     ! z - coordinate
                     value = part%x%z
+                case ('vx')
+                    ! velocity x - component
+                    value = part%v%x
+                case ('vy')
+                    ! velocity y - component
+                    value = part%v%y
+                case ('vz')
+                    ! velocity z - component
+                    value = part%v%z
                 case ('d_euclid')
                     ! Euclidean distance
                     value = magnitude(part%x)
