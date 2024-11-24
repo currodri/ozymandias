@@ -640,13 +640,6 @@ module amr_integrator
             tot_insubs = 0
             tot_sel = 0
 
-            ! Obtain details of the hydro variables stored
-            call read_hydrofile_descriptor(repository)
-
-            ! Initialise parameters of the AMR structure and simulation attributes
-            call init_amr_read(repository)
-            amr%lmax = amr%nlevelmax
-
             allocate(ind_nbor(1,0:amr%twondim))
 
             ! Check whether we need to read the gravity files
@@ -928,7 +921,7 @@ module amr_integrator
                                 tempvar(0,:) = var(ind_nbor(1,0),:)
                                 tempson(0)       = son(ind_nbor(1,0))
                                 if (read_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
-                                tempvar(0,varIDs%vx:varIDs%vz) = vtemp
+                                tempvar(0,ivx:ivz) = vtemp
                                 if (read_gravity) tempgrav_var(0,2:4) = gtemp
                                 do inbor=1,amr%twondim
                                     tempvar(inbor,:) = var(ind_nbor(1,inbor),:)
