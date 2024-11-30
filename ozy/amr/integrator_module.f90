@@ -20,6 +20,7 @@
 
 module amr_integrator
     use local
+    use dictionary_commons
     use geometrical_regions
     use io_ramses
     use hydro_commons
@@ -234,6 +235,9 @@ module amr_integrator
             ! use that one instead of the automatic from the 
             ! hydro descriptor file (RAMSES)
             call get_var_tools(vardict,attrs%nvars,attrs%varnames,attrs%vars)
+
+            ! Do it now for the weighted variables
+            call get_var_tools(vardict,attrs%nwvars,attrs%wvarnames,attrs%wvars)
             
             ! We also do it for the filter variables
             do ii = 1, attrs%nfilter
@@ -247,6 +251,9 @@ module amr_integrator
             ivz = vardict%get('velocity_z')
         else
             call get_var_tools(varIDs,attrs%nvars,attrs%varnames,attrs%vars)
+
+            ! Do it now for the weighted variables
+            call get_var_tools(varIDs,attrs%nwvars,attrs%wvarnames,attrs%wvars)
 
             ! We also do it for the filter variables
             do ii = 1, attrs%nfilter

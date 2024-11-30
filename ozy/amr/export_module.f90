@@ -18,6 +18,7 @@
 
 module export_amr
     use local
+    use dictionary_commons
     use io_ramses
     use hydro_commons
     use filtering
@@ -1026,7 +1027,7 @@ module export_amr
             levelloop: do ilevel=1,amr%lmax
                 ! Geometry
                 dx = 0.5**ilevel
-                dx2kpc = dx * (sim%unit_l*cm2kpc)
+                dx2kpc = dx * (sim%unit_l*sim%boxlen*cm2kpc)
                 nx_full = 2**ilevel
                 ny_full = 2**ilevel
                 nz_full = 2**ilevel

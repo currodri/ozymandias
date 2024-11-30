@@ -21,6 +21,7 @@
 
 module amr_profiles
     use local
+    use dictionary_commons
     use io_ramses
     use hydro_commons
     use filtering

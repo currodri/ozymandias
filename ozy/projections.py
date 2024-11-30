@@ -653,9 +653,9 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         nsubs = len(subs)
     else:
         nsubs = 0
-    
-    cam = obs_instruments.init_camera(centre,axis,up_vector,region_size,region_axis,bulk,distance,
-                                      far_cut_depth,map_max_size-1,nfilter,nsubs)
+    boxlen = group.obj.simulation.boxsize.to('code_length').d    
+    cam = obs_instruments.init_camera(centre,axis,up_vector,region_size/boxlen,region_axis,bulk,distance/boxlen,
+                                      far_cut_depth/boxlen,map_max_size-1,nfilter,nsubs)
 
     # Now give filters to camera Fortran type
     for i in range(0,nfilter):
@@ -715,8 +715,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
             f = init_filter('none','none',group)
         filts.append(f)
     # Now give filters to camera Fortran type - updating the previous from hydro
-    cam = obs_instruments.init_camera(centre,axis,up_vector,region_size,region_axis,bulk,distance,
-                                      far_cut_depth,map_max_size,nfilter,nsubs)
+    cam = obs_instruments.init_camera(centre,axis,up_vector,region_size/boxlen,region_axis,bulk,distance/boxlen,
+                                      far_cut_depth/boxlen,map_max_size,nfilter,nsubs)
     for i in range(0,nfilter):
         cam.filters[i] = filts[i]
     

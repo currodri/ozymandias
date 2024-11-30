@@ -52,6 +52,35 @@ plotting_dictionary = dict(
             'vmin_galaxy':1e+3,
             'vmax_galaxy':1e+8
     },
+    volume = {'cmap':sns.color_palette("mako", as_cmap=True),
+            'text_over':'white',
+            'label':r'$V_{\rm gas}$ [kpc$^{3}$]',
+            'label_log':r'$\log(\frac{V_{\rm gas}}{{\rm kpc}^3}})$',
+            'units':'kpc**3',
+            'vmin':1,
+            'vmax':1e+8,
+            'bin_min':1,
+            'bin_max':1e+8,
+            'vmin_galaxy':1e+3,
+            'vmax_galaxy':1e+8,
+            'code_units':'code_length*code_length*code_length',
+            'neighbour':False
+        },
+    sound_speed = {'cmap':sns.color_palette("mako", as_cmap=True),
+            'text_over':'white',
+            'label':r'$c_{\rm s}$ [km/s]',
+            'label_log':r'$\log(\frac{c_{\rm s}}{{\rm km s}^{-1}}})$',
+            'units':'km/s',
+            'vmin':1,
+            'vmax':1e+8,
+            'bin_min':1,
+            'bin_max':1e+8,
+            'vmin_galaxy':1e+3,
+            'vmax_galaxy':1e+8,
+            'code_units':'code_velocity',
+            'neighbour':False
+
+    },
     temperature = {'cmap':sns.color_palette("rocket", as_cmap=True),
                     'text_over':'white',
                     'label':r'$T$ [K]',
@@ -66,7 +95,9 @@ plotting_dictionary = dict(
                     'vmin_outflow':4e+3,
                     'vmax_outflow':7e+5,
                     'vmin_cgm':7e+3,
-                    'vmax_cgm':8e+6
+                    'vmax_cgm':8e+6,
+                    'code_units':'code_temperature',
+                    'neighbour':False     
     },
     thermal_energy = {'cmap':sns.color_palette("rocket", as_cmap=True),
                             'text_over':'white',
@@ -78,7 +109,9 @@ plotting_dictionary = dict(
                             'bin_min':5e+1,
                             'bin_max':2e+6,
                             'vmin_galaxy':5e+3,
-                            'vmax_galaxy':8e+6
+                            'vmax_galaxy':8e+6,
+                            'code_units':'code_energy',
+                            'neighbour':False
     },
     thermal_pressure = {'cmap':'viridis',
                             'text_over':'white',
@@ -90,7 +123,9 @@ plotting_dictionary = dict(
                             'bin_min':3e-15,
                             'bin_max':8e-9,
                             'vmin_galaxy':3e-15,
-                            'vmax_galaxy':8e-9
+                            'vmax_galaxy':8e-9,
+                            'code_units':'code_pressure',
+                            'neighbour':False
     },
     thermal_energy_specific = {'cmap':sns.color_palette("rocket", as_cmap=True),
                                 'text_over':'white',
@@ -102,7 +137,9 @@ plotting_dictionary = dict(
                                 'bin_min':5e+9,
                                 'bin_max':2e+13,
                                 'vmin_galaxy':5e+3,
-                                'vmax_galaxy':8e+6
+                                'vmax_galaxy':8e+6,
+                                'code_units':'code_specific_energy',
+                                'neighbour':False
     },
     net_cooling = {'cmap':'vlag',
                         'text_over':'black',
@@ -118,7 +155,9 @@ plotting_dictionary = dict(
                         'vmin_cgm':-1e-28,
                         'vmax_cgm':1e-26,
                         'linthresh':1e-30,
-                        'linscale':1
+                        'linscale':1,
+                        'code_units':'code_energy_density/code_time',
+                        'neighbour':False
     },
     stheatcooling_ratio = {'cmap':'Spectral',
                         'text_over':'black',
@@ -132,7 +171,9 @@ plotting_dictionary = dict(
                         'vmin_galaxy':1e-6,
                         'vmax_galaxy':10,
                         'vmin_cgm':1e-6,
-                        'vmax_cgm':10
+                        'vmax_cgm':10,
+                        'code_units':'dimensionless',
+                        'neighbour':True
     },
     entropy_specific = {'cmap':'plasma',
                         'text_over':'white',
@@ -144,7 +185,9 @@ plotting_dictionary = dict(
                         'bin_min':8e+3,
                         'bin_max':2e+5,
                         'vmin_galaxy':8e+7,
-                        'vmax_galaxy':2e+9
+                        'vmax_galaxy':2e+9,
+                        'code_units':'code_specific_entropy',
+                        'neighbour':False
     },
     metallicity = {'cmap':'swift.red_tv',
                     'text_over':'white',
@@ -168,7 +211,9 @@ plotting_dictionary = dict(
                                 'vmin':5e+10,
                                 'vmax':3e+12,
                                 'bin_min':5e+10,
-                                'bin_max':3e+12
+                                'bin_max':3e+12,
+                                'code_units':'code_energy',
+                                'neighbour':False
 
     },
     magnetic_energy_specific = {'cmap':sns.cubehelix_palette(reverse=True,as_cmap=True),
@@ -182,7 +227,9 @@ plotting_dictionary = dict(
                                 'vmin_galaxy':5e+7,
                                 'vmax_galaxy':3e+11,
                                 'vmin_cgm':5e+7,
-                                'vmax_cgm':3e+11
+                                'vmax_cgm':3e+11,
+                                'code_units':'code_specific_energy',
+                                'neighbour':False
 
     },
     magnetic_energy_density = {'cmap':'inferno',
@@ -195,7 +242,24 @@ plotting_dictionary = dict(
                                 'bin_min':4e-17,
                                 'bin_max':5e-11,
                                 'vmin_galaxy':4e-17,
-                                'vmax_galaxy':5e-11
+                                'vmax_galaxy':5e-11,
+                                'code_units':'code_energy_density',
+                                'neighbour':False
+
+    },
+    magnetic_pressure = {'cmap':'inferno',
+                                'text_over':'white',
+                                'label':r'$P_{\rm mag}$ [erg/cm$^{3}$]',
+                                'label_log':r'$\log(\frac{P_{\rm mag}}{{\rm erg/cm}^{3}})$',
+                                'units':'erg*cm**-3',
+                                'vmin':4e-17,
+                                'vmax':5e-11,
+                                'bin_min':4e-17,
+                                'bin_max':5e-11,
+                                'vmin_galaxy':4e-17,
+                                'vmax_galaxy':5e-11,
+                                'code_units':'code_pressure',
+                                'neighbour':False
 
     },
     magnetic_magnitude = {'cmap':'inferno',
@@ -210,7 +274,111 @@ plotting_dictionary = dict(
                                 'vmin_galaxy':4e-10,
                                 'vmax_galaxy':5e-5,
                                 'vmin_cgm':4e-10,
-                                'vmax_cgm':5e-7
+                                'vmax_cgm':5e-7,
+                                'code_units':'code_magnetic',
+                                'neighbour':False
+
+    },
+    B_left_x = {'cmap':'inferno',
+                                'text_over':'white',
+                                'label':r'$B$ [$G$]',
+                                'label_log':r'$\log(\frac{B}{{\rm G}})$',
+                                'units':'G',
+                                'vmin':4e-12,
+                                'vmax':5e-5,
+                                'bin_min':4e-12,
+                                'bin_max':5e-5,
+                                'vmin_galaxy':4e-10,
+                                'vmax_galaxy':5e-5,
+                                'vmin_cgm':4e-10,
+                                'vmax_cgm':5e-7,
+                                'code_units':'code_magnetic',
+                                'neighbour':False
+
+    },
+    B_left_y = {'cmap':'inferno',
+                                'text_over':'white',
+                                'label':r'$B$ [$G$]',
+                                'label_log':r'$\log(\frac{B}{{\rm G}})$',
+                                'units':'G',
+                                'vmin':4e-12,
+                                'vmax':5e-5,
+                                'bin_min':4e-12,
+                                'bin_max':5e-5,
+                                'vmin_galaxy':4e-10,
+                                'vmax_galaxy':5e-5,
+                                'vmin_cgm':4e-10,
+                                'vmax_cgm':5e-7,
+                                'code_units':'code_magnetic',
+                                'neighbour':False
+
+    },
+    B_left_z = {'cmap':'inferno',
+                                'text_over':'white',
+                                'label':r'$B$ [$G$]',
+                                'label_log':r'$\log(\frac{B}{{\rm G}})$',
+                                'units':'G',
+                                'vmin':4e-12,
+                                'vmax':5e-5,
+                                'bin_min':4e-12,
+                                'bin_max':5e-5,
+                                'vmin_galaxy':4e-10,
+                                'vmax_galaxy':5e-5,
+                                'vmin_cgm':4e-10,
+                                'vmax_cgm':5e-7,
+                                'code_units':'code_magnetic',
+                                'neighbour':False
+
+    },
+    B_right_x = {'cmap':'inferno',
+                                'text_over':'white',
+                                'label':r'$B$ [$G$]',
+                                'label_log':r'$\log(\frac{B}{{\rm G}})$',
+                                'units':'G',
+                                'vmin':4e-12,
+                                'vmax':5e-5,
+                                'bin_min':4e-12,
+                                'bin_max':5e-5,
+                                'vmin_galaxy':4e-10,
+                                'vmax_galaxy':5e-5,
+                                'vmin_cgm':4e-10,
+                                'vmax_cgm':5e-7,
+                                'code_units':'code_magnetic',
+                                'neighbour':False
+
+    },
+    B_right_y = {'cmap':'inferno',
+                                'text_over':'white',
+                                'label':r'$B$ [$G$]',
+                                'label_log':r'$\log(\frac{B}{{\rm G}})$',
+                                'units':'G',
+                                'vmin':4e-12,
+                                'vmax':5e-5,
+                                'bin_min':4e-12,
+                                'bin_max':5e-5,
+                                'vmin_galaxy':4e-10,
+                                'vmax_galaxy':5e-5,
+                                'vmin_cgm':4e-10,
+                                'vmax_cgm':5e-7,
+                                'code_units':'code_magnetic',
+                                'neighbour':False
+
+    },
+    B_right_z = {'cmap':'inferno',
+                                'text_over':'white',
+                                'label':r'$B$ [$G$]',
+                                'label_log':r'$\log(\frac{B}{{\rm G}})$',
+                                'units':'G',
+                                'vmin':4e-12,
+                                'vmax':5e-5,
+                                'bin_min':4e-12,
+                                'bin_max':5e-5,
+                                'vmin_galaxy':4e-10,
+                                'vmax_galaxy':5e-5,
+                                'vmin_cgm':4e-10,
+                                'vmax_cgm':5e-7,
+                                'code_units':'code_magnetic',
+                                'neighbour':False
 
     },
     alfven_speed = {'cmap':'swift.evermore',
@@ -226,6 +394,8 @@ plotting_dictionary = dict(
                         'vmax_galaxy':60,
                         'vmin_cgm':3e-2,
                         'vmax_cgm':5e0,
+                        'code_units':'code_velocity',
+                        'neighbour':False
 
     },
     diffusion_speed = {'cmap':'swift.red',
@@ -238,7 +408,9 @@ plotting_dictionary = dict(
                                 'bin_min':3e-2,
                                 'bin_max':5e0,
                                 'vmin_galaxy':3e-2,
-                                'vmax_galaxy':5e0
+                                'vmax_galaxy':5e0,
+                                'code_units':'code_velocity',
+                                'neighbour':True
 
     },
     alfvendiff_ratio = {'cmap':'swift.red',
@@ -253,7 +425,9 @@ plotting_dictionary = dict(
                                 'vmin_galaxy':3e-3,
                                 'vmax_galaxy':1.5,
                                 'vmin_cgm':3e-3,
-                                'vmax_cgm':1.5
+                                'vmax_cgm':1.5,
+                                'code_units':'dimensionless',
+                                'neighbour':True
 
     },
     cr_energy = {'cmap':sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),
@@ -267,7 +441,9 @@ plotting_dictionary = dict(
                         'bin_min':4e-14,
                         'bin_max':8e-11,
                         'vmin_galaxy':4e48,
-                        'vmax_galaxy':8e53
+                        'vmax_galaxy':8e53,
+                        'code_units':'code_energy',
+                        'neighbour':False
 
     },
     cr_energy_density = {'cmap':'YlGnBu_r',#sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=False, as_cmap=True),
@@ -283,6 +459,8 @@ plotting_dictionary = dict(
                         'vmax_galaxy':8e-10,
                         'vmin_cgm':7e-15,
                         'vmax_cgm':3e-11,
+                        'code_units':'code_energy_density',
+                        'neighbour':False
 
     },
     cr_temperature_eff = {'cmap':'YlGnBu_r',#sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=False, as_cmap=True),
@@ -297,7 +475,9 @@ plotting_dictionary = dict(
                         'vmin_galaxy':8e+1,
                         'vmax_galaxy':8e+6,
                         'vmin_outflow':5e+3,
-                        'vmax_outflow':3e+5
+                        'vmax_outflow':3e+5,
+                        'code_units':'code_temperature',
+                        'neighbour':False
 
     },
     cr_pressure = {'cmap':'YlGnBu_r',#sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=False, as_cmap=True),
@@ -312,7 +492,9 @@ plotting_dictionary = dict(
                         'vmin_grad':7e-16,
                         'vmax_grad':8e-13,
                         'vmin_galaxy':6e-14,
-                        'vmax_galaxy':2e-10
+                        'vmax_galaxy':2e-10,
+                        'code_units':'code_pressure',
+                        'neighbour':False
 
     },
     grad_crp = {'cmap':'YlGnBu_r',#sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=False, as_cmap=True),
@@ -325,7 +507,9 @@ plotting_dictionary = dict(
                         'bin_min':6e-34,
                         'bin_max':2e-31,
                         'vmin_galaxy':6e-34,
-                        'vmax_galaxy':6e-30
+                        'vmax_galaxy':6e-30,
+                        'code_units':'code_pressure/code_length',
+                        'neighbour':True
 
     },
     gradscale_crprsphere = {'cmap':sns.cubehelix_palette(start=.5, rot=-.75, as_cmap=True),
@@ -338,7 +522,9 @@ plotting_dictionary = dict(
                         'bin_min':1e-3,
                         'bin_max':1e3,
                         'vmin_galaxy':3e-2,
-                        'vmax_galaxy':3e1
+                        'vmax_galaxy':3e1,
+                        'code_units':'code_length',
+                        'neighbour':True
 
     },
     gradscale_crp = {'cmap':sns.cubehelix_palette(start=.5, rot=-.75, as_cmap=True),
@@ -351,7 +537,9 @@ plotting_dictionary = dict(
                         'bin_min':1e-3,
                         'bin_max':1e3,
                         'vmin_galaxy':3e-2,
-                        'vmax_galaxy':3e1
+                        'vmax_galaxy':3e1,
+                        'code_units':'code_length',
+                        'neighbour':True
 
     },
     grad_crpz = {'cmap':sns.color_palette("vlag", as_cmap=True),
@@ -364,7 +552,54 @@ plotting_dictionary = dict(
                         'bin_min':-2e-31,
                         'bin_max':2e-31,
                         'vmin_galaxy':-2e-28,
-                        'vmax_galaxy':2e-28
+                        'vmax_galaxy':2e-28,
+                        'code_units':'code_pressure/code_length',
+                        'neighbour':True
+
+    },
+    grad_crprsphere = {'cmap':sns.color_palette("vlag", as_cmap=True),
+                        'text_over':'black',
+                        'label':r'$\nabla_r P_{\rm CR}$ [erg/cm$^{4}$]',
+                        'label_log':r'$\log(\frac{\nabla_r P_{\rm CR}}{{\rm erg/cm}^{4}})$',
+                        'units':'erg*cm**-4',
+                        'vmin':-2e-31,
+                        'vmax':2e-31,
+                        'bin_min':-2e-31,
+                        'bin_max':2e-31,
+                        'vmin_galaxy':-2e-28,
+                        'vmax_galaxy':2e-28,
+                        'code_units':'code_pressure/code_length',
+                        'neighbour':True
+
+    },
+    grad_therprsphere = {'cmap':sns.color_palette("vlag", as_cmap=True),
+                        'text_over':'black',
+                        'label':r'$\nabla_r P_{\rm th}$ [erg/cm$^{4}$]',
+                        'label_log':r'$\log(\frac{\nabla_r P_{\rm th}}{{\rm erg/cm}^{4}})$',
+                        'units':'erg*cm**-4',
+                        'vmin':-2e-31,
+                        'vmax':2e-31,
+                        'bin_min':-2e-31,
+                        'bin_max':2e-31,
+                        'vmin_galaxy':-2e-28,
+                        'vmax_galaxy':2e-28,
+                        'code_units':'code_pressure/code_length',
+                        'neighbour':True
+
+    },
+    grad_therpz = {'cmap':sns.color_palette("vlag", as_cmap=True),
+                        'text_over':'black',
+                        'label':r'$\nabla_z P_{\rm th}$ [erg/cm$^{4}$]',
+                        'label_log':r'$\log(\frac{\nabla_z P_{\rm th}}{{\rm erg/cm}^{4}})$',
+                        'units':'erg*cm**-4',
+                        'vmin':-2e-31,
+                        'vmax':2e-31,
+                        'bin_min':-2e-31,
+                        'bin_max':2e-31,
+                        'vmin_galaxy':-2e-28,
+                        'vmax_galaxy':2e-28,
+                        'code_units':'code_pressure/code_length',
+                        'neighbour':True
 
     },
     streaming_heating = {'cmap':'gnuplot',
@@ -378,6 +613,23 @@ plotting_dictionary = dict(
                         'bin_max':1e-23,
                         'vmin_galaxy':3e-33, 
                         'vmax_galaxy':1e-23,
+                        'code_units':'code_energy_density/code_time',
+                        'neighbour':False
+
+    },
+    cr_GH08heat = {'cmap':'gnuplot',
+                        'text_over':'white',
+                        'label':r'$\Lambda_{\rm CR}$ [erg/(s cm$^{3})$]',
+                        'label_log':r'$\log(\frac{\Lambda_{\rm CR}}{{\rm erg/(s cm}^{3})})$',
+                        'units':'erg*s**-1*cm**-3',
+                        'vmin':3e-33,
+                        'vmax':1e-23,
+                        'bin_min':3e-33,
+                        'bin_max':1e-23,
+                        'vmin_galaxy':3e-33, 
+                        'vmax_galaxy':1e-23,
+                        'code_units':'code_energy_density/code_time',
+                        'neighbour':False
 
     },
     cr_energy_specific = {'cmap':sns.color_palette("crest_r", as_cmap=True), #sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=True, as_cmap=True),
@@ -392,7 +644,9 @@ plotting_dictionary = dict(
                                 'vmin_galaxy':5e+15,
                                 'vmax_galaxy':7e+16,
                                 'vmin_cgm':5e+12,
-                                'vmax_cgm':7e+14
+                                'vmax_cgm':7e+14,
+                                'code_units':'code_specific_energy',
+                                'neighbour':False
 
     },
     total_coolingtime = {'cmap':'swift.red',
@@ -405,7 +659,9 @@ plotting_dictionary = dict(
                                 'bin_min':1e-2,
                                 'bin_max':7e+5,
                                 'vmin_galaxy':1e-2,
-                                'vmax_galaxy':7e+5
+                                'vmax_galaxy':7e+5,
+                                'code_units':'code_time',
+                                'neighbour':True
 
     },
     crthermal_ratio = {'cmap':sns.color_palette("vlag", as_cmap=True),
@@ -433,7 +689,9 @@ plotting_dictionary = dict(
                         'vmin_galaxy':-5,
                         'vmax_galaxy':+5,
                         'linthresh':1e-2,
-                        'linscale':1e-2
+                        'linscale':1e-2,
+                        'code_units':'dimensionless',
+                        'neighbour':True
 
     },
     grav_therpfz = {'cmap':sns.color_palette("vlag", as_cmap=True),
@@ -448,7 +706,9 @@ plotting_dictionary = dict(
                         'vmin_galaxy':-5,
                         'vmax_galaxy':+5,
                         'linthresh':1e-2,
-                        'linscale':1e-2
+                        'linscale':1e-2,
+                        'code_units':'dimensionless',
+                        'neighbour':True
 
     },
     grav_crpfrsphere = {'cmap':'RdBu_r',
@@ -463,7 +723,9 @@ plotting_dictionary = dict(
                         'vmin_galaxy':-5,
                         'vmax_galaxy':+5,
                         'linthresh':1,
-                        'linscale':1
+                        'linscale':1,
+                        'code_units':'dimensionless',
+                        'neighbour':True
 
     },
     grav_crpfrspherepos = {'cmap':'Spectral',
@@ -477,6 +739,8 @@ plotting_dictionary = dict(
                         'bin_max':+1000,
                         'vmin_galaxy':1e-3,
                         'vmax_galaxy':+10,
+                        'code_units':'dimensionless',
+                        'neighbour':True
 
     },
     grav_crpfrsphereneg = {'cmap':'Spectral',
@@ -490,6 +754,8 @@ plotting_dictionary = dict(
                         'bin_max':+1000,
                         'vmin_galaxy':1e-3,
                         'vmax_galaxy':+10,
+                        'code_units':'dimensionless',
+                        'neighbour':True
 
     },
     grav_therpfrsphere = {'cmap':'RdBu_r',
@@ -504,7 +770,9 @@ plotting_dictionary = dict(
                         'vmin_galaxy':-5,
                         'vmax_galaxy':+5,
                         'linthresh':1,
-                        'linscale':1
+                        'linscale':1,
+                        'code_units':'dimensionless',
+                        'neighbour':True
 
     },
     grav_therpfrspherepos = {'cmap':'Spectral',
@@ -518,6 +786,8 @@ plotting_dictionary = dict(
                         'bin_max':+100,
                         'vmin_galaxy':1e-3,
                         'vmax_galaxy':+10,
+                        'code_units':'dimensionless',
+                        'neighbour':True
 
     },
     grav_therpfrsphereneg = {'cmap':'Spectral',
@@ -531,6 +801,8 @@ plotting_dictionary = dict(
                         'bin_max':+500,
                         'vmin_galaxy':1e-3,
                         'vmax_galaxy':+10,
+                        'code_units':'dimensionless',
+                        'neighbour':True
 
     },
     grav_totpfrsphere = {'cmap':sns.color_palette("vlag", as_cmap=True),
@@ -545,7 +817,9 @@ plotting_dictionary = dict(
                         'vmin_galaxy':-5,
                         'vmax_galaxy':+5,
                         'linthresh':1,
-                        'linscale':1
+                        'linscale':1,
+                        'code_units':'dimensionless',
+                        'neighbour':True
 
     },
     grav_totpfrspherepos = {'cmap':'Spectral',
@@ -559,6 +833,8 @@ plotting_dictionary = dict(
                         'bin_max':+1000,
                         'vmin_galaxy':1e-3,
                         'vmax_galaxy':+10,
+                        'code_units':'dimensionless',
+                        'neighbour':True
 
     },
     grav_totpfrsphereneg = {'cmap':'Spectral',
@@ -572,6 +848,8 @@ plotting_dictionary = dict(
                         'bin_max':+1000,
                         'vmin_galaxy':1e-3,
                         'vmax_galaxy':+10,
+                        'code_units':'dimensionless',
+                        'neighbour':True
 
     },
     grav_magpfrsphere = {'cmap':sns.color_palette("vlag", as_cmap=True),
@@ -586,7 +864,9 @@ plotting_dictionary = dict(
                         'vmin_galaxy':-5,
                         'vmax_galaxy':+5,
                         'linthresh':1,
-                        'linscale':1e-5
+                        'linscale':1e-5,
+                        'code_units':'dimensionless',
+                        'neighbour':True
 
     },
     grav_magpfrspherepos = {'cmap':'Spectral',
@@ -600,6 +880,8 @@ plotting_dictionary = dict(
                         'bin_max':+10,
                         'vmin_galaxy':1e-3,
                         'vmax_galaxy':+10,
+                        'code_units':'dimensionless',
+                        'neighbour':True
 
     },
     grav_magpfrsphereneg = {'cmap':'Spectral',
@@ -613,6 +895,8 @@ plotting_dictionary = dict(
                         'bin_max':+1,
                         'vmin_galaxy':1e-3,
                         'vmax_galaxy':+10,
+                        'code_units':'dimensionless',
+                        'neighbour':True
 
     },
     grav_crpf = {'cmap':sns.color_palette("vlag", as_cmap=True),
@@ -625,7 +909,9 @@ plotting_dictionary = dict(
                         'bin_min':1e-2,
                         'bin_max':+10,
                         'vmin_galaxy':1e-2,
-                        'vmax_galaxy':+1e+1
+                        'vmax_galaxy':+1e+1,
+                        'code_units':'dimensionless',
+                        'neighbour':True
 
     },
         grav_gz = {'cmap':sns.color_palette("vlag", as_cmap=True),
@@ -640,7 +926,9 @@ plotting_dictionary = dict(
                         'vmin_galaxy':-2e-9,
                         'vmax_galaxy':+2e-9,
                         'linthresh':1,
-                        'linscale':1
+                        'linscale':1,
+                        'code_units':'code_specific_energy/code_length',
+                        'neighbour':False
     },
     grav_frsphere = {'cmap':sns.color_palette("vlag", as_cmap=True),
                         'text_over':'black',
@@ -654,7 +942,26 @@ plotting_dictionary = dict(
                         'vmin_galaxy':-2e-32,
                         'vmax_galaxy':2e-32,
                         'linthresh':100,
-                        'linscale':1
+                        'linscale':1,
+                        'code_units':'code_pressure/code_length',
+                        'neighbour':False
+
+    },
+    grav_fz = {'cmap':sns.color_palette("vlag", as_cmap=True),
+                        'text_over':'black',
+                        'label':r'$\rho g_{z}$',
+                        'label_log':r'$\log(\frac{\rho g_{z}}{{\rm g cm/s}^2})$',
+                        'units':'g*cm/s**2',
+                        'vmin':-100,
+                        'vmax':+100,
+                        'bin_min':-100,
+                        'bin_max':+100,
+                        'vmin_galaxy':-2e-32,
+                        'vmax_galaxy':2e-32,
+                        'linthresh':100,
+                        'linscale':1,
+                        'code_units':'code_pressure/code_length',
+                        'neighbour':False
 
     },
     xHII = {'cmap':'bone',
@@ -665,7 +972,9 @@ plotting_dictionary = dict(
             'vmin':5e-4,
             'vmax':0.8,
             'vmin_galaxy':5e-4,
-            'vmax_galaxy':0.8
+            'vmax_galaxy':0.8,
+            'code_units':'dimensionless',
+            'neihbour':False
 
     },
     xHeII = {'cmap':'swift.red',
@@ -676,7 +985,9 @@ plotting_dictionary = dict(
             'vmin':5e-4,
             'vmax':0.8,
             'vmin_galaxy':5e-4,
-            'vmax_galaxy':0.8
+            'vmax_galaxy':0.8,
+            'code_units':'dimensionless',
+            'neihbour':False
 
     },
     xHeIII = {'cmap':'swift.red',
@@ -685,7 +996,9 @@ plotting_dictionary = dict(
                 'label_log':r'$\log(X_{\rm HeIII})$',
                 'units':'dimensionless',
                 'vmin':5e-4,
-                'vmax':0.8
+                'vmax':0.8,
+                'code_units':'dimensionless',
+                'neihbour':False
 
     },
     r_sphere = {'cmap': 'cividis',
@@ -775,7 +1088,9 @@ plotting_dictionary = dict(
                                 'label':r'$dM/dt$ [M$_{\odot}$ yr$^{-1}$]',
                                 'units':'Msun*yr**-1',
                                 'bin_min':-100,
-                                'bin_max':100
+                                'bin_max':100,
+                                'code_units': 'code_mass/code_time',
+                                'neighbour':False
     },
     massflow_rate_sphere_r = {'cmap': sns.color_palette("icefire", as_cmap=True),
                                 'text_over':'white',
@@ -786,7 +1101,22 @@ plotting_dictionary = dict(
                                 'vmin_cgm':-5e-3,
                                 'vmax_cgm':5e-3,
                                 'linthresh':1e-3,
-                                'linscale':1e-3
+                                'linscale':1e-3,
+                                'code_units': 'code_mass/code_time',
+                                'neighbour':False
+    },
+    massflux_rate_sphere_r = {'cmap': sns.color_palette("icefire", as_cmap=True),
+                                'text_over':'white',
+                                'label':r'$dM/dtdA$ [M$_{\odot}$ yr$^{-1}$ kpc$^{-2}$]',
+                                'units':'Msun*yr**-1*kpc**-2',
+                                'bin_min':-100,
+                                'bin_max':100,
+                                'vmin_cgm':-5e-3,
+                                'vmax_cgm':5e-3,
+                                'linthresh':1e-3,
+                                'linscale':1e-3,
+                                'code_units': 'code_mass/code_time/code_length/code_length',
+                                'neighbour':False
     },
     sigma = {'cmap':'swift.red',
                         'text_over':'white',
@@ -798,7 +1128,9 @@ plotting_dictionary = dict(
                         'bin_min':1e-2,
                         'bin_max':1e3,
                         'vmin_galaxy':2,
-                        'vmax_galaxy':80
+                        'vmax_galaxy':80,
+                        'code_units':'code_velocity',
+                        'neighbour':True
 
     },
     star_mass = {'cmap':'gray',
@@ -809,7 +1141,9 @@ plotting_dictionary = dict(
                 'vmin':5.0,
                 'vmax':2e+7,
                 'vmin_galaxy':5.0,
-                'vmax_galaxy':2e+7
+                'vmax_galaxy':2e+7,
+                'code_units':'code_mass',
+                'neighbour':False
     },
     star_sdensity = {'cmap':'gray',
                         'text_over':'white',
@@ -822,6 +1156,8 @@ plotting_dictionary = dict(
                         'vmax_galaxy':5e+9,
                         'vmin_cgm':3e+1,
                         'vmax_cgm':5e+3,
+                        'code_units':'code_density*code_length',
+                        'neighbour':False
 
     },
     dm_sdensity = {'cmap':'cividis',
@@ -836,7 +1172,9 @@ plotting_dictionary = dict(
                         'vmin_cluster':4e+5,
                         'vmax_cluster':3e+8,
                         'vmin_cgm':4e+3,
-                        'vmax_cgm':3e+6
+                        'vmax_cgm':3e+6,
+                        'code_units':'code_density*code_length',
+                        'neighbour':False
 
     },
     dm_mass = {'cmap':'cividis',
@@ -847,21 +1185,36 @@ plotting_dictionary = dict(
                 'vmin':3.0e+3,
                 'vmax':7e+6,
                 'vmin_galaxy':3.0e+3,
-                'vmax_galaxy':7e+6
+                'vmax_galaxy':7e+6,
+                'code_units':'code_mass',
+                'neighbour':False
     },
     star_metallicity = {'cmap':sns.color_palette("dark:salmon", as_cmap=True),
                         'text_over':'white',
                         'label':r'$Z$ [$Z_{\odot}$]',
                         'units':'dimensionless',
                         'vmin':1e-1,
-                        'vmax':None
+                        'vmax':None,
+                        'code_units':'dimensionless',
+                        'neighbour':False
     },
     star_age = {'cmap':'BuPu',
                 'text_over':'white',
                 'label':r'Age [Gyr]',
                 'units':'Gyr',
                 'vmin':None,
-                'vmax':None
+                'vmax':None,
+                'code_units':'Gyr',
+                'neighbour':False
+    },
+    star_tform = {'cmap':'BuPu',
+                'text_over':'white',
+                'label':r'$t_{\rm form}$ [Gyr]',
+                'units':'Gyr',
+                'vmin':None,
+                'vmax':None,
+                'code_units':'code_time',
+                'neighbour':False
     },
     star_sfr_surface_100 = {'cmap':'magma',
                             'text_over':'white',
@@ -871,7 +1224,21 @@ plotting_dictionary = dict(
                             'vmin':3e-4,
                             'vmax':90,
                             'vmin_galaxy':3e-4,
-                            'vmax_galaxy':90
+                            'vmax_galaxy':90,
+                            'code_units':'code_density*code_velocity',
+                            'neighbour':False
+    },
+    star_sfr_density_100 = {'cmap':'magma',
+                            'text_over':'white',
+                            'label':r'$\langle \rho_{\rm SFR}\rangle)_{\rm 100 Myr})$ [M$_{\odot}$ yr$^{-1}$ kpc$^{-3}$]',
+                            'label_log':r'$\log\left(\frac{ \langle\rho_{\rm SFR}\rangle _{\rm 100 Myr}}{{\rm M}_{\odot}{\rm yr}^{-1}{\rm kpc}^{-3}}\right)$',
+                            'units':'Msun/(yr*kpc**3)',
+                            'vmin':3e-4,
+                            'vmax':90,
+                            'vmin_galaxy':3e-4,
+                            'vmax_galaxy':90,
+                            'code_units':'code_mass/Gyr/code_length**3',
+                            'neighbour':False
     },
     DTM = {'cmap': sns.color_palette("icefire", as_cmap=True),
                 'text_over':'white',
@@ -883,7 +1250,9 @@ plotting_dictionary = dict(
                 'vmin_isolated':0.1,
                 'vmax_isolated':0.3,
                 'vmin_galaxy':8e-3,
-                'vmax_galaxy':0.2
+                'vmax_galaxy':0.2,
+                'code_units':'dimensionless',
+                'neighbour':False
     },
     dust_density = {'cmap': sns.color_palette("icefire", as_cmap=True),
                 'text_over':'black',
@@ -894,6 +1263,8 @@ plotting_dictionary = dict(
                 'vmax':7e-30,
                 'vmin_galaxy':2e-33,
                 'vmax_galaxy':5e-30,
+                'code_units':'code_density',
+                'neighbour':False
     },
     eff_FKmag = {'cmap':'magma',
                 'text_over':'white',
@@ -905,7 +1276,9 @@ plotting_dictionary = dict(
                 'vmin_galaxy':1e-4,
                 'vmax_galaxy':0.01,
                 'bin_min':1e-5,
-                'bin_max':10
+                'bin_max':10,
+                'code_units':'dimensionless',
+                'neighbour':True
     },
     eff_FKmagnocr = {'cmap':'magma',
                 'text_over':'white',
@@ -917,7 +1290,9 @@ plotting_dictionary = dict(
                 'vmin_galaxy':1e-4,
                 'vmax_galaxy':0.01,
                 'bin_min':1e-5,
-                'bin_max':10
+                'bin_max':10,
+                'code_units':'dimensionless',
+                'neighbour':True
     },
     eff_FK2 = {'cmap':'magma',
                 'text_over':'white',
@@ -929,7 +1304,9 @@ plotting_dictionary = dict(
                 'vmin_galaxy':1e-4,
                 'vmax_galaxy':0.01,
                 'bin_min':1e-5,
-                'bin_max':10
+                'bin_max':10,
+                'code_units':'dimensionless',
+                'neighbour':True
     },
 )
 

@@ -10,5 +10,5 @@ sys.path.append(PARTPATH)
 sys.path.append(VISPATH)
 
 from ozy.loader import load
-from ozy.main import OZY
+from ozy.main import Snapshot, CosmoSnapshot
 from ozy.driver import drive

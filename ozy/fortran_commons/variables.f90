@@ -3585,7 +3585,7 @@ module hydro_commons
                 call check_geovar(reqvars(i),cleaned_vars(i),ok_check)
                 if (ok_check) cycle
 
-                ! 3. Then the variable maybe a derived one, so we go
+                ! 3. Then the variable may be a derived one, so we go
                 ! through the defined derived variables to pre-define
                 ! the indexes (for speed-up)
                 call check_dervar(vardict,reqvars(i),cleaned_vars(i),ok_check)
