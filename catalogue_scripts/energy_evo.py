@@ -7,7 +7,7 @@ By: F. Rodriguez Montero (15/06/2021)
 
 # Import required libraries
 import ozy
-from ozy.plot_settings import plotting_dictionary
+from ozy.variables_settings import plotting_dictionary
 import numpy as np
 import os
 import argparse

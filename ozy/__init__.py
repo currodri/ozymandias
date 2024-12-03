@@ -12,3 +12,26 @@ sys.path.append(VISPATH)
 from ozy.loader import load
 from ozy.main import Snapshot, CosmoSnapshot
 from ozy.driver import drive
+
+import importlib.util
+from ozy.variables_settings import plotting_dictionary,circle_dictionary,basic_conv
+def load_custom_settings():
+    """Load custom settings if 'ozy_settings.py' exists in the current directory."""
+    global plotting_dictionary,circle_dictionary,basic_conv  # Declare the dictionaries as global to override them
+    
+    current_dir = os.getcwd()
+    ozy_settings_path = os.path.join(current_dir, 'ozy_settings.py')
+    
+    if os.path.isfile(ozy_settings_path):
+        # Load the ozy_settings module dynamically
+        spec = importlib.util.spec_from_file_location("ozy_settings", ozy_settings_path)
+        ozy_settings = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ozy_settings)
+        
+        # Override the dictionaries
+        plotting_dictionary = getattr(ozy_settings, 'plotting_dictionary', plotting_dictionary)
+        circle_dictionary = getattr(ozy_settings, 'circle_dictionary', circle_dictionary)
+        basic_conv = getattr(ozy_settings, 'basic_conv', basic_conv)
+
+# Call the function to load custom settings at package initialization
+load_custom_settings()

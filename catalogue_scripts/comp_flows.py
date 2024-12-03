@@ -1,7 +1,7 @@
 # Import required libraries
 import ozy
 from ozy.outflow_inflow import compute_flows, get_flow_name
-from ozy.plot_settings import plotting_dictionary
+from ozy.variables_settings import plotting_dictionary
 from scipy.signal import medfilt
 from scipy.integrate import cumtrapz
 import numpy as np

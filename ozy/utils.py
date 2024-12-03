@@ -6,10 +6,24 @@ from itertools import islice
 import sys
 import os
 import subprocess
-from ozy.dict_variables import get_code_units
 import matplotlib.text as mtext
 import matplotlib.transforms as mtransforms
 import matplotlib.pyplot as plt
+
+def get_code_units(varname):
+
+    if varname in plotting_dictionary:
+        unit = plotting_dictionary[varname]['unit']
+    else:
+        raise KeyError('Variable not found, check: '+str(varname))
+    return unit
+    
+def check_need_neighbours(varname):
+    if varname in plotting_dictionary:
+        need = plotting_dictionary[varname]['neighbour']
+    else:
+        raise KeyError('Variable not found, check: '+str(varname))
+    return need
 
 class RotationAwareAnnotation(mtext.Annotation):
     def __init__(self, s, xy, p, pa=None, ax=None, **kwargs):
@@ -69,7 +83,7 @@ def most_contrast_rgba(rgba):
 
 
 def invert_tick_colours(ax,var,type_scale):
-    from plot_settings import plotting_dictionary, symlog_variables
+    from ozy.variables_settings import plotting_dictionary, symlog_variables
     from matplotlib.colors import LogNorm,SymLogNorm
     from matplotlib import colormaps
 
@@ -516,7 +530,7 @@ def structure_regions(group, position=None, radius=None,
     This routine returns the regions of substructures so they can be used
     by the Ozymandias Fortran routines
     """
-    from ozy.plot_settings import circle_dictionary
+    from ozy.variables_settings import circle_dictionary
     from ozy.utils import tidal_radius
     
     mysubs = []
@@ -1083,7 +1097,7 @@ def plot_cooling(cool_file):
     import matplotlib.pyplot as plt
     from matplotlib.colors import LogNorm,SymLogNorm
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-    from ozy.plot_settings import plotting_dictionary
+    from ozy.variables_settings import plotting_dictionary
     from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units
     
     # Read table
@@ -1279,7 +1293,7 @@ def stats_from_pdf(varname,x,PDF,xmin,xmax):
     return np.array([mean,median,std,q2,q4])
 
 def pdf_handler_to_stats(obj,pdf_obj,ifilt):
-    from ozy.plot_settings import plotting_dictionary, \
+    from ozy.variables_settings import plotting_dictionary, \
                                 symlog_variables
     # This returns:
     # mean,median,std,q2,q4,minvalue,max_value
@@ -1379,7 +1393,7 @@ def get_code_bins(obj,varname,nbins=100,logscale=True):
     """This function provides bins for RAMSES variables in 
         code units, taking into account issues with variables
         with negative values."""
-    from ozy.plot_settings import plotting_dictionary, \
+    from ozy.variables_settings import plotting_dictionary, \
                                 symlog_variables
     from ozy.dict_variables import check_need_neighbours, common_variables, \
                                     grid_variables, \

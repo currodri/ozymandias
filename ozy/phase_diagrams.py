@@ -4,7 +4,7 @@ import os
 import ozy
 from unyt import unyt_array,unyt_quantity
 from ozy.utils import init_region,init_filter,gent_curve_T
-from ozy.plot_settings import symlog_variables
+from ozy.variables_settings import symlog_variables
 from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units
 # TODO: Allow for parallel computation of phase diagrams.
 from joblib import Parallel, delayed
@@ -299,7 +299,7 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
     from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
     from matplotlib.colors import LogNorm,SymLogNorm
     import seaborn as sns
-    from ozy.plot_settings import plotting_dictionary
+    from ozy.variables_settings import plotting_dictionary
     sns.set(style="white")
     plt.rc('text', usetex=True)
     plt.rc('font', family='serif')
@@ -427,7 +427,7 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
     from matplotlib.colors import LogNorm,SymLogNorm
     import seaborn as sns
-    from ozy.plot_settings import plotting_dictionary
+    from ozy.variables_settings import plotting_dictionary
     sns.set(style="white")
     plt.rc('text', usetex=True)
     plt.rc('font', family='serif')
@@ -726,7 +726,7 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
     import matplotlib.patheffects as pe
     from matplotlib.colors import LogNorm
     import seaborn as sns
-    from ozy.plot_settings import plotting_dictionary
+    from ozy.variables_settings import plotting_dictionary
     sns.set(style="white")
     plt.rc('text', usetex=True)
     plt.rc('font', family='serif')

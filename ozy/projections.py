@@ -3,7 +3,7 @@ import h5py
 import os
 import ozy
 from ozy.utils import init_filter, init_region, structure_regions
-from ozy.plot_settings import plotting_dictionary, \
+from ozy.variables_settings import plotting_dictionary, \
                                 symlog_variables
 from ozy.dict_variables import check_need_neighbours, common_variables, \
                                 grid_variables, \
@@ -782,7 +782,7 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
     
     # Make required imports
     from ozy.utils import tidal_radius,invert_tick_colours
-    from ozy.plot_settings import circle_dictionary
+    from ozy.variables_settings import circle_dictionary
     import matplotlib
     import matplotlib.pyplot as plt
     import matplotlib.font_manager as fm
@@ -992,7 +992,7 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=(3,'kpc')
     
     # Make required imports
     from ozy.utils import tidal_radius,invert_tick_colours
-    from ozy.plot_settings import circle_dictionary
+    from ozy.variables_settings import circle_dictionary
     import matplotlib
     import matplotlib.pyplot as plt
     import matplotlib.font_manager as fm
@@ -1925,7 +1925,7 @@ def structure_overplotting(group, add_substructure=True, add_neighbours=False,
     This routine obtains the plotting details to speed up the construction of
     projections with substructure and/or neighbours information.
     """
-    from ozy.plot_settings import circle_dictionary
+    from ozy.variables_settings import circle_dictionary
     from ozy.utils import tidal_radius
     # Setup arrays with information
     centers = []
