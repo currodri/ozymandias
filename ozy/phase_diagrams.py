@@ -3,9 +3,13 @@ import h5py
 import os
 import ozy
 from unyt import unyt_array,unyt_quantity
-from ozy.utils import init_region,init_filter,gent_curve_T
-from ozy.variables_settings import symlog_variables
-from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units
+from ozy.utils import init_region,init_filter,gent_curve_T,\
+                    check_need_neighbours, get_code_units, \
+                    get_plotting_def
+from variables_settings import geometrical_variables,raw_gas_variables,\
+    raw_star_variables,raw_dm_variables,derived_gas_variables,\
+    derived_star_variables,derived_dm_variables,gravity_variables,\
+    basic_conv,circle_dictionary
 # TODO: Allow for parallel computation of phase diagrams.
 from joblib import Parallel, delayed
 from amr2 import vectors
@@ -80,9 +84,17 @@ class PhaseDiagram(object):
 def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins=[100,100],region_type='sphere',
                             filter_conds='none',filter_name='none',scaletype='log_even',recompute=False,save=False,
                             rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(0.0,'rvir'), zmax=(0.2,'rvir'),
-                            cr_st=False,cr_heat=False,Dcr=0.0):
+                            cr_st=False,cr_heat=False,Dcr=0.0,mycentre=([0.5,0.5,0.5],'code_length')):
     """Function which computes a phase diagram (2D profile) for a given group object."""
 
+    if isinstance(group,ozy.Snapshot):
+        obj = group
+        group = ozy.group.Group(obj)
+        use_snapshot = True
+    else:
+        obj = group.obj
+        use_snapshot = False
+    
     if not isinstance(xvar,str) or not isinstance(yvar,str):
         print('Only single x and y variable supported!')
         exit
@@ -102,17 +114,20 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins
         var_type = var.split('/')[0]
         var_name = var.split('/')[1]
         if var_type == 'gas':
-            if var_name in common_variables or var_name in grid_variables:
+            if var_name in geometrical_variables or var_name in raw_gas_variables \
+                or var_name in derived_gas_variables or var_name in gravity_variables:
                 pd.zvars['hydro'].append(var_name)
             else:
                 raise KeyError('This gas variable is not supported. Please check!: %s', var)
         elif var_type == 'star':
-            if var_name in common_variables or var_name in particle_variables:
+            if var_name in geometrical_variables or var_name in raw_star_variables \
+                or var_name in derived_star_variables:
                 pd.zvars['for_star'].append(var_name)
             else:
                 raise KeyError('This star variable is not supported. Please check!')
         elif var_type == 'dm':
-            if var_name in common_variables or var_name in particle_variables:
+            if var_name in geometrical_variables or var_name in raw_dm_variables \
+                or var_name in derived_dm_variables:
                 pd.zvars['for_dm'].append(var_name)
             else:
                 raise KeyError('This DM variable is not supported. Please check!')
@@ -120,28 +135,37 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins
         var_type = var.split('/')[0]
         var_name = var.split('/')[1]
         if var_type == 'gas':
-            if var_name in common_variables or var_name in grid_variables:
+            if var_name in geometrical_variables or var_name in raw_gas_variables \
+                or var_name in derived_gas_variables or var_name in gravity_variables:
+                pd.weightvars['hydro'].append(var_name)
+            elif var_name == 'cumulative':
                 pd.weightvars['hydro'].append(var_name)
             else:
                 raise KeyError('This gas variable is not supported. Please check!')
         elif var_type == 'star':
-            if var_name in common_variables or var_name in particle_variables:
+            if var_name in geometrical_variables or var_name in raw_star_variables \
+                or var_name in derived_star_variables:
                 pd.weightvars['for_star'].append(var_name)
             else:
                 raise KeyError('This star variable is not supported. Please check!')
         elif var_type == 'dm':
-            if var_name in common_variables or var_name in particle_variables:
+            if var_name in geometrical_variables or var_name in raw_dm_variables \
+                or var_name in derived_dm_variables:
                 pd.weightvars['for_dm'].append(var_name)
             else:
                 raise KeyError('This DM variable is not supported. Please check!')
 
     # Check that we do not have any inconsistency...
-    if xvar in grid_variables and len(pd.zvars['for_star'])>0 or xvar in grid_variables and len(pd.zvars['for_dm'])>0:
-        raise KeyError("Having grid vs particle phase diagrams is not well-defined.")
-    elif xvar in particle_variables and len(pd.zvars['hydro'])>0:
-        raise KeyError("Having particle vs grid phase diagrams is not well-defined.")
+    # if xvar in grid_variables and len(pd.zvars['for_star'])>0 or xvar in grid_variables and len(pd.zvars['for_dm'])>0:
+    #     raise KeyError("Having grid vs particle phase diagrams is not well-defined.")
+    # elif xvar in particle_variables and len(pd.zvars['hydro'])>0:
+    #     raise KeyError("Having particle vs grid phase diagrams is not well-defined.")
 
     # Now create region
+    if use_snapshot:
+        group.position = obj.array(mycentre[0],mycentre[1])
+        group.angular_mom['total'] = np.array([0.,0.,1.])
+        group.velocity = obj.array([0.,0.,0.],'code_velocity')
     if isinstance(region_type, geo.region):
         selected_reg = region_type
     else:
@@ -156,35 +180,35 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins
     pd._get_python_filter(filt)
 
     # Check if phase data is already present and if it coincides with the new one
-    f = h5py.File(ozy_file, 'r+')
-    pd_present, pd_key = check_if_same_phasediag(f,pd)
-    if pd_present and recompute:
-        del f[str(pd.group.type)+'_data/phase_diagrams/'+str(group._index)+'/'+str(pd_key)]
-        print('Overwriting phase diagram data in %s_data'%group.type)
-    elif pd_present and not recompute:
-        print('Phase diagram data with same details already present for galaxy %s. No overwritting!'%group._index)
-        group._init_phase_diagrams()
-        for i,p in enumerate(group.phase_diagrams):
-            if p.key == pd_key:
-                selected_pd = i
-                break
-        return group.phase_diagrams[selected_pd]
-    else:
-        print('Writing phase diagram data in %s_data'%group.type)
-    f.close()
+    if not ozy_file is None:
+        f = h5py.File(ozy_file, 'r+')
+        pd_present, pd_key = check_if_same_phasediag(f,pd)
+        if pd_present and recompute:
+            del f[str(pd.group.type)+'_data/phase_diagrams/'+str(group._index)+'/'+str(pd_key)]
+            print('Overwriting phase diagram data in %s_data'%group.type)
+        elif pd_present and not recompute:
+            print('Phase diagram data with same details already present for galaxy %s. No overwritting!'%group._index)
+            group._init_phase_diagrams()
+            for i,p in enumerate(group.phase_diagrams):
+                if p.key == pd_key:
+                    selected_pd = i
+                    break
+            return group.phase_diagrams[selected_pd]
+        else:
+            print('Writing phase diagram data in %s_data'%group.type)
+        f.close()
 
     # Initialise hydro phase diagram data object
     hydro_data = amrprofmod.profile_handler_twod()
     hydro_data.profdim = 2
-    hydro_data.xvarname = xvar
-    hydro_data.yvarname = yvar
+    hydro_data.xvar.name = xvar
+    hydro_data.yvar.name = yvar
     hydro_data.nzvar = len(pd.zvars['hydro'])
     hydro_data.nwvar = len(pd.weightvars['hydro'])
     hydro_data.nbins = np.asarray(nbins,order='F')
     hydro_data.cr_st = cr_st
     hydro_data.cr_heat = cr_heat
     hydro_data.Dcr = Dcr
-
     amrprofmod.allocate_profile_handler_twod(hydro_data)
     for i in range(0, len(pd.zvars['hydro'])):
         hydro_data.zvarnames.T.view('S128')[i] = pd.zvars['hydro'][i].ljust(128)
@@ -193,28 +217,32 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,lmax=0,nbins
     
     # And now, compute hydro data phase diagrams!
     if hydro_data.nzvar > 0 and hydro_data.nwvar > 0:
-        amrprofmod.twodprofile(group.obj.simulation.fullpath,selected_reg,filt,hydro_data,lmax,scaletype)
+        if obj.use_vardict:
+            amrprofmod.twodprofile(obj.simulation.fullpath,selected_reg,filt,hydro_data,lmax,scaletype,obj.vardict)
+        else:
+            amrprofmod.twodprofile(obj.simulation.fullpath,selected_reg,filt,hydro_data,lmax,scaletype)
     
     code_units = get_code_units(pd.xvar)
     copy_data = np.copy(hydro_data.xdata)
     copy_data = 0.5*(copy_data[:-1]+copy_data[1:])
-    pd.xdata.append(group.obj.array(copy_data, code_units))
+    pd.xdata.append(obj.array(copy_data, code_units))
 
     code_units = get_code_units(pd.yvar)
     copy_data = np.copy(hydro_data.ydata)
     copy_data = 0.5*(copy_data[:-1]+copy_data[1:])
-    pd.ydata.append(group.obj.array(copy_data, code_units))
+    pd.ydata.append(obj.array(copy_data, code_units))
     pd.zdata['hydro'] = []
     for i in range(0, len(pd.zvars['hydro'])):
         code_units = get_code_units(pd.zvars['hydro'][i])
+        print(pd.zvars['hydro'][i],hydro_data.zdata[:,:,i,:,:])
         copy_data = np.copy(hydro_data.zdata[:,:,i,:,::2])
-        pd.zdata['hydro'].append(group.obj.array(copy_data, code_units))
+        pd.zdata['hydro'].append(obj.array(copy_data, code_units))
 
     # TODO: Add phase diagram for particles
     star_data = None
     dm_data = None
-    if save:
-        write_phasediag(group.obj, ozy_file, hydro_data, star_data, dm_data, pd)
+    if save and not ozy_file is None:
+        write_phasediag(obj, ozy_file, hydro_data, star_data, dm_data, pd)
     
     return pd
 
@@ -299,7 +327,6 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
     from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
     from matplotlib.colors import LogNorm,SymLogNorm
     import seaborn as sns
-    from ozy.variables_settings import plotting_dictionary
     sns.set(style="white")
     plt.rc('text', usetex=True)
     plt.rc('font', family='serif')
@@ -327,9 +354,9 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
 
     # Since everything appears fine, we begin plotting...
     fig, ax = plt.subplots(1,1, figsize=(8,6))
-    plotting_x = plotting_dictionary[pd.xvar]
-    plotting_y = plotting_dictionary[pd.yvar]
-    plotting_z = plotting_dictionary[field]
+    plotting_x = get_plotting_def(pd.xvar)
+    plotting_y = get_plotting_def(pd.yvar)
+    plotting_z = get_plotting_def(field)
     ax.set_xlabel(plotting_x['label'],fontsize=18)
     ax.set_ylabel(plotting_y['label'],fontsize=18)
 
@@ -354,7 +381,7 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
     print(field,np.nanmin(z).in_units(plotting_z['units']),np.nanmax(z).in_units(plotting_z['units']))
     sim_z = pd.obj.simulation.redshift
     if logscale:
-        if field in symlog_variables:
+        if plotting_z['symlog']:
             plot = ax.pcolormesh(x,y,
                                 z[:,:,0].in_units(plotting_z['units']).T.d,
                                 shading='auto',
@@ -395,16 +422,23 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
         ax.plot(x,y_mean,color='r',linewidth=2)
 
     if gent:
-        s1 = 4.4e+8
-        s2 = 23.2e+8
-        cv = 1.4e+8
-        gamma = 5/3
-        rho1_low = 1.673532784796145e-24 * (2/(np.exp(s1/cv))) ** (1/(gamma-1))
-        rho1_high = 1.673532784796145e-24 * (1e+8/(np.exp(s1/cv))) ** (1/(gamma-1))
-        ax.plot([rho1_low,rho1_high], [2,1e+8],color='k')
-        rho2_low = 1.673532784796145e-24 * (2/(np.exp(s2/cv))) ** (1/(gamma-1))
-        rho2_high = 1.673532784796145e-24 * (1e+8/(np.exp(s2/cv))) ** (1/(gamma-1))
-        ax.plot([rho2_low,rho2_high], [2,1e+8],color='k')
+        XX,YY = np.meshgrid(x,y)
+        z_cold = np.sum(z.T[YY<gent_curve_T('cold',XX)])
+        ax.fill_between([1e-30,8e-20], [gent_curve_T('cold',1e-30),gent_curve_T('cold',8e-20)],
+                            [1,1],color='b', zorder=1,alpha=0.2)
+        z_warm = np.sum(z.T[(YY>gent_curve_T('cold',XX)) & (YY<gent_curve_T('hot',XX))])
+        ax.fill_between([1e-30,8e-20], [gent_curve_T('cold',1e-30),gent_curve_T('cold',8e-20)],
+                            [gent_curve_T('hot',1e-30),gent_curve_T('hot',8e-20)],color='orange', 
+                            zorder=1,alpha=0.2)
+        ax.fill_between([1e-30,8e-20], [gent_curve_T('hot',1e-30),gent_curve_T('hot',8e-20)],
+                        [1e8,1e8],color='r', zorder=1,alpha=0.2)
+        z_hot = np.sum(z.T[YY>gent_curve_T('hot',XX)])
+        z_tot = np.sum(z)
+        print(z_cold,z_warm,z_hot)
+        print('Distribution of masses in the Gent phases:')
+        print('Cold: %.3f, %.3e'%(100*z_cold/z_tot,z_cold))
+        print('Warm: %.3f, %.3e'%(100*z_warm/z_tot,z_warm))
+        print('Hot: %.3f, %.3e'%(100*z_hot/z_tot, z_hot))
         
 
 
@@ -427,7 +461,6 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
     from matplotlib.colors import LogNorm,SymLogNorm
     import seaborn as sns
-    from ozy.variables_settings import plotting_dictionary
     sns.set(style="white")
     plt.rc('text', usetex=True)
     plt.rc('font', family='serif')
@@ -517,9 +550,10 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
                 pd = pds[ipd][0]
             else:
                 pd = pds[ipd]
-            plotting_x = plotting_dictionary[pd.xvar]
-            plotting_y = plotting_dictionary[pd.yvar]
-            plotting_z = plotting_dictionary[field]
+            plotting_x = get_plotting_def(pd.xvar)
+            plotting_y = get_plotting_def(pd.yvar)
+            plotting_z = get_plotting_def(field)
+            print(field,plotting_z)
             ax[i,j].set_xlabel(plotting_x['label'],fontsize=20)
             # Get rid of the y-axis labels for the panels in the middle
             # TODO: The ticks should not be only for density and temperature!
@@ -582,7 +616,7 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
                 print('Warm: %.3f, %.3e'%(100*z_warm/z_tot,z_warm))
                 print('Hot: %.3f, %.3e'%(100*z_hot/z_tot, z_hot))
 
-            if pd.zvars['hydro'][field_indexes[ipd]].split('/')[-1] in symlog_variables:
+            if plotting_z['symlog']:
                 plot = ax[i,j].pcolormesh(x,y,
                                     z.in_units(plotting_z['units']).T,
                                     shading='auto',
@@ -606,7 +640,7 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
                             transform=ax[i,j].transAxes, fontsize=20,verticalalignment='top',
                             color='black')
             if isinstance(extra_labels,list):
-                ax[i,j].text(0.65, 0.9, extra_labels[ipd],
+                ax[i,j].text(0.40, 0.95, extra_labels[ipd],
                             transform=ax[i,j].transAxes, fontsize=14,verticalalignment='top',
                             color='black')
 
@@ -635,7 +669,13 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
                     a = np.nansum(y * z[:,k])
                     b = np.nansum(z[:,k])
                     y_mean[k] = a/b
-                ax[i,j].plot(x,y_mean,color='k',linewidth=2, linestyle='--')
+                ax[i,j].plot(x,y_mean,color='w',linewidth=2, linestyle='--')
+            elif stats == 'median':
+                y_median = np.zeros(len(x))
+                z = z.T
+                for k in range(0, len(x)):
+                    y_median[k] = np.nanmedian(y * z[:,k])
+                ax[i,j].plot(x,y_median,color='w',linewidth=2, linestyle='--')
             
             if ipd==0:
                 if layout == 'compact':

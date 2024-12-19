@@ -25,6 +25,7 @@ class Snapshot(object):
         self.unit_registry = self._get_unit_registry()
         self.simulation  = SimulationAttributes()
         self._assign_simulation_attributes(fullpath)
+        self._set_variable_ordering()
 
     def array(self, value, units):
         return unyt_array(value, units, registry=self.unit_registry)
@@ -100,6 +101,19 @@ class Snapshot(object):
     def _assign_simulation_attributes(self,fullpath):
         """Assign simulation attributes to the OZY object, if it has not been done before."""
         self.simulation.assign_attributes(self,fullpath)
+
+    def _set_variable_ordering(self):
+        from amr2 import dictionary_commons
+        from variables_settings import variables_ordering
+        self.vardict = dictionary_commons.dictf90()
+        if len(variables_ordering) > 0:
+            print("Setting variable ordering from local ozy_settings.py.")
+            self.vardict.init(len(variables_ordering))
+            for i,var in enumerate(variables_ordering):
+                self.vardict.add(var,i+1)
+            self.use_vardict = True
+        else:
+            self.use_vardict = False
     
     def save(self, filename):
         """Save Snapshot object as HDF5 file."""

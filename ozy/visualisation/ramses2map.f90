@@ -288,7 +288,7 @@ module maps
         integer :: ii
 
         ! Obtain details of the hydro variables stored
-        call read_hydrofile_descriptor(repository)
+        if (.not.present(vardict)) call read_hydrofile_descriptor(repository)
 
         ! Initialise parameters of the AMR structure and simulation attributes
         call init_amr_read(repository)
@@ -356,7 +356,6 @@ module maps
         else
             call project_cells
         end if
-
         contains
 
         subroutine project_cells
@@ -434,7 +433,6 @@ module maps
             allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
             allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
             if(amr%nboundary>0)allocate(ngridbound(1:amr%nboundary,1:amr%nlevelmax))
-
             ipos=INDEX(repository,'output_')
             nchar=repository(ipos+7:ipos+13)
             ! Loop over processor files
@@ -483,7 +481,6 @@ module maps
                 read(11)
                 read(11)
                 read(11)
-
                 if (read_gravity) then
                     ! Open GRAV file and skip header
                     nomfich=TRIM(repository)//'/grav_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
@@ -520,7 +517,6 @@ module maps
                         allocate(ref(1:ngrida))
                         if(read_gravity) allocate(grav_var(1:ngrida,1:amr%twotondim,1:4))
                     endif
-
                     ! Loop over domains
                     domloop: do j=1,amr%nboundary+amr%ncpu
                         ! Read AMR data
@@ -601,7 +597,6 @@ module maps
                             end if
                         end if
                     end do domloop
-
                     !Compute map
                     if (ngrida>0) then
                         ! Loop over cells
@@ -648,7 +643,6 @@ module maps
                                     end do
                                     ok_cell = ok_cell .and. ok_sub
                                 end if
-                                
                                 if (ok_cell) then
                                     ix = int((x(i,1)+0.5*(bbox%xmax-bbox%xmin))*dble(nx_full)) + 1
                                     iy = int((x(i,2)+0.5*(bbox%ymax-bbox%ymin))*dble(ny_full)) + 1
@@ -695,10 +689,10 @@ module maps
                                                 if (trim(proj%weightvars(1)) /= 'counts') then
                                                     !TODO: Change this so that it loops over the wvars, not just the first one
                                                     if (read_gravity) then 
-                                                        rho = proj%wvars(1)%myfunction(amr,sim,proj%wvars(1),bbox,dx,xtemp&
+                                                        rho = proj%wvars(1)%myfunction(amr,sim,proj%wvars(1),bbox,dx*sim%boxlen,xtemp&
                                                             & ,tempvar,tempson,trans_matrix,tempgrav_var)
                                                     else
-                                                        rho = proj%wvars(1)%myfunction(amr,sim,proj%wvars(1),bbox,dx,xtemp&
+                                                        rho = proj%wvars(1)%myfunction(amr,sim,proj%wvars(1),bbox,dx*sim%boxlen,xtemp&
                                                             & ,tempvar,tempson,trans_matrix)
                                                     end if
                                                     weight = MAX(rho*dx*weight/(bbox%zmax-bbox%zmin),0D0)
@@ -707,10 +701,10 @@ module maps
 
                                                 projvarloop: do ivar=1,proj%nvars
                                                     if (read_gravity) then
-                                                        map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bbox,dx,xtemp&
+                                                        map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
                                                             & ,tempvar,tempson,trans_matrix,tempgrav_var)
                                                     else
-                                                        map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bbox,dx,xtemp&
+                                                        map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
                                                             & ,tempvar,tempson,trans_matrix)
                                                     end if
                                                     grid(ilevel)%cube(ifilt,ivar,ix,iy)=grid(ilevel)%cube(ifilt,ivar,ix,iy)+map*weight
@@ -1164,10 +1158,10 @@ module maps
                                         end do
                                         filterloop: do ifilt=1,cam%nfilter
                                             if (read_gravity) then
-                                                ok_filter = filter_cell(bbox,cam%filters(ifilt),xtemp,dx,tempvar,&
+                                                ok_filter = filter_cell(bbox,cam%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
                                                                         &tempson,trans_matrix,tempgrav_var)
                                             else
-                                                ok_filter = filter_cell(bbox,cam%filters(ifilt),xtemp,dx,tempvar,&
+                                                ok_filter = filter_cell(bbox,cam%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
                                                                         &tempson,trans_matrix)
                                             end if
                                             ! Finally, get hydro data
@@ -1176,10 +1170,10 @@ module maps
                                                 if (trim(proj%weightvars(1)) /= 'counts') then
                                                     !TODO: Change this so that it loops over the wvars, not just the first one
                                                     if (read_gravity) then 
-                                                        rho = proj%wvars(1)%myfunction(amr,sim,proj%wvars(1),bbox,dx,xtemp&
+                                                        rho = proj%wvars(1)%myfunction(amr,sim,proj%wvars(1),bbox,dx*sim%boxlen,xtemp&
                                                             & ,tempvar,tempson,trans_matrix,tempgrav_var)
                                                     else
-                                                        rho = proj%wvars(1)%myfunction(amr,sim,proj%wvars(1),bbox,dx,xtemp&
+                                                        rho = proj%wvars(1)%myfunction(amr,sim,proj%wvars(1),bbox,dx*sim%boxlen,xtemp&
                                                             & ,tempvar,tempson,trans_matrix)
                                                     end if
                                                     weight = MAX(rho*dx*weight/(bbox%zmax-bbox%zmin),0D0)
@@ -1188,10 +1182,10 @@ module maps
 
                                                 projvarloop: do ivar=1,proj%nvars
                                                     if (read_gravity) then
-                                                        map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bbox,dx,xtemp&
+                                                        map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
                                                             & ,tempvar,tempson,trans_matrix,tempgrav_var)
                                                     else
-                                                        map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bbox,dx,xtemp&
+                                                        map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
                                                             & ,tempvar,tempson,trans_matrix)
                                                     end if
                                                     grid(ilevel)%cube(ifilt,ivar,ix,iy)=grid(ilevel)%cube(ifilt,ivar,ix,iy)+map*weight
@@ -1981,25 +1975,25 @@ module maps
 
                                         ! Do loop over filters
                                         filterloop: do ifilt=1,cam%nfilter
-                                            ok_filter = filter_cell(bsphere,cam%filters(ifilt),xtemp,dx,tempvar,&
+                                            ok_filter = filter_cell(bsphere,cam%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
                                                                         &tempson,trans_matrix)
                                             if (ok_filter) then
                                                 ! Get weight
                                                 ! TODO: I should loop over weightvars
-                                                rho = proj%wvars(1)%myfunction(amr,sim,proj%wvars(1),bsphere,dx,xtemp&
+                                                rho = proj%wvars(1)%myfunction(amr,sim,proj%wvars(1),bsphere,dx*sim%boxlen,xtemp&
                                                         & ,tempvar,tempson,trans_matrix)
                                                 do j=1,size(listpix_clean)
                                                     ix = listpix_clean(j)
-                                                    proj_rho(ifilt,ix) = proj_rho(ifilt,ix)+rho*dx*weight/(bsphere%rmax-bsphere%rmin)
+                                                    proj_rho(ifilt,ix) = proj_rho(ifilt,ix)+rho*dx*sim%boxlen*weight/(bsphere%rmax-bsphere%rmin)
                                                 end do
 
                                                 ! Get variable values
                                                 projvarloop: do ivar=1,proj%nvars
-                                                    map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bsphere,dx,xtemp&
+                                                    map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bsphere,dx*sim%boxlen,xtemp&
                                                             & ,tempvar,tempson,trans_matrix)
                                                     do j=1,size(listpix_clean)
                                                         ix = listpix_clean(j)
-                                                        proj%toto(ifilt,ivar,1,ix) = proj%toto(ifilt,ivar,1,ix)+map*rho*dx*weight/(bsphere%rmax-bsphere%rmin)
+                                                        proj%toto(ifilt,ivar,1,ix) = proj%toto(ifilt,ivar,1,ix)+map*rho*dx*sim%boxlen*weight/(bsphere%rmax-bsphere%rmin)
                                                     end do
                                                 end do projvarloop
                                             end if

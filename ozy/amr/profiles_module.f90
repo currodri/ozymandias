@@ -180,7 +180,7 @@ module amr_profiles
             else
                 ytemp = prof%yvars(i)%myfunction(amr,sim,prof%yvars(i),reg,cellsize,x,&
                                                 cellvars,cellsons,trans_matrix)
-            end if                
+            end if
             wvarloop: do j=1,prof%nwvar
                 if (prof%wvarnames(j)=='counts'.or.prof%wvarnames(j)=='cumulative') then
                     wtemp = 1D0
@@ -318,15 +318,11 @@ module amr_profiles
 
         integer :: ivx,ivy,ivz
 
-        call read_hydrofile_descriptor(repository)
+        if (.not.present(vardict)) call read_hydrofile_descriptor(repository)
 
         call init_amr_read(repository)
         amr%lmax = lmax
         if (lmax.eq.0) amr%lmax = amr%nlevelmax
-        prof_data%xdata = 0D0
-        prof_data%ydata = 0D0
-        prof_data%scaletype = scaletype
-        prof_data%xdata = makebins(reg,prof_data%xvar%name,prof_data%nbins,scaletype)
         
         call get_cpu_map(reg)
         write(*,*)'ncpu_read:',amr%ncpu_read
@@ -362,6 +358,12 @@ module amr_profiles
             ivy = varIDs%get('velocity_y')
             ivz = varIDs%get('velocity_z')
         end if
+
+        ! Setup the profile data arrays
+        prof_data%xdata = 0D0
+        prof_data%ydata = 0D0
+        prof_data%scaletype = scaletype
+        prof_data%xdata = makebins(reg,prof_data%xvar%name,prof_data%nbins,scaletype)
 
         ! Choose type of onedprofile
         if (use_neigh) then
@@ -703,10 +705,10 @@ module amr_profiles
                                     if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(1,inbor),:)
                                 end do
                                 if (read_gravity) then
-                                    ok_filter = filter_cell(reg,filt,xtemp,dx,tempvar,tempson,&
+                                    ok_filter = filter_cell(reg,filt,xtemp,dx*sim%boxlen,tempvar,tempson,&
                                                             &trans_matrix,tempgrav_var)
                                 else
-                                    ok_filter = filter_cell(reg,filt,xtemp,dx,tempvar,tempson,&
+                                    ok_filter = filter_cell(reg,filt,xtemp,dx*sim%boxlen,tempvar,tempson,&
                                                             &trans_matrix)
                                 end if
                                 ok_cell= ok_cell.and..not.ref(i).and.ok_filter
@@ -723,17 +725,17 @@ module amr_profiles
                                     binpos = 0
                                     if (read_gravity) then
                                         call findbinpos(reg,xtemp,tempvar,tempson,&
-                                                        & dx,binpos,ytemp,trans_matrix,&
+                                                        & dx*sim%boxlen,binpos,ytemp,trans_matrix,&
                                                         & prof_data%scaletype,prof_data%nbins,&
                                                         & prof_data%xdata,prof_data%xvar,&
                                                         & tempgrav_var)
-                                        if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,trans_matrix,tempgrav_var)
+                                        if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx*sim%boxlen,prof_data,binpos,trans_matrix,tempgrav_var)
                                     else
                                         call findbinpos(reg,xtemp,tempvar,tempson,&
-                                                        & dx,binpos,ytemp,trans_matrix,&
+                                                        & dx*sim%boxlen,binpos,ytemp,trans_matrix,&
                                                         & prof_data%scaletype,prof_data%nbins,&
                                                         & prof_data%xdata,prof_data%xvar)
-                                        if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,trans_matrix)
+                                        if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx*sim%boxlen,prof_data,binpos,trans_matrix)
                                     end if
                                     if (binpos.ne.0)total_ncell = total_ncell + 1
                                 endif
@@ -1045,10 +1047,10 @@ module amr_profiles
                                     tempvar(0,ivx:ivz) = vtemp
                                     if (read_gravity) tempgrav_var(0,2:4) = gtemp
                                     if (read_gravity) then
-                                        ok_filter = filter_cell(reg,filt,xtemp,dx,tempvar,tempson,&
+                                        ok_filter = filter_cell(reg,filt,xtemp,dx*sim%boxlen,tempvar,tempson,&
                                                                 &trans_matrix,tempgrav_var)
                                     else
-                                        ok_filter = filter_cell(reg,filt,xtemp,dx,tempvar,tempson,&
+                                        ok_filter = filter_cell(reg,filt,xtemp,dx*sim%boxlen,tempvar,tempson,&
                                                                 &trans_matrix)
                                     end if
                                     ok_cell= ok_cell.and.ok_filter
@@ -1057,17 +1059,17 @@ module amr_profiles
                                         binpos = 0
                                         if (read_gravity) then
                                             call findbinpos(reg,xtemp,tempvar,tempson,&
-                                                            & dx,binpos,ytemp,trans_matrix,&
+                                                            & dx*sim%boxlen,binpos,ytemp,trans_matrix,&
                                                             & prof_data%scaletype,prof_data%nbins,&
                                                             & prof_data%xdata,prof_data%xvar,&
                                                             & tempgrav_var)
-                                            if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,trans_matrix,tempgrav_var)
+                                            if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx*sim%boxlen,prof_data,binpos,trans_matrix,tempgrav_var)
                                         else
                                             call findbinpos(reg,xtemp,tempvar,tempson,&
-                                                            & dx,binpos,ytemp,trans_matrix,&
+                                                            & dx*sim%boxlen,binpos,ytemp,trans_matrix,&
                                                             & prof_data%scaletype,prof_data%nbins,&
                                                             & prof_data%xdata,prof_data%xvar)
-                                            if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,trans_matrix)
+                                            if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx*sim%boxlen,prof_data,binpos,trans_matrix)
                                         end if
                                         total_ncell = total_ncell + 1
                                     endif
@@ -1105,17 +1107,14 @@ module amr_profiles
 
         integer :: ivx,ivy,ivz
 
-        call read_hydrofile_descriptor(repository)
+        ! Obtain details of the hydro variables stored
+        if (.not.present(vardict)) call read_hydrofile_descriptor(repository)
+        
+        ! Initialise arameters of the AMR structure and simulation attributes
         call init_amr_read(repository)
         amr%lmax = lmax
         if (lmax.eq.0) amr%lmax = amr%nlevelmax
         
-        prof_data%xdata = 0D0
-        prof_data%ydata = 0D0
-        prof_data%zdata = 0D0
-
-        prof_data%xdata = makebins(reg,prof_data%xvar%name,prof_data%nbins(1),scaletype)
-        prof_data%ydata = makebins(reg,prof_data%yvar%name,prof_data%nbins(2),scaletype)
         write(*,*)'lmax: ',amr%lmax
         call get_cpu_map(reg)
         write(*,*)'ncpu_read:',amr%ncpu_read
@@ -1153,6 +1152,13 @@ module amr_profiles
             ivy = varIDs%get('velocity_y')
             ivz = varIDs%get('velocity_z')
         end if
+
+        ! Setup the profile data arrays
+        prof_data%xdata = 0D0
+        prof_data%ydata = 0D0
+        prof_data%zdata = 0D0
+        prof_data%xdata = makebins(reg,prof_data%xvar%name,prof_data%nbins(1),scaletype)
+        prof_data%ydata = makebins(reg,prof_data%yvar%name,prof_data%nbins(2),scaletype)
 
         ! And now compute profiles
         call get_cells_twodprofile
@@ -1472,10 +1478,10 @@ module amr_profiles
                                     if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(1,inbor),:)
                                 end do
                                 if (read_gravity) then
-                                    ok_filter = filter_cell(reg,filt,xtemp,dx,tempvar,tempson,&
+                                    ok_filter = filter_cell(reg,filt,xtemp,dx*sim%boxlen,tempvar,tempson,&
                                                             &trans_matrix,tempgrav_var)
                                 else
-                                    ok_filter = filter_cell(reg,filt,xtemp,dx,tempvar,tempson,&
+                                    ok_filter = filter_cell(reg,filt,xtemp,dx*sim%boxlen,tempvar,tempson,&
                                                             &trans_matrix)
                                 end if
                                 ok_cell= ok_cell.and..not.ref(i).and.ok_filter
@@ -1484,17 +1490,17 @@ module amr_profiles
                                     total_ncell = total_ncell + 1
                                     if (read_gravity) then
                                         call findbinpos_twod(reg,distance,x(i,:),tempvar,tempson,&
-                                                            &dx,prof_data,scaletype,xbinpos,ybinpos,&
+                                                            &dx*sim%boxlen,prof_data,scaletype,xbinpos,ybinpos,&
                                                             &trans_matrix,tempgrav_var)
                                         if (xbinpos.ne.0.and.ybinpos.ne.0) call bindata_twod(reg,x(i,:),&
-                                                                                &tempvar,tempson,dx,prof_data,&
+                                                                                &tempvar,tempson,dx*sim%boxlen,prof_data,&
                                                                                 &xbinpos,ybinpos,&
                                                                                 &trans_matrix,tempgrav_var)
                                     else
                                         call findbinpos_twod(reg,distance,x(i,:),tempvar,tempson,&
-                                                        &dx,prof_data,scaletype,xbinpos,ybinpos,trans_matrix)
+                                                        &dx*sim%boxlen,prof_data,scaletype,xbinpos,ybinpos,trans_matrix)
                                         if (xbinpos.ne.0.and.ybinpos.ne.0) call bindata_twod(reg,x(i,:),&
-                                                                                &tempvar,tempson,dx,prof_data,&
+                                                                                &tempvar,tempson,dx*sim%boxlen,prof_data,&
                                                                                 &xbinpos,ybinpos,trans_matrix)
                                     end if
                                 endif

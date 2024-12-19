@@ -14,6 +14,4 @@ mydict.init(5)
 for key,value in myvars.items():
     mydict.add(key,value)
     print(mydict.get(key.ljust(128)))
-    
-print(mydict)
-
+print(mydict.values)

@@ -53,6 +53,23 @@ module hydro_commons
 
     contains
 
+    ! RAW VARIABLES
+    function raw_hydro(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: raw_hydro
+        raw_hydro = var(0,hvar%ids(1))
+    end function raw_hydro
+
     ! GEOMETRICAL VARIABLES
 
     function myinterface(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
@@ -2739,6 +2756,259 @@ module hydro_commons
 
     end function eff_FK2
 
+    ! DUST VARIABLES
+    function PAHSmall_density(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: PAHSmall_density
+
+        PAHSmall_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
+    end function PAHSmall_density
+
+    function PAHLarge_density(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: PAHLarge_density
+
+        PAHLarge_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
+    end function PAHLarge_density
+
+    function CSmall_density(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: CSmall_density
+
+        CSmall_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
+    end function CSmall_density
+
+    function CLarge_density(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: CLarge_density
+
+        CLarge_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
+    end function CLarge_density
+
+    function SilSmall_density(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: SilSmall_density
+
+        SilSmall_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
+    end function SilSmall_density
+
+    function SilLarge_density(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: SilLarge_density
+
+        SilLarge_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
+    end function SilLarge_density
+
+    function CO_density(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: CO_density
+
+        CO_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
+    end function CO_density
+
+    function PAHSmall_mass(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: PAHSmall_mass
+
+        PAHSmall_mass = (var(0,hvar%ids(1)) * var(0,hvar%ids(2) * dx) * dx) * dx
+    end function PAHSmall_mass
+
+    function PAHLarge_mass(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: PAHLarge_mass
+
+        PAHLarge_mass = (var(0,hvar%ids(1)) * var(0,hvar%ids(2) * dx) * dx) * dx
+    end function PAHLarge_mass
+
+    function CSmall_mass(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: CSmall_mass
+
+        CSmall_mass = (var(0,hvar%ids(1)) * var(0,hvar%ids(2) * dx) * dx) * dx
+    end function CSmall_mass
+
+    function CLarge_mass(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: CLarge_mass
+
+        CLarge_mass = (var(0,hvar%ids(1)) * var(0,hvar%ids(2) * dx) * dx) * dx
+    end function CLarge_mass
+
+    function SilSmall_mass(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: SilSmall_mass
+
+        SilSmall_mass = (var(0,hvar%ids(1)) * var(0,hvar%ids(2) * dx) * dx) * dx
+    end function SilSmall_mass
+
+    function SilLarge_mass(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: SilLarge_mass
+
+        SilLarge_mass = (var(0,hvar%ids(1)) * var(0,hvar%ids(2) * dx) * dx) * dx
+    end function SilLarge_mass
+
+    function CO_mass(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: CO_mass
+
+        CO_mass = (var(0,hvar%ids(1)) * var(0,hvar%ids(2) * dx) * dx) * dx
+    end function CO_mass
+
     subroutine check_dervar(vardict,varname,hvar,ok)
         implicit none
 
@@ -3550,6 +3820,118 @@ module hydro_commons
             hvar%ids(11) = vardict%get('thermal_pressure')
             hvar%ids(12) = vardict%get('cr_pressure')
             hvar%myfunction => eff_FK2
+        case ('PAHSmall_density')
+            ! Density of the small PAHs
+            hvar%type = 'derived'
+            hvar%name = 'PAHSmall_density'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('PAHSmall_fraction')
+            hvar%myfunction => PAHSmall_density
+        case ('PAHLarge_density')
+            ! Density of the large PAHs
+            hvar%type = 'derived'
+            hvar%name = 'PAHLarge_density'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('PAHLarge_fraction')
+            hvar%myfunction => PAHLarge_density
+        case ('CSmall_density')
+            ! Density of the small C grains
+            hvar%type = 'derived'
+            hvar%name = 'CSmall_density'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('CSmall_fraction')
+            hvar%myfunction => CSmall_density
+        case ('CLarge_density')
+            ! Density of the large PAHs
+            hvar%type = 'derived'
+            hvar%name = 'CLarge_density'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('CLarge_fraction')
+            hvar%myfunction => CLarge_density
+        case ('SilSmall_density')
+            ! Density of the small PAHs
+            hvar%type = 'derived'
+            hvar%name = 'SilSmall_density'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('SilSmall_fraction')
+            hvar%myfunction => SilSmall_density
+        case ('SilLarge_density')
+            ! Density of the large PAHs
+            hvar%type = 'derived'
+            hvar%name = 'SilLarge_density'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('SilLarge_fraction')
+            hvar%myfunction => SilLarge_density
+        case ('CO_density')
+            ! Density of the CO molecules
+            hvar%type = 'derived'
+            hvar%name = 'CO_density'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('CO_fraction')
+            hvar%myfunction => CO_density
+        case ('PAHSmall_mass')
+            ! mass of the small PAHs
+            hvar%type = 'derived'
+            hvar%name = 'PAHSmall_mass'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('PAHSmall_fraction')
+            hvar%myfunction => PAHSmall_mass
+        case ('PAHLarge_mass')
+            ! mass of the large PAHs
+            hvar%type = 'derived'
+            hvar%name = 'PAHLarge_mass'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('PAHLarge_fraction')
+            hvar%myfunction => PAHLarge_mass
+        case ('CSmall_mass')
+            ! mass of the small C grains
+            hvar%type = 'derived'
+            hvar%name = 'CSmall_mass'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('CSmall_fraction')
+            hvar%myfunction => CSmall_mass
+        case ('CLarge_mass')
+            ! mass of the large PAHs
+            hvar%type = 'derived'
+            hvar%name = 'CLarge_mass'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('CLarge_fraction')
+            hvar%myfunction => CLarge_mass
+        case ('SilSmall_mass')
+            ! mass of the small PAHs
+            hvar%type = 'derived'
+            hvar%name = 'SilSmall_mass'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('SilSmall_fraction')
+            hvar%myfunction => SilSmall_mass
+        case ('SilLarge_mass')
+            ! mass of the large PAHs
+            hvar%type = 'derived'
+            hvar%name = 'SilLarge_mass'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('SilLarge_fraction')
+            hvar%myfunction => SilLarge_mass
+        case ('CO_mass')
+            ! mass of the CO molecules
+            hvar%type = 'derived'
+            hvar%name = 'CO_mass'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('CO_fraction')
+            hvar%myfunction => CO_mass
         case default
             ok = .false.
         end select
@@ -3569,8 +3951,7 @@ module hydro_commons
         
         ! Loop over requested variable names
         do i = 1, nreq
-            ivar = vardict%get(reqvars(i))
-            
+            ivar = vardict%get(trim(reqvars(i)))
             if (ivar.ne.0) then
                 ! 1. If variable is a raw variable defined in the
                 ! hydro descriptor dictionary, just simply store it
@@ -3578,6 +3959,13 @@ module hydro_commons
                 cleaned_vars(i)%name = reqvars(i)
                 allocate(cleaned_vars(i)%ids(1))
                 cleaned_vars(i)%ids(1) = ivar
+                cleaned_vars(i)%myfunction => raw_hydro
+            else if (trim(reqvars(i)) == 'cumulative') then
+                ! Cumulative variable
+                cleaned_vars(i)%type = 'cumulative'
+                cleaned_vars(i)%name = reqvars(i)
+                allocate(cleaned_vars(i)%ids(1))
+                cleaned_vars(i)%ids(1) = 0
             else
                 ! 2. Variable is not a raw variable, so it is either a
                 ! geometrical variable a derived variable or a gravity
@@ -3620,6 +4008,12 @@ module hydro_commons
             hvar%type = 'raw'
             allocate(hvar%ids(1))
             hvar%ids(1) = ivar
+            hvar%myfunction => raw_hydro
+        else if (trim(hvar%name) == 'cumulative') then
+            ! Cumulative variable
+            hvar%type = 'cumulative'
+            allocate(hvar%ids(1))
+            hvar%ids(1) = 0
         else
             ! 2. Variable is not a raw variable, so it is either a
             ! geometrical variable a derived variable or a gravity

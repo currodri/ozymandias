@@ -2,13 +2,11 @@ import numpy as np
 import h5py
 import os
 import ozy
-from ozy.utils import init_filter, init_region, structure_regions
-from ozy.variables_settings import plotting_dictionary, \
-                                symlog_variables
-from ozy.dict_variables import check_need_neighbours, common_variables, \
-                                grid_variables, \
-                                particle_variables, \
-                                get_code_units,basic_conv
+from ozy.utils import init_filter, init_region, structure_regions, check_need_neighbours, get_code_units, get_plotting_def
+from variables_settings import geometrical_variables,raw_gas_variables,\
+    raw_star_variables,raw_dm_variables,derived_gas_variables,\
+    derived_star_variables,derived_dm_variables,gravity_variables,\
+    basic_conv,circle_dictionary
 import re
 from unyt import unyt_quantity,unyt_array
 import healpy as hp
@@ -52,7 +50,7 @@ class Projection(object):
         self.far_cut_depth = 0.5
         self.resolution = np.array([1024,1024],'i')
         self.vars = dict(gas = [],star = [], dm = [])
-        self.weight = ['density','star/density']
+        self.weight = dict(gas = [],star = [], dm = [])
         self.data_maps = []
         self.filters = []
         # These are details for the case of a HEALPix map
@@ -348,7 +346,7 @@ class Projection(object):
             for i in range(0, len(filt['conditions'])):
                 hdu.header["cond_"+str(i)] = filt['conditions'][i]
 
-def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_size=1024,
+def do_projection(group,vars,weight=[['gas/density'],['star/cumulative']],map_max_size=1024,
                     pov='faceon',lmax=100,lmin=1,window=(0.0,'kpc'),
                     rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(0.0,'rvir'), xmax=(0.2,'rvir'),
                     ymin=(0.0,'rvir'), ymax=(0.2,'rvir'),zmin=(0.0,'rvir'), zmax=(0.2,'rvir'),
@@ -357,6 +355,14 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
                     inverse_tag=False, remove_subs=False,
                     filter_conds=['none'],filter_name=['none']):
     """Function which computes a 2D projection centered on an objected from an OZY file."""
+
+    if isinstance(group,ozy.Snapshot):
+        obj = group
+        group = ozy.group.Group(obj)
+        use_snapshot = True
+    else:
+        obj = group.obj
+        use_snapshot = False
 
     if not isinstance(weight,list):
         weight = [weight]
@@ -372,7 +378,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         var_name = var.split('/')[1]
         if var_type == 'gas':
             use_neigh = check_need_neighbours(var_name) or use_neigh
-            if var_name in common_variables or var_name in grid_variables:
+            if var_name in geometrical_variables or var_name in raw_gas_variables \
+                or var_name in derived_gas_variables or var_name in gravity_variables:
                 proj.vars['gas'].append(var_name)
             else:
                 raise KeyError('This gas variable is not supported. Please check!: %s', var)
@@ -382,17 +389,19 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
                     sfr_name = var_name.split('_')[0] +'_'+var_name.split('_')[1]
                 else:
                     sfr_name = var_name.split('_')[0]
-                if sfr_name in particle_variables:
+                if sfr_name in derived_star_variables:
                     proj.vars['star'].append(var_name)
                 else:
                     raise KeyError('This star variable is not supported. Please check!')
             else:
-                if var_name in common_variables or var_name in particle_variables:
+                if var_name in geometrical_variables or var_name in raw_star_variables \
+                    or var_name in derived_star_variables:
                     proj.vars['star'].append(var_name)
                 else:
                     raise KeyError('This star variable is not supported. Please check!')
         elif var_type == 'dm':
-            if var_name in common_variables or var_name in particle_variables:
+            if var_name in geometrical_variables or var_name in raw_dm_variables \
+                or var_name in derived_dm_variables:
                 proj.vars['dm'].append(var_name)
             else:
                 raise KeyError('This DM variable is not supported. Please check!')
@@ -402,18 +411,21 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         weight_name = w.split('/')[1]
         if weight_type == 'gas':
             use_neigh = check_need_neighbours(weight_name) or use_neigh
-            if weight_name in common_variables or weight_name in grid_variables:
-                proj.weight[0] = weight_name
+            if weight_name in geometrical_variables or weight_name in raw_gas_variables \
+                or weight_name in derived_gas_variables or weight_name in gravity_variables:
+                proj.weight['gas'].append(weight_name)
             else:
                 raise KeyError('This gas variable is not supported. Please check!: %s', var)
         elif weight_type == 'star':
-            if weight_name in common_variables or weight_name in particle_variables:
-                proj.weight[1] = w
+            if weight_name in geometrical_variables or weight_name in raw_star_variables \
+                or weight_name in derived_star_variables:
+                proj.weight['star'].append(weight_name)
             else:
                 raise KeyError('This star variable is not supported. Please check!')
         elif weight_type == 'dm':
-            if weight_name in common_variables or weight_name in particle_variables:
-                proj.weight[1] = w
+            if weight_name in geometrical_variables or weight_name in raw_dm_variables \
+                or weight_name in derived_dm_variables:
+                proj.weight['dm'].append(weight_name)
             else:
                 raise KeyError('This DM variable is not supported. Please check!')
 
@@ -421,32 +433,40 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         print('At least one variable needs neighbours!')
 
     # Setup camera details for the requested POV (Point of View)
-    if window[0] == 0.0 or window[1] == 'rvir':
-        if group.type == 'halo':
-            rvir = group.virial_quantities['radius'].d
-        else:
-            rvir = group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
-    if window[0] == 0.0:
-        if group.type == 'halo':
-            window = 1.2*rvir
-        else:
-            window = 0.2*rvir
+    boxlen = obj.simulation.boxsize.to('code_length').d   
+    if use_snapshot:
+        group.position = obj.array(mycentre[0],mycentre[1])
+        window = obj.quantity(window[0],window[1]).in_units('code_length').d
+        region_axis = vectors.vector()
+        region_axis.x,region_axis.y,region_axis.z = 0.,0.,1.
+        bulk = vectors.vector()
+        
     else:
-        if window[1] == 'rvir':
-            window = window[0]*rvir
+        if window[0] == 0.0 or window[1] == 'rvir':
+            if group.type == 'halo':
+                rvir = group.virial_quantities['radius'].d
+            else:
+                rvir = group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+        if window[0] == 0.0:
+            if group.type == 'halo':
+                window = 1.2*rvir
+            else:
+                window = 0.2*rvir
         else:
-            window = group.obj.quantity(window[0],window[1]).in_units('code_length').d
-    centre = vectors.vector()
-    centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
-    bulk = vectors.vector()
-    region_axis = vectors.vector()
-    norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
-    region_axis.x,region_axis.y,region_axis.z = norm_L[0], norm_L[1], norm_L[2]
+            if window[1] == 'rvir':
+                window = window[0]*rvir
+            else:
+                window = obj.quantity(window[0],window[1]).in_units('code_length').d
+        centre = vectors.vector()
+        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        bulk = vectors.vector()
+        region_axis = vectors.vector()
+        norm_L = group.angular_mom['total'].d/np.linalg.norm(group.angular_mom['total'].d)
+        region_axis.x,region_axis.y,region_axis.z = norm_L[0], norm_L[1], norm_L[2]
 
-    if group.type != 'halo':
-        velocity = group.velocity.in_units('code_velocity')
-        bulk.x, bulk.y, bulk.z = velocity.d[0], velocity.d[1], velocity.d[2]
-        print('velocity',velocity.d[0], velocity.d[1], velocity.d[2])
+        if group.type != 'halo':
+            velocity = group.velocity.in_units('code_velocity')
+            bulk.x, bulk.y, bulk.z = velocity.d[0], velocity.d[1], velocity.d[2]
 
     if proj.pov == 'faceon':
         centre = vectors.vector()
@@ -482,7 +502,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         enclosing_sphere_r = rmax
     elif proj.pov == 'x':
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        centre.x, centre.y, centre.z = group.position[0].to('code_length')/boxlen, group.position[1].to('code_length')/boxlen, group.position[2].to('code_length')/boxlen
         axis = vectors.vector()
         axis.x,axis.y,axis.z = 1.0, 0.0, 0.0
         up_vector = vectors.vector()
@@ -495,7 +515,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         enclosing_sphere_r = rmax
     elif proj.pov == 'y':
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        centre.x, centre.y, centre.z = group.position[0].to('code_length')/boxlen, group.position[1].to('code_length')/boxlen, group.position[2].to('code_length')/boxlen
         axis = vectors.vector()
         axis.x,axis.y,axis.z = 0.0, 1.0, 0.0
         up_vector = vectors.vector()
@@ -508,7 +528,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         enclosing_sphere_r = rmax
     elif proj.pov == 'z':
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        centre.x, centre.y, centre.z = group.position[0].to('code_length')/boxlen, group.position[1].to('code_length')/boxlen, group.position[2].to('code_length')/boxlen
         axis = vectors.vector()
         axis.x,axis.y,axis.z = 0.0, 0.0, 1.0
         up_vector = vectors.vector()
@@ -571,7 +591,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         enclosing_sphere_r = rmax
     elif proj.pov == 'custom_cylinder':
         centre = vectors.vector()
-        mycentre = group.obj.array(mycentre[0],str(mycentre[1])).in_units('code_length')
+        mycentre = obj.array(mycentre[0],str(mycentre[1])).in_units('code_length')
         centre.x, centre.y, centre.z = mycentre[0].d,mycentre[1].d,mycentre[2].d
         axis = vectors.vector()
         norm_L = myaxis/np.linalg.norm(myaxis)
@@ -583,20 +603,20 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         region_axis.x,region_axis.y,region_axis.z = norm_L[0], norm_L[1], norm_L[2]
         
         if rmax[1] == 'rvir':
-            window = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            window = rmax[0]*obj.halos[group.parent_halo_index].virial_quantities['radius'].d
         else:
-            window = group.obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')
+            window = obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')
         rmax = window
         region_size = np.array([2.0*rmax,2.0*rmax],order='F',dtype=np.float64)
         
         if zmin[1] == 'rvir':
-            distance = zmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            distance = zmin[0]*obj.halos[group.parent_halo_index].virial_quantities['radius'].d
         else:
-            distance = group.obj.quantity(zmin[0],str(zmin[1])).in_units('code_length')
+            distance = obj.quantity(zmin[0],str(zmin[1])).in_units('code_length')
         if zmax[1] == 'rvir':
-            far_cut_depth = zmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            far_cut_depth = zmax[0]*obj.halos[group.parent_halo_index].virial_quantities['radius'].d
         else:
-            far_cut_depth = group.obj.quantity(zmax[0],str(zmax[1])).in_units('code_length')
+            far_cut_depth = obj.quantity(zmax[0],str(zmax[1])).in_units('code_length')
         enclosing_sphere_p = mycentre + norm_L * max(rmax,0.5*(far_cut_depth-distance))
         enclosing_sphere_r = np.sqrt(max(abs(far_cut_depth),abs(distance))**2 + 2*window**2)
     else:
@@ -629,7 +649,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
             cond_var = filter_conds[i][0].split('/')[0]
         else:
             cond_var = filter_conds[i].split('/')[0]
-        if cond_var in common_variables or cond_var in grid_variables:
+        if cond_var in geometrical_variables or cond_var in raw_gas_variables \
+            or cond_var in derived_gas_variables or cond_var in gravity_variables:
             f = init_filter(filter_conds[i],filter_name[i],group)
         else:
             # When a filter asks for a variable not existent in the common_variables
@@ -652,8 +673,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
                                     tidal_method='BT87_simple')
         nsubs = len(subs)
     else:
-        nsubs = 0
-    boxlen = group.obj.simulation.boxsize.to('code_length').d    
+        nsubs = 0 
     cam = obs_instruments.init_camera(centre,axis,up_vector,region_size/boxlen,region_axis,bulk,distance/boxlen,
                                       far_cut_depth/boxlen,map_max_size-1,nfilter,nsubs)
 
@@ -667,9 +687,9 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
 
     # Update projection details with the camera ones
     proj.width = region_size
-    proj.centre = group.position
-    proj.distance = distance
-    proj.far_cut_depth = far_cut_depth
+    proj.centre = group.position.to('code_length')
+    proj.distance = distance/boxlen
+    proj.far_cut_depth = far_cut_depth/boxlen
     proj.los_axis = np.array([cam.los_axis.x,cam.los_axis.y,cam.los_axis.z])
     proj.up_vector = np.array([cam.up_vector.x,cam.up_vector.y,cam.up_vector.z])
 
@@ -680,18 +700,22 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     hydro_handler = maps.projection_handler()
     hydro_handler.pov = proj.pov
     hydro_handler.nvars = len(proj.vars['gas'])
-    hydro_handler.weightvar = proj.weight[0]
+    hydro_handler.nwvars = len(proj.weight['gas'])
     maps.allocate_projection_handler(hydro_handler)
     for i in range(0, len(proj.vars['gas'])):
         hydro_handler.varnames.T.view('S128')[i] = proj.vars['gas'][i].ljust(128)
+    for i in range(0, len(proj.weight['gas'])):
+        hydro_handler.weightvars.T.view('S128')[i] = proj.weight['gas'][i].ljust(128)
     
     # COMPUTE HYDRO PROJECTION
     if len(proj.vars['gas']) != 0:
         print('Performing hydro projection for '+str(len(proj.vars['gas']))+' variables')
-        if lmax != 0 or lmin != 0:
-            maps.projection_hydro(group.obj.simulation.fullpath,cam,use_neigh,hydro_handler,int(lmax),int(lmin))
+        if obj.use_vardict:
+            maps.projection_hydro(obj.simulation.fullpath,cam,use_neigh,
+                                    hydro_handler,int(lmax),int(lmin),obj.vardict)
         else:
-            maps.projection_hydro(group.obj.simulation.fullpath,cam,use_neigh,hydro_handler)
+            maps.projection_hydro(obj.simulation.fullpath,cam,use_neigh,
+                                    hydro_handler,int(lmax),int(lmin))
         # TODO: Weird issue when the direct toto array is given.
         data = np.copy(hydro_handler.toto)
         proj.data_maps.append(data)
@@ -707,7 +731,9 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         else:
             cond_var = filter_conds[i].split('/')[0]
         corrected_var = '_'.join(cond_var.split('_')[1:])
-        if corrected_var in common_variables or corrected_var in particle_variables:
+        if corrected_var in geometrical_variables or corrected_var in raw_star_variables \
+            or corrected_var in derived_star_variables or corrected_var in raw_dm_variables \
+            or corrected_var in derived_dm_variables:
             f = init_filter(filter_conds[i],filter_name[i],group)
         else:
             # When a filter asks for a variable not existent in the common_variables
@@ -728,7 +754,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     parts_handler = maps.projection_handler()
     parts_handler.type = proj.pov
     parts_handler.nvars = len(proj.vars['dm'])+len(proj.vars['star'])
-    parts_handler.weightvar = proj.weight[1]
+    parts_handler.nwvars = len(proj.weight['dm'])+len(proj.weight['star'])
     maps.allocate_projection_handler(parts_handler)
 
     for i in range(0, len(proj.vars['star'])):
@@ -738,14 +764,21 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         tempstr = 'dm/'+proj.vars['dm'][i-len(proj.vars['star'])]
         parts_handler.varnames.T.view('S128')[i] = tempstr.ljust(128)
 
+    for i in range(0, len(proj.weight['star'])):
+        tempstr = 'star/'+proj.weight['star'][i]
+        parts_handler.weightvars.T.view('S128')[i] = tempstr.ljust(128)
+    for i in range(len(proj.weight['star']), len(proj.weight['star'])+len(proj.weight['dm'])):
+        tempstr = 'dm/'+proj.weight['dm'][i-len(proj.weight['star'])]
+        parts_handler.weightvars.T.view('S128')[i] = tempstr.ljust(128)
+
     # COMPUTE PARTICLES PROJECTION
     if len(proj.vars['star'])+len(proj.vars['dm']) != 0:
         print('Performing particle projection for '+str(len(proj.vars['star'])+len(proj.vars['dm']))+' variables')
         if tag_file != None:
             print('Using the tag file for particles: ',tag_file)
-            maps.projection_parts(group.obj.simulation.fullpath,cam,parts_handler,tag_file,inverse_tag)
+            maps.projection_parts(obj.simulation.fullpath,cam,parts_handler,tag_file,inverse_tag)
         else:
-            maps.projection_parts(group.obj.simulation.fullpath,cam,parts_handler)
+            maps.projection_parts(obj.simulation.fullpath,cam,parts_handler)
         # TODO: Weird issue when the direct toto array is given.
         data = np.copy(parts_handler.toto)
         if len(proj.vars['star']) == 0:
@@ -782,7 +815,6 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
     
     # Make required imports
     from ozy.utils import tidal_radius,invert_tick_colours
-    from ozy.variables_settings import circle_dictionary
     import matplotlib
     import matplotlib.pyplot as plt
     import matplotlib.font_manager as fm
@@ -872,11 +904,11 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
             h = [k for k in range(0,len(hdul)) if hdul[k].header['btype']==fields[ivar]][0]
 
             if fields[ivar].split('/')[0] == 'star' or fields[ivar].split('/')[0] == 'dm':
-                plotting_def = plotting_dictionary[fields[ivar].split('/')[0]+'_'+fields[ivar].split('/')[1]]
+                plotting_def = get_plotting_def(fields[ivar].split('/')[0]+'_'+fields[ivar].split('/')[1])
                 stellar = True
                 full_varname = fields[ivar].split('/')[0]+'_'+fields[ivar].split('/')[1]
             else:
-                plotting_def = plotting_dictionary[fields[ivar].split('/')[1]]
+                plotting_def = get_plotting_def(fields[ivar].split('/')[1])
                 full_varname = fields[ivar].split('/')[1]
             print(fields[ivar],np.nanmin(hdul[h].data.T),np.nanmax(hdul[h].data.T))
             if smooth:
@@ -891,13 +923,13 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
                 # cImage = sp.ndimage.filters.gaussian_filter(hdul[h].data.T, sigma, mode='constant')
             else:
                 cImage = hdul[h].data.T
-            if logscale and fields[ivar].split('/')[1] not in symlog_variables:
+            if logscale and not plotting_def['symlog']:
                 
                 plot = ax[i,j].imshow(np.log10(cImage), cmap=plotting_def['cmap'],
                                 origin='lower',vmin=np.log10(plotting_def['vmin'+type_scale]),
                                 vmax=np.log10(plotting_def['vmax'+type_scale]),extent=ex,
                                 interpolation='nearest')
-            elif logscale and fields[ivar].split('/')[1] in symlog_variables:
+            elif logscale and plotting_def['symlog']:
                 if (filter_name != 'outflow' and filter_name != 'inflow'):
                     plot = ax[i,j].imshow(cImage, cmap=plotting_def['cmap'],
                                     origin='lower',norm=SymLogNorm(linthresh=plotting_def['linthresh'], linscale=1,
@@ -924,7 +956,7 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
 
             cbaxes = inset_axes(ax[i,j], width="80%", height="6%", loc='lower center')
             cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
-            if logscale and fields[ivar].split('/')[1] not in symlog_variables:
+            if logscale and not plotting_def['symlog']:
                 cbar.set_label(plotting_def['label_log'],color=plotting_def['text_over'],fontsize=12,labelpad=-27, y=0.85,weight='bold')
             else:
                 cbar.set_label(plotting_def['label'],color=plotting_def['text_over'],fontsize=12,labelpad=-27, y=0.85)
