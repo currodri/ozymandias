@@ -20,20 +20,24 @@
 
 module amr_integrator
     use local
+    use dictionary_commons
     use geometrical_regions
     use io_ramses
+    use hydro_commons
     use filtering
     use stats_utils
     
-
     type amr_region_attrs
-        integer :: nvars=1
+        integer :: nvars=1,nwvars=1
         integer :: nfilter=1,nsubs=0
         integer :: total_ncell,tot_sel,tot_ref,tot_pos,tot_insubs
         character(128),dimension(:),allocatable :: varnames
+        character(128),dimension(:),allocatable :: wvarnames
         type(filter),dimension(:),allocatable :: filters
         type(region),dimension(:),allocatable :: subs
         type(pdf_handler) :: result
+        type(hydro_var),dimension(:),allocatable :: vars
+        type(hydro_var),dimension(:),allocatable :: wvars
     end type amr_region_attrs
 
     contains
@@ -43,7 +47,10 @@ module amr_integrator
         type(amr_region_attrs),intent(inout) :: attrs
 
         if (.not.allocated(attrs%varnames)) allocate(attrs%varnames(attrs%nvars))
-        if (.not.allocated(attrs%filters)) allocate(attrs%filters(attrs%nfilter))
+        if (.not.allocated(attrs%wvarnames)) allocate(attrs%wvarnames(attrs%nwvars))
+        if (.not.allocated(attrs%vars))     allocate(attrs%vars(attrs%nvars))
+        if (.not.allocated(attrs%wvars))     allocate(attrs%wvars(attrs%nwvars))
+        if (.not.allocated(attrs%filters))  allocate(attrs%filters(attrs%nfilter))
         if (.not.allocated(attrs%subs).and.attrs%nsubs>0) allocate(attrs%subs(attrs%nsubs))     
     end subroutine allocate_amr_regions_attrs
 
@@ -54,7 +61,7 @@ module amr_integrator
         ! Input/output variables
         type(region),intent(in) :: reg
         real(dbl),dimension(1:3),intent(in) :: pos
-        real(dbl),dimension(0:amr%twondim,1:varIDs%nvar),intent(in) :: cellvars
+        real(dbl),dimension(0:amr%twondim,1:sim%nvar),intent(in) :: cellvars
         integer,dimension(0:amr%twondim),intent(in) :: cellsons
         real(dbl),intent(in) :: cellsize
         type(amr_region_attrs),intent(inout) :: attrs
@@ -76,13 +83,13 @@ module amr_integrator
                                     & ibin,ytemp,trans_matrix,attrs%result%scaletype(i),&
                                     & attrs%result%nbins,attrs%result%bins(:,i),&
                                     & attrs%result%linthresh(i),attrs%result%zero_index(i),&
-                                    & attrs%result%varname(i),grav_var)
+                                    & attrs%vars(i),grav_var)
                 else
                     call findbinpos(reg,x,cellvars,cellsons,cellsize,&
                                     & ibin,ytemp,trans_matrix,attrs%result%scaletype(i),&
                                     & attrs%result%nbins,attrs%result%bins(:,i),&
                                     & attrs%result%linthresh(i),attrs%result%zero_index(i),&
-                                    & attrs%result%varname(i))
+                                    & attrs%vars(i))
                 end if
                 if (ytemp.eq.0d0) cycle
                 ! Get min and max
@@ -104,13 +111,11 @@ module amr_integrator
                             wtemp = ytemp2
                         else
                             if (present(grav_var)) then
-                                call getvarvalue(reg,cellsize,x,cellvars,cellsons,&
-                                                & attrs%result%wvarnames(j),&
-                                                & wtemp,trans_matrix,grav_var)
+                                wtemp = attrs%wvars(j)%myfunction(amr,sim,attrs%wvars(j),reg,cellsize,x,&
+                                                                cellvars,cellsons,trans_matrix,grav_var)
                             else
-                                call getvarvalue(reg,cellsize,x,cellvars,cellsons,&
-                                                & attrs%result%wvarnames(j),&
-                                                & wtemp,trans_matrix)
+                                wtemp = attrs%wvars(j)%myfunction(amr,sim,attrs%wvars(j),reg,cellsize,x,&
+                                                                cellvars,cellsons,trans_matrix)
                             endif
                         endif
                         
@@ -137,9 +142,11 @@ module amr_integrator
             else
                 ! Get variable
                 if (present(grav_var)) then
-                    call getvarvalue(reg,cellsize,x,cellvars,cellsons,attrs%result%varname(i),ytemp,trans_matrix,grav_var)
+                    ytemp = attrs%vars(i)%myfunction(amr,sim,attrs%vars(i),reg,cellsize,x,&
+                                                        cellvars,cellsons,trans_matrix,grav_var)
                 else
-                    call getvarvalue(reg,cellsize,x,cellvars,cellsons,attrs%result%varname(i),ytemp,trans_matrix)
+                    ytemp = attrs%vars(i)%myfunction(amr,sim,attrs%vars(i),reg,cellsize,x,&
+                                                        cellvars,cellsons,trans_matrix)
                 end if
                 ! Get min and max
                 if (attrs%result%minv(i,ifilt).eq.0D0) then
@@ -160,13 +167,11 @@ module amr_integrator
                         wtemp = 1D0
                     else
                         if (present(grav_var)) then
-                            call getvarvalue(reg,cellsize,x,cellvars,cellsons,&
-                                            & attrs%result%wvarnames(j),&
-                                            & wtemp,trans_matrix,grav_var)
+                            wtemp = attrs%wvars(j)%myfunction(amr,sim,attrs%wvars(j),reg,cellsize,x,&
+                                                                cellvars,cellsons,trans_matrix,grav_var)
                         else
-                            call getvarvalue(reg,cellsize,x,cellvars,cellsons,&
-                                            & attrs%result%wvarnames(j),&
-                                            & wtemp,trans_matrix)
+                            wtemp = attrs%wvars(j)%myfunction(amr,sim,attrs%wvars(j),reg,cellsize,x,&
+                                                                cellvars,cellsons,trans_matrix)
                         endif
                     endif
                     
@@ -206,7 +211,7 @@ module amr_integrator
         end do filterloop
     end subroutine renormalise
 
-    subroutine integrate_region(repository,reg,use_neigh,use_grav,attrs)
+    subroutine integrate_region(repository,reg,use_neigh,use_grav,attrs,vardict)
         use vectors
         use coordinate_systems
         implicit none
@@ -216,6 +221,59 @@ module amr_integrator
         type(region),intent(inout) :: reg
         logical, intent(in) :: use_neigh,use_grav
         type(amr_region_attrs),intent(inout) :: attrs
+        type(dictf90),intent(in),optional :: vardict
+
+        integer :: ivx,ivy,ivz
+        integer :: ii
+
+        ! Obtain details of the hydro variables stored
+        call read_hydrofile_descriptor(repository)
+
+        ! Initialise parameters of the AMR structure and simulation attributes
+        call init_amr_read(repository)
+        amr%lmax = amr%nlevelmax
+
+        ! Compute the Hilbert curve
+        call get_cpu_map(reg)
+        write(*,*)'ncpu_read:',amr%ncpu_read
+
+        ! Set up hydro variables quicklook tools
+        if (present(vardict)) then
+            ! If the user provides their own variable dictionary,
+            ! use that one instead of the automatic from the 
+            ! hydro descriptor file (RAMSES)
+            call get_var_tools(vardict,attrs%nvars,attrs%varnames,attrs%vars)
+
+            ! Do it now for the weighted variables
+            call get_var_tools(vardict,attrs%nwvars,attrs%wvarnames,attrs%wvars)
+            
+            ! We also do it for the filter variables
+            do ii = 1, attrs%nfilter
+                call get_filter_var_tools(vardict,attrs%filters(ii))
+            end do
+
+            ! We always need the indexes of the velocities
+            ! to perform rotations of gas velocities
+            ivx = vardict%get('velocity_x')
+            ivy = vardict%get('velocity_y')
+            ivz = vardict%get('velocity_z')
+        else
+            call get_var_tools(varIDs,attrs%nvars,attrs%varnames,attrs%vars)
+
+            ! Do it now for the weighted variables
+            call get_var_tools(varIDs,attrs%nwvars,attrs%wvarnames,attrs%wvars)
+
+            ! We also do it for the filter variables
+            do ii = 1, attrs%nfilter
+                call get_filter_var_tools(varIDs,attrs%filters(ii))
+            end do
+
+            ! We always need the indexes of the velocities
+            ! to perform rotations of gas velocities
+            ivx = varIDs%get('velocity_x')
+            ivy = varIDs%get('velocity_y')
+            ivz = varIDs%get('velocity_z')
+        end if
 
         ! Choose type if integrator
         if (use_neigh) then
@@ -259,17 +317,6 @@ module amr_integrator
             total_ncell = 0
             tot_pos = 0
             tot_ref = 0
-
-            ! Obtain details of the hydro variables stored
-            call read_hydrofile_descriptor(repository)
-
-            ! Initialise parameters of the AMR structure and simulation attributes
-            call init_amr_read(repository)
-            amr%lmax = amr%nlevelmax
-
-            ! Compute the Hilbert curve
-            call get_cpu_map(reg)
-            if (verbose) write(*,*)'ncpu_read:',amr%ncpu_read
 
             ! Check whether we need to read the gravity files
             if (use_grav) then
@@ -509,7 +556,7 @@ module amr_integrator
                                         xtemp = xtemp - reg%centre
                                         call rotate_vector(xtemp,trans_matrix)
                                         ! Velocity transformed
-                                        vtemp = var(i,ind,varIDs%vx:varIDs%vz)
+                                        vtemp = var(i,ind,ivx:ivz)
                                         vtemp = vtemp - reg%bulk_velocity
                                         call rotate_vector(vtemp,trans_matrix)
 
@@ -525,7 +572,7 @@ module amr_integrator
                                         tempvar(0,:) = var(i,ind,:)
                                         tempson(0)       = son(i,ind)
                                         if (read_gravity) tempgrav_var(0,:) = grav_var(i,ind,:)
-                                        tempvar(0,varIDs%vx:varIDs%vz) = vtemp
+                                        tempvar(0,ivx:ivz) = vtemp
                                         if (read_gravity) tempgrav_var(0,2:4) = gtemp
                                         if (ok_cell)tot_pos = tot_pos + 1
                                         if (.not.ref(i))tot_ref = tot_ref + 1
@@ -615,18 +662,7 @@ module amr_integrator
             tot_insubs = 0
             tot_sel = 0
 
-            ! Obtain details of the hydro variables stored
-            call read_hydrofile_descriptor(repository)
-
-            ! Initialise parameters of the AMR structure and simulation attributes
-            call init_amr_read(repository)
-            amr%lmax = amr%nlevelmax
-
             allocate(ind_nbor(1,0:amr%twondim))
-
-            ! Compute the Hilbert curve
-            call get_cpu_map(reg)
-            if (verbose) write(*,*)'ncpu_read:',amr%ncpu_read
 
             ! Check whether we need to read the gravity files
             if (use_grav) then
@@ -888,7 +924,7 @@ module amr_integrator
                                 call checkifinside(x(i,:),reg,ok_cell,distance)
                                 
                                 ! Velocity transformed --> ONLY FOR CENTRAL CELL
-                                vtemp = var(ind_cell(i),varIDs%vx:varIDs%vz)
+                                vtemp = var(ind_cell(i),ivx:ivz)
                                 vtemp = vtemp - reg%bulk_velocity
                                 call rotate_vector(vtemp,trans_matrix)
 
@@ -910,7 +946,7 @@ module amr_integrator
                                 tempvar(0,:) = var(ind_nbor(1,0),:)
                                 tempson(0)       = son(ind_nbor(1,0))
                                 if (read_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
-                                tempvar(0,varIDs%vx:varIDs%vz) = vtemp
+                                tempvar(0,ivx:ivz) = vtemp
                                 if (read_gravity) tempgrav_var(0,2:4) = gtemp
                                 do inbor=1,amr%twondim
                                     tempvar(inbor,:) = var(ind_nbor(1,inbor),:)

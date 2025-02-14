@@ -1,5 +1,6 @@
 module obs_instruments
     use local
+    use dictionary_commons
     use vectors
     use coordinate_systems
     use geometrical_regions
@@ -247,6 +248,7 @@ end module obs_instruments
 
 module maps
     use local
+    use dictionary_commons
     use utils
     use vectors
     use rotations
@@ -256,12 +258,14 @@ module maps
 
     type projection_handler
         character(128) :: pov
-        integer :: nvars,nfilter
+        integer :: nvars,nfilter,nwvars
         integer, dimension(1:2) :: n_sample
         character(128),dimension(:),allocatable :: varnames
-        character(128) :: weightvar
+        character(128),dimension(:),allocatable :: weightvars
         real(dbl),dimension(:,:,:,:),allocatable :: map
         real(dbl),dimension(:,:,:),allocatable :: weights
+        type(hydro_var),dimension(:),allocatable :: vars
+        type(hydro_var),dimension(:),allocatable :: wvars
     end type projection_handler
 
     ! Gaussian kernel configuration and normalisation
@@ -280,6 +284,9 @@ module maps
         type(projection_handler),intent(inout) :: proj
 
         if (.not.allocated(proj%varnames)) allocate(proj%varnames(1:proj%nvars))
+        if (.not.allocated(proj%weightvars)) allocate(proj%weightvars(1:proj%nwvars))
+        if (.not.allocated(proj%vars)) allocate(proj%vars(1:proj%nvars))
+        if (.not.allocated(proj%wvars)) allocate(proj%wvars(1:proj%nwvars))
     end subroutine allocate_projection_handler
 
     subroutine get_pos_map(proj,grid,ix,iy,ii_map)
@@ -577,8 +584,10 @@ module maps
     end subroutine upload_projection
 
     subroutine projection_hydro(repository,type_projection,cam,use_neigh,proj,&
-                                &lmax,lmin,nexp_factor)
+                                &lmax,lmin,nexp_factor,vardict)
         implicit none
+
+        ! Input/output variables
         character(128),intent(in) :: repository
         character(128),intent(in) :: type_projection
         type(camera),intent(inout) :: cam
@@ -586,11 +595,16 @@ module maps
         type(projection_handler),intent(inout) :: proj
         integer,intent(in),optional :: lmax,lmin
         real(dbl),intent(in),optional :: nexp_factor
+        type(dictf90),intent(in),optional :: vardict
 
         type(region) :: bbox
+        integer :: ivx,ivy,ivz
+        integer :: ii
 
-        call read_hydrofile_descriptor(repository)
+        ! Obtain details of the hydro variables stored
+        if (.not.present(vardict)) call read_hydrofile_descriptor(repository)
 
+        ! Initialise parameters of the AMR structure and simulation attributes
         call init_amr_read(repository)
         amr%lmax = min(get_required_resolution(cam),amr%nlevelmax)
         if (verbose) write(*,*)'Maximum resolution level: ',amr%nlevelmax
@@ -604,6 +618,8 @@ module maps
         bbox%name = 'cube'
         bbox%bulk_velocity = cam%region_velocity
         bbox%criteria_name = 'd_euclid'
+
+        ! Compute the Hilbert curve for the bounding box
         call get_cpu_map(bbox)
         if (verbose) write(*,*)'ncpu: ',amr%ncpu_read
         call get_map_box(cam,bbox)
@@ -611,6 +627,47 @@ module maps
         if (cam%nsubs>0 .and. verbose)write(*,*)'Excluding substructure: ',cam%nsubs
         proj%nfilter = cam%nfilter
         call get_map_size(cam,proj%n_sample)
+
+        ! Set up hydro variables quicklook tools
+        if (present(vardict)) then
+            ! If the user provides their own variable dictionary,
+            ! use that one instead of the automatic from the 
+            ! hydro descriptor file (RAMSES)
+            call get_var_tools(vardict,proj%nvars,proj%varnames,proj%vars)
+
+            ! Do it also for the weight variable
+            call get_var_tools(vardict,proj%nwvars,proj%weightvars,proj%wvars)
+            
+            ! We also do it for the filter variables
+            do ii = 1, cam%nfilter
+                call get_filter_var_tools(vardict,cam%filters(ii))
+            end do
+
+            ! We always need the indexes of the velocities
+            ! to perform rotations of gas velocities
+            ivx = vardict%get('velocity_x')
+            ivy = vardict%get('velocity_y')
+            ivz = vardict%get('velocity_z')
+        else
+            call get_var_tools(varIDs,proj%nvars,proj%varnames,proj%vars)
+
+            ! Do it also for the weight variable
+            call get_var_tools(varIDs,proj%nwvars,proj%weightvars,proj%wvars)
+
+            ! We also do it for the filter variables
+            do ii = 1, cam%nfilter
+                call get_filter_var_tools(varIDs,cam%filters(ii))
+            end do
+
+            ! We always need the indexes of the velocities
+            ! to perform rotations of gas velocities
+            ivx = varIDs%get('velocity_x')
+            ivy = varIDs%get('velocity_y')
+            ivz = varIDs%get('velocity_z')
+        end if
+
+        if (cam%nsubs>0.and.verbose)write(*,*)'Excluding substructure: ',cam%nsubs
+
         ! Perform projections
         if (use_neigh) then
             if (verbose) write(*,*)'Loading neighbours...'
@@ -618,7 +675,6 @@ module maps
         else
             call project_cells
         end if
-
         contains
 
         subroutine project_cells
@@ -697,7 +753,6 @@ module maps
             allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
             allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
             if(amr%nboundary>0)allocate(ngridbound(1:amr%nboundary,1:amr%nlevelmax))
-
             ipos=INDEX(repository,'output_')
             nchar=repository(ipos+7:ipos+13)
             ! Loop over processor files
@@ -746,7 +801,6 @@ module maps
                 read(11)
                 read(11)
                 read(11)
-
                 if (read_gravity) then
                     ! Open GRAV file and skip header
                     nomfich=TRIM(repository)//'/grav_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
@@ -783,7 +837,6 @@ module maps
                         allocate(ref(1:ngrida))
                         if(read_gravity) allocate(grav_var(1:ngrida,1:amr%twotondim,1:4))
                     endif
-
                     ! Loop over domains
                     domloop: do j=1,amr%nboundary+amr%ncpu
                         ! Read AMR data
@@ -864,7 +917,6 @@ module maps
                             end if
                         end if
                     end do domloop
-
                     !Compute map
                     if (ngrida>0.and.(ilevel.ge.cam%lmin)&
                         &.and.(ilevel.le.cam%lmax)) then
@@ -904,7 +956,6 @@ module maps
                                     end do
                                     ok_cell = ok_cell .and. ok_sub
                                 end if
-                                
                                 if (ok_cell) then
                                     ix = int((x(i,1)+0.5*(bbox%xmax-bbox%xmin))*dble(nx_full)) + 1
                                     iy = int((x(i,2)+0.5*(bbox%ymax-bbox%ymin))*dble(ny_full)) + 1
@@ -919,7 +970,7 @@ module maps
                                         xtemp = xtemp - bbox%centre
                                         call rotate_vector(xtemp,trans_matrix)
                                         ! Velocity transformed
-                                        vtemp = var(i,ind,varIDs%vx:varIDs%vz)
+                                        vtemp = var(i,ind,ivx:ivz)
                                         vtemp = vtemp - bbox%bulk_velocity
                                         call rotate_vector(vtemp,trans_matrix)
 
@@ -935,7 +986,7 @@ module maps
                                         tempvar(0,:) = var(i,ind,:)
                                         tempson(0)       = son(i,ind)
                                         if (read_gravity) tempgrav_var(0,:) = grav_var(i,ind,:)
-                                        tempvar(0,varIDs%vx:varIDs%vz) = vtemp
+                                        tempvar(0,ivx:ivz) = vtemp
                                         if (read_gravity) tempgrav_var(0,2:4) = gtemp
                                         
                                         filterloop: do ifilt=1,cam%nfilter
@@ -950,11 +1001,14 @@ module maps
                                             if (ok_filter) then
                                                 if (.not.grid(ilevel)%active) grid(ilevel)%active = .true.
                                                 weight = 1D0
-                                                if (trim(proj%weightvar) /= 'counts') then
+                                                if (trim(proj%weightvars(1)) /= 'counts') then
+                                                    !TODO: Change this so that it loops over the wvars, not just the first one
                                                     if (read_gravity) then 
-                                                        call getvarvalue(bbox,dx,xtemp,tempvar,tempson,proj%weightvar,rho,trans_matrix,tempgrav_var)
+                                                        rho = proj%wvars(1)%myfunction(amr,sim,proj%wvars(1),bbox,dx*sim%boxlen,xtemp&
+                                                            & ,tempvar,tempson,trans_matrix,tempgrav_var)
                                                     else
-                                                        call getvarvalue(bbox,dx,xtemp,tempvar,tempson,proj%weightvar,rho,trans_matrix)
+                                                        rho = proj%wvars(1)%myfunction(amr,sim,proj%wvars(1),bbox,dx*sim%boxlen,xtemp&
+                                                            & ,tempvar,tempson,trans_matrix)
                                                     end if
                                                     weight = rho !MAX(rho*dx*weight/(bbox%zmax-bbox%zmin),0D0)
                                                 end if
@@ -962,9 +1016,11 @@ module maps
 
                                                 projvarloop: do ivar=1,proj%nvars
                                                     if (read_gravity) then
-                                                        call getvarvalue(bbox,dx,xtemp,tempvar,tempson,proj%varnames(ivar),map,trans_matrix,tempgrav_var)
+                                                        map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
+                                                            & ,tempvar,tempson,trans_matrix,tempgrav_var)
                                                     else
-                                                        call getvarvalue(bbox,dx,xtemp,tempvar,tempson,proj%varnames(ivar),map,trans_matrix)
+                                                        map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
+                                                            & ,tempvar,tempson,trans_matrix)
                                                     end if
                                                     grid(ilevel)%cube(ifilt,ivar,ix,iy)=grid(ilevel)%cube(ifilt,ivar,ix,iy)+map*weight
                                                 end do projvarloop
@@ -1353,7 +1409,7 @@ module maps
                                         call rotate_vector(xtemp,trans_matrix)
 
                                         ! Velocity transformed --> ONLY FOR CENTRAL CELL
-                                        vtemp = var(ind_cell(i),varIDs%vx:varIDs%vz)
+                                        vtemp = var(ind_cell(i),ivx:ivz)
                                         vtemp = vtemp - bbox%bulk_velocity
                                         call rotate_vector(vtemp,trans_matrix)
 
@@ -1375,7 +1431,7 @@ module maps
                                         tempvar(0,:) = var(ind_nbor(1,0),:)
                                         tempson(0)       = son(ind_nbor(1,0))
                                         if (read_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
-                                        tempvar(0,varIDs%vx:varIDs%vz) = vtemp
+                                        tempvar(0,ivx:ivz) = vtemp
                                         if (read_gravity) tempgrav_var(0,2:4) = gtemp
                                         
                                         do inbor=1,amr%twondim
@@ -1385,31 +1441,36 @@ module maps
                                         end do
                                         filterloop: do ifilt=1,cam%nfilter
                                             if (read_gravity) then
-                                                ok_filter = filter_cell(bbox,cam%filters(ifilt),xtemp,dx,tempvar,&
+                                                ok_filter = filter_cell(bbox,cam%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
                                                                         &tempson,trans_matrix,tempgrav_var)
                                             else
-                                                ok_filter = filter_cell(bbox,cam%filters(ifilt),xtemp,dx,tempvar,&
+                                                ok_filter = filter_cell(bbox,cam%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
                                                                         &tempson,trans_matrix)
                                             end if
                                             ! Finally, get hydro data
                                             if (ok_filter) then
                                                 if (.not.grid(ilevel)%active) grid(ilevel)%active = .true.
                                                 weight = 1D0
-                                                if (trim(proj%weightvar) /= 'counts') then
+                                                if (trim(proj%weightvars(1)) /= 'counts') then
+                                                    !TODO: Change this so that it loops over the wvars, not just the first one
                                                     if (read_gravity) then 
-                                                        call getvarvalue(bbox,dx,xtemp,tempvar,tempson,proj%weightvar,rho,trans_matrix,tempgrav_var)
+                                                        rho = proj%wvars(1)%myfunction(amr,sim,proj%wvars(1),bbox,dx*sim%boxlen,xtemp&
+                                                            & ,tempvar,tempson,trans_matrix,tempgrav_var)
                                                     else
-                                                        call getvarvalue(bbox,dx,xtemp,tempvar,tempson,proj%weightvar,rho,trans_matrix)
+                                                        rho = proj%wvars(1)%myfunction(amr,sim,proj%wvars(1),bbox,dx*sim%boxlen,xtemp&
+                                                            & ,tempvar,tempson,trans_matrix)
                                                     end if
-                                                    weight = rho*dx*weight/(bbox%zmax-bbox%zmin)
+                                                    weight = MAX(rho*dx*weight/(bbox%zmax-bbox%zmin),0D0)
                                                 end if
                                                 grid(ilevel)%map(ifilt,ix,iy)=grid(ilevel)%map(ifilt,ix,iy)+weight
 
                                                 projvarloop: do ivar=1,proj%nvars
                                                     if (read_gravity) then
-                                                        call getvarvalue(bbox,dx,xtemp,tempvar,tempson,proj%varnames(ivar),map,trans_matrix,tempgrav_var)
+                                                        map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
+                                                            & ,tempvar,tempson,trans_matrix,tempgrav_var)
                                                     else
-                                                        call getvarvalue(bbox,dx,xtemp,tempvar,tempson,proj%varnames(ivar),map,trans_matrix)
+                                                        map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
+                                                            & ,tempvar,tempson,trans_matrix)
                                                     end if
                                                     grid(ilevel)%cube(ifilt,ivar,ix,iy)=grid(ilevel)%cube(ifilt,ivar,ix,iy)+map*weight
                                                 end do projvarloop
@@ -1747,13 +1808,13 @@ module maps
                     part%v = part%v - bbox%bulk_velocity
                     call rotate_vector(part%v,trans_matrix)
                     if (nstar>0) then
-                        if (TRIM(proj%weightvar).eq.'star/cumulative'.or.&
-                            &TRIM(proj%weightvar).eq.'dm/cumulative') then
+                        if (TRIM(proj%weightvars(1)).eq.'star/cumulative'.or.&
+                            &TRIM(proj%weightvars(1)).eq.'dm/cumulative') then
                             weight = 1D0
                         else
                             call getparttype(part,ptype)
                             if (ptype.eq.'star') then
-                                call getpartvalue(bbox,part,proj%weightvar,weight,dcell)
+                                call getpartvalue(bbox,part,proj%weightvars(1),weight,dcell)
                             else
                                 weight = 1D0
                             endif
@@ -1808,7 +1869,7 @@ module maps
         deallocate(nparttoto)
     end subroutine project_particles
 
-    subroutine healpix_hydro(repository,cam,use_neigh,proj,nside,lmax,lmin)
+    subroutine healpix_hydro(repository,cam,use_neigh,proj,nside,lmax,lmin,vardict)
         implicit none
         character(128),intent(in) :: repository
         type(camera),intent(inout) :: cam
@@ -1816,11 +1877,16 @@ module maps
         type(projection_handler),intent(inout) :: proj
         integer,intent(in) :: nside
         integer,intent(in),optional :: lmax,lmin
+        type(dictf90),intent(in),optional :: vardict
 
         type(region) :: bsphere
+        integer :: ivx,ivy,ivz
+        integer :: ii
 
+        ! Obtain details of the hydro variables stored
         call read_hydrofile_descriptor(repository)
 
+        ! Initialise parameters of the AMR structure and simulation attributes
         call init_amr_read(repository)
         amr%lmax = amr%nlevelmax
         if (verbose) write(*,*)'Maximum resolution level: ',amr%nlevelmax
@@ -1836,10 +1902,50 @@ module maps
         bsphere%rmin = cam%distance
         bsphere%rmax = cam%far_cut_depth
         bsphere%axis = cam%region_axis
+
+        ! Compute the Hilbert curve for the sphere
         call get_cpu_map(bsphere)
         if (verbose) write(*,*)'ncpu: ',amr%ncpu_read
 
-        if (cam%nsubs>0 .and. verbose)write(*,*)'Excluding substructure: ',cam%nsubs
+        ! Set up hydro variables quicklook tools
+        if (present(vardict)) then
+            ! If the user provides their own variable dictionary,
+            ! use that one instead of the automatic from the 
+            ! hydro descriptor file (RAMSES)
+            call get_var_tools(vardict,proj%nvars,proj%varnames,proj%vars)
+
+            ! Do it also for the weight variable
+            call get_var_tools(vardict,proj%nwvars,proj%weightvars,proj%wvars)
+            
+            ! We also do it for the filter variables
+            do ii = 1, cam%nfilter
+                call get_filter_var_tools(vardict,cam%filters(ii))
+            end do
+
+            ! We always need the indexes of the velocities
+            ! to perform rotations of gas velocities
+            ivx = vardict%get('velocity_x')
+            ivy = vardict%get('velocity_y')
+            ivz = vardict%get('velocity_z')
+        else
+            call get_var_tools(varIDs,proj%nvars,proj%varnames,proj%vars)
+
+            ! Do it also for the weight variable
+            call get_var_tools(varIDs,proj%nwvars,proj%weightvars,proj%wvars)
+
+            ! We also do it for the filter variables
+            do ii = 1, cam%nfilter
+                call get_filter_var_tools(varIDs,cam%filters(ii))
+            end do
+
+            ! We always need the indexes of the velocities
+            ! to perform rotations of gas velocities
+            ivx = varIDs%get('velocity_x')
+            ivy = varIDs%get('velocity_y')
+            ivz = varIDs%get('velocity_z')
+        end if
+
+        if (cam%nsubs>0.and.verbose)write(*,*)'Excluding substructure: ',cam%nsubs
 
         ! Perform projections
         call project_cells_hpix
@@ -2110,10 +2216,10 @@ module maps
                                     ! If the cell contributes to at least one pixel, project
                                     if(nlist>0) then
                                         ! Rotate velocity with respect to galaxy frame
-                                        vtemp = var(i,ind,varIDs%vx:varIDs%vz)
+                                        vtemp = var(i,ind,ivx:ivz)
                                         vtemp = vtemp - bsphere%bulk_velocity
                                         call rotate_vector(vtemp,trans_matrix)
-                                        var(i,ind,varIDs%vx:varIDs%vz) = vtemp
+                                        var(i,ind,ivx:ivz) = vtemp
 
                                         ! Get neighbours
                                         allocate(tempvar(0:amr%twondim,nvarh))
@@ -2121,23 +2227,26 @@ module maps
                                         ! Just add central cell as we do not want neighbours
                                         tempvar(0,:) = var(i,ind,:)
                                         tempson(0)       = son(i,ind)
-                                        tempvar(0,varIDs%vx:varIDs%vz) = vtemp
+                                        tempvar(0,ivx:ivz) = vtemp
 
                                         ! Do loop over filters
                                         filterloop: do ifilt=1,cam%nfilter
-                                            ok_filter = filter_cell(bsphere,cam%filters(ifilt),xtemp,dx,tempvar,&
+                                            ok_filter = filter_cell(bsphere,cam%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
                                                                         &tempson,trans_matrix)
                                             if (ok_filter) then
                                                 ! Get weight
-                                                call getvarvalue(bsphere,dx,xtemp,tempvar,tempson,proj%weightvar,rho)
+                                                ! TODO: I should loop over weightvars
+                                                rho = proj%wvars(1)%myfunction(amr,sim,proj%wvars(1),bsphere,dx*sim%boxlen,xtemp&
+                                                        & ,tempvar,tempson,trans_matrix)
                                                 do j=1,size(listpix_clean)
                                                     ix = listpix_clean(j)
-                                                    proj_rho(ifilt,ix) = proj_rho(ifilt,ix)+rho*dx*weight/(bsphere%rmax-bsphere%rmin)
+                                                    proj_rho(ifilt,ix) = proj_rho(ifilt,ix)+rho*dx*sim%boxlen*weight/(bsphere%rmax-bsphere%rmin)
                                                 end do
 
                                                 ! Get variable values
                                                 projvarloop: do ivar=1,proj%nvars
-                                                    call getvarvalue(bsphere,dx,xtemp,tempvar,tempson,proj%varnames(ivar),map)
+                                                    map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bsphere,dx*sim%boxlen,xtemp&
+                                                            & ,tempvar,tempson,trans_matrix)
                                                     do j=1,size(listpix_clean)
                                                         ix = listpix_clean(j)
                                                         proj%map(ifilt,ivar,1,ix) = proj%map(ifilt,ivar,1,ix)+map*rho*dx*weight/(bsphere%rmax-bsphere%rmin)

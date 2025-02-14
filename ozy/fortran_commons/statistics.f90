@@ -21,6 +21,7 @@ module stats_utils
     use local
     use constants
     use io_ramses
+    use hydro_commons
 
     type pdf_handler
         integer :: nbins,nvars,nwvars,nfilter
@@ -193,14 +194,14 @@ module stats_utils
     subroutine findbinpos(reg,x,cvars,csons,csize,&
                             & ibin,value,trans_matrix,&
                             & scaletype,nbins,bins,linthresh,&
-                            & zero_index,vname,&
+                            & zero_index,xvar,&
                             & gvars)
         use vectors
         use geometrical_regions
         implicit none
         type(region),intent(in) :: reg
         type(vector),intent(in) :: x
-        real(dbl),dimension(0:amr%twondim,1:varIDs%nvar),intent(in) :: cvars
+        real(dbl),dimension(0:amr%twondim,1:sim%nvar),intent(in) :: cvars
         integer,dimension(0:amr%twondim),intent(in) :: csons
         real(dbl),intent(in) :: csize
         integer,intent(inout) :: ibin
@@ -212,14 +213,14 @@ module stats_utils
         integer,intent(in) :: zero_index
         real(dbl) :: origvalue
         real(dbl),dimension(0:nbins),intent(in) :: bins
-        character(128),intent(in) :: vname
+        type(hydro_var),intent(in) :: xvar
         real(dbl),dimension(0:amr%twondim,1:4),optional,intent(in) :: gvars
 
         ! Get variable value
         if (present(gvars)) then
-            call getvarvalue(reg,csize,x,cvars,csons,vname,value,trans_matrix,gvars)
+            value = xvar%myfunction(amr,sim,xvar,reg,csize,x,cvars,csons,trans_matrix,gvars)
         else
-            call getvarvalue(reg,csize,x,cvars,csons,vname,value,trans_matrix)
+            value = xvar%myfunction(amr,sim,xvar,reg,csize,x,cvars,csons,trans_matrix)
         end if
         origvalue = value
 

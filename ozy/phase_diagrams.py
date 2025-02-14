@@ -3,9 +3,13 @@ import h5py
 import os
 import ozy
 from unyt import unyt_array,unyt_quantity
-from ozy.utils import init_region,init_filter,gent_curve_T
-from ozy.plot_settings import symlog_variables
-from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units
+from ozy.utils import init_region,init_filter,gent_curve_T,\
+                    check_need_neighbours, get_code_units, \
+                    get_plotting_def
+from variables_settings import geometrical_variables,raw_gas_variables,\
+    raw_star_variables,raw_dm_variables,derived_gas_variables,\
+    derived_star_variables,derived_dm_variables,gravity_variables,\
+    basic_conv,circle_dictionary
 # TODO: Allow for parallel computation of phase diagrams.
 from joblib import Parallel, delayed
 from amr2 import vectors
@@ -82,10 +86,19 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,minval,maxva
                             filter_conds=['none'],filter_name=['none'],scaletype=['log_even','log_even'],
                             recompute=False,save=False,
                             rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(0.0,'rvir'), zmax=(0.2,'rvir'),
-                            mycentre=([0.5,0.5,0.5],'rvir'), myaxis=np.array([1.,0.,0.]),
+                            mycentre=([0.5,0.5,0.5],'code_length'), myaxis=np.array([1.,0.,0.]),
                             remove_subs=False,cr_st=False,cr_heat=False,Dcr=0.0,verbose=False):
     """Function which computes a phase diagram (2D profile) for a given group object."""
     from ozy.utils import structure_regions,get_code_bins
+
+    if isinstance(group,ozy.Snapshot):
+        obj = group
+        group = ozy.group.Group(obj)
+        use_snapshot = True
+    else:
+        obj = group.obj
+        use_snapshot = False
+    
     if not isinstance(xvar,str) or not isinstance(yvar,str):
         print('Only single x and y variable supported!')
         exit
@@ -172,9 +185,11 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,minval,maxva
     except:
         raise ValueError(f"It seems the dimensions of your bins min ({minval[1].units}) and max ({maxval[1].units}) values do not agree with the dimensions of the chosen yvar ({yvar},{get_code_units(yvar)})")
 
-
     # Now create region
-    
+    if use_snapshot:
+        group.position = obj.array(mycentre[0],mycentre[1])
+        group.angular_mom['total'] = np.array([0.,0.,1.])
+        group.velocity = obj.array([0.,0.,0.],'code_velocity')
     if isinstance(region_type, geo.region):
         selected_reg = region_type
         enclosing_sphere_r = rmax
@@ -213,65 +228,66 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,minval,maxva
         pd._get_python_filter(filt)
 
     # Check if phase data is already present and if it coincides with the new one
-    f = h5py.File(ozy_file, 'r+')
-    pds_fr = []
-    for i in range(0,nfilter):
-        pd = pds[i]
-        pd_present, pd_key = check_if_same_phasediag(f,pd)
-        if pd_present:
-            group._init_phase_diagrams()
-            if remove_subs:
-                for i,p in enumerate(group.phase_diagrams_nosubs):
-                    if p.key == pd_key:
-                        selected_pd = i
-                        break
-                pd_temp = group.phase_diagrams_nosubs[selected_pd]
-                # TODO: This should be done for all type of variables, not just hydro
-                for pd_field in pd.zvars['hydro']:
-                    if not pd_field in pd_temp.zvars['hydro']:
-                        if verbose: print('Recomputing phase-diagram because of missing requested variables!')
-                        recompute = True
-                        pds_fr.append(True)
-                        break
+    if not ozy_file is None:
+        f = h5py.File(ozy_file, 'r+')
+        pds_fr = []
+        for i in range(0,nfilter):
+            pd = pds[i]
+            pd_present, pd_key = check_if_same_phasediag(f,pd)
+            if pd_present:
+                group._init_phase_diagrams()
+                if remove_subs:
+                    for i,p in enumerate(group.phase_diagrams_nosubs):
+                        if p.key == pd_key:
+                            selected_pd = i
+                            break
+                    pd_temp = group.phase_diagrams_nosubs[selected_pd]
+                    # TODO: This should be done for all type of variables, not just hydro
+                    for pd_field in pd.zvars['hydro']:
+                        if not pd_field in pd_temp.zvars['hydro']:
+                            if verbose: print('Recomputing phase-diagram because of missing requested variables!')
+                            recompute = True
+                            pds_fr.append(True)
+                            break
+                else:
+                    for i,p in enumerate(group.phase_diagrams):
+                        if p.key == pd_key:
+                            selected_pd = i
+                            break
+                    pd_temp = group.phase_diagrams[selected_pd]
+                    # TODO: This should be done for all type of variables, not just hydro
+                    for pd_field in pd.zvars['hydro']:
+                        if not pd_field in pd_temp.zvars['hydro']:
+                            if verbose: print('Recomputing phase-diagram because of missing requested variables!')
+                            recompute = True
+                            pds_fr.append(True)
+                            break
+            if pd_present and recompute:
+                if remove_subs:
+                    del f[str(pd.group.type)+'_data/phase_diagrams_nosubs/'+str(group._index)+'/'+str(pd_key)]
+                else:
+                    del f[str(pd.group.type)+'_data/phase_diagrams/'+str(group._index)+'/'+str(pd_key)]
+                pds_fr.append(True)
+                if verbose: print('Overwriting phase diagram data in %s_data'%group.type)
+            elif pd_present and not recompute:
+                if verbose: print('Phase diagram data with same details already present for galaxy %s. No overwritting!'%group._index)
+                group._init_phase_diagrams()
+                if remove_subs:
+                    for i,p in enumerate(group.phase_diagrams_nosubs):
+                        if p.key == pd_key:
+                            selected_pd = i
+                            break
+                    pds_fr.append(group.phase_diagrams_nosubs[selected_pd])
+                else:
+                    for i,p in enumerate(group.phase_diagrams):
+                        if p.key == pd_key:
+                            selected_pd = i
+                            break
+                    pds_fr.append(group.phase_diagrams[selected_pd])
             else:
-                for i,p in enumerate(group.phase_diagrams):
-                    if p.key == pd_key:
-                        selected_pd = i
-                        break
-                pd_temp = group.phase_diagrams[selected_pd]
-                # TODO: This should be done for all type of variables, not just hydro
-                for pd_field in pd.zvars['hydro']:
-                    if not pd_field in pd_temp.zvars['hydro']:
-                        if verbose: print('Recomputing phase-diagram because of missing requested variables!')
-                        recompute = True
-                        pds_fr.append(True)
-                        break
-        if pd_present and recompute:
-            if remove_subs:
-                del f[str(pd.group.type)+'_data/phase_diagrams_nosubs/'+str(group._index)+'/'+str(pd_key)]
-            else:
-                del f[str(pd.group.type)+'_data/phase_diagrams/'+str(group._index)+'/'+str(pd_key)]
-            pds_fr.append(True)
-            if verbose: print('Overwriting phase diagram data in %s_data'%group.type)
-        elif pd_present and not recompute:
-            if verbose: print('Phase diagram data with same details already present for galaxy %s. No overwritting!'%group._index)
-            group._init_phase_diagrams()
-            if remove_subs:
-                for i,p in enumerate(group.phase_diagrams_nosubs):
-                    if p.key == pd_key:
-                        selected_pd = i
-                        break
-                pds_fr.append(group.phase_diagrams_nosubs[selected_pd])
-            else:
-                for i,p in enumerate(group.phase_diagrams):
-                    if p.key == pd_key:
-                        selected_pd = i
-                        break
-                pds_fr.append(group.phase_diagrams[selected_pd])
-        else:
-            pds_fr.append(True)
-            if verbose: print('Writing phase diagram data in %s_data'%group.type)
-    f.close()
+                pds_fr.append(True)
+                if verbose: print('Writing phase diagram data in %s_data'%group.type)
+        f.close()
     
     nfilter_real = pds_fr.count(True)
     if nfilter_real == 0:
@@ -307,7 +323,6 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,minval,maxva
     hydro_data.cr_st = cr_st
     hydro_data.cr_heat = cr_heat
     hydro_data.Dcr = Dcr
-
     amrprofmod.allocate_profile_handler_twod(hydro_data)
     for i in range(0, len(pd.zvars['hydro'])):
         hydro_data.zvarnames.T.view('S128')[i] = pd.zvars['hydro'][i].ljust(128)
@@ -341,7 +356,10 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,minval,maxva
             
     # And now, compute hydro data phase diagrams!
     if hydro_data.nzvar > 0 and hydro_data.nwvar > 0:
-        amrprofmod.twodprofile(group.obj.simulation.fullpath,selected_reg,hydro_data,lmax)
+        if obj.use_vardict:
+            amrprofmod.twodprofile(obj.simulation.fullpath,selected_reg,filt,hydro_data,lmax,obj.vardict)
+        else:
+            amrprofmod.twodprofile(obj.simulation.fullpath,selected_reg,filt,hydro_data,lmax)
     
     xdata = 0.5*(hydro_data.xdata[:-1]+hydro_data.xdata[1:])
     ydata = 0.5*(hydro_data.ydata[:-1]+hydro_data.ydata[1:])
@@ -467,7 +485,6 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
     from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
     from matplotlib.colors import LogNorm,SymLogNorm
     import seaborn as sns
-    from ozy.plot_settings import plotting_dictionary
     sns.set(style="white")
     plt.rc('text', usetex=True)
     plt.rc('font', family='serif')
@@ -495,9 +512,9 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
 
     # Since everything appears fine, we begin plotting...
     fig, ax = plt.subplots(1,1, figsize=(8,6))
-    plotting_x = plotting_dictionary[pd.xvar]
-    plotting_y = plotting_dictionary[pd.yvar]
-    plotting_z = plotting_dictionary[field]
+    plotting_x = get_plotting_def(pd.xvar)
+    plotting_y = get_plotting_def(pd.yvar)
+    plotting_z = get_plotting_def(field)
     ax.set_xlabel(plotting_x['label'],fontsize=18)
     ax.set_ylabel(plotting_y['label'],fontsize=18)
 
@@ -522,7 +539,7 @@ def plot_single_phase_diagram(pd,field,name,weightvar='cumulative',logscale=True
     print(field,np.nanmin(z).in_units(plotting_z['units']),np.nanmax(z).in_units(plotting_z['units']))
     sim_z = pd.obj.simulation.redshift
     if logscale:
-        if field in symlog_variables:
+        if plotting_z['symlog']:
             plot = ax.pcolormesh(x,y,
                                 z[:,:,0].in_units(plotting_z['units']).T.d,
                                 shading='auto',
@@ -600,7 +617,6 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
     from matplotlib.colors import LogNorm,SymLogNorm
     import seaborn as sns
-    from ozy.plot_settings import plotting_dictionary
     sns.set(style="white")
     plt.rc('text', usetex=True)
     plt.rc('font', family='serif')
@@ -690,9 +706,10 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
                 pd = pds[ipd][0]
             else:
                 pd = pds[ipd]
-            plotting_x = plotting_dictionary[pd.xvar]
-            plotting_y = plotting_dictionary[pd.yvar]
-            plotting_z = plotting_dictionary[field[i]]
+            plotting_x = get_plotting_def(pd.xvar)
+            plotting_y = get_plotting_def(pd.yvar)
+            plotting_z = get_plotting_def(field)
+            print(field,plotting_z)
             ax[i,j].set_xlabel(plotting_x['label'],fontsize=20)
             # Get rid of the y-axis labels for the panels in the middle
             # TODO: The ticks should not be only for density and temperature!
@@ -756,7 +773,7 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
                     print('Warm: %.3f, %.3e'%(100*z_warm/z_tot,z_warm))
                     print('Hot: %.3f, %.3e'%(100*z_hot/z_tot, z_hot))
 
-            if pd.zvars['hydro'][field_indexes[ipd]].split('/')[-1] in symlog_variables:
+            if plotting_z['symlog']:
                 plot = ax[i,j].pcolormesh(x,y,
                                     z.in_units(plotting_z['units']).T,
                                     shading='auto',
@@ -780,7 +797,7 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
                             transform=ax[i,j].transAxes, fontsize=20,verticalalignment='top',
                             color='black')
             if isinstance(extra_labels,list):
-                ax[i,j].text(0.65, 0.9, extra_labels[ipd],
+                ax[i,j].text(0.40, 0.95, extra_labels[ipd],
                             transform=ax[i,j].transAxes, fontsize=14,verticalalignment='top',
                             color='black')
 
@@ -809,7 +826,13 @@ def plot_compare_phase_diagram(pds,field,name,weightvar='cumulative',
                     a = np.nansum(y * z[:,k])
                     b = np.nansum(z[:,k])
                     y_mean[k] = a/b
-                ax[i,j].plot(x,y_mean,color='k',linewidth=2, linestyle='--')
+                ax[i,j].plot(x,y_mean,color='w',linewidth=2, linestyle='--')
+            elif stats == 'median':
+                y_median = np.zeros(len(x))
+                z = z.T
+                for k in range(0, len(x)):
+                    y_median[k] = np.nanmedian(y * z[:,k])
+                ax[i,j].plot(x,y_median,color='w',linewidth=2, linestyle='--')
             
             if ipd==0:
                 if layout == 'compact':
@@ -904,7 +927,7 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
     import matplotlib.patheffects as pe
     from matplotlib.colors import LogNorm
     import seaborn as sns
-    from ozy.plot_settings import plotting_dictionary
+    from ozy.variables_settings import plotting_dictionary
     sns.set(style="white")
     plt.rc('text', usetex=True)
     plt.rc('font', family='serif')

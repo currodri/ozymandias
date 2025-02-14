@@ -3,13 +3,12 @@ from ozy.sim_attributes import SimulationAttributes
 from ozy.utils import get_mu,get_electron_mu
 from unyt import UnitRegistry,unyt_array,unyt_quantity
 
-class OZY(object):
-    """Master OZY class.
-    OZY objects contain all the necessary references to halos
-    and galaxies in an individual simulation snapshot.
-
-    It can be saved as a portable, standalone HDF5 file which allows
-    general analysis without requiring the original snapshot.
+class Snapshot(object):
+    """Master Snapshot class.
+    
+    Snapshot objects are the main structures that hold the information of RAMSES
+    simulation output. Details about snapshot structure, simulation units and
+    variable description (for hydro, stars, DM and gravity).
     """
     def __init__(self, fullpath, *args, **kwargs):
         self._args   = args
@@ -27,34 +26,13 @@ class OZY(object):
         self.unit_registry = self._get_unit_registry()
         self.simulation  = SimulationAttributes()
         self._assign_simulation_attributes(fullpath)
-        
-        self.nhalos      = 0
-        self.ngalaxies   = 0
-        self.halos       = []
-        self.galaxies    = []
-        self.group_types = []
+        self._set_variable_ordering()
 
     def array(self, value, units):
         return unyt_array(value, units, registry=self.unit_registry)
 
     def quantity(self, value, units):
         return unyt_quantity(value, units, registry=self.unit_registry)
-
-    @property
-    def _has_halos(self):
-        """Check if the dataset has halos."""
-        if self.nhalos > 0:
-            return True
-        else:
-            return False
-
-    @property
-    def _has_galaxies(self):
-        """Check if the dataset has galaxies."""
-        if self.ngalaxies > 0:
-            return True
-        else:
-            return False
 
     def _get_my_info(self,fullpath):
         from ozy.utils import read_infofile
@@ -129,11 +107,60 @@ class OZY(object):
 
         return registry
 
-
     def _assign_simulation_attributes(self,fullpath):
         """Assign simulation attributes to the OZY object, if it has not been done before."""
         self.simulation.assign_attributes(self,fullpath)
+
+    def _set_variable_ordering(self):
+        from amr2 import dictionary_commons
+        from variables_settings import variables_ordering
+        self.vardict = dictionary_commons.dictf90()
+        if len(variables_ordering) > 0:
+            print("Setting variable ordering from local ozy_settings.py.")
+            self.vardict.init(len(variables_ordering))
+            for i,var in enumerate(variables_ordering):
+                self.vardict.add(var,i+1)
+            self.use_vardict = True
+        else:
+            self.use_vardict = False
     
+    def save(self, filename):
+        """Save Snapshot object as HDF5 file."""
+        from ozy.saver import save
+        save(self, filename)
+
+class CosmoSnapshot(Snapshot):
+    """Cosmological Snapshot class.
+    CosmoSnapshot objects contain all the necessary references to halos
+    and galaxies in an individual simulation snapshot.
+
+    It can be saved as a portable, standalone HDF5 file which allows
+    general analysis without requiring the original snapshot.
+    """
+    def __init__(self, fullpath, *args, **kwargs):
+        
+        self.nhalos      = 0
+        self.ngalaxies   = 0
+        self.halos       = []
+        self.galaxies    = []
+        self.group_types = []
+
+    @property
+    def _has_halos(self):
+        """Check if the dataset has halos."""
+        if self.nhalos > 0:
+            return True
+        else:
+            return False
+
+    @property
+    def _has_galaxies(self):
+        """Check if the dataset has galaxies."""
+        if self.ngalaxies > 0:
+            return True
+        else:
+            return False
+        
     def _assign_groups(self):
         """Assign galaxies to halos to galaxies.
             Also connect halos with their central galaxy."""
@@ -219,4 +246,3 @@ class OZY(object):
         """Method to briefly print information for the most massive halos in the catalogue."""
         from ozy.utils import info_printer
         info_printer(self, 'halo', top)
-

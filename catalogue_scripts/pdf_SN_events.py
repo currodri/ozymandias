@@ -10,7 +10,7 @@ By: Curro Rodriguez Montero (currodri@gmail.com)
 # Import required libraries
 import ozy
 from ozy.utils import sn_data_hdf5
-from ozy.plot_settings import plotting_dictionary
+from ozy.variables_settings import plotting_dictionary
 from unyt import mh,kb
 import numpy as np
 import os

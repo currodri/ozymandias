@@ -5,7 +5,7 @@
 CC       = gcc
 #CC       = ifort
 F90      = gfortran
-#F90      = ifort
+F90      = ifx
 #F90      =  /opt/intel/composer_xe_2015.3.187/bin/intel64/ifort
 PYTHON   = python
 
@@ -21,18 +21,18 @@ PYTHON   = python
 ifeq ($(F90),gfortran)
 	FPP      = gfortran -E
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
-	HP_FLAGS = -L/mnt/users/currodri/Codes/Healpix_3.82/lib -I/mnt/users/currodri/Codes/Healpix_3.82/include -lhealpix -lcfitsio
+	HP_FLAGS = -L/softs/healpix/3.82-ifx-2024.0/lib -I/softs/healpix/3.82-ifx-2024.0/include -lchealpix -lhealpix -lcfitsio -liomp5
 	F90FLAGS = -O3 -cpp -fPIC -DIMASS -ffree-line-length-256 ${HP_FLAGS}
     FCOMP    = gfortran
     LIBS     =
 endif
 
-ifeq ($(F90),ifort)
+ifeq ($(F90),ifx)
 	FPP      = gfortran -E # gfortran f90wrap temp files only. not compilation
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
-	HP_FLAGS = -L/softs/healpix/3.81-ifort-2022.1.2/lib -I/softs/healpix/3.81-ifort-2022.1.2/include -lchealpix -lhealpix -lcfitsio -liomp5
-	#F90FLAGS = -g -traceback -check bounds -cpp -fpscomp logicals -fPIC -DIMASS ${HP_FLAGS} # use 1 and 0 for True and False
-	F90FLAGS = -O3 -cpp -fpscomp logicals -fPIC -DIMASS ${HP_FLAGS} # use 1 and 0 for True and False
+	HP_FLAGS = -L/softs/healpix/3.82-ifx-2024.0/lib -I/softs/healpix/3.82-ifx-2024.0/include -lchealpix -lhealpix -lcfitsio -liomp5
+	F90FLAGS = -O0 -g -traceback -check bounds -cpp -fpscomp logicals -fPIC -DIMASS ${HP_FLAGS} # use 1 and 0 for True and False
+	#F90FLAGS = -O3 -cpp -fpscomp logicals -fPIC -DIMASS ${HP_FLAGS} # use 1 and 0 for True and False
 	FCOMP    = intelem # for f2py
     LIBS =
 endif
@@ -70,8 +70,8 @@ VPATH = ../fortran_commons
 #=======================================================================
 
 # names (without suffix), f90 sources
-LIBSRC_SOURCES = local utils linalg_module coordinates_module cooling_module \
-					read_amr_module\
+LIBSRC_SOURCES = local utils dictionary_module linalg_module coordinates_module \
+					cooling_module read_amr_module variables filtering \
 					cosmology_module ramses2map #sunset
 
 # file names
@@ -88,9 +88,9 @@ LIBSRC_FPP_FILES = $(addsuffix .fpp,${LIBSRC_SOURCES})
 #=======================================================================
 
 # names (without suffix), f90 sources
-LIBSRC_WRAP_SOURCES = linalg_module coordinates_module cooling_module \
-						read_amr_module\
-						ramses2map #sunset
+LIBSRC_WRAP_SOURCES = dictionary_module linalg_module coordinates_module \
+						cooling_module read_amr_module variables filtering \
+						cosmology_module ramses2map #sunset
 
 # file names
 LIBSRC_WRAP_FILES = $(addsuffix .f90,${LIBSRC_WRAP_SOURCES})

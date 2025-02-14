@@ -6,10 +6,78 @@ from itertools import islice
 import sys
 import os
 import subprocess
-from ozy.dict_variables import get_code_units
 import matplotlib.text as mtext
 import matplotlib.transforms as mtransforms
 import matplotlib.pyplot as plt
+from variables_settings import geometrical_variables,raw_gas_variables,\
+    raw_star_variables,raw_dm_variables,derived_gas_variables,\
+    derived_star_variables,derived_dm_variables,gravity_variables,\
+    basic_conv,circle_dictionary
+
+
+def get_code_units(varname):
+
+    if varname in geometrical_variables:
+        unit = geometrical_variables[varname]['code_units']
+    elif varname in raw_gas_variables:
+        unit = raw_gas_variables[varname]['code_units']
+    elif varname in raw_star_variables:
+        unit = raw_star_variables[varname]['code_units']
+    elif varname in raw_dm_variables:
+        unit = raw_dm_variables[varname]['code_units']
+    elif varname in derived_gas_variables:
+        unit = derived_gas_variables[varname]['code_units']
+    elif varname in derived_star_variables:
+        unit = derived_star_variables[varname]['code_units']
+    elif varname in derived_dm_variables:
+        unit = derived_dm_variables[varname]['code_units']
+    elif varname in gravity_variables:
+        unit = gravity_variables[varname]['code_units']
+    else:
+        raise KeyError('Variable not found, check: '+str(varname))
+    return unit
+    
+def check_need_neighbours(varname):
+    if varname in geometrical_variables:
+        need = geometrical_variables[varname]['neighbour']
+    elif varname in raw_gas_variables:
+        need = raw_gas_variables[varname]['neighbour']
+    elif varname in raw_star_variables:
+        need = raw_star_variables[varname]['neighbour']
+    elif varname in raw_dm_variables:
+        need = raw_dm_variables[varname]['neighbour']
+    elif varname in derived_gas_variables:
+        need = derived_gas_variables[varname]['neighbour']
+    elif varname in derived_star_variables:
+        need = derived_star_variables[varname]['neighbour']
+    elif varname in derived_dm_variables:
+        need = derived_dm_variables[varname]['neighbour']
+    elif varname in gravity_variables:
+        need = gravity_variables[varname]['neighbour']
+    else:
+        raise KeyError('Variable not found, check: '+str(varname))
+    return need
+
+def get_plotting_def(varname):
+    if varname in geometrical_variables:
+        plotting_def = geometrical_variables[varname]
+    elif varname in raw_gas_variables:
+        plotting_def = raw_gas_variables[varname]
+    elif varname in raw_star_variables:
+        plotting_def = raw_star_variables[varname]
+    elif varname in raw_dm_variables:
+        plotting_def = raw_dm_variables[varname]
+    elif varname in derived_gas_variables:
+        plotting_def = derived_gas_variables[varname]
+    elif varname in derived_star_variables:
+        plotting_def = derived_star_variables[varname]
+    elif varname in derived_dm_variables:
+        plotting_def = derived_dm_variables[varname]
+    elif varname in gravity_variables:
+        plotting_def = gravity_variables[varname]
+    else:
+        raise KeyError('Variable not found, check: '+str(varname))
+    return plotting_def
 
 def get_mu(X,Y):
     
@@ -78,12 +146,11 @@ def most_contrast_rgba(rgba):
 
 def invert_tick_colours(ax,var,type_scale,vmin=None,vmax=None,
                         linthresh=None,linscale=None,orientation='horizontal'):
-    from plot_settings import plotting_dictionary, symlog_variables
     from matplotlib.colors import LogNorm,SymLogNorm
     from matplotlib import colormaps
 
     fig = plt.gcf()
-    plotting_def = plotting_dictionary[var]
+    plotting_def = get_plotting_def(var)
     cmap = colormaps.get_cmap(plotting_def['cmap'])
     if vmin == None:
         vmin = plotting_def['vmin'+type_scale]
@@ -99,7 +166,7 @@ def invert_tick_colours(ax,var,type_scale,vmin=None,vmax=None,
     else:
         ticks_pos = ax.get_yticks()
         ticks_labels = ax.get_yticklabels()
-    if var not in symlog_variables:
+    if not plotting_def['symlog']:
         norm = LogNorm(vmin=vmin,
                          vmax=vmax,
                          clip=True)
@@ -143,7 +210,7 @@ def read_infofile(infopath):
             if (linehead == "levelmax")  : info['levelmax'] = int(newline[13:].strip())
             if (linehead == "ngridmax")  : info['ngridmax']  = int(newline[13:].strip())
             if (linehead == "nstep_coarse")  : info['nstep_coarse'] = int(newline[13:].strip())
-
+            if (linehead == "boxlen")  : info['boxlen']  = float(newline[13:].strip())
             if (linehead == "aexp")  : info['aexp']  = float(newline[13:].strip())
             if (linehead == "time")  : info['time'] = float(newline[13:].strip())
             if (linehead == "H0"): info['H0']  = float(newline[13:].strip())
@@ -547,8 +614,7 @@ def structure_regions(group, position=None, radius=None,
     This routine returns the regions of substructures so they can be used
     by the Ozymandias Fortran routines
     """
-    from unyt import unyt_array,unyt_quantity
-    from ozy.plot_settings import circle_dictionary
+    from ozy.variables_settings import circle_dictionary
     from ozy.utils import tidal_radius
     
     mysubs = []
@@ -637,12 +703,13 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
         raise TypeError('The format for zmin and zmax should be %s, instead you gave for zmin %s and for zmax %s' %(type(tuple),type(zmin),type(zmax)))
         exit
     reg = geo.region()
+    boxlen = group.obj.simulation.boxsize.to('code_length').d # In code units
 
     if region_type == 'sphere':
         reg.name = 'sphere'
         reg.criteria_name = 'r_sphere'
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        centre.x, centre.y, centre.z = group.position[0].to('code_length')/boxlen, group.position[1].to('code_length')/boxlen, group.position[2].to('code_length')/boxlen
         reg.centre = centre
         axis = vectors.vector()
         norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
@@ -655,15 +722,15 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
         bulk.x, bulk.y, bulk.z = velocity[0].d, velocity[1].d, velocity[2].d
         reg.bulk_velocity = bulk
         if rmin[1] == 'rvir':
-            reg.rmin = rmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            reg.rmin = rmin[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d/boxlen
         else:
-            reg.rmin = group.obj.quantity(rmin[0],str(rmin[1])).in_units('code_length')
+            reg.rmin = group.obj.quantity(rmin[0],str(rmin[1])).in_units('code_length')/boxlen
         if rmax[1] == 'rvir':
-            rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d
+            rmax = rmax[0]*group.obj.halos[group.parent_halo_index].virial_quantities['radius'].d/boxlen
         else:
-            rmax = group.obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')
+            rmax = group.obj.quantity(rmax[0],str(rmax[1])).in_units('code_length')/boxlen
         reg.rmax = rmax
-        enclosing_sphere_p = group.position
+        enclosing_sphere_p = group.position.to('code_length')/boxlen
         enclosing_sphere_r = rmax
 
     elif region_type == 'basic_sphere':
@@ -885,7 +952,7 @@ def init_filter(cond_strs, name, group):
                     particle = True
                 else:
                     correct_str = cond_strs[i].split('/')[0]
-                filt.cond_vars.T.view('S128')[i] = correct_str.ljust(128)
+                filt.cond_vars.name = correct_str
                 # Expresion operator
                 filt.cond_ops.T.view('S2')[i] = cond_strs[i].split('/')[1].ljust(2)
                 # Value transformed to code units
@@ -903,7 +970,7 @@ def init_filter(cond_strs, name, group):
                     units2 = get_code_units(cond_strs[i].split('/')[2])
                     if units1 != units2:
                         raise ValueError("You cannot compare %s and %s"%(units1,units2))
-                    filt.cond_vars_comp.T.view('S128')[i] = cond_strs[i].split('/')[2].ljust(128)
+                    filt.cond_vars_comp.name = cond_strs[i].split('/')[2]
                     # And in place of units we should have the factor of that variable that we want
                     filt.cond_vals[i] = cond_strs[i].split('/')[3]
 
@@ -1150,8 +1217,6 @@ def plot_cooling(cool_file):
     import matplotlib.pyplot as plt
     from matplotlib.colors import LogNorm,SymLogNorm
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-    from ozy.plot_settings import plotting_dictionary
-    from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units
     
     # Read table
     cooling_module.read_cool(cool_file)
@@ -1182,7 +1247,7 @@ def plot_cooling(cool_file):
 
     # Plot data
     for i in range(0,3):
-        plotting_z = plotting_dictionary['net_cooling']
+        plotting_z = get_plotting_def('net_cooling')
         ax[i].set_xlabel(r'$nH$ [cm$^{-3}$]',fontsize=18)
         if i==0:
             ax[i].set_ylabel(r'$T/\mu$ [K]',fontsize=18)
@@ -1362,8 +1427,6 @@ def stats_from_pdf(varname,x,PDF,xmin,xmax,verbose=False):
     return np.array([mean,median,std,q2,q4])
 
 def pdf_handler_to_stats(obj,pdf_obj,ivar,ifilt,verbose=False):
-    from ozy.plot_settings import plotting_dictionary, \
-                                symlog_variables
     # This returns:
     # mean,median,std,q2,q4,minvalue,max_value
     nwvar = pdf_obj.nwvars
@@ -1373,6 +1436,7 @@ def pdf_handler_to_stats(obj,pdf_obj,ivar,ifilt,verbose=False):
     # the case, get rid of that last 
     varname = str(pdf_obj.varname.T.view('S128')[ivar][0].decode()).rstrip()
     scaletype = str(pdf_obj.scaletype.T.view('S128')[ivar][0].decode()).rstrip()
+    plotting_def = get_plotting_def(varname)
     try:
         numflag = int(varname.split('_')[-1])
         numflag = True
@@ -1395,7 +1459,7 @@ def pdf_handler_to_stats(obj,pdf_obj,ivar,ifilt,verbose=False):
             if all(PDF==0.0):
                 if pdf_obj.minv[ivar,ifilt] != 0 or pdf_obj.maxv[ivar,ifilt] != 0:
                     if verbose:
-                        plt_def = plotting_dictionary[varname]
+                        plt_def = get_plotting_def(varname)
                         minv = obj.quantity(pdf_obj.minv[ivar,ifilt],code_units)
                         maxv = obj.quantity(pdf_obj.maxv[ivar,ifilt],code_units)
                         minpdf = obj.quantity(pdf_obj.bins[0,ivar],code_units)
@@ -1475,18 +1539,13 @@ def get_code_bins(obj,varname,nbins=100,logscale=True,
     """This function provides bins for RAMSES variables in 
         code units, taking into account issues with variables
         with negative values."""
-    from ozy.plot_settings import plotting_dictionary, \
-                                symlog_variables
-    from ozy.dict_variables import check_need_neighbours, common_variables, \
-                                    grid_variables, \
-                                    particle_variables, \
-                                    get_code_units,basic_conv
     # Begin by checking the existence of the variable
     var_type = varname.split('/')[0]
     var_name = varname.split('/')[1]
     ok_var = False
     if var_type == 'gas':
-        if var_name in common_variables or var_name in grid_variables:
+        if var_name in geometrical_variables or var_name in raw_gas_variables \
+            or var_name in derived_gas_variables:
                 ok_var = True
         else:
             raise KeyError('This gas variable is not supported. Please check!: %s', varname)
@@ -1496,17 +1555,17 @@ def get_code_bins(obj,varname,nbins=100,logscale=True,
                 sfr_name = var_name.split('_')[0] +'_'+var_name.split('_')[1]
             else:
                 sfr_name = var_name.split('_')[0]
-            if sfr_name in particle_variables:
+            if sfr_name in raw_star_variables or sfr_name in derived_star_variables:
                 ok_var = True
             else:
                 raise KeyError('This star variable is not supported. Please check!')
         else:
-            if var_name in common_variables or var_name in particle_variables:
+            if var_name in raw_star_variables or var_name in derived_star_variables:
                 ok_var = True
             else:
                 raise KeyError('This star variable is not supported. Please check!')
     elif var_type == 'dm':
-        if var_name in common_variables or var_name in particle_variables:
+        if var_name in raw_dm_variables or var_name in derived_dm_variables:
             ok_var = True
         else:
             raise KeyError('This DM variable is not supported. Please check!')
@@ -1516,10 +1575,7 @@ def get_code_bins(obj,varname,nbins=100,logscale=True,
         exit
 
     # If everything is fine, we go and compute the bin edges
-    if varname.split('/')[0] == 'star' or varname.split('/')[0] == 'dm':
-        plotting_def = plotting_dictionary[varname.split('/')[0]+'_'+varname.split('/')[1]]
-    else:
-        plotting_def = plotting_dictionary[varname.split('/')[1]]
+    plotting_def = get_plotting_def(varname.split('/')[1])
 
     # The quantities should be in code units, so we transform them
     if minval == None:
@@ -1547,7 +1603,7 @@ def get_code_bins(obj,varname,nbins=100,logscale=True,
     max_val = max_val.to(code_units).d
     zero_index = 0
     if logscale:
-        if varname.split('/')[1] not in symlog_variables:
+        if not plotting_def['symlog']:
             bin_edges = np.linspace(np.log10(min_val),np.log10(max_val),nbins+1)
             scaletype = 'log_even'
         else:
