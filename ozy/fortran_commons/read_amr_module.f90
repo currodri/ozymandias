@@ -668,6 +668,24 @@ module io_ramses
             ! v = (/var(0,varIDs%vx),var(0,varIDs%vy),var(0,varIDs%vz)/)
             ! call rotate_vector(v,trans_matrix)
             value = var(0,varIDs%vz)
+        case ('vx_box')
+            ! X-velocity in the box frame
+            v = (/var(0,varIDs%vx),var(0,varIDs%vy),var(0,varIDs%vz)/)
+            call rotate_vector(v,transpose(trans_matrix))
+            v = v + reg%bulk_velocity
+            value = v%x
+        case ('vy_box')
+            ! Y-velocity in the box frame
+            v = (/var(0,varIDs%vx),var(0,varIDs%vy),var(0,varIDs%vz)/)
+            call rotate_vector(v,transpose(trans_matrix))
+            v = v + reg%bulk_velocity
+            value = v%y
+        case ('vz_box')
+            ! Z-velocity in the box frame
+            v = (/var(0,varIDs%vx),var(0,varIDs%vy),var(0,varIDs%vz)/)
+            call rotate_vector(v,transpose(trans_matrix))
+            v = v + reg%bulk_velocity
+            value = v%z
         case ('v_tangential')
             ! Tangential velocity
             ! Consider as if one substracts the radial velocity
@@ -791,6 +809,9 @@ module io_ramses
         case ('volume')
             ! Volume of cell (dx**3)
             value = (dx * dx) * dx
+        case ('cell_length')
+            ! Cell length
+            value = dx
         case ('metallicity')
             ! Metallicity
             value = var(0,varIDs%metallicity)/0.02

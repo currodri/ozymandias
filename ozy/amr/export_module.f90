@@ -698,7 +698,7 @@ module export_amr
                                     & iy<=grid(ilevel)%jmax.and.&
                                     & iz<=grid(ilevel)%kmax) then
                                     amrvarloop: do ivar=1,chunk%nvars
-                                        call getvarvalue(reg,dx,xtemp,tempvar,tempson,chunk%varnames(ivar),value)
+                                        call getvarvalue(reg,dx,xtemp,tempvar,tempson,chunk%varnames(ivar),value,trans_matrix)
                                         grid(ilevel)%cube(ivar,ix,iy,iz) = value
                                     end do amrvarloop
                                 endif
