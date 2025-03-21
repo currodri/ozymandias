@@ -15,6 +15,7 @@ from joblib import Parallel, delayed
 from amr2 import vectors
 from amr2 import geometrical_regions as geo
 from amr2 import amr_profiles as amrprofmod
+from amr2 import io_ramses
 
 blacklist = [
     'zvars','weightvars','xdata','ydata','zdata'
@@ -98,6 +99,9 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,minval,maxva
     else:
         obj = group.obj
         use_snapshot = False
+
+    if verbose:
+        io_ramses.activate_verbose()
     
     if not isinstance(xvar,str) or not isinstance(yvar,str):
         print('Only single x and y variable supported!')
@@ -127,49 +131,70 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,minval,maxva
         var_type = var.split('/')[0]
         var_name = var.split('/')[1]
         if var_type == 'gas':
-            if var_name in common_variables or var_name in grid_variables:
+            if var_name in geometrical_variables or var_name in raw_gas_variables \
+                or var_name in derived_gas_variables or var_name in gravity_variables:
                 for i in range(0, nfilter):
                     pds[i].zvars['hydro'].append(var_name)
             else:
                 raise KeyError('This gas variable is not supported. Please check!: %s', var)
         elif var_type == 'star':
-            if var_name in common_variables or var_name in particle_variables:
-                for i in range(0, nfilter):
-                    pds[i].zvars['for_star'].append(var_name)
+            if var_name.split('_')[0] == 'sfr':
+                if len(var_name.split('_')) == 3:
+                    sfr_name = var_name.split('_')[0] +'_'+var_name.split('_')[1]
+                else:
+                    sfr_name = var_name.split('_')[0]
+                if sfr_name in derived_star_variables:
+                    for i in range(0, nfilter):
+                        pds[i].zvars['for_star'].append(var_name)
+                else:
+                    raise KeyError('This star variable is not supported. Please check!')
             else:
-                raise KeyError('This star variable is not supported. Please check!')
+                if var_name in geometrical_variables or var_name in raw_star_variables \
+                    or var_name in derived_star_variables:
+                    for i in range(0, nfilter):
+                        pds[i].zvars['for_star'].append(var_name)
+                else:
+                    raise KeyError('This star variable is not supported. Please check!')
         elif var_type == 'dm':
-            if var_name in common_variables or var_name in particle_variables:
+            if var_name in geometrical_variables or var_name in raw_dm_variables \
+                or var_name in derived_dm_variables:
                 for i in range(0, nfilter):
                     pds[i].zvars['for_dm'].append(var_name)
             else:
                 raise KeyError('This DM variable is not supported. Please check!')
     for var in weightvars:
-        var_type = var.split('/')[0]
-        var_name = var.split('/')[1]
-        if var_type == 'gas':
-            if var_name in common_variables or var_name in grid_variables:
+        weight_type = var.split('/')[0]
+        weight_name = var.split('/')[1]
+        if weight_type == 'gas':
+            if weight_name in geometrical_variables or weight_name in raw_gas_variables \
+                or weight_name in derived_gas_variables or weight_name in gravity_variables:
                 for i in range(0, nfilter):
-                    pds[i].weightvars['hydro'].append(var_name)
+                    pds[i].weightvars['hydro'].append(weight_name)
             else:
                 raise KeyError('This gas variable is not supported. Please check!')
-        elif var_type == 'star':
-            if var_name in common_variables or var_name in particle_variables:
+        elif weight_type == 'star':
+            if weight_name in geometrical_variables or weight_name in raw_star_variables \
+                or weight_name in derived_star_variables:
                 for i in range(0, nfilter):
-                    pds[i].weightvars['for_star'].append(var_name)
+                    pds[i].weightvars['for_star'].append(weight_name)
             else:
                 raise KeyError('This star variable is not supported. Please check!')
-        elif var_type == 'dm':
-            if var_name in common_variables or var_name in particle_variables:
+        elif weight_type == 'dm':
+            if weight_name in geometrical_variables or weight_name in raw_dm_variables \
+                or weight_name in derived_dm_variables:
                 for i in range(0, nfilter):
-                    pds[i].weightvars['for_dm'].append(var_name)
+                    pds[i].weightvars['for_dm'].append(weight_name)
             else:
                 raise KeyError('This DM variable is not supported. Please check!')
 
     # Check that we do not have any inconsistency...
-    if xvar in grid_variables and len(pds[0].zvars['for_star'])>0 or xvar in grid_variables and len(pds[0].zvars['for_dm'])>0:
+    xvar_in_hydro = xvar in geometrical_variables or xvar in raw_gas_variables \
+                    or xvar in derived_gas_variables or xvar in gravity_variables
+    xvar_in_star = xvar in geometrical_variables or xvar in raw_star_variables \
+                    or xvar in derived_star_variables
+    if xvar_in_hydro and len(pds[0].zvars['for_star'])>0 or xvar_in_hydro and len(pds[0].zvars['for_dm'])>0:
         raise KeyError("Having grid vs particle phase diagrams is not well-defined.")
-    elif xvar in particle_variables and len(pds[0].zvars['hydro'])>0:
+    elif xvar_in_star and len(pds[0].zvars['hydro'])>0:
         raise KeyError("Having particle vs grid phase diagrams is not well-defined.")
     
     # Check that the xaxis min and max quantities have the units expected for that variable
@@ -219,13 +244,23 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,minval,maxva
     # Now create filters and regions for each phase diagram
     filts = []
     for i in range(0,nfilter):
-        filt = init_filter(filter_conds[i], filter_name[i], group)
-        filts.append(filt)
+        if isinstance(filter_conds[i],list):
+            cond_var = filter_conds[i][0].split('/')[0]
+        else:
+            cond_var = filter_conds[i].split('/')[0]
+        if cond_var in geometrical_variables or cond_var in raw_gas_variables \
+            or cond_var in derived_gas_variables or cond_var in gravity_variables:
+            f = init_filter(filter_conds[i],filter_name[i],group)
+        else:
+            # When a filter asks for a variable not existent in the common_variables
+            # or the grid_variables dictionaries just ignore it and set it to blank
+            f = init_filter('none',filter_name[i],group)
+        filts.append(f)
         # Save region details to phase diagram object
         pd = pds[i]
         pd._get_python_region(selected_reg)
         # And save to phase diagram object
-        pd._get_python_filter(filt)
+        pd._get_python_filter(f)
 
     # Check if phase data is already present and if it coincides with the new one
     if not ozy_file is None:
@@ -289,12 +324,14 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,minval,maxva
                 if verbose: print('Writing phase diagram data in %s_data'%group.type)
         f.close()
     
-    nfilter_real = pds_fr.count(True)
-    if nfilter_real == 0:
-        if nfilter > 1:
-            return pds_fr
-        else:
-            return pds_fr[0]
+        nfilter_real = pds_fr.count(True)
+        if nfilter_real == 0:
+            if nfilter > 1:
+                return pds_fr
+            else:
+                return pds_fr[0]
+    else:
+        nfilter_real = nfilter
         
     # If substructre is removed, obtain regions
     if remove_all:
@@ -348,25 +385,42 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,minval,maxva
     hydro_data.linthresh[1] = linthresh
     hydro_data.zero_index[1] = zero_index
     
-    counter = 0
-    for i in range(0,nfilter):
-        if pds_fr[i] == True:
-            hydro_data.filters[counter] = filts[i]
-            counter += 1
+    if not ozy_file is None:
+        counter = 0
+        for i in range(0,nfilter):
+            if pds_fr[i] == True:
+                hydro_data.filters[counter] = filts[i]
+                counter += 1
+    else:
+        for i in range(0,nfilter):
+            hydro_data.filters[i] = filts[i]
             
     # And now, compute hydro data phase diagrams!
     if hydro_data.nzvar > 0 and hydro_data.nwvar > 0:
         if obj.use_vardict:
-            amrprofmod.twodprofile(obj.simulation.fullpath,selected_reg,filt,hydro_data,lmax,obj.vardict)
+            amrprofmod.twodprofile(obj.simulation.fullpath,selected_reg,hydro_data,lmax,obj.vardict)
         else:
-            amrprofmod.twodprofile(obj.simulation.fullpath,selected_reg,filt,hydro_data,lmax)
+            amrprofmod.twodprofile(obj.simulation.fullpath,selected_reg,hydro_data,lmax)
     
     xdata = 0.5*(hydro_data.xdata[:-1]+hydro_data.xdata[1:])
     ydata = 0.5*(hydro_data.ydata[:-1]+hydro_data.ydata[1:])
     
-    counter = 0
-    for i in range(0,nfilter):
-        if pds_fr[i] == True:
+    if not ozy_file is None:
+        counter = 0
+        for i in range(0,nfilter):
+            if pds_fr[i] == True:
+                pd  = pds[i]
+                pd.xdata.append(group.obj.array(xdata, get_code_units(pd.xvar)))
+                pd.ydata.append(group.obj.array(ydata, get_code_units(pd.yvar)))
+                pd.zdata['hydro'] = []
+                
+                for j in range(0, len(pd.zvars['hydro'])):
+                    code_units = get_code_units(pd.zvars['hydro'][j])
+                    copy_data = np.copy(hydro_data.zdata[counter,:,:,j,:,::2])
+                    pd.zdata['hydro'].append(group.obj.array(copy_data, code_units))
+                counter += 1
+    else:
+        for i in range(0,nfilter):
             pd  = pds[i]
             pd.xdata.append(group.obj.array(xdata, get_code_units(pd.xvar)))
             pd.ydata.append(group.obj.array(ydata, get_code_units(pd.yvar)))
@@ -374,20 +428,22 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,minval,maxva
             
             for j in range(0, len(pd.zvars['hydro'])):
                 code_units = get_code_units(pd.zvars['hydro'][j])
-                copy_data = np.copy(hydro_data.zdata[counter,:,:,j,:,::2])
+                copy_data = np.copy(hydro_data.zdata[i,:,:,j,:,::2])
                 pd.zdata['hydro'].append(group.obj.array(copy_data, code_units))
-            counter += 1
 
     # TODO: Add phase diagram for particles
     star_data = None
     dm_data = None
     if save:
-        pds_to_save = [pds[i] for i in range(0,nfilter) if pds_fr[i] == True]
+        if not ozy_file is None:
+            pds_to_save = [pds[i] for i in range(0,nfilter) if pds_fr[i] == True]
+        else:
+            pds_to_save = pds
         write_phasediag(group.obj, nfilter_real, ozy_file, hydro_data, star_data, dm_data, pds_to_save)
-    
-    for index, porig in enumerate(pds_fr):
-        if porig != True:
-            pds[index] = pds_fr[index]
+    if not ozy_file is None:
+        for index, porig in enumerate(pds_fr):
+            if porig != True:
+                pds[index] = pds_fr[index]
     if nfilter > 1:
         return pds
     else:
@@ -927,7 +983,6 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
     import matplotlib.patheffects as pe
     from matplotlib.colors import LogNorm
     import seaborn as sns
-    from ozy.variables_settings import plotting_dictionary
     sns.set(style="white")
     plt.rc('text', usetex=True)
     plt.rc('font', family='serif')
@@ -1013,12 +1068,12 @@ def plot_compare_stacked_pd(pds,weights,field,name,weightvar='cumulative',
             pd = pds[ipd]
             pd_weight = weights[ipd]
             if doflows or do_sf:
-                plotting_x = plotting_dictionary[pd[0][0].xvar]
-                plotting_y = plotting_dictionary[pd[0][0].yvar]
+                plotting_x = get_plotting_def(pd[0][0].xvar)
+                plotting_y = get_plotting_def(pd[0][0].yvar)
             else:
-                plotting_x = plotting_dictionary[pd[0].xvar]
-                plotting_y = plotting_dictionary[pd[0].yvar]
-            plotting_z = plotting_dictionary[field[ipd]]
+                plotting_x = get_plotting_def(pd[0].xvar)
+                plotting_y = get_plotting_def(pd[0].yvar)
+            plotting_z = get_plotting_def(field[ipd])
             ax[i,j].set_xlabel(plotting_x['label'],fontsize=18)
             ax[i,j].xaxis.set_ticks_position('both')
             ax[i,j].yaxis.set_ticks_position('left')

@@ -57,6 +57,7 @@ module amr_profiles
         type(hydro_var) :: xvar
         type(hydro_var) :: yvar
         integer :: nzvar
+        character(128) :: xvarname, yvarname
         character(128),dimension(:),allocatable :: zvarnames
         integer,dimension(1:2) :: nbins
         integer :: nwvar
@@ -1176,12 +1177,16 @@ module amr_profiles
             ! If the user provides their own variable dictionary,
             ! use that one instead of the automatic from the 
             ! hydro descriptor file (RAMSES)
+            if (verbose) write(*,*)'Using user-provided variable dictionary'
             call get_var_tools(vardict,prof_data%nzvar,prof_data%zvarnames,prof_data%zvars)
             call get_var_tools(vardict,prof_data%nwvar,prof_data%wvarnames,prof_data%wvars)
+            prof_data%xvar%name = prof_data%xvarname
+            prof_data%yvar%name = prof_data%yvarname
             call set_hydro_var(vardict,prof_data%xvar)
             call set_hydro_var(vardict,prof_data%yvar)
             
             ! We also do it for the filter variables
+            if (verbose) write(*,*)'Setting up filter variables'
             do ifilt=1,prof_data%nfilter
                 call get_filter_var_tools(vardict,prof_data%filters(ifilt))
             end do
@@ -1191,6 +1196,7 @@ module amr_profiles
             ivx = vardict%get('velocity_x')
             ivy = vardict%get('velocity_y')
             ivz = vardict%get('velocity_z')
+            if (verbose) write(*,*)'Finished setting up hydro variables'
         else
             call get_var_tools(varIDs,prof_data%nzvar,prof_data%zvarnames,prof_data%zvars)
             call get_var_tools(varIDs,prof_data%nwvar,prof_data%wvarnames,prof_data%wvars)

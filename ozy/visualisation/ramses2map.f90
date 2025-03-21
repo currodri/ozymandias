@@ -13,9 +13,8 @@ module obs_instruments
         real(dbl),dimension(1:2) :: dx_pixel
         real(dbl) :: distance,far_cut_depth
         integer :: map_max_size=1024
-        integer :: nfilter,nsubs
+        integer :: nsubs
         integer :: lmin,lmax
-        type(filter),dimension(:),allocatable :: filters
         type(region),dimension(:),allocatable :: subs
     end type camera
 
@@ -32,13 +31,12 @@ module obs_instruments
 
     type(camera) function init_camera(centre,los_axis,up_vector,region_size,region_axis,&
                                     & region_velocity,distance,far_cut_depth,map_max_size,&
-                                    & nfilter,nsubs)
+                                    & nsubs)
         implicit none
         type(vector),intent(in) :: centre,los_axis,up_vector,region_axis,region_velocity
         real(dbl),dimension(1:2),intent(in) :: region_size
         real(dbl),intent(in) :: distance,far_cut_depth
         integer,intent(in) :: map_max_size
-        integer,intent(in) :: nfilter
         integer, intent(in) :: nsubs
 
         init_camera%centre = centre
@@ -55,9 +53,6 @@ module obs_instruments
         init_camera%map_max_size = map_max_size
 
         init_camera%dx_pixel(:) = dble(init_camera%region_size(:)) / init_camera%map_max_size
-
-        init_camera%nfilter = nfilter
-        if (.not.allocated(init_camera%filters)) allocate(init_camera%filters(nfilter))
 
         init_camera%nsubs = nsubs
         if (.not.allocated(init_camera%subs).and.nsubs>0) allocate(init_camera%subs(nsubs))
@@ -255,18 +250,34 @@ module maps
     use io_ramses
     use geometrical_regions
     use obs_instruments
+    use hydro_commons
+    use part_commons
 
-    type projection_handler
+    type hydro_projection_handler
         character(128) :: pov
         integer :: nvars,nfilter,nwvars
         integer, dimension(1:2) :: n_sample
         character(128),dimension(:),allocatable :: varnames
         character(128),dimension(:),allocatable :: weightvars
-        real(dbl),dimension(:,:,:,:),allocatable :: map
-        real(dbl),dimension(:,:,:),allocatable :: weights
+        real(dbl),dimension(:,:,:,:,:),allocatable :: map
+        real(dbl),dimension(:,:,:,:),allocatable :: weights
         type(hydro_var),dimension(:),allocatable :: vars
         type(hydro_var),dimension(:),allocatable :: wvars
-    end type projection_handler
+        type(filter_hydro),dimension(:),allocatable :: filters
+    end type hydro_projection_handler
+
+    type part_projection_handler
+        character(128) :: pov
+        integer :: nvars,nfilter,nwvars
+        integer, dimension(1:2) :: n_sample
+        character(128),dimension(:),allocatable :: varnames
+        character(128),dimension(:),allocatable :: weightvars
+        real(dbl),dimension(:,:,:,:,:),allocatable :: map
+        real(dbl),dimension(:,:,:,:),allocatable :: weights
+        type(part_var),dimension(:),allocatable :: vars
+        type(part_var),dimension(:),allocatable :: wvars
+        type(filter_part),dimension(:),allocatable :: filters
+    end type part_projection_handler
 
     ! Gaussian kernel configuration and normalisation
     integer, parameter::rmax_npix_kernel = 50 ! Max number of pixels for radius (for computational speed-up)
@@ -279,20 +290,32 @@ module maps
 
     contains
 
-    subroutine allocate_projection_handler(proj)
+    subroutine allocate_hydro_projection_handler(proj)
         implicit none
-        type(projection_handler),intent(inout) :: proj
+        type(hydro_projection_handler),intent(inout) :: proj
 
         if (.not.allocated(proj%varnames)) allocate(proj%varnames(1:proj%nvars))
         if (.not.allocated(proj%weightvars)) allocate(proj%weightvars(1:proj%nwvars))
         if (.not.allocated(proj%vars)) allocate(proj%vars(1:proj%nvars))
         if (.not.allocated(proj%wvars)) allocate(proj%wvars(1:proj%nwvars))
-    end subroutine allocate_projection_handler
+        if (.not.allocated(proj%filters)) allocate(proj%filters(1:proj%nfilter))
+    end subroutine allocate_hydro_projection_handler
 
-    subroutine get_pos_map(proj,grid,ix,iy,ii_map)
+    subroutine allocate_part_projection_handler(proj)
+        implicit none
+        type(part_projection_handler),intent(inout) :: proj
+
+        if (.not.allocated(proj%varnames)) allocate(proj%varnames(1:proj%nvars))
+        if (.not.allocated(proj%weightvars)) allocate(proj%weightvars(1:proj%nwvars))
+        if (.not.allocated(proj%vars)) allocate(proj%vars(1:proj%nvars))
+        if (.not.allocated(proj%wvars)) allocate(proj%wvars(1:proj%nwvars))
+        if (.not.allocated(proj%filters)) allocate(proj%filters(1:proj%nfilter))
+    end subroutine allocate_part_projection_handler
+
+    subroutine get_pos_map(n_sample,grid,ix,iy,ii_map)
         implicit none
 
-        type(projection_handler), intent(in) :: proj
+        integer, dimension(1:2),intent(in) :: n_sample
         type(level), intent(in) :: grid
         integer, intent(in) :: ix,iy
         integer, dimension(1:2), intent(inout) :: ii_map
@@ -300,8 +323,8 @@ module maps
         real(dbl) :: xconv,yconv
 
         ! Grid to map transformation factors
-        xconv = dble(proj%n_sample(1))/dble(grid%imax - grid%imin + 1)
-        yconv = dble(proj%n_sample(2))/dble(grid%jmax - grid%jmin + 1)
+        xconv = dble(n_sample(1))/dble(grid%imax - grid%imin + 1)
+        yconv = dble(n_sample(2))/dble(grid%jmax - grid%jmin + 1)
 
         ! Compute map pixel
         ii_map(1) = int(dble(ix-grid%imin)*xconv)
@@ -312,14 +335,14 @@ module maps
         use constants, only: halfsqrt2
         implicit none
     
-        type(projection_handler), intent(inout) :: proj
+        type(hydro_projection_handler), intent(inout) :: proj
         type(camera), intent(in)                :: cam
         type(level), dimension(100), intent(in)  :: grid
         real(dbl), intent(in), optional :: nexp_factor
 
         integer     ::nexpand
         integer     ::dx_i
-        integer     ::ix,iy,ivar,ilevel,ifilt
+        integer     ::ix,iy,ivar,ilevel,ifilt,iweight
         
         real(dbl)   ::kdx, kdx2, dx, ksize
         real(dbl)   ::nexp_f
@@ -342,8 +365,8 @@ module maps
 
         ! Initialise map
         call get_map_size(cam,proj%n_sample)
-        allocate(proj%map(1:proj%nfilter,1:proj%nvars,1:proj%n_sample(1),1:proj%n_sample(2)))
-        allocate(proj%weights(1:proj%nfilter,1:proj%n_sample(1),1:proj%n_sample(2)))
+        allocate(proj%map(1:proj%nfilter,1:proj%nvars,1:proj%nwvars,1:proj%n_sample(1),1:proj%n_sample(2)))
+        allocate(proj%weights(1:proj%nfilter,1:proj%nwvars,1:proj%n_sample(1),1:proj%n_sample(2)))
         proj%map     = 0D0
         proj%weights = 0D0
 
@@ -376,9 +399,11 @@ module maps
                         ixh = int(xpix(1)); iyh = int(xpix(2))
                         ! Project to map
                         do ifilt = 1, proj%nfilter
-                            proj%weights(ifilt,ixh,iyh) = proj%weights(ifilt,ixh,iyh) + grid(ilevel)%map(ifilt,ix,iy)
-                            do ivar = 1, proj%nvars
-                                proj%map(ifilt,ivar,ixh,iyh) = proj%map(ifilt,ivar,ixh,iyh) + grid(ilevel)%cube(ifilt,ivar,ix,iy)
+                            do iweight = 1, proj%nwvars
+                                proj%weights(ifilt,iweight,ixh,iyh) = proj%weights(ifilt,iweight,ixh,iyh) + grid(ilevel)%map(ifilt,iweight,ix,iy)
+                                do ivar = 1, proj%nvars
+                                    proj%map(ifilt,ivar,iweight,ixh,iyh) = proj%map(ifilt,ivar,iweight,ixh,iyh) + grid(ilevel)%cube(ifilt,ivar,iweight,ix,iy)
+                                end do
                             end do
                         end do
                     end do
@@ -432,11 +457,13 @@ module maps
                             !     print*,shape(proj%weights(ifilt,ixmin:ixmax,jymin:jymax)),shape(kfilter(kxmin:kxmax,kymin:kymax))
                             !     stop
                             ! end if
-                            proj%weights(ifilt,ixmin:ixmax,jymin:jymax) = proj%weights(ifilt,ixmin:ixmax,jymin:jymax) + &
-                                                                            &grid(ilevel)%map(ifilt,ix,iy)*kfilter(kxmin:kxmax,kymin:kymax)
-                            do ivar = 1, proj%nvars
-                                proj%map(ifilt, ivar,ixmin:ixmax,jymin:jymax) = proj%map(ifilt, ivar,ixmin:ixmax,jymin:jymax) + &
-                                                                    &grid(ilevel)%cube(ifilt,ivar,ix,iy)*kfilter(kxmin:kxmax,kymin:kymax)
+                            do iweight = 1, proj%nwvars
+                                proj%weights(ifilt,iweight,ixmin:ixmax,jymin:jymax) = proj%weights(ifilt,iweight,ixmin:ixmax,jymin:jymax) + &
+                                                                                &grid(ilevel)%map(ifilt,iweight,ix,iy)*kfilter(kxmin:kxmax,kymin:kymax)
+                                do ivar = 1, proj%nvars
+                                    proj%map(ifilt, ivar,iweight,ixmin:ixmax,jymin:jymax) = proj%map(ifilt, ivar,iweight,ixmin:ixmax,jymin:jymax) + &
+                                                                        &grid(ilevel)%cube(ifilt,ivar,iweight,ix,iy)*kfilter(kxmin:kxmax,kymin:kymax)
+                                end do
                             end do
                         end do
                         ! call circular_projection
@@ -449,7 +476,9 @@ module maps
         ! Finally, normalise using the saved weights
         filtloopmap: do ifilt=1,proj%nfilter
             projvarloopmap: do ivar=1,proj%nvars
-                proj%map(ifilt,ivar,:,:)=proj%map(ifilt,ivar,:,:)/proj%weights(ifilt,:,:)
+                weightvarloop: do iweight=1,proj%nwvars
+                    proj%map(ifilt,ivar,iweight,:,:) = proj%map(ifilt,ivar,iweight,:,:)/proj%weights(ifilt,iweight,:,:)
+                end do weightvarloop
             end do projvarloopmap
         end do filtloopmap
         
@@ -478,17 +507,17 @@ module maps
     subroutine point_projection(proj,cam,grid)
         implicit none
 
-        type(projection_handler), intent(inout) :: proj
+        type(hydro_projection_handler), intent(inout) :: proj
         type(camera), intent(in)                :: cam
         type(level), dimension(100), intent(in)  :: grid
 
         integer :: ix, iy, ixh, iyh
-        integer :: ilevel, ivar, ifilt
+        integer :: ilevel, ivar, ifilt, iweight
         integer, dimension(1:2) :: xpix
 
         ! Initialise map
-        allocate(proj%map(1:proj%nfilter,1:proj%nvars,1:proj%n_sample(1),1:proj%n_sample(2)))
-        allocate(proj%weights(1:proj%nfilter,1:proj%n_sample(1),1:proj%n_sample(2)))
+        allocate(proj%map(1:proj%nfilter,1:proj%nvars,1:proj%nwvars,1:proj%n_sample(1),1:proj%n_sample(2)))
+        allocate(proj%weights(1:proj%nfilter,1:proj%nwvars,1:proj%n_sample(1),1:proj%n_sample(2)))
         proj%map     = 0D0
         proj%weights = 0D0
 
@@ -497,13 +526,15 @@ module maps
             do ix = grid(ilevel)%imin, grid(ilevel)%imax
                 do iy = grid(ilevel)%jmin, grid(ilevel)%jmax
                     ! Get the index of cell in the map grid
-                    call get_pos_map(proj,grid(ilevel),ix,iy,xpix)
+                    call get_pos_map(proj%n_sample,grid(ilevel),ix,iy,xpix)
                     ixh = int(xpix(1)); iyh = int(xpix(2))
                     ! Project to map
                     do ifilt = 1, proj%nfilter
-                        proj%weights(ifilt,ixh,iyh) = proj%weights(ifilt,ixh,iyh) + grid(ilevel)%map(ifilt,ix,iy)
-                        do ivar = 1, proj%nvars
-                            proj%map(ifilt,ivar,ixh,iyh) = proj%map(ifilt,ivar,ixh,iyh) + grid(ilevel)%cube(ifilt,ivar,ix,iy)
+                        do iweight = 1, proj%nwvars
+                            proj%weights(ifilt,iweight,ixh,iyh) = proj%weights(ifilt,iweight,ixh,iyh) + grid(ilevel)%map(ifilt,iweight,ix,iy)
+                            do ivar = 1, proj%nvars
+                                proj%map(ifilt,ivar,iweight,ixh,iyh) = proj%map(ifilt,ivar,iweight,ixh,iyh) + grid(ilevel)%cube(ifilt,ivar,iweight,ix,iy)
+                            end do
                         end do
                     end do
                 end do
@@ -513,7 +544,9 @@ module maps
         ! Finally, normalise using the saved weights
         filtloopmap: do ifilt=1,proj%nfilter
             projvarloopmap: do ivar=1,proj%nvars
-                proj%map(ifilt,ivar,:,:)=proj%map(ifilt,ivar,:,:)/proj%weights(ifilt,:,:)
+                weightvarloop: do iweight=1,proj%nwvars
+                    proj%map(ifilt,ivar,iweight,:,:)=proj%map(ifilt,ivar,iweight,:,:)/proj%weights(ifilt,iweight,:,:)
+                end do weightvarloop
             end do projvarloopmap
         end do filtloopmap
     end subroutine point_projection
@@ -521,13 +554,13 @@ module maps
     subroutine upload_projection(proj,cam,bbox,grid)
         implicit none
 
-        type(projection_handler), intent(inout) :: proj
+        type(hydro_projection_handler), intent(inout) :: proj
         type(camera), intent(in)                :: cam
         type(region), intent(in)                :: bbox
         type(level), dimension(100), intent(in) :: grid
 
         integer :: ix, iy, ixh, iyh
-        integer :: ilevel, ivar, ifilt
+        integer :: ilevel, ivar, ifilt, iweight
         integer, dimension(1:2) :: xpix
         integer :: nx_full,ny_full
         integer :: imin, imax, jmin, jmax
@@ -535,8 +568,8 @@ module maps
         real(dbl) :: xmin, ymin
 
         ! Initialise map
-        allocate(proj%map(1:proj%nfilter,1:proj%nvars,1:proj%n_sample(1),1:proj%n_sample(2)))
-        allocate(proj%weights(1:proj%nfilter,1:proj%n_sample(1),1:proj%n_sample(2)))
+        allocate(proj%map(1:proj%nfilter,1:proj%nvars,1:proj%nwvars,1:proj%n_sample(1),1:proj%n_sample(2)))
+        allocate(proj%weights(1:proj%nfilter,1:proj%nwvars,1:proj%n_sample(1),1:proj%n_sample(2)))
         proj%map     = 0D0
         proj%weights = 0D0
 
@@ -556,12 +589,14 @@ module maps
                         ndom = 2**ilevel
                         i = int(xmin*ndom)+1
                         j = int(ymin*ndom)+1
+                        weightvarlooplmax: do iweight=1,proj%nwvars
                             projvarlooplmax: do ivar=1,proj%nvars
-                                grid(cam%lmax)%cube(ifilt,ivar,ix,iy)=grid(cam%lmax)%cube(ifilt,ivar,ix,iy) + &
-                                                            & grid(ilevel)%cube(ifilt,ivar,i,j)
+                                grid(cam%lmax)%cube(ifilt,ivar,iweight,ix,iy)=grid(cam%lmax)%cube(ifilt,ivar,iweight,ix,iy) + &
+                                                            & grid(ilevel)%cube(ifilt,ivar,iweight,i,j)
                             end do projvarlooplmax
-                            grid(cam%lmax)%map(ifilt,ix,iy)=grid(cam%lmax)%map(ifilt,ix,iy) + &
-                                                            & grid(ilevel)%map(ifilt,i,j)
+                            grid(cam%lmax)%map(ifilt,iweight,ix,iy)=grid(cam%lmax)%map(ifilt,iweight,ix,iy) + &
+                                                            & grid(ilevel)%map(ifilt,iweight,i,j)
+                        end do weightvarlooplmax
                     end do ilevelloop
             end do yloop
             end do xloop
@@ -574,9 +609,12 @@ module maps
                 iy = int(dble(j)/dble(proj%n_sample(2))*dble(jmax-jmin+1))+jmin
                 iy = min(iy,jmax)
                 filtloopmap: do ifilt=1,proj%nfilter
-                    projvarloopmap: do ivar=1,proj%nvars
-                        proj%map(ifilt,ivar,i,j)=grid(cam%lmax)%cube(ifilt,ivar,ix,iy)/grid(cam%lmax)%map(ifilt,ix,iy)
-                    end do projvarloopmap
+                    weightvarloopmap: do iweight=1,proj%nwvars
+                        proj%weights(ifilt,iweight,i,j)=grid(cam%lmax)%map(ifilt,iweight,ix,iy)
+                        projvarloopmap: do ivar=1,proj%nvars
+                            proj%map(ifilt,ivar,iweight,i,j)=grid(cam%lmax)%cube(ifilt,ivar,iweight,ix,iy)/grid(cam%lmax)%map(ifilt,iweight,ix,iy)
+                        end do projvarloopmap
+                    end do weightvarloopmap
                 end do filtloopmap
             end do
         end do 
@@ -592,7 +630,7 @@ module maps
         character(128),intent(in) :: type_projection
         type(camera),intent(inout) :: cam
         logical,intent(in) :: use_neigh
-        type(projection_handler),intent(inout) :: proj
+        type(hydro_projection_handler),intent(inout) :: proj
         integer,intent(in),optional :: lmax,lmin
         real(dbl),intent(in),optional :: nexp_factor
         type(dictf90),intent(in),optional :: vardict
@@ -625,7 +663,6 @@ module maps
         call get_map_box(cam,bbox)
 
         if (cam%nsubs>0 .and. verbose)write(*,*)'Excluding substructure: ',cam%nsubs
-        proj%nfilter = cam%nfilter
         call get_map_size(cam,proj%n_sample)
 
         ! Set up hydro variables quicklook tools
@@ -639,8 +676,8 @@ module maps
             call get_var_tools(vardict,proj%nwvars,proj%weightvars,proj%wvars)
             
             ! We also do it for the filter variables
-            do ii = 1, cam%nfilter
-                call get_filter_var_tools(vardict,cam%filters(ii))
+            do ii = 1, proj%nfilter
+                call get_filter_var_tools(vardict,proj%filters(ii))
             end do
 
             ! We always need the indexes of the velocities
@@ -655,8 +692,8 @@ module maps
             call get_var_tools(varIDs,proj%nwvars,proj%weightvars,proj%wvars)
 
             ! We also do it for the filter variables
-            do ii = 1, cam%nfilter
-                call get_filter_var_tools(varIDs,cam%filters(ii))
+            do ii = 1, proj%nfilter
+                call get_filter_var_tools(varIDs,proj%filters(ii))
             end do
 
             ! We always need the indexes of the velocities
@@ -682,7 +719,7 @@ module maps
 
             logical :: ok_cell,ok_filter,ok_sub,read_gravity
             integer :: i,j,k
-            integer :: ipos,icpu,ilevel,ind,idim,iidim,ivar,ifilt,isub
+            integer :: ipos,icpu,ilevel,ind,idim,iidim,ivar,ifilt,isub,iweight
             integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
             integer :: imin,imax,jmin,jmax
             integer :: nvarh
@@ -732,10 +769,10 @@ module maps
                 imax = int((bbox%xmax-bbox%xmin)*dble(nx_full))+1
                 jmin = int(0D0*dble(ny_full))+1
                 jmax = int((bbox%ymax-bbox%ymin)*dble(ny_full))+1
-                allocate(grid(ilevel)%cube(1:cam%nfilter,1:proj%nvars,imin:imax,jmin:jmax))
-                allocate(grid(ilevel)%map(1:cam%nfilter,imin:imax,jmin:jmax))
-                grid(ilevel)%cube(:,:,:,:) = 0D0
-                grid(ilevel)%map(:,:,:) = 0D0
+                allocate(grid(ilevel)%cube(1:proj%nfilter,1:proj%nvars,1:proj%nwvars,imin:imax,jmin:jmax))
+                allocate(grid(ilevel)%map(1:proj%nfilter,1:proj%nwvars,imin:imax,jmin:jmax))
+                grid(ilevel)%cube(:,:,:,:,:) = 0D0
+                grid(ilevel)%map(:,:,:,:) = 0D0
                 grid(ilevel)%imin = imin
                 grid(ilevel)%imax = imax
                 grid(ilevel)%jmin = jmin
@@ -989,31 +1026,17 @@ module maps
                                         tempvar(0,ivx:ivz) = vtemp
                                         if (read_gravity) tempgrav_var(0,2:4) = gtemp
                                         
-                                        filterloop: do ifilt=1,cam%nfilter
+                                        filterloop: do ifilt=1,proj%nfilter
                                             if (read_gravity) then
-                                                ok_filter = filter_cell(bbox,cam%filters(ifilt),xtemp,dx,tempvar,&
+                                                ok_filter = filter_cell(bbox,proj%filters(ifilt),xtemp,dx,tempvar,&
                                                                         &tempson,trans_matrix,tempgrav_var)
                                             else
-                                                ok_filter = filter_cell(bbox,cam%filters(ifilt),xtemp,dx,tempvar,&
+                                                ok_filter = filter_cell(bbox,proj%filters(ifilt),xtemp,dx,tempvar,&
                                                                         &tempson,trans_matrix)
                                             end if
                                             ! Finally, get hydro data
                                             if (ok_filter) then
                                                 if (.not.grid(ilevel)%active) grid(ilevel)%active = .true.
-                                                weight = 1D0
-                                                if (trim(proj%weightvars(1)) /= 'counts') then
-                                                    !TODO: Change this so that it loops over the wvars, not just the first one
-                                                    if (read_gravity) then 
-                                                        rho = proj%wvars(1)%myfunction(amr,sim,proj%wvars(1),bbox,dx*sim%boxlen,xtemp&
-                                                            & ,tempvar,tempson,trans_matrix,tempgrav_var)
-                                                    else
-                                                        rho = proj%wvars(1)%myfunction(amr,sim,proj%wvars(1),bbox,dx*sim%boxlen,xtemp&
-                                                            & ,tempvar,tempson,trans_matrix)
-                                                    end if
-                                                    weight = rho !MAX(rho*dx*weight/(bbox%zmax-bbox%zmin),0D0)
-                                                end if
-                                                grid(ilevel)%map(ifilt,ix,iy)=grid(ilevel)%map(ifilt,ix,iy)+weight
-
                                                 projvarloop: do ivar=1,proj%nvars
                                                     if (read_gravity) then
                                                         map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
@@ -1022,7 +1045,22 @@ module maps
                                                         map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
                                                             & ,tempvar,tempson,trans_matrix)
                                                     end if
-                                                    grid(ilevel)%cube(ifilt,ivar,ix,iy)=grid(ilevel)%cube(ifilt,ivar,ix,iy)+map*weight
+                                                    weightvarloop: do iweight=1,proj%nwvars
+                                                        if (trim(proj%weightvars(iweight)) /= 'counts') then
+                                                            weight = 1D0
+                                                        else
+                                                            !MAX(rho*dx*weight/(bbox%zmax-bbox%zmin),0D0)
+                                                            if (read_gravity) then
+                                                                weight = proj%wvars(iweight)%myfunction(amr,sim,proj%wvars(iweight),bbox,dx*sim%boxlen,xtemp&
+                                                                    & ,tempvar,tempson,trans_matrix,tempgrav_var)
+                                                            else
+                                                                weight = proj%wvars(iweight)%myfunction(amr,sim,proj%wvars(iweight),bbox,dx*sim%boxlen,xtemp&
+                                                                    & ,tempvar,tempson,trans_matrix,tempgrav_var)
+                                                            end if
+                                                        end if
+                                                        grid(ilevel)%map(ifilt,iweight,ix,iy)=grid(ilevel)%map(ifilt,iweight,ix,iy)+weight
+                                                        grid(ilevel)%cube(ifilt,ivar,iweight,ix,iy)=grid(ilevel)%cube(ifilt,ivar,iweight,ix,iy)+map*weight
+                                                    end do weightvarloop
                                                 end do projvarloop
                                             end if
                                         end do filterloop
@@ -1068,7 +1106,7 @@ module maps
 
             logical :: ok_cell,read_gravity,ok_filter,ok_cell_each,ok_sub
             integer :: i,j,k
-            integer :: ipos,icpu,ilevel,ind,idim,iidim,ivar,iskip,inbor,ison,isub
+            integer :: ipos,icpu,ilevel,ind,idim,iidim,ivar,iskip,inbor,ison,isub,iweight
             integer :: ix,iy,iz,ngrida,cumngrida,nx_full,ny_full,nz_full
             integer :: imin,imax,jmin,jmax
             integer :: nvarh
@@ -1126,10 +1164,10 @@ module maps
                 imax = int((bbox%xmax-bbox%xmin)*dble(nx_full))+1
                 jmin = int(0D0*dble(ny_full))+1
                 jmax = int((bbox%ymax-bbox%ymin)*dble(ny_full))+1
-                allocate(grid(ilevel)%cube(1:cam%nfilter,1:proj%nvars,imin:imax,jmin:jmax))
-                allocate(grid(ilevel)%map(1:cam%nfilter,imin:imax,jmin:jmax))
-                grid(ilevel)%cube(:,:,:,:) = 0D0
-                grid(ilevel)%map(:,:,:) = 0D0
+                allocate(grid(ilevel)%cube(1:proj%nfilter,1:proj%nvars,1:proj%nwvars,imin:imax,jmin:jmax))
+                allocate(grid(ilevel)%map(1:proj%nfilter,1:proj%nwvars,imin:imax,jmin:jmax))
+                grid(ilevel)%cube(:,:,:,:,:) = 0D0
+                grid(ilevel)%map(:,:,:,:) = 0D0
                 grid(ilevel)%imin = imin
                 grid(ilevel)%imax = imax
                 grid(ilevel)%jmin = jmin
@@ -1439,31 +1477,17 @@ module maps
                                             tempson(inbor)       = son(ind_nbor(1,inbor))
                                             if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(1,inbor),:)
                                         end do
-                                        filterloop: do ifilt=1,cam%nfilter
+                                        filterloop: do ifilt=1,proj%nfilter
                                             if (read_gravity) then
-                                                ok_filter = filter_cell(bbox,cam%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
+                                                ok_filter = filter_cell(bbox,proj%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
                                                                         &tempson,trans_matrix,tempgrav_var)
                                             else
-                                                ok_filter = filter_cell(bbox,cam%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
+                                                ok_filter = filter_cell(bbox,proj%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
                                                                         &tempson,trans_matrix)
                                             end if
                                             ! Finally, get hydro data
                                             if (ok_filter) then
                                                 if (.not.grid(ilevel)%active) grid(ilevel)%active = .true.
-                                                weight = 1D0
-                                                if (trim(proj%weightvars(1)) /= 'counts') then
-                                                    !TODO: Change this so that it loops over the wvars, not just the first one
-                                                    if (read_gravity) then 
-                                                        rho = proj%wvars(1)%myfunction(amr,sim,proj%wvars(1),bbox,dx*sim%boxlen,xtemp&
-                                                            & ,tempvar,tempson,trans_matrix,tempgrav_var)
-                                                    else
-                                                        rho = proj%wvars(1)%myfunction(amr,sim,proj%wvars(1),bbox,dx*sim%boxlen,xtemp&
-                                                            & ,tempvar,tempson,trans_matrix)
-                                                    end if
-                                                    weight = MAX(rho*dx*weight/(bbox%zmax-bbox%zmin),0D0)
-                                                end if
-                                                grid(ilevel)%map(ifilt,ix,iy)=grid(ilevel)%map(ifilt,ix,iy)+weight
-
                                                 projvarloop: do ivar=1,proj%nvars
                                                     if (read_gravity) then
                                                         map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
@@ -1472,8 +1496,23 @@ module maps
                                                         map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
                                                             & ,tempvar,tempson,trans_matrix)
                                                     end if
-                                                    grid(ilevel)%cube(ifilt,ivar,ix,iy)=grid(ilevel)%cube(ifilt,ivar,ix,iy)+map*weight
-                                                end do projvarloop
+                                                    weightvarloop: do iweight=1,proj%nwvars
+                                                        if (trim(proj%weightvars(iweight)) /= 'counts') then
+                                                            weight = 1D0
+                                                        else
+                                                            !MAX(rho*dx*weight/(bbox%zmax-bbox%zmin),0D0)
+                                                            if (read_gravity) then
+                                                                weight = proj%wvars(iweight)%myfunction(amr,sim,proj%wvars(iweight),bbox,dx*sim%boxlen,xtemp&
+                                                                    & ,tempvar,tempson,trans_matrix,tempgrav_var)
+                                                            else
+                                                                weight = proj%wvars(iweight)%myfunction(amr,sim,proj%wvars(iweight),bbox,dx*sim%boxlen,xtemp&
+                                                                    & ,tempvar,tempson,trans_matrix,tempgrav_var)
+                                                            end if
+                                                        end if
+                                                        grid(ilevel)%map(ifilt,iweight,ix,iy)=grid(ilevel)%map(ifilt,iweight,ix,iy)+weight
+                                                        grid(ilevel)%cube(ifilt,ivar,iweight,ix,iy)=grid(ilevel)%cube(ifilt,ivar,iweight,ix,iy)+map*weight
+                                                    end do weightvarloop
+                                              end do projvarloop
                                             end if
                                         end do filterloop
                                         
@@ -1513,16 +1552,23 @@ module maps
         
     end subroutine projection_hydro
 
-    subroutine projection_parts(repository,cam,proj,tag_file,inverse_tag)
+    subroutine projection_parts(repository,cam,proj,part_dict,part_vtypes,tag_file,inverse_tag)
         implicit none
         character(128),intent(in) :: repository
         type(camera),intent(in) :: cam
-        type(projection_handler),intent(inout) :: proj
+        type(part_projection_handler),intent(inout) :: proj
+        type(dictf90),intent(in),optional :: part_dict,part_vtypes
         character(128),intent(in),optional :: tag_file
         logical,intent(in),optional :: inverse_tag
 
         type(region) :: bbox
+        integer :: ivx,ivy,ivz
+        integer :: ii
 
+        ! Obtain details of the particle variables stored
+        call read_partfile_descriptor(repository)
+
+        ! Intialise parameters of the AMR structure and simulation attributes
         call init_amr_read(repository)
         amr%lmax = amr%nlevelmax !min(get_required_resolution(cam),amr%nlevelmax)
         if (verbose) write(*,*)'Maximum resolution level: ',amr%nlevelmax
@@ -1532,349 +1578,383 @@ module maps
         bbox%name = 'cube'
         bbox%bulk_velocity = cam%region_velocity
         bbox%criteria_name = 'd_euclid'
+
+        ! Compute the Hilbert curve for the bounding box
         call get_cpu_map(bbox)
         call get_map_box(cam,bbox)
+
         if (cam%nsubs>0 .and. verbose)write(*,*)'Excluding substructure: ',cam%nsubs
-        if (present(tag_file)) then
-            if (present(inverse_tag)) then
-                call project_particles(repository,bbox,cam,proj,tag_file,inverse_tag)
-            else
-                call project_particles(repository,bbox,cam,proj,tag_file)
-            endif
+
+        ! Set up the part variables quicklook tools
+        if (present(part_dict).and.present(part_vtypes)) then
+            ! If the user provides their own particle dictionary,
+            ! use that one instead of the automatic from the
+            ! particle_file_descriptor.txt (RAMSES)
+            call get_partvar_tools(part_dict,part_vtypes,proj%nvars,proj%varnames,proj%vars)
+
+            ! Do it also for the weight variables
+            call get_partvar_tools(part_dict,part_vtypes,proj%nwvars,proj%weightvars,proj%wvars)
+
+            ! We also do it for the filter variables
+            do ii = 1, proj%nfilter
+                call get_filter_part_tools(part_dict,part_vtypes,proj%filters(ii))
+            end do
+
+            ! We always need the indexes of the velocities to perform rotation
+            ! of particle velocities
+            ivx = part_dict%get('velocity_x')
+            ivy = part_dict%get('velocity_y')
+            ivz = part_dict%get('velocity_z')
+
+            ! If there exists a particle_file_descriptor.txt, make sure
+            ! that the provided part_vtype is consistent with that one
+            if (sim%isthere_part_descriptor) then
+                do ii = 1, sim%nvar_part
+                    if (sim%part_var_types(ii) /= part_vtypes%get(part_vtypes%keys(ii))) then
+                        write(*,*)'Error: Provided particle dictionary is not consistent with the particle_file_descriptor.txt'
+                        write(*,*)'sim%part_var_types: ',sim%part_var_types
+                        write(*,*)sim%part_var_types(ii), part_vtypes%get(part_vtypes%keys(ii))
+                        stop
+                    end if
+                end do
+            end if
+
+            ! Since all its alright, we just set the partIDs and partvar_types to the
+            ! ones provided by the user
+            partIDs = part_dict
+            partvar_types = part_vtypes
         else
-            call project_particles(repository,bbox,cam,proj)
-        endif
-        if (verbose) write(*,*)minval(proj%map),maxval(proj%map)
-    end subroutine projection_parts
+            ! If the user does not provide their own particle dictionary,
+            ! use the automatic one from the particle_file_descriptor.txt (RAMSES)
+            call get_partvar_tools(partIDs,partvar_types,proj%nvars,proj%varnames,proj%vars)
 
-    subroutine project_particles(repository,bbox,cam,proj,tag_file,inverse_tag)
-#ifndef LONGINT
-        use utils, only:quick_sort_irg,binarysearch_irg
-#else
-        use utils, only:quick_sort_ilg,binarysearch_ilg
-#endif
-        use cosmology
-        implicit none
-        character(128),intent(in) :: repository
-        type(region),intent(in) :: bbox
-        type(camera),intent(in) :: cam
-        type(projection_handler),intent(inout) :: proj
-        character(128),intent(in),optional :: tag_file
-        logical,intent(in),optional :: inverse_tag
+            ! Do it also for the weight variables
+            call get_partvar_tools(partIDs,partvar_types,proj%nwvars,proj%weightvars,proj%wvars)
 
-        logical :: ok_part,ok_tag,ok_filter,ok_sub
-        integer :: i,j,k,itag,ifilt,isub
-        integer :: ipos,icpu,ix,iy,ixp1,iyp1,ivar
-        integer(irg) :: npart,npart2,nstar,ntag
-        integer :: npartsub
-        integer :: ncpu2,ndim2
-        real(dbl) :: weight,distance,mapvalue
-        real(dbl) :: dx,dy,ddx,ddy,dex,dey
-        real(dbl),dimension(1:3,1:3) :: trans_matrix
-        character(5) :: nchar,ncharcpu
-        character(6) :: ptype
-        character(128) :: nomfich
-        type(vector) :: xtemp,vtemp,dcell
-        type(particle) :: part
-        integer,dimension(:),allocatable :: order
-        integer,dimension(:),allocatable :: nparttoto
-#ifndef LONGINT
-        integer(irg),dimension(:),allocatable :: id,tag_id
-#else
-        integer(ilg),dimension(:),allocatable :: id,tag_id
-#endif
-#ifndef IMASS
-        integer(1),dimension(:), allocatable :: part_tags
-#endif
-        integer,dimension(1:2) :: n_map
-        real(dbl),dimension(:),allocatable :: m,age,met
-        real(dbl),dimension(:),allocatable :: imass
-        real(dbl),dimension(:,:),allocatable :: x,v
+            ! We also do it for the filter variables
+            do ii = 1, proj%nfilter
+                call get_filter_part_tools(partIDs,partvar_types,proj%filters(ii))
+            end do
 
-        npartsub = 0
-#ifndef IMASS
-        if (sim%eta_sn .eq. -1D0) then
-            if (verbose) write(*,*)': eta_sn=-1 and not IMASS --> should set this up!'
-            stop
+            ! We always need the indexes of the velocities to perform rotation
+            ! of particle velocities
+            ivx = part_dict%get('velocity_x')
+            ivy = part_dict%get('velocity_y')
+            ivz = part_dict%get('velocity_z')
         end if
-#endif
 
-        ! If tagged particles file exists, read and allocate array
-        if (present(tag_file)) then
-            open(unit=58,file=TRIM(tag_file),status='old',form='formatted')
-            if (verbose) write(*,*)'Reading particle tags file '//TRIM(tag_file)
-            read(58,'(I11)')ntag
-            if (verbose) write(*,*)'Number of tagged particles in file: ',ntag
-            if (allocated(tag_id)) then
-                deallocate(tag_id)
-                allocate(tag_id(1:ntag))
-            else
-                allocate(tag_id(1:ntag))
-            endif
-            do itag=1,ntag
-                read(58,'(I11)')tag_id(itag)
-            end do
-            allocate(order(1:ntag))
-            if (verbose) write(*,*)'Sorting list of particle ids for binary search...'
+        call project_particles
+
+        contains
+
+        subroutine project_particles
 #ifndef LONGINT
-            call quick_sort_irg(tag_id,order,ntag)
+            use utils, only:quick_sort_irg,binarysearch_irg
 #else
-            call quick_sort_ilg(tag_id,order,ntag)
+            use utils, only:quick_sort_ilg,binarysearch_ilg
 #endif
-            deallocate(order)
-            close(58)
-        endif
-        
-        ! Compute transformation matrix for camera LOS
-        call los_transformation(cam,trans_matrix)
-        
-        ! Get camera resolution
-        call get_map_size(cam,n_map)
-        dx = (bbox%xmax-bbox%xmin)/n_map(1)
-        dy = (bbox%ymax-bbox%ymin)/n_map(2)
-        dcell = (/dx,dy,0D0/)
-
-        ! Allocate toto
-        proj%nfilter = cam%nfilter
-        allocate(proj%map(1:proj%nfilter,1:proj%nvars,0:n_map(1)-1,0:n_map(2)-1))
-
-        proj%map = 0D0
-
-        ! Cosmological model
-        if (sim%aexp.eq.1.and.sim%h0.eq.1)sim%cosmo=.false.
-        if (sim%cosmo) then
-            call cosmology_model
-        else
-            sim%time_simu = sim%t
-            if (verbose) write(*,*)'Age simu=',sim%time_simu*sim%unit_t/(365.*24.*3600.*1d9)
-        endif
-        
-        ! Check number of particles in selected CPUs
-        ipos = INDEX(repository,'output_')
-        nchar = repository(ipos+7:ipos+13)
-        npart = 0
-        allocate(nparttoto(1:proj%nfilter))
-        nparttoto = 0
-        do k=1,amr%ncpu_read
-            icpu = amr%cpu_list(k)
-            call title(icpu,ncharcpu)
-            nomfich=TRIM(repository)//'/part_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
-            ! if (verbose) write(*,*)'Processing file '//TRIM(nomfich)
-            open(unit=1,file=nomfich,status='old',form='unformatted')
-            read(1)ncpu2
-            read(1)ndim2
-            read(1)npart2
-            read(1)
-            read(1)nstar
-            close(1)
-            npart=npart+npart2
-        end do
-        if (verbose) write(*,*)'Found ',npart,' particles.'
-        if(nstar>0)then
-            if (verbose) write(*,*)'Found ',nstar,' star particles.'
-        endif
-
-        ! Compute projected variables using CIC smoothing
-        cpuloop: do k=1,amr%ncpu_read
-            icpu = amr%cpu_list(k)
-            call title(icpu,ncharcpu)
-            nomfich=TRIM(repository)//'/part_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
-            open(unit=1,file=nomfich,status='old',form='unformatted')
-            read(1)ncpu2
-            read(1)ndim2
-            read(1)npart2
-            read(1)
-            read(1)
-            read(1)
-            read(1)
-            read(1)
-            allocate(m(1:npart2))
-            if(nstar>0)then
-                allocate(age(1:npart2))
-                allocate(id(1:npart2))
-                allocate(met(1:npart2))
-                allocate(imass(1:npart2))
+            use cosmology
+            implicit none
+    
+            logical :: ok_part,ok_tag,ok_filter,ok_sub
+            integer :: i,j,k,itag,ifilt,isub,iweight
+            integer :: ipos,icpu,ix,iy,ixp1,iyp1,ivar
+            integer(irg) :: npart,npart2,nstar,ntag
+            integer :: npartsub
+            integer :: ncpu2,ndim2
+            real(dbl) :: weight,distance,mapvalue
+            real(dbl) :: dx,dy,ddx,ddy,dex,dey
+            real(dbl),dimension(1:3,1:3) :: trans_matrix
+            character(5) :: nchar,ncharcpu
+            character(6) :: ptype
+            character(128) :: nomfich
+            type(vector) :: xtemp,vtemp,dcell
+            integer,dimension(:),allocatable :: order
+            integer,dimension(:),allocatable :: nparttoto
+#ifndef LONGINT
+            integer(irg),dimension(:),allocatable :: id,tag_id
+#else
+            integer(ilg),dimension(:),allocatable :: id,tag_id
+#endif
+            integer,dimension(1:2) :: n_map
+            real(dbl),dimension(:,:),allocatable :: part_data_d
+            integer(1),dimension(:,:),allocatable :: part_data_b
+#ifdef LONGINT
+            integer(ilg),dimension(:,:),allocatable :: part_data_i
+#else
+            integer(irg),dimension(:,:),allocatable :: part_data_i
+#endif
+            real(dbl),dimension(:,:),allocatable :: x,v
+    
+            npartsub = 0
 #ifndef IMASS
-                allocate(part_tags(1:npart2))
+            if (sim%eta_sn .eq. -1D0) then
+                if (verbose) write(*,*)': eta_sn=-1 and not IMASS --> should set this up!'
+                stop
+            end if
 #endif
-            endif
-            if (present(tag_file) .and. (.not. allocated(id))) allocate(id(1:npart2))
-            allocate(x(1:npart2,1:ndim2))
-            allocate(v(1:npart2,1:ndim2))
-
-            ! Read position
-            do i=1,amr%ndim
-                read(1)m
-                x(1:npart2,i) = m/sim%boxlen
-            end do
-
-            ! Read velocity
-            do i=1,amr%ndim
-                read(1)m
-                v(1:npart2,i) = m
-            end do
-
-            ! Read mass
-            read(1)m
-            read(1)id
-            read(1) ! Skip level
-            if (nstar>0) then
-                if (sim%family) then
-                    read(1) ! Skip family
-#ifndef IMASS
-                    read(1)part_tags
-#else
-                    read(1) ! Skip tags
-#endif
-                endif
-                read(1)age
-                read(1)met
-#ifdef IMASS
-                read(1)imass
-#endif
-            elseif (present(tag_file) .and. nstar .eq. 0) then
-                read(1)id
-            endif
-            close(1)
-
-            ! Project positions onto the camera frame
-            call project_points(cam,npart2,x)
-
-            ! Project variables into map for particles
-            ! of interest in the region
-            partloop: do i=1,npart2
-                weight = 1D0
-                distance = 0D0
-                mapvalue = 0D0
-                part%x = x(i,:)
-                part%v = v(i,:)
-                part%m = m(i)
-                if (nstar>0) then
-                    part%id = id(i)
-                    part%age = age(i)
-                    part%met = met(i)
-#ifdef IMASS
-                    part%imass = imass(i)
-#else
-                    part%imass = 0D0
-                    if (part_tags(i)==1) then
-                        part%imass = m(i)
-                    elseif (part_tags(i)==0.or.part_tags(i)==-1) then
-                        part%imass = m(i) / (1D0 - sim%eta_sn)
-                    end if
-#endif
-                elseif (present(tag_file)) then
-                    part%id = id(i)
-                    part%age = 0D0
-                    part%met = 0D0
-                    part%imass = 0D0
+    
+            ! If tagged particles file exists, read and allocate array
+            if (present(tag_file)) then
+                open(unit=58,file=TRIM(tag_file),status='old',form='formatted')
+                if (verbose) write(*,*)'Reading particle tags file '//TRIM(tag_file)
+                read(58,'(I11)')ntag
+                if (verbose) write(*,*)'Number of tagged particles in file: ',ntag
+                if (allocated(tag_id)) then
+                    deallocate(tag_id)
+                    allocate(tag_id(1:ntag))
                 else
-                    part%id = 0
-                    part%age = 0D0
-                    part%met = 0D0
-                    part%imass = 0D0
+                    allocate(tag_id(1:ntag))
                 endif
-                xtemp = x(i,:)
-                xtemp = xtemp - bbox%centre
-                x(i,:) = xtemp
-                call checkifinside(x(i,:),bbox,ok_part,distance)
-                xtemp = xtemp + bbox%centre
-                x(i,:) = xtemp
-
-                ! If we are avoiding substructure, check whether we are safe
-                if (cam%nsubs>0) then
-                    ok_sub = .true.
-                    xtemp = xtemp + bbox%centre
-                    do isub=1,cam%nsubs
-                        ok_sub = ok_sub .and. filter_sub(cam%subs(isub),(/part%x%x,part%x%y,part%x%z/))
-                    end do
-                    if (.not.ok_sub)npartsub = npartsub + 1
-                    ok_part = ok_part .and. ok_sub
-                end if
-                ! Check if tags are present for particles
-                if (present(tag_file) .and. ok_part) then
-                    ok_tag = .false.      
+                do itag=1,ntag
+                    read(58,'(I11)')tag_id(itag)
+                end do
+                allocate(order(1:ntag))
+                if (verbose) write(*,*)'Sorting list of particle ids for binary search...'
 #ifndef LONGINT
-                    call binarysearch_irg(ntag,tag_id,part%id,ok_tag)
+                call quick_sort_irg(tag_id,order,ntag)
 #else
-                    call binarysearch_ilg(ntag,tag_id,part%id,ok_tag)
+                call quick_sort_ilg(tag_id,order,ntag)
 #endif
-                    if (present(inverse_tag)) then
-                        if (inverse_tag .and. ok_tag) ok_tag = .false.
-                    end if
-                    ok_part = ok_tag .and. ok_part
-                endif
-                if (ok_part) then
-                    part%v = part%v - bbox%bulk_velocity
-                    call rotate_vector(part%v,trans_matrix)
-                    if (nstar>0) then
-                        if (TRIM(proj%weightvars(1)).eq.'star/cumulative'.or.&
-                            &TRIM(proj%weightvars(1)).eq.'dm/cumulative') then
-                            weight = 1D0
-                        else
-                            call getparttype(part,ptype)
-                            if (ptype.eq.'star') then
-                                call getpartvalue(bbox,part,proj%weightvars(1),weight,dcell)
-                            else
-                                weight = 1D0
-                            endif
-                        endif
-                    else
-                        weight = 1D0
-                        ! call getpartvalue(bbox,xtemp,vtemp,0,m(i),0D0,0D0,0D0,proj%weightvar,weight)
-                    endif
+                deallocate(order)
+                close(58)
+            endif
+            
+            ! Compute transformation matrix for camera LOS
+            call los_transformation(cam,trans_matrix)
+            
+            ! Get camera resolution
+            call get_map_size(cam,n_map)
+            dx = (bbox%xmax-bbox%xmin)/n_map(1)
+            dy = (bbox%ymax-bbox%ymin)/n_map(2)
+            dcell = (/dx,dy,0D0/)
+    
+            ! Allocate toto
+            allocate(proj%map(1:proj%nfilter,1:proj%nvars,1:proj%nwvars,0:n_map(1)-1,0:n_map(2)-1))
+            allocate(proj%weights(1:proj%nfilter,1:proj%nwvars,0:n_map(1)-1,0:n_map(2)-1))
+    
+            proj%map = 0D0
+    
+            ! Cosmological model
+            if (sim%aexp.eq.1.and.sim%h0.eq.1)sim%cosmo=.false.
+            if (sim%cosmo) then
+                call cosmology_model
+            else
+                sim%time_simu = sim%t
+                if (verbose) write(*,*)'Age simu=',sim%time_simu*sim%unit_t/(365.*24.*3600.*1d9)
+            endif
+            
+            ! Check number of particles in selected CPUs
+            ipos = INDEX(repository,'output_')
+            nchar = repository(ipos+7:ipos+13)
+            npart = 0
+            allocate(nparttoto(1:proj%nfilter))
+            nparttoto = 0
+            do k=1,amr%ncpu_read
+                icpu = amr%cpu_list(k)
+                call title(icpu,ncharcpu)
+                nomfich=TRIM(repository)//'/part_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+                ! if (verbose) write(*,*)'Processing file '//TRIM(nomfich)
+                open(unit=1,file=nomfich,status='old',form='unformatted')
+                read(1)ncpu2
+                read(1)ndim2
+                read(1)npart2
+                read(1)
+                read(1)nstar
+                close(1)
+                npart=npart+npart2
+            end do
+            if (verbose) write(*,*)'Found ',npart,' particles.'
+            if(nstar>0)then
+                if (verbose) write(*,*)'Found ',nstar,' star particles.'
+            endif
+    
+            ! Compute projected variables using CIC smoothing
+            cpuloop: do k=1,amr%ncpu_read
+                icpu = amr%cpu_list(k)
+                call title(icpu,ncharcpu)
+                nomfich=TRIM(repository)//'/part_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+                open(unit=1,file=nomfich,status='old',form='unformatted')
+                read(1)ncpu2
+                read(1)ndim2
+                read(1)npart2
+                read(1)
+                read(1)
+                read(1)
+                read(1)
+                read(1)
+                
+                ! 1. Allocate particle data arrays
+                allocate(part_data_d(sim%nvar_part_d,1:npart2))
+                allocate(part_data_b(sim%nvar_part_b,1:npart2))
+                allocate(part_data_i(sim%nvar_part_i,1:npart2))
 
-                    projvarloop: do ivar=1,proj%nvars
-                        call getpartvalue(bbox,part,proj%varnames(ivar),mapvalue,dcell)
-                        if (weight.ne.0D0) then
-                            ! TODO: Properly understand WOH is going on here
-                            ddx = (x(i,1)-bbox%xmin)/dx
-                            ddy = (x(i,2)-bbox%ymin)/dy
-                            ix = int(ddx)
-                            iy = int(ddy)
-                            ddx = ddx - dble(ix)
-                            ddy = ddy - dble(iy)
-                            dex = 1D0 - ddx
-                            dey = 1D0 - ddy
-                            ixp1 = ix + 1
-                            iyp1 = iy + 1
-                            if (ix>=0.and.ix<(n_map(1)-1).and.&
-                                &iy>=0.and.iy<(n_map(2)-1).and.&
-                                &ddx>0.and.ddy>0) then
-                                filtloopmap: do ifilt=1,proj%nfilter
-                                    ok_filter = filter_particle(bbox,cam%filters(ifilt),part)
-                                    if (ok_filter) then
-                                        proj%map(ifilt,ivar,ix  ,iy  ) = proj%map(ifilt,ivar,ix  ,iy  ) + mapvalue*dex*dey*weight
-                                        proj%map(ifilt,ivar,ix  ,iyp1) = proj%map(ifilt,ivar,ix  ,iyp1) + mapvalue*dex*ddy*weight
-                                        proj%map(ifilt,ivar,ixp1,iy  ) = proj%map(ifilt,ivar,ixp1,iy  ) + mapvalue*ddx*dey*weight
-                                        proj%map(ifilt,ivar,ixp1,iyp1) = proj%map(ifilt,ivar,ixp1,iyp1) + mapvalue*ddx*ddy*weight
-                                        nparttoto(ifilt) = nparttoto(ifilt) + 1
-                                    end if
-                                end do filtloopmap
-                                
-                            endif
-                        endif
-                    end do projvarloop
-                endif
-            end do partloop
-            deallocate(m,x,v)
-            if (allocated(id))deallocate(id)
-            if (nstar>0)deallocate(age,met,imass)
-#ifndef IMASS
-            if (nstar>0)deallocate(part_tags)
+                allocate(x(1:npart2,1:3))
+                allocate(v(1:npart2,1:3))
+
+                if (present(tag_file)) allocate(id(1:npart2))
+
+                ! 2. Loop over variables reading in the correct way as determined
+                ! by the particle_file_descriptor.txt
+                do i = 1, sim%nvar_part
+                    if (sim%part_var_types(i) == 1) then
+                        read(1) part_data_d(partIDs%get(partIDs%keys(i)),:)
+                    elseif (sim%part_var_types(i) == 2) then
+                        read(1) part_data_i(partIDs%get(partIDs%keys(i)),:)
+                    elseif (sim%part_var_types(i) == 3) then
+                        read(1) part_data_b(partIDs%get(partIDs%keys(i)),:)
+                    endif
+                end do
+                close(1)
+
+                ! 3. The particle position needs to be in units of the boxlen
+                x(:,1) = part_data_d(partIDs%get('x'),:) / sim%boxlen
+                if (amr%ndim > 1) x(:,2) = part_data_d(partIDs%get('y'),:) / sim%boxlen
+                if (amr%ndim > 2) x(:,3) = part_data_d(partIDs%get('z'),:) / sim%boxlen
+
+                ! 4. Save also the particle velocities so they can be rotated
+                v(:,1) = part_data_d(partIDs%get('velocity_x'),:)
+                if (amr%ndim > 1) v(:,2) = part_data_d(partIDs%get('velocity_y'),:)
+                if (amr%ndim > 2) v(:,3) = part_data_d(partIDs%get('velocity_z'),:)
+
+                ! 5. If a tag file is used, get a hold of the particle ids
+                if (present(tag_file)) id(:) = part_data_i(partIDs%get('id'),:)
+    
+                ! 6. Project positions onto the camera frame
+                call project_points(cam,npart2,x)
+    
+                ! 7. Project variables into map for particles
+                ! of interest in the region
+                partloop: do i=1,npart2
+                    distance = 0D0
+                    xtemp = x(i,:)
+                    xtemp = xtemp - bbox%centre
+                    x(i,:) = xtemp
+                    call checkifinside(x(i,:),bbox,ok_part,distance)
+                    xtemp = xtemp + bbox%centre
+                    x(i,:) = xtemp
+    
+                    ! If we are avoiding substructure, check whether we are safe
+                    if (cam%nsubs>0) then
+                        ok_sub = .true.
+                        do isub=1,cam%nsubs
+                            ok_sub = ok_sub .and. filter_sub(cam%subs(isub),x(i,:))
+                        end do
+                        if (.not.ok_sub)npartsub = npartsub + 1
+                        ok_part = ok_part .and. ok_sub
+                    end if
+                    ! Check if tags are present for particles
+                    if (present(tag_file) .and. ok_part) then
+                        ok_tag = .false.      
+#ifndef LONGINT
+                        call binarysearch_irg(ntag,tag_id,id(i),ok_tag)
+#else
+                        call binarysearch_ilg(ntag,tag_id,id(i),ok_tag)
 #endif
-        end do cpuloop
-        if (verbose) write(*,*)'> nparttoto: ',nparttoto
-        if (verbose) write(*,*)'> npartsub:  ',npartsub
-        deallocate(nparttoto)
-    end subroutine project_particles
+                        if (present(inverse_tag)) then
+                            if (inverse_tag .and. ok_tag) ok_tag = .false.
+                        end if
+                        ok_part = ok_tag .and. ok_part
+                    endif
+                    if (ok_part) then
+                        ! TODO: Properly understand WOH is going on here
+                        ddx = (x(i,1)-bbox%xmin)/dx
+                        ddy = (x(i,2)-bbox%ymin)/dy
+                        ix = int(ddx)
+                        iy = int(ddy)
+                        ddx = ddx - dble(ix)
+                        ddy = ddy - dble(iy)
+                        dex = 1D0 - ddx
+                        dey = 1D0 - ddy
+                        ixp1 = ix + 1
+                        iyp1 = iy + 1
+                        if (ix>=0.and.ix<(n_map(1)-1).and.&
+                            &iy>=0.and.iy<(n_map(2)-1).and.&
+                            &ddx>0.and.ddy>0) then
+                            ! Rotate the particle velocity
+                            vtemp = v(i,:)
+                            vtemp = vtemp - bbox%bulk_velocity
+                            call rotate_vector(vtemp,trans_matrix)
+                            
+                            ! Return the x array (now in boxlen units,
+                            ! rotated for the camera frame and centered)
+                            xtemp = x(i,:)
+                            xtemp = xtemp - bbox%centre
+                            call rotate_vector(xtemp,trans_matrix)
+                            part_data_d(partIDs%get('x'),i) = xtemp%x
+                            if (amr%ndim > 1) part_data_d(partIDs%get('y'),i) = xtemp%y
+                            if (amr%ndim > 2) part_data_d(partIDs%get('z'),i) = xtemp%z
+                            
+                            ! Return the velocity array (now rotated to the
+                            ! camera frame and corrected for the bulk velocity)
+                            part_data_d(partIDs%get('velocity_x'),i) = vtemp%x
+                            if (amr%ndim > 1) part_data_d(partIDs%get('velocity_y'),i) = vtemp%y
+                            if (amr%ndim > 2) part_data_d(partIDs%get('velocity_z'),i) = vtemp%z
+
+                            filtloopmap: do ifilt=1,proj%nfilter
+                                ok_filter = filter_particle(bbox,proj%filters(ifilt),dcell,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
+                                if (ok_filter) then
+                                    projvarloop: do ivar=1,proj%nvars
+                                        if (proj%vars(ivar)%vartype==1) then
+                                            mapvalue = proj%vars(ivar)%myfunction_d(amr,sim,proj%vars(ivar),bbox,dcell &
+                                                & ,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
+                                        else if (proj%vars(ivar)%vartype==2) then
+                                            mapvalue = proj%vars(ivar)%myfunction_i(amr,sim,proj%vars(ivar),bbox,dcell &
+                                                & ,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
+                                        else if (proj%vars(ivar)%vartype==3) then
+                                            mapvalue = proj%vars(ivar)%myfunction_b(amr,sim,proj%vars(ivar),bbox,dcell &
+                                                & ,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
+                                        end if
+                                        weightloop: do iweight=1,proj%nwvars
+                                            if (trim(proj%weightvars(iweight)).eq.'cumulative') then
+                                                weight = 1d0
+                                            else
+                                                if (proj%wvars(iweight)%vartype==1) then
+                                                    weight = proj%wvars(iweight)%myfunction_d(amr,sim,proj%wvars(iweight),bbox,dcell &
+                                                        & ,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
+                                                else if (proj%wvars(iweight)%vartype==2) then
+                                                    weight = proj%wvars(iweight)%myfunction_i(amr,sim,proj%wvars(iweight),bbox,dcell &
+                                                        & ,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
+                                                else if (proj%wvars(iweight)%vartype==3) then
+                                                    weight = proj%wvars(iweight)%myfunction_b(amr,sim,proj%wvars(iweight),bbox,dcell &
+                                                        & ,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
+                                                end if
+                                            end if
+                                            ! Add the weights
+                                            proj%weights(ifilt,iweight,ix,iy) = proj%weights(ifilt,iweight,ix,iy) + weight*dex*dey
+                                            proj%weights(ifilt,iweight,ix,iyp1) = proj%weights(ifilt,iweight,ix,iyp1) + weight*dex*ddy
+                                            proj%weights(ifilt,iweight,ixp1,iy) = proj%weights(ifilt,iweight,ixp1,iy) + weight*ddx*dey
+                                            proj%weights(ifilt,iweight,ixp1,iyp1) = proj%weights(ifilt,iweight,ixp1,iyp1) + weight*ddx*ddy
+
+                                            ! Add the map values
+                                            proj%map(ifilt,ivar,iweight,ix  ,iy  ) = proj%map(ifilt,ivar,iweight,ix  ,iy  ) + mapvalue*dex*dey*weight
+                                            proj%map(ifilt,ivar,iweight,ix  ,iyp1) = proj%map(ifilt,ivar,iweight,ix  ,iyp1) + mapvalue*dex*ddy*weight
+                                            proj%map(ifilt,ivar,iweight,ixp1,iy  ) = proj%map(ifilt,ivar,iweight,ixp1,iy  ) + mapvalue*ddx*dey*weight
+                                            proj%map(ifilt,ivar,iweight,ixp1,iyp1) = proj%map(ifilt,ivar,iweight,ixp1,iyp1) + mapvalue*ddx*ddy*weight    
+                                        end do weightloop
+                                    end do projvarloop
+                                    nparttoto(ifilt) = nparttoto(ifilt) + 1
+                                end if
+                            end do filtloopmap
+                                
+                        endif
+                    endif
+                end do partloop
+                deallocate(x,v,part_data_d,part_data_b,part_data_i)
+                if (allocated(id))deallocate(id)
+            end do cpuloop
+            if (verbose) write(*,*)'> nparttoto: ',nparttoto
+            if (verbose) write(*,*)'> npartsub:  ',npartsub
+            deallocate(nparttoto)
+        end subroutine project_particles
+    end subroutine projection_parts
 
     subroutine healpix_hydro(repository,cam,use_neigh,proj,nside,lmax,lmin,vardict)
         implicit none
         character(128),intent(in) :: repository
         type(camera),intent(inout) :: cam
         logical,intent(in) :: use_neigh
-        type(projection_handler),intent(inout) :: proj
+        type(hydro_projection_handler),intent(inout) :: proj
         integer,intent(in) :: nside
         integer,intent(in),optional :: lmax,lmin
         type(dictf90),intent(in),optional :: vardict
@@ -1918,8 +1998,8 @@ module maps
             call get_var_tools(vardict,proj%nwvars,proj%weightvars,proj%wvars)
             
             ! We also do it for the filter variables
-            do ii = 1, cam%nfilter
-                call get_filter_var_tools(vardict,cam%filters(ii))
+            do ii = 1, proj%nfilter
+                call get_filter_var_tools(vardict,proj%filters(ii))
             end do
 
             ! We always need the indexes of the velocities
@@ -1934,8 +2014,8 @@ module maps
             call get_var_tools(varIDs,proj%nwvars,proj%weightvars,proj%wvars)
 
             ! We also do it for the filter variables
-            do ii = 1, cam%nfilter
-                call get_filter_var_tools(varIDs,cam%filters(ii))
+            do ii = 1, proj%nfilter
+                call get_filter_var_tools(varIDs,proj%filters(ii))
             end do
 
             ! We always need the indexes of the velocities
@@ -1958,7 +2038,8 @@ module maps
 
             logical :: ok_cell,ok_filter,ok_sub
             integer :: i,j,k
-            integer :: ipos,icpu,ilevel,ind,idim,iidim,ivar,iskip
+            integer :: ipos,icpu,ilevel,ind,idim,iidim
+            integer :: ivar,iskip,iweight
             integer :: isub,inbor,ifilt
             integer :: ix,iy,iz,ngrida,ns,cumngrida
             integer :: imin,imax
@@ -1978,7 +2059,7 @@ module maps
             integer,dimension(:,:),allocatable :: son
             integer,dimension(:),allocatable :: tempson
             logical,dimension(:),allocatable :: ref
-            real(dbl),dimension(:,:),allocatable :: proj_rho
+            real(dbl),dimension(:,:,:),allocatable :: proj_rho
             integer,dimension(:),allocatable :: listpix,listpix_clean
             real(dbl) :: rho,map,weight,aperture
             real(dbl) :: xmin,ymin
@@ -1994,10 +2075,8 @@ module maps
 
             ns = nside2npix(nside)-1
             if (verbose) write(*,*)'Total number of healpix map: ',ns+1
-            ! TODO: We should also include in here the filters
-            proj%nfilter = cam%nfilter
-            allocate(proj%map(1:proj%nfilter,1:proj%nvars,1:1,0:ns))
-            allocate(proj_rho(1:proj%nfilter,0:ns))
+            allocate(proj%map(1:proj%nfilter,1:proj%nvars,1:proj%nwvars,1:1,0:ns))
+            allocate(proj_rho(1:proj%nfilter,1:proj%nwvars,0:ns))
             allocate(listpix(0:ns))
             proj%map = 0D0
             proj_rho = 0D0
@@ -2230,28 +2309,30 @@ module maps
                                         tempvar(0,ivx:ivz) = vtemp
 
                                         ! Do loop over filters
-                                        filterloop: do ifilt=1,cam%nfilter
-                                            ok_filter = filter_cell(bsphere,cam%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
+                                        filterloop: do ifilt=1,proj%nfilter
+                                            ok_filter = filter_cell(bsphere,proj%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
                                                                         &tempson,trans_matrix)
                                             if (ok_filter) then
-                                                ! Get weight
-                                                ! TODO: I should loop over weightvars
-                                                rho = proj%wvars(1)%myfunction(amr,sim,proj%wvars(1),bsphere,dx*sim%boxlen,xtemp&
-                                                        & ,tempvar,tempson,trans_matrix)
-                                                do j=1,size(listpix_clean)
-                                                    ix = listpix_clean(j)
-                                                    proj_rho(ifilt,ix) = proj_rho(ifilt,ix)+rho*dx*sim%boxlen*weight/(bsphere%rmax-bsphere%rmin)
-                                                end do
 
                                                 ! Get variable values
-                                                projvarloop: do ivar=1,proj%nvars
-                                                    map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bsphere,dx*sim%boxlen,xtemp&
-                                                            & ,tempvar,tempson,trans_matrix)
-                                                    do j=1,size(listpix_clean)
-                                                        ix = listpix_clean(j)
-                                                        proj%map(ifilt,ivar,1,ix) = proj%map(ifilt,ivar,1,ix)+map*rho*dx*weight/(bsphere%rmax-bsphere%rmin)
-                                                    end do
-                                                end do projvarloop
+                                                do j=1,size(listpix_clean)
+                                                    ix = listpix_clean(j)
+                                                    projvarloop: do ivar=1,proj%nvars
+                                                        map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bsphere,dx*sim%boxlen,xtemp&
+                                                                & ,tempvar,tempson,trans_matrix)
+                                                            do iweight = 1, proj%nwvars
+                                                                ! Get weight
+                                                                if (trim(proj%weightvars(iweight)).eq.'cumulative') then
+                                                                    rho = 1d0
+                                                                else
+                                                                    rho = proj%wvars(iweight)%myfunction(amr,sim,proj%wvars(iweight),bsphere,dx*sim%boxlen,xtemp&
+                                                                            & ,tempvar,tempson,trans_matrix)
+                                                                end if
+                                                                proj_rho(ifilt,iweight,ix) = proj_rho(ifilt,iweight,ix)+rho*dx*sim%boxlen*weight/(bsphere%rmax-bsphere%rmin)
+                                                                proj%map(ifilt,ivar,iweight,1,ix) = proj%map(ifilt,ivar,iweight,1,ix)+map*rho*dx*weight/(bsphere%rmax-bsphere%rmin)
+                                                            end do
+                                                    end do projvarloop
+                                                end do
                                             end if
                                         end do filterloop
                                         
@@ -2272,7 +2353,9 @@ module maps
             filtloopmap: do ifilt=1,proj%nfilter
                 do i=0,ns
                     projvarloopmap: do ivar=1,proj%nvars
-                        proj%map(ifilt,ivar,1,i) = proj%map(ifilt,ivar,1,i)/proj_rho(ifilt,i)
+                        weightvarloopmap: do iweight=1,proj%nwvars
+                            proj%map(ifilt,ivar,iweight,1,i) = proj%map(ifilt,ivar,iweight,1,i)/proj_rho(ifilt,iweight,i)
+                        end do weightvarloopmap
                     end do projvarloopmap
                 end do
             end do filtloopmap

@@ -113,16 +113,30 @@ class Snapshot(object):
 
     def _set_variable_ordering(self):
         from amr2 import dictionary_commons
-        from variables_settings import variables_ordering
+        from variables_settings import hydro_variables_ordering, \
+                                        part_variables_ordering
         self.vardict = dictionary_commons.dictf90()
-        if len(variables_ordering) > 0:
-            print("Setting variable ordering from local ozy_settings.py.")
-            self.vardict.init(len(variables_ordering))
-            for i,var in enumerate(variables_ordering):
+        self.part_vardict = dictionary_commons.dictf90()
+        self.part_vartypes = dictionary_commons.dictf90()
+        if len(hydro_variables_ordering) > 0:
+            print("Setting hydro variable ordering from local ozy_settings.py.")
+            self.vardict.init(len(hydro_variables_ordering))
+            for i,var in enumerate(hydro_variables_ordering):
                 self.vardict.add(var,i+1)
             self.use_vardict = True
         else:
             self.use_vardict = False
+        if len(part_variables_ordering) > 0:
+            print("Setting particle variable ordering from local ozy_settings.py.")
+            self.part_vardict.init(len(part_variables_ordering))
+            for i,var in enumerate(part_variables_ordering):
+                self.part_vardict.add(var,i+1)
+            self.use_part_vardict = True
+            self.part_vartypes.init(len(part_variables_ordering))
+            for var,vtype in part_variables_ordering.items():
+                self.part_vartypes.add(var,vtype)
+        else:
+            self.use_part_vardict = False
     
     def save(self, filename):
         """Save Snapshot object as HDF5 file."""

@@ -33,28 +33,11 @@ module hydro_commons
         procedure(myinterface),pointer,nopass :: myfunction
     end type hydro_var
 
-    ! abstract interface
-    !     function myinterface(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
-    !         import :: dbl,hydro_var,region,vector,amr_info,sim_info
-    !         type(amr_info),intent(in) :: my_amr
-    !         type(sim_info),intent(in) :: my_sim
-    !         type(hydro_var), intent(in) :: hvar
-    !         type(region),intent(in)                       :: reg
-    !         real(dbl),intent(in)                       :: dx
-    !         type(vector),intent(in)        :: x
-    !         real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
-    !         integer,dimension(0:my_amr%twondim),intent(in) :: son
-    !         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
-    !         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-
-    !         real(dbl) :: myinterface
-    !     end function myinterface
-    ! end interface
-
     contains
 
     ! RAW VARIABLES
     function raw_hydro(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
         type(hydro_var), intent(in) :: hvar
@@ -73,6 +56,7 @@ module hydro_commons
     ! GEOMETRICAL VARIABLES
 
     function myinterface(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
         type(hydro_var), intent(in) :: hvar
@@ -256,7 +240,7 @@ module hydro_commons
 
         real(dbl) :: phi_cyl_wrap
 
-        ! Value of spherical phi angle measure in the x-y plane 
+        ! Value of cylindrical phi angle measure in the x-y plane 
         ! from the x axis
         phi_cyl_wrap = phi_cyl(x)
     end function phi_cyl_wrap
@@ -4630,3 +4614,2019 @@ module hydro_commons
     end subroutine cmp_sigma_turb
 
 end module hydro_commons
+
+module part_commons
+    use local
+    use constants
+    use dictionary_commons
+    use vectors
+    use basis_representations
+    use coordinate_systems
+    use geometrical_regions
+    use io_ramses, only: amr_info, sim_info, partIDs, partvar_types
+
+    type part_var
+        character(128) :: name,type
+        integer :: vartype
+        integer, dimension(:), allocatable :: ids,vtypes
+        procedure(myinterface_d),pointer,nopass :: myfunction_d
+        procedure(myinterface_i),pointer,nopass :: myfunction_i
+        procedure(myinterface_b),pointer,nopass :: myfunction_b
+    end type part_var
+
+    contains
+
+    ! RAW VARIABLES
+    function raw_part_d(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: raw_part_d
+
+        raw_part_d = part_var_d(pvar%ids(1))
+    end function raw_part_d
+
+    function raw_part_i(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+#ifdef LONGINT
+        integer(ilg) :: raw_part_i
+#else
+        integer(irg) :: raw_part_i
+#endif
+        raw_part_i = part_var_i(pvar%ids(1))
+    end function raw_part_i
+
+    function raw_part_b(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        integer(1) :: raw_part_b
+
+        raw_part_b = part_var_b(pvar%ids(1))
+    end function raw_part_b
+
+    ! GEOMETRICAL VARIABLES
+    function myinterface_d(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: myinterface_d
+
+        myinterface_d = part_var_d(pvar%ids(1))
+    end function myinterface_d
+
+    function myinterface_i(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+#ifdef LONGINT
+        integer(ilg) :: myinterface_i
+#else
+        integer(irg) :: myinterface_i
+#endif
+        myinterface_i = part_var_i(pvar%ids(1))
+    end function myinterface_i
+
+    function myinterface_b(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        integer(1) :: myinterface_b
+
+        myinterface_b = part_var_b(pvar%ids(1))
+    end function myinterface_b
+
+    function d_euclid_wrap(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: d_euclid_wrap
+        type(vector) :: pos
+
+        pos%x = part_var_d(pvar%ids(1))
+        pos%y = part_var_d(pvar%ids(2))
+        pos%z = part_var_d(pvar%ids(3))
+        d_euclid_wrap = magnitude(pos)
+    end function d_euclid_wrap
+
+    function r_sphere_wrap(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: r_sphere_wrap
+        type(vector) :: pos
+
+        pos%x = part_var_d(pvar%ids(1))
+        pos%y = part_var_d(pvar%ids(2))
+        pos%z = part_var_d(pvar%ids(3))
+
+        ! Radius from center of the sphere
+        r_sphere_wrap = r_sphere(pos)
+    end function r_sphere_wrap
+
+    function theta_sphere_wrap(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: theta_sphere_wrap
+        type(vector) :: pos
+
+        pos%x = part_var_d(pvar%ids(1))
+        pos%y = part_var_d(pvar%ids(2))
+        pos%z = part_var_d(pvar%ids(3))
+
+        ! Value of spherical theta angle measured from the z axis
+        theta_sphere_wrap = theta_sphere(pos)
+    end function theta_sphere_wrap
+
+    function phi_sphere_wrap(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: phi_sphere_wrap
+        type(vector) :: pos
+
+        pos%x = part_var_d(pvar%ids(1))
+        pos%y = part_var_d(pvar%ids(2))
+        pos%z = part_var_d(pvar%ids(3))
+
+        ! Value of spherical phi angle measure in the x-y plane 
+        ! from the x axis
+        phi_sphere_wrap = phi_sphere(pos)
+    end function phi_sphere_wrap
+
+    function r_cyl_wrap(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else   
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: r_cyl_wrap
+        type(vector) :: pos
+
+        pos%x = part_var_d(pvar%ids(1))
+        pos%y = part_var_d(pvar%ids(2))
+        pos%z = part_var_d(pvar%ids(3))
+
+        ! Radius from the z axis
+        r_cyl_wrap = r_cyl(pos)
+    end function r_cyl_wrap
+
+    function phi_cyl_wrap(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT 
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: phi_cyl_wrap
+        type(vector) :: pos
+
+        pos%x = part_var_d(pvar%ids(1))
+        pos%y = part_var_d(pvar%ids(2))
+        pos%z = part_var_d(pvar%ids(3))
+
+        ! Value of cylindrical phi angle measure in the x-y plane 
+        ! from the x axis
+        phi_cyl_wrap = phi_cyl(pos)
+    end function phi_cyl_wrap
+
+    subroutine check_geovar(vardict,varname,pvar,ok)
+        implicit none
+
+        type(dictf90), intent(in)      :: vardict
+        character(128),intent(in) :: varname
+        type(part_var),intent(inout) :: pvar
+        logical,intent(inout) :: ok
+
+        ok = .true.
+
+        select case (trim(varname))
+        case ('d_euclid')
+            ! Euclidean distance
+            pvar%type = 'geometric'
+            pvar%name = 'd_euclid'
+            pvar%vartype = 1
+            allocate(pvar%ids(3))
+            allocate(pvar%vtypes(3))
+            pvar%ids(1) = vardict%get('x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('z')
+            pvar%vtypes(3) = 1
+            pvar%myfunction_d => d_euclid_wrap
+        case ('r_sphere')
+            ! Radius from center of sphere
+            pvar%type = 'geometric'
+            pvar%name = 'r_sphere'
+            pvar%vartype = 1
+            allocate(pvar%ids(3))
+            allocate(pvar%vtypes(3))
+            pvar%ids(1) = vardict%get('x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('z')
+            pvar%vtypes(3) = 1
+            pvar%myfunction_d => r_sphere_wrap
+        case ('theta_sphere')
+            ! Spherical theta angle
+            pvar%type = 'geometric'
+            pvar%name = 'theta_sphere'
+            pvar%vartype = 1
+            allocate(pvar%ids(3))
+            allocate(pvar%vtypes(3))
+            pvar%ids(1) = vardict%get('x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('z')
+            pvar%vtypes(3) = 1
+            pvar%myfunction_d => theta_sphere_wrap
+        case ('phi_sphere')
+            ! Spherical phi angle
+            pvar%type = 'geometric'
+            pvar%name = 'phi_sphere'
+            pvar%vartype = 1
+            allocate(pvar%ids(3))
+            allocate(pvar%vtypes(3))
+            pvar%ids(1) = vardict%get('x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('z')
+            pvar%vtypes(3) = 1
+            pvar%myfunction_d => phi_sphere_wrap
+        case ('r_cyl')
+            ! Radius from z axis
+            pvar%type = 'geometric'
+            pvar%name = 'r_cyl'
+            pvar%vartype = 1
+            allocate(pvar%ids(3))
+            allocate(pvar%vtypes(3))
+            pvar%ids(1) = vardict%get('x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('z')
+            pvar%vtypes(3) = 1
+            pvar%myfunction_d => r_cyl_wrap
+        case ('phi_cyl')
+            ! Cylindrical phi angle
+            pvar%type = 'geometric'
+            pvar%name = 'phi_cyl'
+            pvar%vartype = 1
+            allocate(pvar%ids(3))
+            allocate(pvar%vtypes(3))
+            pvar%ids(1) = vardict%get('x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('z')
+            pvar%vtypes(3) = 1
+            pvar%myfunction_d => phi_cyl_wrap
+        case default
+            ok = .false.
+        end select
+    end subroutine
+
+    ! DERIVED VARIABLES
+    function v_sphere_r(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: v_sphere_r
+        type(vector) :: pos,v
+        type(basis) :: temp_basis
+
+        pos%x = part_var_d(pvar%ids(1))
+        pos%y = part_var_d(pvar%ids(2))
+        pos%z = part_var_d(pvar%ids(3))
+
+        v%x = part_var_d(pvar%ids(4))
+        v%y = part_var_d(pvar%ids(5))
+        v%z = part_var_d(pvar%ids(6))
+
+        ! Velocity component in the spherical radial direction
+        ! Dot product of velocity vector with spherical radial
+        !    unit vector
+        call spherical_basis_from_cartesian(pos,temp_basis)
+        v_sphere_r = v.DOT.temp_basis%u(1)
+    end function v_sphere_r
+
+    function v_sphere_phi(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: v_sphere_phi
+        type(vector) :: pos,v
+        type(basis) :: temp_basis
+
+        pos%x = part_var_d(pvar%ids(1))
+        pos%y = part_var_d(pvar%ids(2))
+        pos%z = part_var_d(pvar%ids(3))
+
+        v%x = part_var_d(pvar%ids(4))
+        v%y = part_var_d(pvar%ids(5))
+        v%z = part_var_d(pvar%ids(6))
+
+        ! Velocity component in the spherical phi direction
+        ! Dot product of velocity vector with spherical phi
+        !    unit vector
+        call spherical_basis_from_cartesian(pos,temp_basis)
+        v_sphere_phi = v.DOT.temp_basis%u(3)
+    end function v_sphere_phi
+
+    function v_sphere_theta(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: v_sphere_theta
+        type(vector) :: pos,v
+        type(basis) :: temp_basis
+
+        pos%x = part_var_d(pvar%ids(1))
+        pos%y = part_var_d(pvar%ids(2))
+        pos%z = part_var_d(pvar%ids(3))
+
+        v%x = part_var_d(pvar%ids(4))
+        v%y = part_var_d(pvar%ids(5))
+        v%z = part_var_d(pvar%ids(6))
+
+        ! Velocity component in the spherical theta direction
+        ! Dot product of velocity vector with spherical theta
+        !    unit vector
+        call spherical_basis_from_cartesian(pos,temp_basis)
+        v_sphere_theta = v.DOT.temp_basis%u(2)
+    end function v_sphere_theta
+
+    function v_cyl_z(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: v_cyl_z
+        type(vector) :: pos,v
+        type(basis) :: temp_basis
+
+        pos%x = part_var_d(pvar%ids(1))
+        pos%y = part_var_d(pvar%ids(2))
+        pos%z = part_var_d(pvar%ids(3))
+
+        v%x = part_var_d(pvar%ids(4))
+        v%y = part_var_d(pvar%ids(5))
+        v%z = part_var_d(pvar%ids(6))
+
+        ! Velocity component in the cylindrical z direction
+        ! Dot product of velocity vector with cylindrical z
+        !    unit vector
+        call cylindrical_basis_from_cartesian(pos,temp_basis)
+        v_cyl_z = v.DOT.temp_basis%u(3)
+    end function v_cyl_z
+
+    function v_cyl_phi(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: v_cyl_phi
+        type(vector) :: pos,v
+        type(basis) :: temp_basis
+
+        pos%x = part_var_d(pvar%ids(1))
+        pos%y = part_var_d(pvar%ids(2))
+        pos%z = part_var_d(pvar%ids(3))
+
+        v%x = part_var_d(pvar%ids(4))
+        v%y = part_var_d(pvar%ids(5))
+        v%z = part_var_d(pvar%ids(6))
+
+        ! Velocity component in the cylindrical phi direction
+        ! Dot product of velocity vector with cylindrical phi
+        !    unit vector
+        call cylindrical_basis_from_cartesian(pos,temp_basis)
+        v_cyl_phi = v.DOT.temp_basis%u(2)
+    end function v_cyl_phi
+
+    function v_cyl_r(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: v_cyl_r
+        type(vector) :: pos,v
+        type(basis) :: temp_basis
+
+        pos%x = part_var_d(pvar%ids(1))
+        pos%y = part_var_d(pvar%ids(2))
+        pos%z = part_var_d(pvar%ids(3))
+
+        v%x = part_var_d(pvar%ids(4))
+        v%y = part_var_d(pvar%ids(5))
+        v%z = part_var_d(pvar%ids(6))
+
+        ! Velocity component in the cylindrical r direction
+        ! Dot product of velocity vector with cylindrical r
+        !    unit vector
+        call cylindrical_basis_from_cartesian(pos,temp_basis)
+        v_cyl_r = v.DOT.temp_basis%u(1)
+    end function v_cyl_r
+
+    function v_magnitude(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: v_magnitude
+        type(vector) :: v
+
+        v%x = part_var_d(pvar%ids(1))
+        v%y = part_var_d(pvar%ids(2))
+        v%z = part_var_d(pvar%ids(3))
+
+        ! Magnitude of the velocity vector
+        v_magnitude = magnitude(v)
+    end function v_magnitude
+
+    function v_squared(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif 
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: v_squared
+        type(vector) :: v
+
+        v%x = part_var_d(pvar%ids(1))
+        v%y = part_var_d(pvar%ids(2))
+        v%z = part_var_d(pvar%ids(3))
+
+        ! Square of the magnitude of the velocity vector
+        v_squared = v.DOT.v
+    end function v_squared
+
+    function v_tangential(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif 
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: v_tangential
+        type(vector) :: pos,v
+        type(basis) :: temp_basis
+
+        ! Tangential velocity magnitude
+        ! Consider as if one substracts the radial velocity,
+        ! the remaining component is the tangential velocity
+        pos%x = part_var_d(pvar%ids(1))
+        pos%y = part_var_d(pvar%ids(2))
+        pos%z = part_var_d(pvar%ids(3))
+
+        v%x = part_var_d(pvar%ids(4))
+        v%y = part_var_d(pvar%ids(5))
+        v%z = part_var_d(pvar%ids(6))
+
+        call spherical_basis_from_cartesian(pos,temp_basis)
+        v_tangential = sqrt((v .DOT. v) - (v .DOT. temp_basis%u(1))**2d0)
+    end function v_tangential
+
+    function centripetal_acc(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif 
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: centripetal_acc
+        type(vector) :: pos,v
+        type(basis) :: temp_basis
+
+        ! Centripetal acceleration
+        ! The centripetal acceleration is the acceleration
+        !    required to keep an object moving in a circle
+        !    at a constant speed
+        pos%x = part_var_d(pvar%ids(1))
+        pos%y = part_var_d(pvar%ids(2))
+        pos%z = part_var_d(pvar%ids(3))
+
+        v%x = part_var_d(pvar%ids(4))
+        v%y = part_var_d(pvar%ids(5))
+        v%z = part_var_d(pvar%ids(6))
+
+        call spherical_basis_from_cartesian(pos,temp_basis)
+        centripetal_acc = ((v.DOT.v) - (v.DOT.temp_basis%u(1))**2)/r_sphere(pos)
+    end function centripetal_acc
+
+    function momentum_x(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif 
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: momentum_x
+        type(vector) :: v
+        real(dbl) :: m
+        
+        v%x = part_var_d(pvar%ids(1))
+        v%y = part_var_d(pvar%ids(2))
+        v%z = part_var_d(pvar%ids(3))
+        m = part_var_d(pvar%ids(4))
+
+        ! x-component of momentum
+        momentum_x = m*v%x
+    end function momentum_x
+
+    function momentum_y(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else 
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: momentum_y
+        type(vector) :: v
+        real(dbl) :: m
+        
+        v%x = part_var_d(pvar%ids(1))
+        v%y = part_var_d(pvar%ids(2))
+        v%z = part_var_d(pvar%ids(3))
+        m = part_var_d(pvar%ids(4))
+
+        ! y-component of momentum
+        momentum_y = m*v%y
+    end function momentum_y
+
+    function momentum_z(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: momentum_z
+        type(vector) :: v
+        real(dbl) :: m
+        
+        v%x = part_var_d(pvar%ids(1))
+        v%y = part_var_d(pvar%ids(2))
+        v%z = part_var_d(pvar%ids(3))
+        m = part_var_d(pvar%ids(4))
+
+        ! z-component of momentum
+        momentum_z = m*v%z
+    end function momentum_z
+
+    function momentum(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif 
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: momentum
+        type(vector) :: v
+        real(dbl) :: m
+
+        v%x = part_var_d(pvar%ids(1))
+        v%y = part_var_d(pvar%ids(2))
+        v%z = part_var_d(pvar%ids(3))
+        m = part_var_d(pvar%ids(4))
+
+        ! Magnitude of momentum
+        momentum = m*magnitude(v)
+    end function momentum
+
+    function momentum_sphere_r(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif 
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+    
+        real(dbl) :: momentum_sphere_r
+        type(vector) :: pos,v
+        type(basis) :: temp_basis
+
+        ! Linear momentum in the spherical radial direction
+        ! 1. Dot product of velocity vector with spherical r
+        !    unit vector
+        ! 2. Multiply by mass of particle
+        pos%x = part_var_d(pvar%ids(1))
+        pos%y = part_var_d(pvar%ids(2))
+        pos%z = part_var_d(pvar%ids(3))
+
+        v%x = part_var_d(pvar%ids(4))
+        v%y = part_var_d(pvar%ids(5))
+        v%z = part_var_d(pvar%ids(6))
+
+        call spherical_basis_from_cartesian(pos,temp_basis)
+        momentum_sphere_r = part_var_d(pvar%ids(7))*(v.DOT.temp_basis%u(1))
+    end function momentum_sphere_r
+
+    function momentum_cyl_z(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif 
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: momentum_cyl_z
+        type(vector) :: pos,v
+        type(basis) :: temp_basis
+
+        ! Linear momentum in the cylindrical z direction
+        ! 1. Dot product of velocity vector with cylindrical z
+        !    unit vector
+        ! 2. Multiply by mass of particle
+        pos%x = part_var_d(pvar%ids(1))
+        pos%y = part_var_d(pvar%ids(2))
+        pos%z = part_var_d(pvar%ids(3))
+
+        v%x = part_var_d(pvar%ids(4))
+        v%y = part_var_d(pvar%ids(5))
+        v%z = part_var_d(pvar%ids(6))
+
+        call cylindrical_basis_from_cartesian(pos,temp_basis)
+        momentum_cyl_z = part_var_d(pvar%ids(7))*(v.DOT.temp_basis%u(3))
+    end function momentum_cyl_z
+
+    function ang_momentum_x(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif 
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: ang_momentum_x
+        type(vector) :: pos,v
+        real(dbl) :: m
+
+        ! Angular momentum x-component
+        ! 1. Cross product of position vector with linear momentum
+        ! 2. Multiply by mass of particle
+        pos%x = part_var_d(pvar%ids(1))
+        pos%y = part_var_d(pvar%ids(2))
+        pos%z = part_var_d(pvar%ids(3))
+
+        v%x = part_var_d(pvar%ids(4))
+        v%y = part_var_d(pvar%ids(5))
+        v%z = part_var_d(pvar%ids(6))
+
+        m = part_var_d(pvar%ids(7))
+
+        ang_momentum_x = m*(pos%y*v%z - pos%z*v%y)
+    end function ang_momentum_x
+
+    function ang_momentum_y(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else 
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: ang_momentum_y
+        type(vector) :: pos,v
+        real(dbl) :: m
+
+        ! Angular momentum y-component
+        ! 1. Cross product of position vector with linear momentum
+        ! 2. Multiply by mass of particle
+        pos%x = part_var_d(pvar%ids(1))
+        pos%y = part_var_d(pvar%ids(2))
+        pos%z = part_var_d(pvar%ids(3))
+
+        v%x = part_var_d(pvar%ids(4))
+        v%y = part_var_d(pvar%ids(5))
+        v%z = part_var_d(pvar%ids(6))
+
+        m = part_var_d(pvar%ids(7))
+
+        ang_momentum_y = m*(pos%z*v%x - pos%x*v%z)
+    end function ang_momentum_y
+
+    function ang_momentum_z(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: ang_momentum_z
+        type(vector) :: pos,v
+        real(dbl) :: m
+
+        ! Angular momentum z-component
+        ! 1. Cross product of position vector with linear momentum
+        ! 2. Multiply by mass of particle
+        pos%x = part_var_d(pvar%ids(1))
+        pos%y = part_var_d(pvar%ids(2))
+        pos%z = part_var_d(pvar%ids(3))
+
+        v%x = part_var_d(pvar%ids(4))
+        v%y = part_var_d(pvar%ids(5))
+        v%z = part_var_d(pvar%ids(6))
+
+        m = part_var_d(pvar%ids(7))
+
+        ang_momentum_z = m*(pos%x*v%y - pos%y*v%x)
+    end function ang_momentum_z
+
+    function ang_momentum(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: ang_momentum
+        type(vector) :: pos,v
+        real(dbl) :: m
+
+        ! Magnitude of angular momentum
+        ! 1. Cross product of position vector with linear momentum
+        ! 2. Multiply by mass of particle
+        pos%x = part_var_d(pvar%ids(1))
+        pos%y = part_var_d(pvar%ids(2))
+        pos%z = part_var_d(pvar%ids(3))
+
+        v%x = part_var_d(pvar%ids(4))
+        v%y = part_var_d(pvar%ids(5))
+        v%z = part_var_d(pvar%ids(6))
+
+        m = part_var_d(pvar%ids(7))
+
+        ang_momentum = m*magnitude(pos*v)
+    end function ang_momentum
+
+    function density(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: density
+        real(dbl) :: m
+
+        ! Density of the particle
+        ! Mass of the particle divided by the volume of the cell
+        m = part_var_d(pvar%ids(1))
+        density = m / (dx%x*dx%y*dx%z)
+    end function density
+
+    function sdensity(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif 
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: sdensity
+        real(dbl) :: m
+
+        ! Surface density of the particle
+        ! Mass of the particle divided by the surface of the cell
+        m = part_var_d(pvar%ids(1))
+        sdensity = m / (dx%x*dx%y)
+    end function sdensity
+
+    subroutine check_dervar(vardict,varname,pvar,ok)
+        implicit none
+
+        type(dictf90),intent(in) :: vardict
+        character(128),intent(in) :: varname
+        type(part_var),intent(inout) :: pvar
+        logical,intent(out) :: ok
+
+        ok = .true.
+        select case(varname)
+        case('v_sphere_r')
+            ! Velocity component in the spherical radial direction
+            pvar%type = 'derived'
+            pvar%name = 'v_sphere_r'
+            allocate(pvar%ids(6))
+            allocate(pvar%vtypes(6))
+            pvar%ids(1) = vardict%get('x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('z')
+            pvar%vtypes(3) = 1
+            pvar%ids(4) = vardict%get('velocity_x')
+            pvar%vtypes(4) = 1
+            pvar%ids(5) = vardict%get('velocity_y')
+            pvar%vtypes(5) = 1
+            pvar%ids(6) = vardict%get('velocity_z')
+            pvar%vtypes(6) = 1
+            pvar%myfunction_d => v_sphere_r
+        case('v_sphere_phi')
+            ! Velocity component in the spherical phi direction
+            pvar%type = 'derived'
+            pvar%name = 'v_sphere_phi'
+            allocate(pvar%ids(6))
+            allocate(pvar%vtypes(6))
+            pvar%ids(1) = vardict%get('x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('z')
+            pvar%vtypes(3) = 1
+            pvar%ids(4) = vardict%get('velocity_x')
+            pvar%vtypes(4) = 1
+            pvar%ids(5) = vardict%get('velocity_y')
+            pvar%vtypes(5) = 1
+            pvar%ids(6) = vardict%get('velocity_z')
+            pvar%vtypes(6) = 1
+            pvar%myfunction_d => v_sphere_phi
+        case('v_sphere_theta')
+            ! Velocity component in the spherical theta direction
+            pvar%type = 'derived'
+            pvar%name = 'v_sphere_theta'
+            allocate(pvar%ids(6))
+            allocate(pvar%vtypes(6))
+            pvar%ids(1) = vardict%get('x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('z')
+            pvar%vtypes(3) = 1
+            pvar%ids(4) = vardict%get('velocity_x')
+            pvar%vtypes(4) = 1
+            pvar%ids(5) = vardict%get('velocity_y')
+            pvar%vtypes(5) = 1
+            pvar%ids(6) = vardict%get('velocity_z')
+            pvar%vtypes(6) = 1
+            pvar%myfunction_d => v_sphere_theta
+        case('v_cyl_z')
+            ! Velocity component in the cylindrical z direction
+            pvar%type = 'derived'
+            pvar%name = 'v_cyl_z'
+            allocate(pvar%ids(6))
+            allocate(pvar%vtypes(6))
+            pvar%ids(1) = vardict%get('x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('z')
+            pvar%vtypes(3) = 1
+            pvar%ids(4) = vardict%get('velocity_x')
+            pvar%vtypes(4) = 1
+            pvar%ids(5) = vardict%get('velocity_y')
+            pvar%vtypes(5) = 1
+            pvar%ids(6) = vardict%get('velocity_z')
+            pvar%vtypes(6) = 1
+            pvar%myfunction_d => v_cyl_z
+        case('v_cyl_phi')
+            ! Velocity component in the cylindrical phi direction
+            pvar%type = 'derived'
+            pvar%name = 'v_cyl_phi'
+            allocate(pvar%ids(6))
+            allocate(pvar%vtypes(6))
+            pvar%ids(1) = vardict%get('x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('z')
+            pvar%vtypes(3) = 1
+            pvar%ids(4) = vardict%get('velocity_x')
+            pvar%vtypes(4) = 1
+            pvar%ids(5) = vardict%get('velocity_y')
+            pvar%vtypes(5) = 1
+            pvar%ids(6) = vardict%get('velocity_z')
+            pvar%vtypes(6) = 1
+            pvar%myfunction_d => v_cyl_phi
+        case('v_cyl_r')
+            ! Velocity component in the cylindrical r direction
+            pvar%type = 'derived'
+            pvar%name = 'v_cyl_r'
+            allocate(pvar%ids(6))
+            allocate(pvar%vtypes(6))
+            pvar%ids(1) = vardict%get('x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('z')
+            pvar%vtypes(3) = 1
+            pvar%ids(4) = vardict%get('velocity_x')
+            pvar%vtypes(4) = 1
+            pvar%ids(5) = vardict%get('velocity_y')
+            pvar%vtypes(5) = 1
+            pvar%ids(6) = vardict%get('velocity_z')
+            pvar%vtypes(6) = 1
+            pvar%myfunction_d => v_cyl_r
+        case('v_magnitude')
+            ! Magnitude of the velocity vector
+            pvar%type = 'derived'
+            pvar%name = 'v_magnitude'
+            allocate(pvar%ids(3))
+            allocate(pvar%vtypes(3))
+            pvar%ids(1) = vardict%get('velocity_x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('velocity_y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('velocity_z')
+            pvar%vtypes(3) = 1
+            pvar%myfunction_d => v_magnitude
+        case('v_squared')
+            ! Square of the magnitude of the velocity vector
+            pvar%type = 'derived'
+            pvar%name = 'v_squared'
+            allocate(pvar%ids(3))
+            allocate(pvar%vtypes(3))
+            pvar%ids(1) = vardict%get('velocity_x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('velocity_y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('velocity_z')
+            pvar%vtypes(3) = 1
+            pvar%myfunction_d => v_squared
+        case('v_tangential')
+            ! Tangential velocity magnitude
+            pvar%type = 'derived'
+            pvar%name = 'v_tangential'
+            allocate(pvar%ids(6))
+            allocate(pvar%vtypes(6))
+            pvar%ids(1) = vardict%get('x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('z')
+            pvar%vtypes(3) = 1
+            pvar%ids(4) = vardict%get('velocity_x')
+            pvar%vtypes(4) = 1
+            pvar%ids(5) = vardict%get('velocity_y')
+            pvar%vtypes(5) = 1
+            pvar%ids(6) = vardict%get('velocity_z')
+            pvar%vtypes(6) = 1
+            pvar%myfunction_d => v_tangential
+        case('centripetal_acc')
+            ! Centripetal acceleration
+            pvar%type = 'derived'
+            pvar%name = 'centripetal_acc'
+            allocate(pvar%ids(7))
+            allocate(pvar%vtypes(7))
+            pvar%ids(1) = vardict%get('x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('z')
+            pvar%vtypes(3) = 1
+            pvar%ids(4) = vardict%get('velocity_x')
+            pvar%vtypes(4) = 1
+            pvar%ids(5) = vardict%get('velocity_y')
+            pvar%vtypes(5) = 1
+            pvar%ids(6) = vardict%get('velocity_z')
+            pvar%vtypes(6) = 1
+            pvar%ids(7) = vardict%get('r_sphere')
+            pvar%vtypes(7) = 1
+            pvar%myfunction_d => centripetal_acc
+        case('momentum_x')
+            ! x-component of momentum
+            pvar%type = 'derived'
+            pvar%name = 'momentum_x'
+            allocate(pvar%ids(4))
+            allocate(pvar%vtypes(4))
+            pvar%ids(1) = vardict%get('velocity_x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('velocity_y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('velocity_z')
+            pvar%vtypes(3) = 1
+            pvar%ids(4) = vardict%get('mass')
+            pvar%vtypes(4) = 1
+            pvar%myfunction_d => momentum_x
+        case('momentum_y')
+            ! y-component of momentum
+            pvar%type = 'derived'
+            pvar%name = 'momentum_y'
+            allocate(pvar%ids(4))
+            allocate(pvar%vtypes(4))
+            pvar%ids(1) = vardict%get('velocity_x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('velocity_y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('velocity_z')
+            pvar%vtypes(3) = 1
+            pvar%ids(4) = vardict%get('mass')
+            pvar%vtypes(4) = 1
+            pvar%myfunction_d => momentum_y
+        case('momentum_z')
+            ! z-component of momentum
+            pvar%type = 'derived'
+            pvar%name = 'momentum_z'
+            allocate(pvar%ids(4))
+            allocate(pvar%vtypes(4))
+            pvar%ids(1) = vardict%get('velocity_x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('velocity_y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('velocity_z')
+            pvar%vtypes(3) = 1
+            pvar%ids(4) = vardict%get('mass')
+            pvar%vtypes(4) = 1
+            pvar%myfunction_d => momentum_z
+        case('momentum')
+            ! Magnitude of momentum
+            pvar%type = 'derived'
+            pvar%name = 'momentum'
+            allocate(pvar%ids(4))
+            allocate(pvar%vtypes(4))
+            pvar%ids(1) = vardict%get('velocity_x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('velocity_y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('velocity_z')
+            pvar%vtypes(3) = 1
+            pvar%ids(4) = vardict%get('mass')
+            pvar%vtypes(4) = 1
+            pvar%myfunction_d => momentum
+        case('momentum_sphere_r')
+            ! Linear momentum in the spherical radial direction
+            pvar%type = 'derived'
+            pvar%name = 'momentum_sphere_r'
+            allocate(pvar%ids(7))
+            allocate(pvar%vtypes(7))
+            pvar%ids(1) = vardict%get('x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('z')
+            pvar%vtypes(3) = 1
+            pvar%ids(4) = vardict%get('velocity_x')
+            pvar%vtypes(4) = 1
+            pvar%ids(5) = vardict%get('velocity_y')
+            pvar%vtypes(5) = 1
+            pvar%ids(6) = vardict%get('velocity_z')
+            pvar%vtypes(6) = 1
+            pvar%ids(7) = vardict%get('mass')
+            pvar%vtypes(7) = 1
+            pvar%myfunction_d => momentum_sphere_r
+        case('momentum_cyl_z')
+            ! Linear momentum in the cylindrical z direction
+            pvar%type = 'derived'
+            pvar%name = 'momentum_cyl_z'
+            allocate(pvar%ids(7))
+            allocate(pvar%vtypes(7))
+            pvar%ids(1) = vardict%get('x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('z')
+            pvar%vtypes(3) = 1
+            pvar%ids(4) = vardict%get('velocity_x')
+            pvar%vtypes(4) = 1
+            pvar%ids(5) = vardict%get('velocity_y')
+            pvar%vtypes(5) = 1
+            pvar%ids(6) = vardict%get('velocity_z')
+            pvar%vtypes(6) = 1
+            pvar%ids(7) = vardict%get('mass')
+            pvar%vtypes(7) = 1
+            pvar%myfunction_d => momentum_cyl_z
+        case('ang_momentum_x')
+            ! Angular momentum x-component
+            pvar%type = 'derived'
+            pvar%name = 'ang_momentum_x'
+            allocate(pvar%ids(7))
+            allocate(pvar%vtypes(7))
+            pvar%ids(1) = vardict%get('x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('z')
+            pvar%vtypes(3) = 1
+            pvar%ids(4) = vardict%get('velocity_x')
+            pvar%vtypes(4) = 1
+            pvar%ids(5) = vardict%get('velocity_y')
+            pvar%vtypes(5) = 1
+            pvar%ids(6) = vardict%get('velocity_z')
+            pvar%vtypes(6) = 1
+            pvar%ids(7) = vardict%get('mass')
+            pvar%vtypes(7) = 1
+            pvar%myfunction_d => ang_momentum_x
+        case('ang_momentum_y')
+            ! Angular momentum y-component
+            pvar%type = 'derived'
+            pvar%name = 'ang_momentum_y'
+            allocate(pvar%ids(7))
+            allocate(pvar%vtypes(7))
+            pvar%ids(1) = vardict%get('x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('z')
+            pvar%vtypes(3) = 1
+            pvar%ids(4) = vardict%get('velocity_x')
+            pvar%vtypes(4) = 1
+            pvar%ids(5) = vardict%get('velocity_y')
+            pvar%vtypes(5) = 1
+            pvar%ids(6) = vardict%get('velocity_z')
+            pvar%vtypes(6) = 1
+            pvar%ids(7) = vardict%get('mass')
+            pvar%vtypes(7) = 1
+            pvar%myfunction_d => ang_momentum_y
+        case('ang_momentum_z')
+            ! Angular momentum z-component
+            pvar%type = 'derived'
+            pvar%name = 'ang_momentum_z'
+            allocate(pvar%ids(7))
+            allocate(pvar%vtypes(7))
+            pvar%ids(1) = vardict%get('x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('z')
+            pvar%vtypes(3) = 1
+            pvar%ids(4) = vardict%get('velocity_x')
+            pvar%vtypes(4) = 1
+            pvar%ids(5) = vardict%get('velocity_y')
+            pvar%vtypes(5) = 1
+            pvar%ids(6) = vardict%get('velocity_z')
+            pvar%vtypes(6) = 1
+            pvar%ids(7) = vardict%get('mass')
+            pvar%vtypes(7) = 1
+            pvar%myfunction_d => ang_momentum_z
+        case('ang_momentum')
+            ! Magnitude of angular momentum
+            pvar%type = 'derived'
+            pvar%name = 'ang_momentum'
+            allocate(pvar%ids(7))
+            allocate(pvar%vtypes(7))
+            pvar%ids(1) = vardict%get('x')
+            pvar%vtypes(1) = 1
+            pvar%ids(2) = vardict%get('y')
+            pvar%vtypes(2) = 1
+            pvar%ids(3) = vardict%get('z')
+            pvar%vtypes(3) = 1
+            pvar%ids(4) = vardict%get('velocity_x')
+            pvar%vtypes(4) = 1
+            pvar%ids(5) = vardict%get('velocity_y')
+            pvar%vtypes(5) = 1
+            pvar%ids(6) = vardict%get('velocity_z')
+            pvar%vtypes(6) = 1
+            pvar%ids(7) = vardict%get('mass')
+            pvar%vtypes(7) = 1
+            pvar%myfunction_d => ang_momentum
+        case('density')
+            ! Density of the particle
+            pvar%type = 'derived'
+            pvar%name = 'density'
+            allocate(pvar%ids(1))
+            allocate(pvar%vtypes(1))
+            pvar%ids(1) = vardict%get('mass')
+            pvar%vtypes(1) = 1
+            pvar%myfunction_d => density
+        case('sdensity')
+            ! Surface density of the particle
+            pvar%type = 'derived'
+            pvar%name = 'sdensity'
+            allocate(pvar%ids(1))
+            allocate(pvar%vtypes(1))
+            pvar%ids(1) = vardict%get('mass')
+            pvar%vtypes(1) = 1
+            pvar%myfunction_d => sdensity
+        case default
+            ok = .false.
+        end select
+    end subroutine check_dervar
+
+    ! DERIVED STAR VARIABLES
+    function age(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: age
+        real(dbl) :: t
+        integer :: iii
+
+        ! Age of the star
+        ! Time of the simulation minus the time of the star formation
+        if (my_sim%cosmo) then
+            iii = 1
+            do while(my_sim%tau_frw(iii)>part_var_d(pvar%ids(1)).and.iii<my_sim%n_frw)
+                iii = iii + 1
+            end do
+            ! Interpolate time
+#ifdef AGEPROPER
+            t = part_var_d(pvar%ids(1))
+#else
+            t = my_sim%t_frw(iii)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii-1))/(my_sim%tau_frw(iii)-my_sim%tau_frw(iii-1))+ &
+            & my_sim%t_frw(iii-1)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii))/(my_sim%tau_frw(iii-1)-my_sim%tau_frw(iii))
+#endif
+            age = (my_sim%time_simu-t)/(my_sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+        else
+            t = part_var_d(pvar%ids(1))
+            age = (my_sim%time_simu-t)*my_sim%unit_t/(365.*24.*3600.*1d9)
+        end if
+
+    end function age
+
+    function birth_date(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: birth_date
+        real(dbl) :: t,age
+        integer :: iii
+
+        ! Birth date of the star
+        ! Time of the star formation
+        if (my_sim%cosmo) then
+            iii = 1
+            do while(my_sim%tau_frw(iii)>part_var_d(pvar%ids(1)).and.iii<my_sim%n_frw)
+                iii = iii + 1
+            end do
+            ! Interpolate time
+#ifdef AGEPROPER
+            t = part_var_d(pvar%ids(1))
+#else
+            t = my_sim%t_frw(iii)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii-1))/(my_sim%tau_frw(iii)-my_sim%tau_frw(iii-1))+ &
+            & my_sim%t_frw(iii-1)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii))/(my_sim%tau_frw(iii-1)-my_sim%tau_frw(iii))
+#endif
+            age = (my_sim%time_simu-t)
+            birth_date = (my_sim%time_tot+age)/(my_sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+        else
+            birth_date = part_var_d(pvar%ids(1))
+        end if
+
+    end function birth_date
+
+    function sfr(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: sfr
+        real(dbl) :: t,birth_date
+        integer :: iii,index2,index3
+        character(128) :: sfrstr,sfrtype
+        real(dbl) :: sfrind,current_age_univ,m
+
+        sfr = 0d0
+
+        if (part_var_d(pvar%ids(1)).eq.0d0) return
+
+        ! Star formation rate
+        ! This quantity only makes sense on a cumulative sense,
+        ! as the SFR per individual stellar particle is not well defined
+        ! 1. Get the indicator desired (timescale over which SFR is averaged)
+        index2 = scan(pvar%name,'_')
+        sfrstr = pvar%name(index2+1:)
+        index3 = scan(sfrstr,'_')
+        read(sfrstr,'(F10.0)') sfrind
+        ! We want it in units of Gyr, that's why we divide by 1e+3
+        sfrind = sfrind/1D3
+
+        ! Get the initial mass of the stellar particle
+#ifdef IMASS
+        m = part_var_d(pvar%ids(2))
+#else
+        m = part_var_d(pvar%ids(2)) / (1d0 - my_sim%eta_sn)
+#endif
+
+        ! 2. Get the particle birth date
+        if (my_sim%cosmo) then
+            iii = 1
+            do while(my_sim%tau_frw(iii)>part_var_d(pvar%ids(1)).and.iii<my_sim%n_frw)
+                iii = iii + 1
+            end do
+            ! Interpolate time
+#ifdef AGEPROPER
+            t = part_var_d(pvar%ids(1))
+#else
+            t = my_sim%t_frw(iii)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii-1))/(my_sim%tau_frw(iii)-my_sim%tau_frw(iii-1))+ &
+            & my_sim%t_frw(iii-1)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii))/(my_sim%tau_frw(iii-1)-my_sim%tau_frw(iii))
+#endif
+            current_age_univ = (my_sim%time_tot+my_sim%time_simu)/(my_sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+            birth_date = (my_sim%time_tot+t)/(my_sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+            ! 3. If the particle is older than the indicator, the SFR is zero
+            if (birth_date >= (current_age_univ - sfrind)) then
+                sfr = part_var_d(pvar%ids(2))
+            else
+                sfr = 0d0
+            end if
+        else
+            birth_date = part_var_d(pvar%ids(1))
+            current_age_univ = my_sim%time_simu*my_sim%unit_t/(365.*24.*3600.*1d9)
+            ! 3. If the particle is older than the indicator, the SFR is zero
+            if (birth_date >= (current_age_univ - sfrind)) then
+                sfr = part_var_d(pvar%ids(2))
+            else
+                sfr = 0d0
+            end if
+        end if
+    end function sfr
+
+    function sfr_surface(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: sfr_surface
+        real(dbl) :: t,birth_date
+        integer :: iii,index2,index3
+        character(128) :: sfrstr,sfrtype
+        real(dbl) :: sfrind,current_age_univ,m
+
+        sfr_surface = 0d0
+
+        if (part_var_d(pvar%ids(1)).eq.0d0) return
+
+        ! Star formation rate
+        ! This quantity only makes sense on a cumlative sense,
+        ! as the SFR per individual stellar particle is not well defined
+        ! 1. Get the indicator desired (timescale over which SFR is averaged)
+        index2 = scan(pvar%name,'_')
+        sfrstr = pvar%name(index2+1:)
+        index3 = scan(sfrstr,'_')
+        read(sfrstr,'(F10.0)') sfrind
+        ! We want it in units of Gyr, that's why we divide by 1e+3
+        sfrind = sfrind/1D3
+    
+        ! Get the initial mass of the stellar particle
+#ifdef IMASS
+        m = part_var_d(pvar%ids(2))
+#else
+        m = part_var_d(pvar%ids(2)) / (1d0 - my_sim%eta_sn)
+#endif
+
+        ! 2. Get the particle birth date
+        if (my_sim%cosmo) then
+            iii = 1
+            do while(my_sim%tau_frw(iii)>part_var_d(pvar%ids(1)).and.iii<my_sim%n_frw)
+                iii = iii + 1
+            end do
+            ! Interpolate time
+#ifdef AGEPROPER
+            t = part_var_d(pvar%ids(1))
+#else
+            t = my_sim%t_frw(iii)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii-1))/(my_sim%tau_frw(iii)-my_sim%tau_frw(iii-1))+ &
+            & my_sim%t_frw(iii-1)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii))/(my_sim%tau_frw(iii-1)-my_sim%tau_frw(iii))
+#endif
+            current_age_univ = (my_sim%time_tot+my_sim%time_simu)/(my_sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+            birth_date = (my_sim%time_tot+t)/(my_sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+            ! 3. If the particle is older than the indicator, the SFR is zero
+            if (birth_date >= (current_age_univ - sfrind)) then
+                sfr_surface = part_var_d(pvar%ids(2)) / (dx%x*dx%y) / sfrind
+            else
+                sfr_surface = 0d0
+            end if
+        else
+            birth_date = part_var_d(pvar%ids(1))
+            current_age_univ = my_sim%time_simu*my_sim%unit_t/(365.*24.*3600.*1d9)
+            ! 3. If the particle is older than the indicator, the SFR is zero
+            if (birth_date >= (current_age_univ - sfrind)) then
+                sfr_surface = part_var_d(pvar%ids(2)) / (dx%x*dx%y) / sfrind
+            else
+                sfr_surface = 0d0
+            end if
+        end if
+    end function sfr_surface
+
+    function sfr_density(my_amr,my_sim,pvar,reg,dx,part_var_d,part_var_i,part_var_b)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(part_var),intent(in) :: pvar
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dx
+        real(dbl),dimension(1:my_sim%nvar_part_d),intent(in) :: part_var_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#else
+        integer(irg),dimension(1:my_sim%nvar_part_i),intent(in) :: part_var_i
+#endif
+        integer(1),dimension(1:my_sim%nvar_part_b),intent(in) :: part_var_b
+
+        real(dbl) :: sfr_density
+        real(dbl) :: t,birth_date
+        integer :: iii,index2,index3
+        character(128) :: sfrstr,sfrtype
+        real(dbl) :: sfrind,current_age_univ,m
+
+        sfr_density = 0d0
+
+        if (part_var_d(pvar%ids(1)).eq.0d0) return
+
+        ! Star formation rate
+        ! This quantity only makes sense on a cumlative sense,
+        ! as the SFR per individual stellar particle is not well defined
+        ! 1. Get the indicator desired (timescale over which SFR is averaged)
+        index2 = scan(pvar%name,'_')
+        sfrstr = pvar%name(index2+1:)
+        index3 = scan(sfrstr,'_')
+        read(sfrstr,'(F10.0)') sfrind
+        ! We want it in units of Gyr, that's why we divide by 1e+3
+        sfrind = sfrind/1D3
+
+        ! Get the initial mass of the stellar particle
+#ifdef IMASS
+        m = part_var_d(pvar%ids(2))
+#else
+        m = part_var_d(pvar%ids(2)) / (1d0 - my_sim%eta_sn)
+#endif
+
+        ! 2. Get the particle birth date
+        if (my_sim%cosmo) then
+            iii = 1
+            do while(my_sim%tau_frw(iii)>part_var_d(pvar%ids(1)).and.iii<my_sim%n_frw)
+                iii = iii + 1
+            end do
+            ! Interpolate time
+#ifdef AGEPROPER
+            t = part_var_d(pvar%ids(1))
+#else
+            t = my_sim%t_frw(iii)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii-1))/(my_sim%tau_frw(iii)-my_sim%tau_frw(iii-1))+ &
+            & my_sim%t_frw(iii-1)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii))/(my_sim%tau_frw(iii-1)-my_sim%tau_frw(iii))
+#endif
+            current_age_univ = (my_sim%time_tot+my_sim%time_simu)/(my_sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+            birth_date = (my_sim%time_tot+t)/(my_sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+            ! 3. If the particle is older than the indicator, the SFR is zero
+            if (birth_date >= (current_age_univ - sfrind)) then
+                sfr_density = part_var_d(pvar%ids(2)) / (dx%x*dx%y*dx%z) / sfrind
+            else
+                sfr_density = 0d0
+            end if
+        else
+            birth_date = part_var_d(pvar%ids(1))
+            current_age_univ = my_sim%time_simu*my_sim%unit_t/(365.*24.*3600.*1d9)
+            ! 3. If the particle is older than the indicator, the SFR is zero
+            if (birth_date >= (current_age_univ - sfrind)) then
+                sfr_density = part_var_d(pvar%ids(2)) / (dx%x*dx%y*dx%z) / sfrind
+            else
+                sfr_density = 0d0
+            end if
+        end if
+    end function sfr_density
+
+    subroutine check_starvar(vardict,varname,pvar,ok)
+        implicit none
+        type(part_var),intent(inout) :: pvar
+        type(dictf90),intent(in) :: vardict
+        character(128),intent(in) :: varname
+        logical,intent(out) :: ok
+
+        character(128) :: clean_name
+        integer :: index2,index3
+
+        ok = .true.
+
+        clean_name = get_cleaned_string(varname)
+
+        select case(clean_name)
+        case('age')
+            ! Age of the star
+            pvar%type = 'derived'
+            pvar%name = 'age'
+            allocate(pvar%ids(1))
+            allocate(pvar%vtypes(1))
+            pvar%ids(1) = vardict%get('birth_time')
+            pvar%vtypes(1) = 1
+            pvar%myfunction_d => age
+        case('birth_date')
+            ! Birth date of the star
+            pvar%type = 'derived'
+            pvar%name = 'birth_date'
+            allocate(pvar%ids(1))
+            allocate(pvar%vtypes(1))
+            pvar%ids(1) = vardict%get('birth_time')
+            pvar%vtypes(1) = 1
+            pvar%myfunction_d => birth_date
+        case('sfr')
+            ! Star formation rate
+            pvar%type = 'derived'
+            pvar%name = varname
+            allocate(pvar%ids(2))
+            allocate(pvar%vtypes(2))
+            pvar%ids(1) = vardict%get('birth_time')
+            pvar%vtypes(1) = 1
+#ifdef IMASS
+            pvar%ids(2) = vardict%get('initial_mass')
+#else
+            pvar%ids(2) = vardict%get('mass')
+#endif
+            pvar%vtypes(2) = 1
+            pvar%myfunction_d => sfr
+        case('sfr_surface')
+            ! Star formation rate per unit area
+            pvar%type = 'derived'
+            pvar%name = varname
+            allocate(pvar%ids(2))
+            allocate(pvar%vtypes(2))
+            pvar%ids(1) = vardict%get('birth_time')
+            pvar%vtypes(1) = 1
+#ifdef IMASS
+            pvar%ids(2) = vardict%get('initial_mass')
+#else
+            pvar%ids(2) = vardict%get('mass')
+#endif
+            pvar%vtypes(2) = 1
+            pvar%myfunction_d => sfr_surface
+        case('sfr_density')
+            ! Star formation rate
+            pvar%type = 'derived'
+            pvar%name = varname
+            allocate(pvar%ids(2))
+            allocate(pvar%vtypes(2))
+            pvar%ids(1) = vardict%get('birth_time')
+            pvar%vtypes(1) = 1
+#ifdef IMASS
+            pvar%ids(2) = vardict%get('initial_mass')
+#else
+            pvar%ids(2) = vardict%get('mass')
+#endif
+            pvar%vtypes(2) = 1
+            pvar%myfunction_d => sfr_density
+        case default
+            ok = .false.
+        end select
+    end subroutine check_starvar
+
+    subroutine get_partvar_tools(vardict,vtypedict,nreq,reqvars,cleaned_vars)
+        implicit none
+
+        type(dictf90), intent(in) :: vardict,vtypedict
+        integer, intent(in) :: nreq
+        character(128),dimension(:),intent(in) :: reqvars
+        type(part_var),dimension(:),intent(out) :: cleaned_vars
+
+        logical :: ok_check
+        integer :: i, ivar
+
+        ! Loop over the requested variables
+        do i = 1, nreq
+            ivar = vardict%get(reqvars(i))
+            if (ivar.ne.0) then
+                ! 1. If variable is a raw variable defined in the
+                ! particle dictionary, we just simply store it
+                cleaned_vars(i)%type = 'raw'
+                cleaned_vars(i)%name = reqvars(i)
+                allocate(cleaned_vars(i)%ids(1))
+                allocate(cleaned_vars(i)%vtypes(1))
+                cleaned_vars(i)%ids(1) = ivar
+                cleaned_vars(i)%vtypes(1) = vtypedict%get(reqvars(i))
+                if (cleaned_vars(i)%vtypes(1).eq.1) then
+                    ! Double float variable
+                    cleaned_vars(i)%myfunction_d => raw_part_d
+                else if (cleaned_vars(i)%vtypes(1).eq.2) then
+                    ! Integer variable
+                    cleaned_vars(i)%myfunction_i => raw_part_i
+                elseif (cleaned_vars(i)%vtypes(1).eq.3) then
+                    ! Single integer variable
+                    cleaned_vars(i)%myfunction_b => raw_part_b
+                end if
+            else if (trim(reqvars(i)) == 'cumulative') then
+                ! 2. Cumulative (just adding up counts)
+                cleaned_vars(i)%type = 'cumulative'
+                cleaned_vars(i)%name = 'cumulative'
+                allocate(cleaned_vars(i)%ids(1))
+                allocate(cleaned_vars(i)%vtypes(1))
+                cleaned_vars(i)%ids(1) = 0
+                cleaned_vars(i)%vtypes(1) = 1
+            else
+                ! 3. Variable is not a raw variable, so it is either a
+                ! geometrical, derived or star derived variable
+                call check_geovar(vardict,reqvars(i),cleaned_vars(i),ok_check)
+                if (ok_check) cycle
+
+                ! Now check for a derived particle variable
+                call check_dervar(vardict,reqvars(i),cleaned_vars(i),ok_check)
+                if (ok_check) cycle
+
+                ! And finally check for derived star variables
+                call check_starvar(vardict,reqvars(i),cleaned_vars(i),ok_check)
+                
+                if (.not.ok_check) then
+                    write(*,*) 'ERROR: Variable ',trim(reqvars(i)),' not found in particle dictionary'
+                    stop
+                end if
+            end if
+        end do
+
+    end subroutine get_partvar_tools
+
+    subroutine set_part_var(vardict,vtypedict,pvar)
+        implicit none
+
+        type(dictf90), intent(in) :: vardict,vtypedict
+        type(part_var),intent(inout) :: pvar
+
+        logical :: ok_check
+        integer :: i, ivar
+
+        ivar = vardict%get(pvar%name)
+
+        if (ivar.ne.0) then
+            ! 1. If variable is a raw variable defined in the
+            ! particle dictionary, we just simply store it
+            pvar%type = 'raw'
+            allocate(pvar%ids(1))
+            allocate(pvar%vtypes(1))
+            pvar%ids(1) = ivar
+            pvar%vtypes(1) = vtypedict%get(pvar%name)
+            if (pvar%vtypes(1).eq.1) then
+                ! Double float variable
+                pvar%myfunction_d => raw_part_d
+            else if (pvar%vtypes(1).eq.2) then
+                ! Integer variable
+                pvar%myfunction_i => raw_part_i
+            elseif (pvar%vtypes(1).eq.3) then
+                ! Single integer variable
+                pvar%myfunction_b => raw_part_b
+            end if
+        else if (trim(pvar%name) == 'cumulative') then
+            ! 2. Cumulative (just adding up counts)
+            pvar%type = 'cumulative'
+            allocate(pvar%ids(1))
+            allocate(pvar%vtypes(1))
+            pvar%ids(1) = 0
+            pvar%vtypes(1) = 1
+        else
+            ! 3. Variable is not a raw variable, so it is either a
+            ! geometrical, derived or star derived variable
+            call check_geovar(vardict,pvar%name,pvar,ok_check)
+            if (ok_check) return
+
+            ! Now check for a derived particle variable
+            call check_dervar(vardict,pvar%name,pvar,ok_check)
+            if (ok_check) return
+
+            ! And finally check for derived star variables
+            call check_starvar(vardict,pvar%name,pvar,ok_check)
+            
+            if (.not.ok_check) then
+                write(*,*) 'ERROR: Variable ',trim(pvar%name),' not found in particle dictionary'
+                stop
+            end if
+        end if            
+
+    end subroutine set_part_var
+    
+end module part_commons

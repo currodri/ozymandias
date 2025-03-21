@@ -41,10 +41,12 @@ module io_ramses
         logical :: dm=.false.,hydro=.false.,mhd=.false.
         logical :: cr=.false.,rt=.false.,bh=.false.
         logical :: cr_st=.false.,cr_heat=.false.,dust=.false.
+        logical :: isthere_part_descriptor=.false.
         real(dbl) :: h0,t,aexp,unit_l,unit_d,unit_t,unit_m,unit_v,unit_p
         real(dbl) :: boxlen,omega_m,omega_l,omega_k,omega_b
         real(dbl) :: time_tot,time_simu,redshift,T2,nH
-        integer :: n_frw, nvar
+        integer :: n_frw, nvar, nvar_part, nvar_part_d, nvar_part_i, nvar_part_b
+        integer,dimension(:),allocatable :: part_var_types
         real(dbl),dimension(:),allocatable :: aexp_frw,hexp_frw,tau_frw,t_frw
         real(dbl) :: eta_sn=-1D0
         real(dbl) :: Dcr=3D28
@@ -57,8 +59,8 @@ module io_ramses
         integer,dimension(:),allocatable :: ind_grid
         integer,dimension(:),allocatable :: real_ind
         real(dbl),dimension(:,:),allocatable :: xg
-        real(dbl),dimension(:,:,:,:),pointer::cube
-        real(dbl),dimension(:,:,:),pointer::map
+        real(dbl),dimension(:,:,:,:,:),pointer::cube
+        real(dbl),dimension(:,:,:,:),pointer::map
         real(dbl),dimension(:,:),pointer::rho
         integer::imin
         integer::imax
@@ -89,6 +91,7 @@ module io_ramses
     type(sim_info) :: sim
     type(amr_info) :: amr
     type(dictf90)  :: varIDs
+    type(dictf90)  :: partIDs,partvar_types
     logical :: verbose=.false.
     logical :: fix_neg_temp=.true.
     real(dbl)      :: Tmin,cV
@@ -356,6 +359,251 @@ module io_ramses
     end subroutine read_hydrofile_descriptor
 
     !---------------------------------------------------------------
+    ! Subroutine: READ PART IDs
+    ! This routine extracts the PART variable IDs for a given
+    ! simulation snapshot such that their order is known when
+    ! part_*.out* files are read. This only applies if the RAMSES
+    ! version includes a standarised part_file_descriptor.txt
+    !---------------------------------------------------------------
+    subroutine read_partfile_descriptor(repository)
+        implicit none
+
+        character(128),intent(in) :: repository
+        character(256)            :: nomfich
+        logical                   :: ok
+        character(25)  ::  newVar,newType
+        integer            ::  newID,status,i,TypeID
+
+        if (partIDs%count.ne.0) return
+
+        nomfich=TRIM(repository)//'/part_file_descriptor.txt'
+        inquire(file=nomfich, exist=ok) ! verify input file
+        if (ok) then
+            sim%nvar_part_d = 0; sim%nvar_part_i = 0; sim%nvar_part_b = 0
+            sim%nvar_part = 0
+            if (verbose) write(*,'(": Reading part IDs from part_file_descriptor.txt")')
+            open(unit=111,file=nomfich,status='old',form='formatted')
+            read(111,*) ! Skip header
+            read(111,*) ! Skip header
+            do
+                read(111,*,iostat=status)newID,newVar,newType
+                if (status /= 0) exit
+                sim%nvar_part = sim%nvar_part + 1
+                if (trim(newType) .eq. 'd') then
+                    TypeID = 1
+                    sim%nvar_part_d = sim%nvar_part_d + 1
+                    call partIDs%add(newVar,sim%nvar_part_d)
+                elseif (trim(newType) .eq. 'i') then
+                    TypeID = 2
+                    sim%nvar_part_i = sim%nvar_part_i + 1
+                    call partIDs%add(newVar,sim%nvar_part_i)
+                elseif (trim(newType) .eq. 'b') then
+                    TypeID = 3
+                    sim%nvar_part_b = sim%nvar_part_b + 1
+                    call partIDs%add(newVar,sim%nvar_part_b)
+                else
+                    write(*,'(": ",A," particle type not found. Stopping!")')
+                    stop
+                end if
+                sim%part_var_types(sim%nvar_part) = TypeID
+                call partvar_types%add(newVar,TypeID)
+            end do
+            close(111)
+            if (verbose) then
+                write(*,*)'nvar_part=',sim%nvar_part
+                write(*,*)'nvar_part_d=',sim%nvar_part_d
+                write(*,*)'nvar_part_i=',sim%nvar_part_i
+                write(*,*)'nvar_part_b=',sim%nvar_part_b
+            end if
+            sim%isthere_part_descriptor = .true.
+        else
+            write(*,'(": ",A," not found. Using default and information from header.txt!")') trim(nomfich)
+            sim%nvar_part_d = 0; sim%nvar_part_i = 0; sim%nvar_part_b = 0
+            sim%nvar_part = 0
+            call read_headerfile(repository)
+            sim%isthere_part_descriptor = .false.
+        end if
+    end subroutine read_partfile_descriptor
+
+    !---------------------------------------------------------------
+    ! Subroutine: READ HEADER
+    !
+    ! This routine reads the header_xxxxx.txt file from a snapshot
+    ! in order to determine the ordering and number of particle
+    ! variables used in the RAMSES simulation.
+    !---------------------------------------------------------------
+    subroutine read_headerfile(repository)
+        implicit none
+        character(len=128), intent(in) :: repository
+        integer :: iunit, ios, i, ipos, num_vars
+        character(len=256) :: line
+        character(256)            :: nomfich
+        character(len=50), dimension(:), allocatable :: variables
+        character(5) :: nchar
+        logical :: found_header
+
+        if (partIDs%count.ne.0) return
+
+        ipos = index(repository,'output_')
+        nchar=repository(ipos+7:ipos+13)
+        nomfich=TRIM(repository)//'/header_'//TRIM(nchar)//'.txt'
+    
+        ! Open the file
+        iunit = 24
+        open(unit=iunit, file=nomfich, status='old', action='read', iostat=ios)
+        if (ios /= 0) then
+            print*, "Error opening file: ", nomfich
+            stop
+        end if
+    
+        found_header = .false.
+    
+        ! Read file line by line
+        do
+            read(iunit, '(A)', iostat=ios) line
+            if (ios /= 0) exit
+    
+            ! Check if the line starts with "pos"
+            if (trim(line(1:3)) == 'pos') then
+                found_header = .true.
+                exit
+            end if
+        end do
+    
+        ! If header not found, exit
+        if (.not. found_header) then
+            print*, "Error: No 'pos' header found in file."
+            close(iunit)
+            stop
+        end if
+    
+        ! Split the header line into variable names
+        num_vars = 0
+        allocate(variables(50))  ! Allocate enough space for variables
+    
+        i = 1
+        do
+            call get_word(line, i, variables(num_vars+1))
+            if (len_trim(variables(num_vars+1)) == 0) exit
+            num_vars = num_vars + 1
+        end do
+    
+        ! Close the file
+        close(iunit)
+        
+        ! Now loop over the variables assigning them to the particle
+        ! variables dictionary
+        do i = 1, num_vars
+            if (trim(variables(i)) == 'pos') then
+                sim%nvar_part = sim%nvar_part + 1
+                sim%nvar_part_d = sim%nvar_part_d + 1
+                call partIDs%add('x',sim%nvar_part_d)
+                call partvar_types%add('x',1)
+                sim%part_var_types(sim%nvar_part) = 1
+                if (amr%ndim > 1) then
+                    sim%nvar_part = sim%nvar_part + 1
+                    sim%nvar_part_d = sim%nvar_part_d + 1
+                    call partIDs%add('y',sim%nvar_part_d)
+                    call partvar_types%add('y',1)
+                    sim%part_var_types(sim%nvar_part) = 1
+                end if
+                if (amr%ndim >2) then
+                    sim%nvar_part = sim%nvar_part + 1
+                    sim%nvar_part_d = sim%nvar_part_d + 1
+                    call partIDs%add('z',sim%nvar_part_d)
+                    call partvar_types%add('z',1)
+                    sim%part_var_types(sim%nvar_part) = 1
+                end if
+            else if (trim(variables(i)) == 'vel') then
+                sim%nvar_part = sim%nvar_part + 1
+                sim%nvar_part_d = sim%nvar_part_d + 1
+                call partIDs%add('velocity_x',sim%nvar_part_d)
+                call partvar_types%add('velocity_x',1)
+                sim%part_var_types(sim%nvar_part) = 1
+                if (amr%ndim > 1) then
+                    sim%nvar_part = sim%nvar_part + 1
+                    sim%nvar_part_d = sim%nvar_part_d + 1
+                    call partIDs%add('velocity_y',sim%nvar_part_d)
+                    call partvar_types%add('velocity_y',1)
+                    sim%part_var_types(sim%nvar_part) = 1
+                end if
+                if (amr%ndim >2) then
+                    sim%nvar_part = sim%nvar_part + 1
+                    sim%nvar_part_d = sim%nvar_part_d + 1
+                    call partIDs%add('velocity_z',sim%nvar_part_d)
+                    call partvar_types%add('velocity_z',1)
+                    sim%part_var_types(sim%nvar_part) = 1
+                end if
+            else if (trim(variables(i)) == 'mass') then
+                sim%nvar_part = sim%nvar_part + 1
+                sim%nvar_part_d = sim%nvar_part_d + 1
+                call partIDs%add('mass',sim%nvar_part_d)
+                call partvar_types%add('mass',1)
+                sim%part_var_types(sim%nvar_part) = 1
+            else if (trim(variables(i)) == 'iord') then
+                sim%nvar_part = sim%nvar_part + 1
+                sim%nvar_part_i = sim%nvar_part_i + 1
+                call partIDs%add('iord',sim%nvar_part_i)
+                call partvar_types%add('iord',2)
+                sim%part_var_types(sim%nvar_part) = 2
+            else if (trim(variables(i)) == 'level') then
+                sim%nvar_part = sim%nvar_part + 1
+                sim%nvar_part_i = sim%nvar_part_i + 1
+                call partIDs%add('level',sim%nvar_part_i)
+                call partvar_types%add('level',2)
+                sim%part_var_types(sim%nvar_part) = 2
+            else if (trim(variables(i)) == 'family') then
+                sim%nvar_part = sim%nvar_part + 1
+                sim%nvar_part_b = sim%nvar_part_b + 1
+                call partIDs%add('family',sim%nvar_part_b)
+                call partvar_types%add('family',3)
+                sim%part_var_types(sim%nvar_part) = 3
+            else if (trim(variables(i)) == 'tag') then
+                sim%nvar_part = sim%nvar_part + 1
+                sim%nvar_part_b = sim%nvar_part_b + 1
+                call partIDs%add('tag',sim%nvar_part_b)
+                call partvar_types%add('tag',3)
+                sim%part_var_types(sim%nvar_part) = 3
+            else if (trim(variables(i)) == 'tform') then
+                sim%nvar_part = sim%nvar_part + 1
+                sim%nvar_part_d = sim%nvar_part_d + 1
+                call partIDs%add('birth_time',sim%nvar_part_d)
+                call partvar_types%add('birth_time',1)
+                sim%part_var_types(sim%nvar_part) = 1
+            else if (trim(variables(i)) == 'metal') then
+                sim%nvar_part = sim%nvar_part + 1
+                sim%nvar_part_d = sim%nvar_part_d + 1
+                call partIDs%add('metallicity',sim%nvar_part_d)
+                call partvar_types%add('metallicity',1)
+                sim%part_var_types(sim%nvar_part) = 1
+            else if (trim(variables(i)) == 'imass') then
+                sim%nvar_part = sim%nvar_part + 1
+                sim%nvar_part_d = sim%nvar_part_d + 1
+                call partIDs%add('initial_mass',sim%nvar_part_d)
+                call partvar_types%add('initial_mass',1)
+                sim%part_var_types(sim%nvar_part) = 1
+            else
+                sim%nvar_part = sim%nvar_part + 1
+                sim%nvar_part_d = sim%nvar_part_d + 1
+                call partIDs%add(trim(variables(i)),sim%nvar_part_d)
+                call partvar_types%add(trim(variables(i)),1)
+                sim%part_var_types(sim%nvar_part) = 1
+            end if
+
+        end do
+
+        
+        if (verbose) then
+            write(*,*)'nvar_part=',sim%nvar_part
+            write(*,*)'nvar_part_d=',sim%nvar_part_d
+            write(*,*)'nvar_part_i=',sim%nvar_part_i
+            write(*,*)'nvar_part_b=',sim%nvar_part_b
+        end if
+
+    end subroutine read_headerfile
+
+
+    !---------------------------------------------------------------
     ! Subroutine: READ HYDRO IDs OLD
     !
     ! This routine extracts the HYDRO variable IDs for a given
@@ -425,7 +673,7 @@ module io_ramses
 
         nomfich=TRIM(repository)//'/hydro_file_descriptor.txt'
         inquire(file=nomfich, exist=ok) ! verify input file
-        write(*,'(": Reading variables IDs from hydro_descriptor")')
+        if (verbose) write(*,'(": Reading variables IDs from hydro_descriptor")')
         open(unit=10,file=nomfich,status='old',form='formatted')
         read(10,*)
         read(10,*)
@@ -436,7 +684,7 @@ module io_ramses
             call varIDs%add(newVar,newID)
         end do
         close(10)
-        write(*,*)'nvar=',nvar
+        if (verbose) write(*,*)'nvar=',nvar
         sim%nvar = nvar
     end subroutine read_hydrofile_descriptor_new
 
@@ -902,465 +1150,4 @@ module io_ramses
           
     end subroutine getnbor
     
-    subroutine getparttype(part,ptype)
-        implicit none
-        type(particle),intent(in) :: part
-        character(6),intent(inout) :: ptype
-
-        if (part%age.ne.0D0) then
-            ptype = 'star'
-        else
-            ptype = 'dm'
-        endif
-    end subroutine getparttype
-
-    subroutine getpartvalue(reg,part,var,value,dx)
-        use vectors
-        use basis_representations
-        use geometrical_regions
-        use coordinate_systems
-        implicit none
-        type(region),intent(in) :: reg
-        type(particle),intent(in) ::part
-        character(128),intent(in) :: var
-        real(dbl),intent(inout) :: value
-        type(vector),optional,intent(in) :: dx
-        
-        type(vector) :: v,L
-        type(basis) :: temp_basis
-        character(6) :: ptype
-        character(128) :: tempvar,vartype,varname,sfrstr,sfrtype
-        integer :: index,iii,index2,index3
-        real(dbl) :: time,age,birth_date,sfrind,current_age_univ
-
-        tempvar = TRIM(var)
-        index = scan(tempvar,'/')
-        vartype = tempvar(1:index-1)
-        varname = tempvar(index+1:)
-
-        if (sim%dm .and. .not. sim%hydro) then
-            ptype = 'dm'
-        else
-            call getparttype(part,ptype)
-        endif
-
-        if (vartype.eq.'dm'.and.ptype.eq.'dm') then
-            select case (TRIM(varname))
-            case ('mass')
-                ! Mass
-                value = part%m
-            case ('density')
-                ! Density
-                if (present(dx)) then
-                    value = part%m / (dx%x*dx%y+dx%z)
-                else
-                    write(*,*)'Can not compute a particle density without cell size!'
-                    stop
-                endif
-            case ('sdensity')
-                ! Surface density
-                if (present(dx)) then
-                    value = part%m / (dx%x*dx%y)
-                else
-                    write(*,*)'Can not compute a particle surface density without cell size!'
-                    stop
-                endif
-            case ('x')
-                ! x - coordinate
-                value = part%x%x
-            case ('y')
-                ! y - coordinate
-                value = part%x%y
-            case ('z')
-                ! z - coordinate
-                value = part%x%z
-            case ('d_euclid')
-                ! Euclidean distance
-                value = magnitude(part%x)
-            case ('r_sphere')
-                ! Radius from center of sphere
-                value = r_sphere(part%x)
-            case ('theta_sphere')
-                ! Value of spherical theta angle measured from the z axis
-                value = theta_sphere(part%x)
-            case ('phi_sphere')
-                ! Value of spherical phi angle measure in the x-y plane 
-                ! from the x axis
-                value = phi_sphere(part%x)
-            case('r_cyl')
-                ! Value of cylindrical radius
-                value = r_cyl(part%x)
-            case ('phi_cyl')
-                ! Value of spherical phi angle measure in the x-y plane 
-                ! from the x axis
-                value = phi_cyl(part%x)
-            case ('v_tangential')
-                ! Tangential velocity magnitude
-                ! Consider as if one substracts the radial velocity,
-                ! the remaining component is the tangential velocity
-                v = part%v
-                call spherical_basis_from_cartesian(part%x,temp_basis)
-                v = v - (v.DOT.temp_basis%u(1))*temp_basis%u(1)
-                value = magnitude(v)
-            case ('centripetal_acc')
-                ! Radial centripetal acceleration, obtained from the
-                ! tangential velocity
-                v = part%v
-                call spherical_basis_from_cartesian(part%x,temp_basis)
-                v = v - (v.DOT.temp_basis%u(1))*temp_basis%u(1)
-                value = magnitude(v)**2d0 / r_sphere(part%x)
-            case ('v_sphere_r')
-                ! Velocity component in the spherical radial direction
-                ! Dot product of velocity vector with spherical radial
-                !    unit vector
-                v = part%v
-                call spherical_basis_from_cartesian(part%x,temp_basis)
-                value = v.DOT.temp_basis%u(1)
-            case ('v_sphere_phi')
-                ! Velocity component in the spherical azimutal (phi) direction
-                ! Dot product of velocity vector with spherical phi
-                !    unit vector
-                v = part%v
-                call spherical_basis_from_cartesian(part%x,temp_basis)
-                value = v .DOT. temp_basis%u(3)
-            case ('v_sphere_theta')
-                ! Velocity component in the spherical theta direction
-                ! Dot product of velocity vector with spherical theta
-                !    unit vector
-                v = part%v
-                call spherical_basis_from_cartesian(part%x,temp_basis)
-                value = v .DOT. temp_basis%u(2)
-            case ('v_cyl_r')
-                ! Velocity component in the cylindrical radial direction
-                ! Dot product of velocity vector with cylindrical
-                !    radial unit vector
-                v = part%v
-                call cylindrical_basis_from_cartesian(part%x,temp_basis)
-                value = v.DOT.temp_basis%u(1)
-            case ('v_cyl_z')
-                ! Velocity component in the cylindrical z direction
-                ! Dot product of velocity vector with cylindrical
-                !    z unit vector
-                v = part%v
-                call cylindrical_basis_from_cartesian(part%x,temp_basis)
-                value = v.DOT.temp_basis%u(3)
-            case ('v_cyl_phi')
-                ! Velocity component in the cylyndrical azimutal (phi) direction
-                ! Dot product of velocity vector with cylindrical
-                !    phi unit vector
-                v = part%v
-                call cylindrical_basis_from_cartesian(part%x,temp_basis)
-                value = v.DOT.temp_basis%u(2)
-            case ('momentum_x')
-                ! Linear momentum in the x direction as mass*corrected_velocity_x
-                value = part%m * (part%v%x)
-            case ('momentum_y')
-                ! Linear momentum in the y direction mass*corrected_velocity_y
-                value = part%m * (part%v%y)
-            case ('momentum_z')
-                ! Linear momentum in the z direction mass*corrected_velocity_z
-                value = part%m * (part%v%z)
-            case ('momentum')
-                ! Magnitude of linear momentum, using corrected velocity
-                v = part%v
-                value = part%m * magnitude(v)
-            case ('momentum_sphere_r')
-                ! Linear momentum in the spherical radial direction
-                ! Dot product of velocity vector with spherical phi
-                !    unit vector
-                ! 3. Multiply by mass of particle
-                v = part%v
-                call spherical_basis_from_cartesian(part%x,temp_basis)
-                value = part%m * (v .DOT. temp_basis%u(1))
-            case ('ang_momentum_x')
-                ! Corrected angular momentum in the x direction
-                v = part%v
-                value = part%m * (part%x%y * v%z &
-                            &- v%y * part%x%z)
-            case ('ang_momentum_y')
-                ! Corrected angular momentum in the y direction
-                v = part%v
-                value = part%m * (part%x%z * v%x &
-                            &- v%z * part%x%x)
-            case ('ang_momentum_z')
-                ! Corrected angular momentum in the z direction
-                v = part%v
-                value = part%m * (part%x%x * v%y &
-                            &- v%x * part%x%y)
-            case ('ang_momentum')
-                ! Corrected magnitude of angular momentum
-                v = part%v
-                L = part%x * v
-                value = part%m * magnitude(L)
-            case ('ang_momentum_specific_x')
-                ! Corrected specific angular momentum in the x direction
-                v = part%v
-                value = part%x%y * v%z - v%y * part%x%z
-            case ('ang_momentum_specific_y')
-                ! Corrected specific angular momentum in the y direction
-                v = part%v
-                value = part%x%z * v%x - v%z * part%x%x
-            case ('ang_momentum_specific_z')
-                ! Corrected specific angular momentum in the z direction
-                v = part%v
-                value = part%x%x * v%y - v%x * part%x%y
-            case ('ang_momentum_specific')
-                ! Corrected magnitude of specific angular momentum
-                v = part%v
-                L = part%x * v
-                value = magnitude(L)
-            end select
-        elseif (vartype.eq.'star'.and.ptype.eq.'star') then
-            index2 = scan(varname,'_')
-            sfrstr = varname(1:index2-1)
-            if (trim(sfrstr).ne.'sfr') then
-                select case (TRIM(varname))
-                case ('mass')
-                    ! Mass
-                    value = part%m
-                case ('density')
-                    ! Density
-                    if (present(dx)) then
-                        value = part%m / (dx%x*dx%y+dx%z)
-                    else
-                        write(*,*)'Can not compute a particle density without cell size!'
-                        stop
-                    endif
-                case ('sdensity')
-                    ! Surface density
-                    if (present(dx)) then
-                        value = part%m / (dx%x*dx%y)
-                    else
-                        write(*,*)'Can not compute a particle surface density without cell size!'
-                        stop
-                    endif
-                case ('x')
-                    ! x - coordinate
-                    value = part%x%x
-                case ('y')
-                    ! y - coordinate
-                    value = part%x%y
-                case ('z')
-                    ! z - coordinate
-                    value = part%x%z
-                case ('d_euclid')
-                    ! Euclidean distance
-                    value = magnitude(part%x)
-                case ('r_sphere')
-                    ! Radius from center of sphere
-                    value = r_sphere(part%x)
-                case ('theta_sphere')
-                    ! Value of spherical theta angle measured from the z axis
-                    value = theta_sphere(part%x)
-                case ('phi_sphere')
-                    ! Value of spherical phi angle measure in the x-y plane 
-                    ! from the x axis
-                    value = phi_sphere(part%x)
-                case('r_cyl')
-                    ! Value of cylindrical radius
-                    value = r_cyl(part%x)
-                case ('phi_cyl')
-                    ! Value of spherical phi angle measure in the x-y plane 
-                    ! from the x axis
-                    value = phi_cyl(part%x)
-                case ('v_sphere_r')
-                    ! Velocity component in the spherical radial direction
-    
-                    ! Dot product of velocity vector with spherical radial
-                    !    unit vector
-                    v = part%v
-                    call spherical_basis_from_cartesian(part%x,temp_basis)
-                    value = v.DOT.temp_basis%u(1)
-                case ('v_sphere_phi')
-                    ! Velocity component in the spherical azimutal (phi) direction
-                    ! Dot product of velocity vector with spherical phi
-                    !    unit vector
-                    v = part%v
-                    call spherical_basis_from_cartesian(part%x,temp_basis)
-                    value = v .DOT. temp_basis%u(3)
-                case ('v_sphere_theta')
-                    ! Velocity component in the spherical theta direction
-                    ! Dot product of velocity vector with spherical theta
-                    !    unit vector
-                    v = part%v
-                    call spherical_basis_from_cartesian(part%x,temp_basis)
-                    value = v .DOT. temp_basis%u(2)
-                case ('v_cyl_r')
-                    ! Velocity component in the cylindrical radial direction
-                    ! Dot product of velocity vector with cylindrical
-                    !    radial unit vector
-                    v = part%v
-                    call cylindrical_basis_from_cartesian(part%x,temp_basis)
-                    value = v.DOT.temp_basis%u(1)
-                case ('v_cyl_z')
-                    ! Velocity component in the cylindrical z direction
-                    ! Dot product of velocity vector with cylindrical
-                    !    z unit vector
-                    v = part%v
-                    call cylindrical_basis_from_cartesian(part%x,temp_basis)
-                    value = v.DOT.temp_basis%u(3)
-                case ('v_cyl_phi')
-                    ! Velocity component in the cylyndrical azimutal (phi) direction
-                    ! Dot product of velocity vector with cylindrical
-                    !    phi unit vector
-                    v = part%v
-                    call cylindrical_basis_from_cartesian(part%x,temp_basis)
-                    value = v.DOT.temp_basis%u(2)
-                case ('momentum_x')
-                    ! Linear momentum in the x direction as mass*corrected_velocity_x
-                    value = part%m * part%v%x
-                case ('momentum_y')
-                    ! Linear momentum in the y direction mass*corrected_velocity_y
-                    value = part%m * part%v%y
-                case ('momentum_z')
-                    ! Linear momentum in the z direction mass*corrected_velocity_z
-                    value = part%m * part%v%z
-                case ('momentum')
-                    ! Magnitude of linear momentum, using corrected velocity
-                    v = part%v
-                    value = part%m * magnitude(v)
-                case ('momentum_sphere_r')
-                    ! Linear momentum in the spherical radial direction
-                    ! Dot product of velocity vector with spherical phi
-                    !    unit vector
-                    ! 3. Multiply by mass of particle
-                    v = part%v
-                    call spherical_basis_from_cartesian(part%x,temp_basis)
-                    value = part%m * (v .DOT. temp_basis%u(1))
-                case ('ang_momentum_x')
-                    ! Corrected angular momentum in the x direction
-                    v = part%v
-                    value = part%m * (part%x%y * v%z &
-                                &- v%y * part%x%z)
-                case ('ang_momentum_y')
-                    ! Corrected angular momentum in the y direction
-                    v = part%v
-                    value = part%m * (part%x%z * v%x &
-                                &- v%z * part%x%x)
-                case ('ang_momentum_z')
-                    ! Corrected angular momentum in the z direction
-                    v = part%v
-                    value = part%m * (part%x%x * v%y &
-                                &- v%x * part%x%y)
-                case ('ang_momentum')
-                    ! Corrected magnitude of angular momentum
-                    v = part%v
-                    L = part%x * v
-                    value = part%m * magnitude(L)
-                case ('metallicity')
-                    ! Metallicity
-                    value = part%met
-                case ('age')
-                    ! Age
-                    if (sim%cosmo) then
-                        iii = 1
-                        do while(sim%tau_frw(iii)>part%age.and.iii<sim%n_frw)
-                            iii = iii + 1
-                        end do
-                        ! Interpolate time
-#ifdef AGEPROPER
-                        time = part%age
-#else
-                        time = sim%t_frw(iii)*(part%age-sim%tau_frw(iii-1))/(sim%tau_frw(iii)-sim%tau_frw(iii-1))+ &
-                                & sim%t_frw(iii-1)*(part%age-sim%tau_frw(iii))/(sim%tau_frw(iii-1)-sim%tau_frw(iii))
-#endif
-                        value = (sim%time_simu-time)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
-                        if (value<0d0) value = 0d0
-                    endif
-                case ('birth_date')
-                    ! Birth date
-                    if (sim%cosmo) then
-                        iii = 1
-                        do while(sim%tau_frw(iii)>part%age.and.iii<sim%n_frw)
-                            iii = iii + 1
-                        end do
-                        ! Interpolate time
-                        time = sim%t_frw(iii)*(part%age-sim%tau_frw(iii-1))/(sim%tau_frw(iii)-sim%tau_frw(iii-1))+ &
-                                & sim%t_frw(iii-1)*(part%age-sim%tau_frw(iii))/(sim%tau_frw(iii-1)-sim%tau_frw(iii))
-                        age = (sim%time_simu-value)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
-                        value = (sim%time_tot+age)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
-                    endif
-                end select
-            else
-                ! This is for the case in which the SFR using a particular time indicator is required
-                ! It should be used as 'star/sfr_xxx', where xxx is some multiple of Myr
-                sfrstr = varname(index2+1:)
-                index3 = scan(sfrstr,'_')
-                if (index3.eq.0) then
-                    read(sfrstr,'(F10.0)') sfrind
-                    ! We want it in units of Gyr, that's why we divide by 1e+3
-                    sfrind = sfrind/1D3
-                    ! Birth date
-                    if (sim%cosmo) then
-                        iii = 1
-                        do while(sim%tau_frw(iii)>part%age.and.iii<sim%n_frw)
-                            iii = iii + 1
-                        end do
-                        ! Interpolate time
-                        current_age_univ = (sim%time_tot+sim%time_simu)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
-                        time = sim%t_frw(iii)*(part%age-sim%tau_frw(iii-1))/(sim%tau_frw(iii)-sim%tau_frw(iii-1))+ &
-                                & sim%t_frw(iii-1)*(part%age-sim%tau_frw(iii))/(sim%tau_frw(iii-1)-sim%tau_frw(iii))
-                        birth_date = (sim%time_tot+time)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
-                    endif
-                    ! Compute SFR by binning star particles by age
-                    if (birth_date >= (current_age_univ - sfrind)) then
-                        value = part%imass
-                    else
-                        value = 0D0
-                    endif
-                else
-                    ! In the case that projections or profiles are obtained, we need volumetric
-                    ! information (e.g. SFR density, SFR surface density)
-                    sfrtype = sfrstr(1:index3-1)
-                    sfrstr = sfrstr(index3+1:)
-                    read(sfrstr,'(F10.0)')sfrind
-                    ! We want it in units of Gyr, that's why we divide by 1e+3
-                    sfrind = sfrind/1D3
-                    ! Birth date
-                    if (sim%cosmo) then
-                        iii = 1
-                        do while(sim%tau_frw(iii)>part%age.and.iii<sim%n_frw)
-                            iii = iii + 1
-                        end do
-                        ! Interpolate time
-                        current_age_univ = (sim%time_tot+sim%time_simu)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
-#ifdef AGEPROPER
-                        time = part%age
-#else
-                        time = sim%t_frw(iii)*(part%age-sim%tau_frw(iii-1))/(sim%tau_frw(iii)-sim%tau_frw(iii-1))+ &
-                                & sim%t_frw(iii-1)*(part%age-sim%tau_frw(iii))/(sim%tau_frw(iii-1)-sim%tau_frw(iii))
-#endif
-                        birth_date = (sim%time_tot+time)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
-                    endif
-                    ! write(*,*)birth_date, current_age_univ, part%age
-                    ! Compute SFR by binning star particles by age
-                    if (birth_date >= (current_age_univ - sfrind)) then
-                        select case (TRIM(sfrtype))
-                            case ('density')
-                                if (present(dx)) then
-                                    value = part%imass / (dx%x*dx%y*dx%z) / sfrind
-                                else
-                                    write(*,*)'Can not compute a particle density without cell size!'
-                                endif
-                            case ('surface')
-                                if (present(dx)) then
-                                    value = part%imass / (dx%x*dx%y) / sfrind
-                                else
-                                    write(*,*)'Can not compute a particle surface density without cell size!'
-                                endif
-                            case default
-                                write(*,*)'This type of SFR is not recognised: ',TRIM(sfrtype)
-                                write(*,*)'Aborting!'
-                                stop
-                        end select
-                    else
-                        value = 0D0
-                    endif
-                endif
-            endif
-        else
-            value = 0D0
-        endif
-        
-    end subroutine getpartvalue
 end module io_ramses

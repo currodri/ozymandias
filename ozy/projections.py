@@ -93,14 +93,16 @@ class Projection(object):
                         if numflag:
                             sfrstr = field.split('/')[1].split('_')[0] +'_'+ field.split('/')[1].split('_')[1]
                             code_units = get_code_units(sfrstr)
-                            units = plotting_dictionary[sfrstr]['units']
+                            plotting_def = get_plotting_def(sfrstr)
+                            units = plotting_def['units']
                         else:
                             code_units = get_code_units(field.split('/')[1])
                             if datatype == 'star' or datatype == 'dm':
                                 field_str = field.split('/')[0] + '_' + field.split('/')[1]
                             else:
                                 field_str = field.split('/')[1]
-                            units = plotting_dictionary[field_str]['units']                            
+                            plotting_def = get_plotting_def(field_str)
+                            units = plotting_def['units']                            
                         temp_map = self.group.obj.array(imap[i],code_units)
                         # first_unit = True
                         # make_div = False
@@ -668,7 +670,6 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         far_cut_depth = rmax
         enclosing_sphere_p = group.position
         enclosing_sphere_r = rmax
-    print('I got here 1')
     # Now create filters if any conditions have been given...
     nfilter = len(filter_conds)
     for i in range(0,nfilter):
@@ -708,13 +709,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     else:
         nsubs = 0 
     cam = obs_instruments.init_camera(centre,axis,up_vector,region_size/boxlen,region_axis,bulk,distance/boxlen,
-                                      far_cut_depth/boxlen,map_max_size-1,nfilter,nsubs)
-    print('I got here 2')
+                                      far_cut_depth/boxlen,map_max_size-1,nsubs)
     # Now give filters to camera Fortran type
-    for i in range(0,nfilter):
-        print(filts[i])
-        print(i,nfilter,cam.nfilter,cam.filters[i])
-        cam.filters[i] = filts[i]
     if remove_subs and nsubs>0:
         for i in range(0,nsubs):
             cam.subs[i] = subs[i]
@@ -735,11 +731,14 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     hydro_handler.pov = proj.pov
     hydro_handler.nvars = len(proj.vars['gas'])
     hydro_handler.nwvars = len(proj.weight['gas'])
+    hydro_handler.nfilter = nfilter
     maps.allocate_projection_handler(hydro_handler)
     for i in range(0, len(proj.vars['gas'])):
         hydro_handler.varnames.T.view('S128')[i] = proj.vars['gas'][i].ljust(128)
     for i in range(0, len(proj.weight['gas'])):
         hydro_handler.weightvars.T.view('S128')[i] = proj.weight['gas'][i].ljust(128)
+    for i in range(0, nfilter):
+        hydro_handler.filters[i] = filts[i]
     
     # COMPUTE HYDRO PROJECTION
     if verbose:
@@ -778,9 +777,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         filts.append(f)
     # Now give filters to camera Fortran type - updating the previous from hydro
     cam = obs_instruments.init_camera(centre,axis,up_vector,region_size/boxlen,region_axis,bulk,distance/boxlen,
-                                      far_cut_depth/boxlen,map_max_size,nfilter,nsubs)
-    for i in range(0,nfilter):
-        cam.filters[i] = filts[i]
+                                      far_cut_depth/boxlen,map_max_size,nsubs)
     
     if remove_subs and nsubs>0:
         for i in range(0,nsubs):
@@ -791,6 +788,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     parts_handler.type = proj.pov
     parts_handler.nvars = len(proj.vars['dm'])+len(proj.vars['star'])
     parts_handler.nwvars = len(proj.weight['dm'])+len(proj.weight['star'])
+    parts_handler.nfilter = nfilter
     maps.allocate_projection_handler(parts_handler)
 
     for i in range(0, len(proj.vars['star'])):
@@ -807,12 +805,22 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         tempstr = 'dm/'+proj.weight['dm'][i-len(proj.weight['star'])]
         parts_handler.weightvars.T.view('S128')[i] = tempstr.ljust(128)
 
+    for i in range(0, nfilter):
+        parts_handler.filters[i] = filts[i]
+
     # COMPUTE PARTICLES PROJECTION
     if len(proj.vars['star'])+len(proj.vars['dm']) != 0:
         print('Performing particle projection for '+str(len(proj.vars['star'])+len(proj.vars['dm']))+' variables')
-        if tag_file != None:
+        if tag_file != None and obj.use_part_vardict:
             print('Using the tag file for particles: ',tag_file)
-            maps.projection_parts(obj.simulation.fullpath,cam,parts_handler,tag_file,inverse_tag)
+            maps.projection_parts(obj.simulation.fullpath,cam,parts_handler,part_dict=obj.part_vardict,
+                                    part_vtypes=part_vartypes,tag_file=tag_file,inverse_tag=inverse_tag)
+        elif obj.use_part_vardict:
+            maps.projection_parts(obj.simulation.fullpath,cam,parts_handler,part_dict=obj.part_vardict,
+                                    part_vtypes=part_vartypes)
+        elif tag_file != None:
+            print('Using the tag file for particles: ',tag_file)
+            maps.projection_parts(obj.simulation.fullpath,cam,parts_handler,tag_file=tag_file,inverse_tag=inverse_tag)
         else:
             maps.projection_parts(obj.simulation.fullpath,cam,parts_handler)
         # TODO: Weird issue when the direct toto array is given.
@@ -1134,10 +1142,10 @@ def plot_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=(3,'kpc'),
                 h = [k for k in range(0,len(hdul[j])) if hdul[j][k].header['btype']==fields[i]][0]
 
             if fields[i].split('/')[0] == 'star' or fields[i].split('/')[0] == 'dm':
-                plotting_def = plotting_dictionary[fields[i].split('/')[0]+'_'+fields[i].split('/')[1]]
+                plotting_def = get_plotting_def(fields[i].split('/')[0]+'_'+fields[i].split('/')[1])
                 full_varname = fields[i].split('/')[0]+'_'+fields[i].split('/')[1]
             elif fields[i].split('/')[1] != 'densityandv_sphere_r':
-                plotting_def = plotting_dictionary[fields[i].split('/')[1]]
+                plotting_def = get_plotting_def(fields[i].split('/')[1])
                 full_varname = fields[i].split('/')[1]
             if smooth:
                 # We smooth with a Gaussian kernel with x_stddev=1 (and y_stddev=1)
@@ -1171,7 +1179,7 @@ def plot_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=(3,'kpc'),
             if j%2 == 0:
                 cbaxes = inset_axes(ax[j,i], width="80%", height="6%", loc='lower center')
                 cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
-                if logscale and fields[i].split('/')[1] not in symlog_variables:
+                if logscale and not plotting_def['symlog']:
                     cbar.set_label(plotting_def['label_log'],color=plotting_def['text_over'],fontsize=14,labelpad=-30, y=0.85,weight='bold')
                 else:
                     cbar.set_label(plotting_def['label'],color=plotting_def['text_over'],fontsize=14,labelpad=-30, y=0.85)
@@ -1348,10 +1356,10 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=(3,'kpc')
                     h = [k for k in range(0,len(hdul)) if hdul[k].header['btype']==fields[ivar]][0]
 
                 if fields[ivar].split('/')[0] == 'star' or fields[ivar].split('/')[0] == 'dm':
-                    plotting_def = plotting_dictionary[fields[ivar].split('/')[0]+'_'+fields[ivar].split('/')[1]]
+                    plotting_def = get_plotting_def(fields[ivar].split('/')[0]+'_'+fields[ivar].split('/')[1])
                     full_varname = fields[ivar].split('/')[0]+'_'+fields[ivar].split('/')[1]
                 elif fields[ivar].split('/')[1] != 'densityandv_sphere_r':
-                    plotting_def = plotting_dictionary[fields[ivar].split('/')[1]]
+                    plotting_def = get_plotting_def(fields[ivar].split('/')[1])
                     full_varname = fields[ivar].split('/')[1]
                 if smooth:
                     # We smooth with a Gaussian kernel with x_stddev=1 (and y_stddev=1)
@@ -1366,7 +1374,7 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=(3,'kpc')
                 else:
                     cImage = hdul[h].data.T
                 if fields[ivar].split('/')[1] == 'densityandv_sphere_r':
-                    plotting_def = plotting_dictionary['density']
+                    plotting_def = get_plotting_def('density')
                     full_varname = 'density'
                     if i%2 == 0:
                         plot = ax[i,j].imshow(np.log10(hdul['gas/density'].data.T), cmap=plotting_def['cmap'],
@@ -1411,7 +1419,7 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=(3,'kpc')
                 if i%2 == 0:
                     cbaxes = inset_axes(ax[i,j], width="80%", height="6%", loc='lower center')
                     cbar = fig.colorbar(plot, cax=cbaxes, orientation='horizontal')
-                    if logscale and fields[ivar].split('/')[1] not in symlog_variables:
+                    if logscale and not plotting_def['symlog']:
                         cbar.set_label(plotting_def['label_log'],color=plotting_def['text_over'],fontsize=14,labelpad=-30, y=0.85,weight='bold')
                     else:
                         cbar.set_label(plotting_def['label'],color=plotting_def['text_over'],fontsize=14,labelpad=-30, y=0.85)
@@ -1597,11 +1605,11 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=(3,'kpc'),
     ax.axis('off')
     h = [k for k in range(0,len(hdul)) if hdul[k].header['btype']==field][0]
     if field.split('/')[0] == 'star' or field.split('/')[0] == 'dm':
-        plotting_def = plotting_dictionary[field.split('/')[0]+'_'+field.split('/')[1]]
+        plotting_def = get_plotting_def(field.split('/')[0]+'_'+field.split('/')[1])
         stellar = True
         full_varname = field.split('/')[0]+'_'+field.split('/')[1]
     else:
-        plotting_def = plotting_dictionary[field.split('/')[1]]
+        plotting_def = get_plotting_def(field.split('/')[1])
         full_varname = field.split('/')[1]
     if colormap == None:
         colormap = plotting_def['cmap']
@@ -1617,12 +1625,12 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=(3,'kpc'),
     else:
         cImage = hdul[h].data.T
     print(field,np.nanmin(cImage),np.nanmax(cImage))
-    if logscale and field.split('/')[1] not in symlog_variables:
+    if logscale and not plotting_def['symlog']:
         plot = ax.imshow(np.log10(cImage), cmap=colormap,
                         origin='upper',vmin=np.log10(plotting_def['vmin'+type_scale]),
                         vmax=np.log10(plotting_def['vmax'+type_scale]),extent=ex,
                         interpolation='nearest')
-    elif logscale and field.split('/')[1] in symlog_variables:
+    elif logscale and not plotting_def['symlog']:
         if (filter_name != 'outflow' and filter_name != 'inflow'):
             plot = ax.imshow(cImage, cmap=colormap,
                             origin='upper',norm=SymLogNorm(linthresh=0.1, linscale=1,
@@ -1763,9 +1771,9 @@ def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=(3,'kpc'),r
         h = [k for k in range(0,len(hdul)) if hdul[k].header['btype']==fields[i]][0]
 
         if fields[i].split('/')[0] == 'star' or fields[i].split('/')[0] == 'dm':
-            plotting_def = plotting_dictionary[fields[i].split('/')[0]+'_'+fields[i].split('/')[1]]
+            plotting_def = get_plotting_def(fields[i].split('/')[0]+'_'+fields[i].split('/')[1])
         else:
-            plotting_def = plotting_dictionary[fields[i].split('/')[1]]
+            plotting_def = get_plotting_def(fields[i].split('/')[1])
 
         data = hdul[h].data.T
         print(fields[i],data.min(),data.max())
@@ -1787,7 +1795,7 @@ def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=(3,'kpc'),r
     if stars:
         h = [k for k in range(0,len(hdul)) if hdul[k].header['btype']=='star/mass'][0]
         stars = np.log10(hdul[h].data.T)
-        plotting_def = plotting_dictionary['star_mass']
+        plotting_def = get_plotting_def('star_mass')
         ax.imshow(stars,origin='upper',cmap=plotting_def['cmap'],
                     extent=ex,interpolation='nearest',
                     vmin=np.log10(plotting_def['vmin']),
@@ -2160,12 +2168,12 @@ def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False,fig
             print(fields[ivar],np.nanmin(array),np.nanmax(array))
             
             if fields[ivar].split('/')[0] == 'star' or fields[ivar].split('/')[0] == 'dm':
-                plotting_def = plotting_dictionary[fields[ivar].split('/')[0]+'_'+fields[ivar].split('/')[1]]
+                plotting_def = get_plotting_def(fields[ivar].split('/')[0]+'_'+fields[ivar].split('/')[1])
                 stellar = True
             else:
-                plotting_def = plotting_dictionary[fields[ivar].split('/')[1]]
+                plotting_def = get_plotting_def(fields[ivar].split('/')[1])
             if logscale:
-                if fields[ivar].split('/')[1] not in symlog_variables:
+                if not plotting_def['symlog']:
                     plot = ax.imshow(np.log10(array), cmap=plotting_def['cmap'],
                                     vmin=np.log10(plotting_def['vmin'+type_scale]),
                                     vmax=np.log10(plotting_def['vmax'+type_scale]))
@@ -2190,7 +2198,7 @@ def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False,fig
                                     bbox_to_anchor=(0.0, 0.2, 1, 1.),
                                     bbox_transform=ax.transAxes)
                 axcb = fig.colorbar(plot, cax = cbaxes, orientation='horizontal',pad=0.3)
-                if logscale and fields[ivar].split('/')[1] not in symlog_variables:
+                if logscale and not plotting_def['symlog']:
                     axcb.set_label(plotting_def['label_log'],color='black',fontsize=14,labelpad=-32)
                 else:
                     axcb.set_label(plotting_def['label'],color='black',fontsize=14,labelpad=-32)
@@ -2204,7 +2212,7 @@ def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False,fig
                                     bbox_to_anchor=(0.0, -0.2, 1., 1.),
                                     bbox_transform=ax.transAxes)
                 axcb = fig.colorbar(plot, cax = cbaxes, orientation='horizontal',pad=0.3)
-                if logscale and fields[ivar].split('/')[1] not in symlog_variables:
+                if logscale and not plotting_def['symlog']:
                     axcb.set_label(plotting_def['label_log'],color='black',fontsize=14)
                 else:
                     axcb.set_label(plotting_def['label'],color='black',fontsize=14)

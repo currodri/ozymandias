@@ -156,9 +156,9 @@ def invert_tick_colours(ax,var,type_scale,vmin=None,vmax=None,
         vmin = plotting_def['vmin'+type_scale]
     if vmax == None:
         vmax = plotting_def['vmax'+type_scale]
-    if linthresh == None and var in symlog_variables:
+    if linthresh == None and plotting_def['symlog']:
         linthresh = plotting_def['linthresh']
-    if linscale == None and var in symlog_variables:
+    if linscale == None and plotting_def['symlog']:
         linscale = plotting_def['linscale']
     if orientation == 'horizontal':
         ticks_pos = ax.get_xticks()
@@ -952,7 +952,7 @@ def init_filter(cond_strs, name, group):
                     particle = True
                 else:
                     correct_str = cond_strs[i].split('/')[0]
-                filt.cond_vars.name = correct_str
+                filt.cond_vars_name = correct_str
                 # Expresion operator
                 filt.cond_ops.T.view('S2')[i] = cond_strs[i].split('/')[1].ljust(2)
                 # Value transformed to code units
@@ -970,7 +970,7 @@ def init_filter(cond_strs, name, group):
                     units2 = get_code_units(cond_strs[i].split('/')[2])
                     if units1 != units2:
                         raise ValueError("You cannot compare %s and %s"%(units1,units2))
-                    filt.cond_vars_comp.name = cond_strs[i].split('/')[2]
+                    filt.cond_vars_comp_name = cond_strs[i].split('/')[2]
                     # And in place of units we should have the factor of that variable that we want
                     filt.cond_vals[i] = cond_strs[i].split('/')[3]
 
