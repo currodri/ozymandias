@@ -406,8 +406,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
                 else:
                     raise KeyError('This star variable is not supported. Please check!')
             else:
-                if var_name in geometrical_variables or var_name in raw_star_variables \
-                    or var_name in derived_star_variables:
+                if var_name in geometrical_variables or var_name in raw_part_variables \
+                    or var_name in derived_part_variables or var_name in star_variables:
                     proj.vars['star'].append(var_name)
                 else:
                     raise KeyError('This star variable is not supported. Please check!')

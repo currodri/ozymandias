@@ -2189,23 +2189,33 @@ star_variables = dict(
                 'neighbour':False,
                 'symlog':False
         },
-        sfr_surface = {'cmap':'magma',
+        birth_date = {'cmap':'BuPu',
+                'text_over':'white',
+                'label':r'Birth date [Gyr]',
+                'units':'Gyr',
+                'vmin':None,
+                'vmax':None,
+                'code_units':'Gyr',
+                'neighbour':False,
+                'symlog':False
+        },
+        sfr = {'cmap':'magma',
                             'text_over':'white',
-                            'label':r'$\langle \Sigma_{\rm SFR}\rangle))$ [M$_{\odot}$ yr$^{-1}$ kpc$^{-2}$]',
-                            'label_log':r'$\log\left(\frac{ \langle\Sigma_{\rm SFR}\rangle }{{\rm M}_{\odot}{\rm yr}^{-1}{\rm kpc}^{-2}}\right)$',
-                            'units':'Msun/(yr*kpc**2)',
+                            'label':r'$\langle {\rm SFR}\rangle))$ [M$_{\odot}$ yr$^{-1}$]',
+                            'label_log':r'$\log\left(\frac{ \langle {\rm SFR}\rangle }{{\rm M}_{\odot}{\rm yr}^{-1}\right)$',
+                            'units':'Msun/yr',
                             'vmin':3e-4,
                             'vmax':90,
                             'vmin_galaxy':3e-4,
                             'vmax_galaxy':90,
-                            'code_units':'code_density*code_velocity',
+                            'code_units':'code_mass/code_time',
                             'neighbour':False,
                             'symlog':False
         },
-        sfr_surface_100 = {'cmap':'magma',
+        sfr_surface = {'cmap':'magma',
                             'text_over':'white',
-                            'label':r'$\langle \Sigma_{\rm SFR}\rangle)_{\rm 100 Myr})$ [M$_{\odot}$ yr$^{-1}$ kpc$^{-2}$]',
-                            'label_log':r'$\log\left(\frac{ \langle\Sigma_{\rm SFR}\rangle _{\rm 100 Myr}}{{\rm M}_{\odot}{\rm yr}^{-1}{\rm kpc}^{-2}}\right)$',
+                            'label':r'$\langle \Sigma_{\rm SFR}\rangle))$ [M$_{\odot}$ yr$^{-1}$ kpc$^{-2}$]',
+                            'label_log':r'$\log\left(\frac{ \langle\Sigma_{\rm SFR}\rangle }{{\rm M}_{\odot}{\rm yr}^{-1}{\rm kpc}^{-2}}\right)$',
                             'units':'Msun/(yr*kpc**2)',
                             'vmin':3e-4,
                             'vmax':90,
@@ -2228,42 +2238,8 @@ star_variables = dict(
                             'neighbour':False,
                             'symlog':False
         },
-        sfr_density_100 = {'cmap':'magma',
-                            'text_over':'white',
-                            'label':r'$\langle \rho_{\rm SFR}\rangle)_{\rm 100 Myr})$ [M$_{\odot}$ yr$^{-1}$ kpc$^{-3}$]',
-                            'label_log':r'$\log\left(\frac{ \langle\rho_{\rm SFR}\rangle _{\rm 100 Myr}}{{\rm M}_{\odot}{\rm yr}^{-1}{\rm kpc}^{-3}}\right)$',
-                            'units':'Msun/(yr*kpc**3)',
-                            'vmin':3e-4,
-                            'vmax':90,
-                            'vmin_galaxy':3e-4,
-                            'vmax_galaxy':90,
-                            'code_units':'code_mass/Gyr/code_length**3',
-                            'neighbour':False,
-                            'symlog':False
-        },
 )
 
-derived_dm_variables = dict(
-        sdensity = {'cmap':'cividis',
-                        'text_over':'white',
-                        'label':r'$\Sigma_{\rm DM}$ [M$_{\odot}$ kpc$^{-2}$]',
-                        'label_log':r'$\log\left(\frac{\Sigma_{\rm DM}}{{\rm M}_{\odot}{\rm kpc}^{-2}}\right)$',
-                        'units':'Msun/(kpc**2)',
-                        'vmin':4e+7,
-                        'vmax':3e+9,
-                        'vmin_galaxy':8e+6,
-                        'vmax_galaxy':7e+8,
-                        'vmin_cluster':4e+5,
-                        'vmax_cluster':3e+8,
-                        'vmin_cgm':4e+3,
-                        'vmax_cgm':3e+6,
-                        'code_units':'code_density*code_length',
-                        'neighbour':False,
-                        'symlog':False
-
-        },
-
-)
 
 circle_dictionary = dict(
         rvir_halo = {'edgecolor': 'r',
@@ -2321,8 +2297,8 @@ import sys
 def load_custom_settings():
     """Load custom settings if 'ozy_settings.py' exists in the current directory."""
     global geometrical_variables, raw_gas_variables,\
-           raw_star_variables, raw_dm_variables, derived_gas_variables,\
-           derived_star_variables, derived_dm_variables, gravity_variables,\
+           raw_part_variables, derived_gas_variables,\
+           derived_part_variables, star_variables, gravity_variables,\
            circle_dictionary, basic_conv, variables_ordering  # Declare the dictionaries as global to override them
     
     current_dir = os.getcwd()
@@ -2341,16 +2317,17 @@ def load_custom_settings():
         # Override the dictionaries
         geometrical_variables = getattr(ozy_settings, 'geometrical_variables', geometrical_variables)
         raw_gas_variables = getattr(ozy_settings, 'raw_gas_variables', raw_gas_variables)
-        raw_star_variables = getattr(ozy_settings, 'raw_star_variables', raw_star_variables)
-        raw_dm_variables = getattr(ozy_settings, 'raw_dm_variables', raw_dm_variables)
+        raw_part_variables = getattr(ozy_settings, 'raw_part_variables', raw_part_variables)
         derived_gas_variables = getattr(ozy_settings, 'derived_gas_variables', derived_gas_variables)
-        derived_star_variables = getattr(ozy_settings, 'derived_star_variables', derived_star_variables)
-        derived_dm_variables = getattr(ozy_settings, 'derived_dm_variables', derived_dm_variables)
+        derived_part_variables = getattr(ozy_settings, 'derived_part_variables', derived_part_variables)
+        star_variables = getattr(ozy_settings, 'star_variables', star_variables)
         gravity_variables = getattr(ozy_settings, 'gravity_variables', gravity_variables)
         circle_dictionary = getattr(ozy_settings, 'circle_dictionary', circle_dictionary)
         basic_conv = getattr(ozy_settings, 'basic_conv', basic_conv)
-        variables_ordering = getattr(ozy_settings, 'variables_ordering', variables_ordering)
-        
+        hydro_variables_ordering = getattr(ozy_settings, 'hydro_variables_ordering', hydro_variables_ordering)
+        part_variables_ordering = getattr(ozy_settings, 'part_variables_ordering', part_variables_ordering)
+        part_variables_type = getattr(ozy_settings, 'part_variables_type', part_variables_type)
+
         print(f"Custom settings loaded successfully from {ozy_settings_path}.")
     else:
         print("No 'ozy_settings.py' file found in the current directory. Using default settings.")

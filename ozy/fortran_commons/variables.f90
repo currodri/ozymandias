@@ -6427,6 +6427,7 @@ module part_commons
     end function sfr_density
 
     subroutine check_starvar(vardict,varname,pvar,ok)
+        use utils, only: get_cleaned_string
         implicit none
         type(part_var),intent(inout) :: pvar
         type(dictf90),intent(in) :: vardict
