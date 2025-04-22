@@ -12,7 +12,6 @@ PYTHON   = python
 #=======================================================================
 #                     additional flags
 #=======================================================================
-
 ifeq ($(F90),gfortran)
     FPP      = gfortran -E
     FPP_F90FLAGS = -x f95-cpp-input -fPIC -g -fbacktrace -fcheck=all
@@ -26,11 +25,15 @@ ifeq ($(F90),ifx)
 
 	FPP      	 = gfortran -E # gfortran f90wrap temp files only. not compilation
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
-	F90FLAGS 	 = -O3 -cpp -fpscomp logicals -fPIC -DIMASS # use 1 and 0 for True and False
+	F90FLAGS 	 = -O3 -cpp -fp-model source -fPIC -DIMASS # use 1 and 0 for True and False
 	#F90FLAGS 	 = -O0 -check bounds -g -traceback -cpp -fpscomp logicals -fPIC -DIMASS # use 1 and 0 for True and False
     FCOMP    	 = intelem # for f2py
     LIBS =
 endif
+
+$(info Using F90 compiler: $(F90))
+$(info F90FLAGS = $(F90FLAGS))
+$(info FCOMP    = $(FCOMP))
 
 CFLAGS  = -fPIC #     ==> universal for ifort, gfortran, pgi
 
@@ -70,11 +73,7 @@ LIBSRC_SOURCES = local dictionary_module linalg_module coordinates_module \
 					filtering \
 					profiles_module integrator_module export_module \
 					
-
-# file names
-LIBSRC_FILES = $(addsuffix .f90,${LIBSRC_SOURCES})
-
-# object files
+# object files (no prefix needed)
 LIBSRC_OBJECTS = $(addsuffix .o,${LIBSRC_SOURCES})
 
 # only used when cleaning up
@@ -97,10 +96,14 @@ LIBSRC_WRAP_OBJECTS = $(addsuffix .o,${LIBSRC_WRAP_SOURCES})
 # fpp files
 LIBSRC_WRAP_FPP_FILES = $(addsuffix .fpp,${LIBSRC_WRAP_SOURCES})
 
+$(info VPATH = $(VPATH))
+$(info LIBSRC_OBJECTS = $(LIBSRC_OBJECTS))
+$(info LIBSRC_FILES = $(LIBSRC_FILES))
+
 #=======================================================================
 #                 Relevant suffixes
 #=======================================================================
-
+MAKEFLAGS += -r 
 .SUFFIXES: .f90 .fpp
 
 #=======================================================================

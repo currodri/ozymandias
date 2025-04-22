@@ -2299,7 +2299,8 @@ def load_custom_settings():
     global geometrical_variables, raw_gas_variables,\
            raw_part_variables, derived_gas_variables,\
            derived_part_variables, star_variables, gravity_variables,\
-           circle_dictionary, basic_conv, variables_ordering  # Declare the dictionaries as global to override them
+           circle_dictionary, basic_conv, hydro_variables_ordering,\
+           part_variables_ordering, part_variables_type  # Declare the dictionaries as global to override them
     
     current_dir = os.getcwd()
     ozy_settings_path = os.path.join(current_dir, 'ozy_settings.py')

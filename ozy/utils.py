@@ -9,10 +9,11 @@ import subprocess
 import matplotlib.text as mtext
 import matplotlib.transforms as mtransforms
 import matplotlib.pyplot as plt
-from variables_settings import geometrical_variables,raw_gas_variables,\
-    raw_star_variables,raw_dm_variables,derived_gas_variables,\
-    derived_star_variables,derived_dm_variables,gravity_variables,\
-    basic_conv,circle_dictionary
+from variables_settings import geometrical_variables, raw_gas_variables,\
+           raw_part_variables, derived_gas_variables,\
+           derived_part_variables, star_variables, gravity_variables,\
+           circle_dictionary, basic_conv, hydro_variables_ordering,\
+           part_variables_ordering, part_variables_type,circle_dictionary
 
 
 def get_code_units(varname):
@@ -21,16 +22,14 @@ def get_code_units(varname):
         unit = geometrical_variables[varname]['code_units']
     elif varname in raw_gas_variables:
         unit = raw_gas_variables[varname]['code_units']
-    elif varname in raw_star_variables:
-        unit = raw_star_variables[varname]['code_units']
-    elif varname in raw_dm_variables:
-        unit = raw_dm_variables[varname]['code_units']
+    elif varname in raw_part_variables:
+        unit = raw_part_variables[varname]['code_units']
     elif varname in derived_gas_variables:
         unit = derived_gas_variables[varname]['code_units']
-    elif varname in derived_star_variables:
-        unit = derived_star_variables[varname]['code_units']
-    elif varname in derived_dm_variables:
-        unit = derived_dm_variables[varname]['code_units']
+    elif varname in derived_part_variables:
+        unit = derived_part_variables[varname]['code_units']
+    elif varname in star_variables:
+        unit = star_variables[varname]['code_units']
     elif varname in gravity_variables:
         unit = gravity_variables[varname]['code_units']
     else:
@@ -42,16 +41,14 @@ def check_need_neighbours(varname):
         need = geometrical_variables[varname]['neighbour']
     elif varname in raw_gas_variables:
         need = raw_gas_variables[varname]['neighbour']
-    elif varname in raw_star_variables:
-        need = raw_star_variables[varname]['neighbour']
-    elif varname in raw_dm_variables:
-        need = raw_dm_variables[varname]['neighbour']
+    elif varname in raw_part_variables:
+        need = raw_part_variables[varname]['neighbour']
     elif varname in derived_gas_variables:
         need = derived_gas_variables[varname]['neighbour']
-    elif varname in derived_star_variables:
-        need = derived_star_variables[varname]['neighbour']
-    elif varname in derived_dm_variables:
-        need = derived_dm_variables[varname]['neighbour']
+    elif varname in derived_part_variables:
+        need = derived_part_variables[varname]['neighbour']
+    elif varname in star_variables:
+        need = star_variables[varname]['neighbour']
     elif varname in gravity_variables:
         need = gravity_variables[varname]['neighbour']
     else:
@@ -63,16 +60,14 @@ def get_plotting_def(varname):
         plotting_def = geometrical_variables[varname]
     elif varname in raw_gas_variables:
         plotting_def = raw_gas_variables[varname]
-    elif varname in raw_star_variables:
-        plotting_def = raw_star_variables[varname]
-    elif varname in raw_dm_variables:
-        plotting_def = raw_dm_variables[varname]
+    elif varname in raw_part_variables:
+        plotting_def = raw_part_variables[varname]
     elif varname in derived_gas_variables:
         plotting_def = derived_gas_variables[varname]
-    elif varname in derived_star_variables:
-        plotting_def = derived_star_variables[varname]
-    elif varname in derived_dm_variables:
-        plotting_def = derived_dm_variables[varname]
+    elif varname in derived_part_variables:
+        plotting_def = derived_part_variables[varname]
+    elif varname in star_variables:
+        plotting_def = star_variables[varname]
     elif varname in gravity_variables:
         plotting_def = gravity_variables[varname]
     else:
@@ -920,54 +915,98 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
     else:
         return reg
 
-def init_filter(cond_strs, name, group):
+def init_filter_hydro(cond_strs, name, group):
     """Initialise filter Fortran derived type with the condition strings provided."""
     from amr2 import filtering
     if isinstance(cond_strs, str):
         cond_strs = [cond_strs]
-    filt = filtering.filter()
+    filt = filtering.filter_hydro()
     check_none = all(x == 'none' for x in cond_strs)
     ncond_real = len(cond_strs) - cond_strs.count('none')
     if check_none and name == 'none':
         filt.ncond = 0
         filt.name = 'none'
-        filtering.allocate_filter(filt)
+        filtering.allocate_filter_hydro(filt)
         return filt
     elif check_none and name != 'none':
         filt.ncond = 0
         filt.name = name
-        filtering.allocate_filter(filt)
+        filtering.allocate_filter_hydro(filt)
         return filt
     elif name != 'none':
         filt.ncond = ncond_real
         filt.name = name
-        filtering.allocate_filter(filt)
+        filtering.allocate_filter_hydro(filt)
         cond_strs = list(filter(lambda x: x != 'none', cond_strs))
         for i in range(0, filt.ncond):
             if cond_strs[i] != 'none':
-                # Variable name
-                particle = False
-                if cond_strs[i].split('/')[0].split('_')[0] == 'star' or cond_strs[i].split('/')[0].split('_')[0] == 'dm':
-                    correct_str = cond_strs[i].split('/')[0].split('_')[0] + '/' + '_'.join(cond_strs[i].split('/')[0].split('_')[1:])
-                    particle = True
-                else:
-                    correct_str = cond_strs[i].split('/')[0]
+                correct_str = cond_strs[i].split('/')[0]
                 filt.cond_vars_name = correct_str
                 # Expresion operator
                 filt.cond_ops.T.view('S2')[i] = cond_strs[i].split('/')[1].ljust(2)
                 # Value transformed to code units
                 try:
                     value = group.obj.quantity(float(cond_strs[i].split('/')[2]), cond_strs[i].split('/')[3])
-                    if particle:
-                        filt.cond_vals[i] = value.in_units(get_code_units(correct_str.split('/')[1])).d
-                    else:
-                        filt.cond_vals[i] = value.in_units(get_code_units(correct_str)).d
+                    filt.cond_vals[i] = value.in_units(get_code_units(correct_str)).d
                 except:
                     # In the case of the condition value being a string
                     # we use variables for the filters
                     filt.use_var[i] = True
                     units1 = get_code_units(correct_str)
                     units2 = get_code_units(cond_strs[i].split('/')[2])
+                    if units1 != units2:
+                        raise ValueError("You cannot compare %s and %s"%(units1,units2))
+                    filt.cond_vars_comp_name = cond_strs[i].split('/')[2]
+                    # And in place of units we should have the factor of that variable that we want
+                    filt.cond_vals[i] = cond_strs[i].split('/')[3]
+
+        return filt
+    else:
+        raise ValueError("Condition strings are given, but not a name for the filter. Please set!")
+
+def init_filter_part(cond_strs, name, group):
+    """ Initialise filter_part Fortran derived type with the condition strings provided."""
+    from part2 import filtering
+    if isinstance(cond_strs, str):
+        cond_strs = [cond_strs]
+    filt = filtering.filter_part()
+    check_none = all(x == 'none' for x in cond_strs)
+    ncond_real = len(cond_strs) - cond_strs.count('none')
+    if check_none and name == 'none':
+        filt.ncond = 0
+        filt.name = 'none'
+        filtering.allocate_filter_hydro(filt)
+        return filt
+    elif check_none and name != 'none':
+        filt.ncond = 0
+        filt.name = name
+        filtering.allocate_filter_hydro(filt)
+        return filt
+    elif name != 'none':
+        filt.ncond = ncond_real
+        filt.name = name
+        filtering.allocate_filter_hydro(filt)
+        cond_strs = list(filter(lambda x: x != 'none', cond_strs))
+        for i in range(0, filt.ncond):
+            if cond_strs[i] != 'none':
+                correct_str = cond_strs[i].split('/')[0]
+                if len(correct_str.split('_')) > 1:
+                    nonum_str = correct_str.split('_')[0]
+                else:
+                    nonum_str = correct_str
+                filt.cond_vars_name = correct_str
+                # Expresion operator
+                filt.cond_ops.T.view('S2')[i] = cond_strs[i].split('/')[1].ljust(2)
+                # Value transformed to code units
+                try:
+                    value = group.obj.quantity(float(cond_strs[i].split('/')[2]), cond_strs[i].split('/')[3])
+                    filt.cond_vals[i] = value.in_units(get_code_units(nonum_str)).d
+                except:
+                    # In the case of the condition value being a string
+                    # we use variables for the filters
+                    filt.use_var[i] = True
+                    units1 = get_code_units(nonum_str)
+                    units2 = get_code_units(nonum_str[i].split('/')[2])
                     if units1 != units2:
                         raise ValueError("You cannot compare %s and %s"%(units1,units2))
                     filt.cond_vars_comp_name = cond_strs[i].split('/')[2]

@@ -2,11 +2,13 @@ import numpy as np
 import h5py
 import os
 import ozy
-from ozy.utils import init_filter, init_region, structure_regions, check_need_neighbours, get_code_units, get_plotting_def
-from variables_settings import geometrical_variables,raw_gas_variables,\
-    raw_star_variables,raw_dm_variables,derived_gas_variables,\
-    derived_star_variables,derived_dm_variables,gravity_variables,\
-    basic_conv,circle_dictionary
+from ozy.utils import init_region, structure_regions, check_need_neighbours, get_code_units, get_plotting_def
+from ozy.utils import init_filter_hydro,init_filter_part
+from variables_settings import geometrical_variables, raw_gas_variables,\
+           raw_part_variables, derived_gas_variables,\
+           derived_part_variables, star_variables, gravity_variables,\
+           circle_dictionary, basic_conv, hydro_variables_ordering,\
+           part_variables_ordering, part_variables_type,circle_dictionary
 import re
 from unyt import unyt_quantity,unyt_array
 import healpy as hp
@@ -49,10 +51,12 @@ class Projection(object):
         self.distance = 0.5
         self.far_cut_depth = 0.5
         self.resolution = np.array([1024,1024],'i')
-        self.vars = dict(gas = [],star = [], dm = [])
-        self.weight = dict(gas = [],star = [], dm = [])
-        self.data_maps = []
-        self.filters = []
+        self.vars = dict(gas = [], part = [])
+        self.weight = dict(gas = [], part = [])
+        self.data_maps_gas = []
+        self.data_maps_part = []
+        self.filters_gas = []
+        self.filters_part = []
         # These are details for the case of a HEALPix map
         self.nside = 32
         self.npix = hp.nside2npix(self.nside)
@@ -68,15 +72,62 @@ class Projection(object):
             print('WARNING: Overwritting previous projection.')
             os.remove(name)
         self.hdulist = fits.HDUList()
+
+        # 1. Begin by saving the hydro maps if there are any
         first = True
-        nfilter = len(self.filters)
-        for nf in range(0,nfilter):
+        nfilter_gas = len(self.filters_gas)
+        for nf in range(0,nfilter_gas):
+            filter_name = self.filters_gas[nf]['name']
+            counter = 0
+            for datatype, varlist in self.vars.items():
+                fields = []
+                if len(varlist)>0:
+                    imap = self.data_maps_gas[counter][nf]
+                    if not isinstance(imap,list) and not isinstance(imap,np.ndarray):
+                        imap = [imap]
+                    for f in varlist:
+                        fields.append(datatype+'/'+f)
+                    for i,field in enumerate(fields):
+                        code_units = get_code_units(field.split('/')[1])
+                        field_str = field.split('/')[1]
+                        plotting_def = get_plotting_def(field_str)
+                        units = plotting_def['units']                            
+                        temp_map = self.group.obj.array(imap[i],code_units)
+                        if first:
+                            hdu = fits.PrimaryHDU(np.array(temp_map.in_units(units)))
+                            first = False
+                        else:
+                            hdu = fits.ImageHDU(np.array(temp_map.in_units(units)))
+                        if filter_name != 'none':
+                            hdu.name = field+'/'+filter_name
+                            hdu.header["btype"] = field+'/'+filter_name
+                        else:
+                            hdu.name = field
+                            hdu.header["btype"] = field
+                        hdu.header["bunit"] = re.sub('()', '', units)
+                        hdu.header["redshift"] = self.group.obj.simulation.redshift
+                        hdu.header["data_type"] = 'gas'
+                        hdu.header["los_x"] = self.los_axis[0]
+                        hdu.header["los_y"] = self.los_axis[1]
+                        hdu.header["los_z"] = self.los_axis[2]
+                        hdu.header["up_x"] = self.up_vector[0]
+                        hdu.header["up_y"] = self.up_vector[1]
+                        hdu.header["up_z"] = self.up_vector[2]
+                        hdu.header["centre_x"] = float(self.centre[0].in_units(unit_system['code_length']).d)
+                        hdu.header["centre_y"] = float(self.centre[1].in_units(unit_system['code_length']).d)
+                        hdu.header["centre_z"] = float(self.centre[2].in_units(unit_system['code_length']).d)
+                        self._save_filterinfo(hdu,self.filters_gas[nf])
+                        self.hdulist.append(hdu)
+                counter += 1
+
+        nfilter_part = len(self.filters_part)
+        for nf in range(0,nfilter_part):
             filter_name = self.filters[nf]['name']
             counter = 0
             for datatype, varlist in self.vars.items():
                 fields = []
                 if len(varlist)>0:
-                    imap = self.data_maps[counter][nf]
+                    imap = self.data_maps_part[counter][nf]
                     if not isinstance(imap,list) and not isinstance(imap,np.ndarray):
                         imap = [imap]
                     for f in varlist:
@@ -85,43 +136,15 @@ class Projection(object):
                         # Some fields have specific numerical flags at the end
                         # which do not interfere with the units. If that is 
                         # the case, get rid of that last bit
-                        try:
-                            numflag = int(field.split('/')[1].split('_')[-1])
-                            numflag = True
-                        except:
-                            numflag = False
-                        if numflag:
-                            sfrstr = field.split('/')[1].split('_')[0] +'_'+ field.split('/')[1].split('_')[1]
-                            code_units = get_code_units(sfrstr)
-                            plotting_def = get_plotting_def(sfrstr)
-                            units = plotting_def['units']
+                        correct_str = field.split('/')[1]
+                        if len(correct_str.split('_')) > 1:
+                            nonum_str = correct_str.split('_')[0]
                         else:
-                            code_units = get_code_units(field.split('/')[1])
-                            if datatype == 'star' or datatype == 'dm':
-                                field_str = field.split('/')[0] + '_' + field.split('/')[1]
-                            else:
-                                field_str = field.split('/')[1]
-                            plotting_def = get_plotting_def(field_str)
-                            units = plotting_def['units']                            
+                            nonum_str = correct_str
+                        code_units = get_code_units(nonum_str)
+                        plotting_def = get_plotting_def(nonum_str)
+                        units = plotting_def['units']                            
                         temp_map = self.group.obj.array(imap[i],code_units)
-                        # first_unit = True
-                        # make_div = False
-                        # if len(code_units.split('/')) != 1:
-                        #     make_div = True
-                        #     code_units = code_units.replace('/','*')
-                        # for u in code_units.split('*'):
-                        #     if first_unit:
-                        #         units = unit_system[u]
-                        #         first_unit = False
-                        #         units_check = u
-                        #     else:
-                        #         if make_div:
-                        #             units += '/'+unit_system[u]
-                        #         else:
-                        #             units += '*'+unit_system[u]
-                        #         units_check +='_'+u
-                        # if units_check in unit_system:
-                        #     units = unit_system[units_check]
                         
                         if first:
                             hdu = fits.PrimaryHDU(np.array(temp_map.in_units(units)))
@@ -136,6 +159,7 @@ class Projection(object):
                             hdu.header["btype"] = field
                         hdu.header["bunit"] = re.sub('()', '', units)
                         hdu.header["redshift"] = self.group.obj.simulation.redshift
+                        hdu.header["data_type"] = 'part'
                         hdu.header["los_x"] = self.los_axis[0]
                         hdu.header["los_y"] = self.los_axis[1]
                         hdu.header["los_z"] = self.los_axis[2]
@@ -145,7 +169,7 @@ class Projection(object):
                         hdu.header["centre_x"] = float(self.centre[0].in_units(unit_system['code_length']).d)
                         hdu.header["centre_y"] = float(self.centre[1].in_units(unit_system['code_length']).d)
                         hdu.header["centre_z"] = float(self.centre[2].in_units(unit_system['code_length']).d)
-                        self._save_filterinfo(hdu,self.filters[nf])
+                        self._save_filterinfo(hdu,self.filters_part[nf])
                         self.hdulist.append(hdu)
                 counter += 1
         # Setup WCS in the coordinate systems of the camera
@@ -328,32 +352,35 @@ class Projection(object):
 
     def _get_python_filter(self,filt):
         """Save the Fortran derived type as a dictionary inside the PhaseDiagram class (only the necessary info)."""
-        self.filters.append(dict())
-        self.filters[-1]['name'] = filt.name.decode().split(' ')[0]
-        self.filters[-1]['conditions'] = []
-        if self.filters[-1]['name'] != 'none':
-            for i in range(0, filt.ncond):
-                particle = False
-                cond_var = filt.cond_vars.T.view('S128')[i][0].decode().split(' ')[0]
-                if cond_var.split('/')[0] == 'star' or cond_var.split('/')[0] == 'dm':
-                    particle = True
-                    corrected_part_var = cond_var.split('/')[0] + '_' + cond_var.split('/')[1]
-                cond_op = filt.cond_ops.T.view('S2')[i][0].decode().split(' ')[0]
-                if particle:
-                    cond_units = get_code_units(cond_var.split('/')[1])
-                else:
+        if isinstance(filt,amr2.filtering.filter_hydro):
+            self.filters_gas.append(dict())
+            self.filters_gas[-1]['name'] = filt.name.decode().split(' ')[0]
+            self.filters_gas[-1]['conditions'] = []
+            if self.filters_gas[-1]['name'] != 'none':
+                for i in range(0, filt.ncond):
+                    cond_var = filt.cond_vars.T.view('S128')[i][0].decode().split(' ')[0]
+                    cond_op = filt.cond_ops.T.view('S2')[i][0].decode().split(' ')[0]
                     cond_units = get_code_units(cond_var)
-                cond_value = self.obj.quantity(filt.cond_vals[i], str(cond_units))
-                if particle:
-                    cond_str = corrected_part_var+'/'+cond_op+'/'+str(cond_value.d)+'/'+cond_units
-                else:
+                    cond_value = self.obj.quantity(filt.cond_vals[i], str(cond_units))
                     cond_str = cond_var+'/'+cond_op+'/'+str(cond_value.d)+'/'+cond_units
-                self.filters[-1]['conditions'].append(cond_str)
-    def _save_filterinfo(self,hdu,filt):
+                    self.filters_gas[-1]['conditions'].append(cond_str)
+        elif isinstance(filt,part2.filtering.filter_part):
+            self.filters_part.append(dict())
+            self.filters_part[-1]['name'] = filt.name.decode().split(' ')[0]
+            self.filters_part[-1]['conditions'] = []
+            if self.filters_part[-1]['name'] != 'none':
+                for i in range(0, filt.ncond):
+                    cond_var = filt.cond_vars.T.view('S128')[i][0].decode().split(' ')[0]
+                    cond_op = filt.cond_ops.T.view('S2')[i][0].decode().split(' ')[0]
+                    cond_units = get_code_units(cond_var)
+                    cond_value = self.obj.quantity(filt.cond_vals[i], str(cond_units))
+                    cond_str = cond_var+'/'+cond_op+'/'+str(cond_value.d)+'/'+cond_units
+                    self.filters_part[-1]['conditions'].append(cond_str)
+    def _save_filterinfo(self,hdu,filt,filter_type='gas'):
         """"This function unravels the information contained in a filter object into the FITS header"""
         if filt['name'] != 'none':
             for i in range(0, len(filt['conditions'])):
-                hdu.header["cond_"+str(i)] = filt['conditions'][i]
+                hdu.header[f"{filter_type}_cond_"+str(i)] = filt['conditions'][i]
 
 def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_size=1024,
                     pov='faceon',lmax=100,lmin=1,type_projection='gauss_deposition', window=(0.0,'kpc'),
@@ -364,7 +391,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
                     nexp_factor = 1.0,
                     tag_file=None,
                     inverse_tag=False, remove_subs=False,
-                    filter_conds=['none'],filter_name=['none'],
+                    filter_conds_gas=['none'],filter_name_gas=['none'],
+                    filter_conds_part=['none'],filter_name_part=['none'],
                     verbose=False):
     """Function which computes a 2D projection centered on an objected from an OZY file."""
 
@@ -395,28 +423,12 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
                 proj.vars['gas'].append(var_name)
             else:
                 raise KeyError('This gas variable is not supported. Please check!: %s', var)
-        elif var_type == 'star':
-            if var_name.split('_')[0] == 'sfr':
-                if len(var_name.split('_')) == 3:
-                    sfr_name = var_name.split('_')[0] +'_'+var_name.split('_')[1]
-                else:
-                    sfr_name = var_name.split('_')[0]
-                if sfr_name in derived_star_variables:
-                    proj.vars['star'].append(var_name)
-                else:
-                    raise KeyError('This star variable is not supported. Please check!')
+        elif var_type == 'part':
+            if var_name in geometrical_variables or var_name in raw_part_variables \
+                or var_name in derived_part_variables or var_name in star_variables:
+                proj.vars['part'].append(var_name)
             else:
-                if var_name in geometrical_variables or var_name in raw_part_variables \
-                    or var_name in derived_part_variables or var_name in star_variables:
-                    proj.vars['star'].append(var_name)
-                else:
-                    raise KeyError('This star variable is not supported. Please check!')
-        elif var_type == 'dm':
-            if var_name in geometrical_variables or var_name in raw_dm_variables \
-                or var_name in derived_dm_variables:
-                proj.vars['dm'].append(var_name)
-            else:
-                raise KeyError('This DM variable is not supported. Please check!')
+                raise KeyError('This particle variable is not supported. Please check!: %s', var)
 
     for w in weight:
         weight_type = w.split('/')[0]
@@ -428,18 +440,12 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
                 proj.weight['gas'].append(weight_name)
             else:
                 raise KeyError('This gas variable is not supported. Please check!: %s', var)
-        elif weight_type == 'star':
-            if weight_name in geometrical_variables or weight_name in raw_star_variables \
-                or weight_name in derived_star_variables:
-                proj.weight['star'].append(weight_name)
+        elif weight_type == 'part':
+            if weight_name in geometrical_variables or weight_name in raw_part_variables \
+                or weight_name in derived_part_variables or weight_name in star_variables:
+                proj.weight['part'].append(weight_name)
             else:
-                raise KeyError('This star variable is not supported. Please check!')
-        elif weight_type == 'dm':
-            if weight_name in geometrical_variables or weight_name in raw_dm_variables \
-                or weight_name in derived_dm_variables:
-                proj.weight['dm'].append(weight_name)
-            else:
-                raise KeyError('This DM variable is not supported. Please check!')
+                raise KeyError('This particle variable is not supported. Please check!: %s', var)
     if use_neigh and verbose:
         print('At least one variable needs neighbours!')
 
@@ -671,26 +677,26 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         enclosing_sphere_p = group.position
         enclosing_sphere_r = rmax
     # Now create filters if any conditions have been given...
-    nfilter = len(filter_conds)
-    for i in range(0,nfilter):
-        f = init_filter(filter_conds[i],filter_name[i],group)
+    nfilter_gas = len(filter_conds_gas)
+    for i in range(0,nfilter_gas):
+        f = init_filter_hydro(filter_conds_gas[i],filter_name_gas[i],group)
         proj._get_python_filter(f)
         
     # Do it for hydro first
-    filts = []
-    for i in range(0,nfilter):
-        if isinstance(filter_conds[i],list):
-            cond_var = filter_conds[i][0].split('/')[0]
+    filts_gas = []
+    for i in range(0,nfilter_gas):
+        if isinstance(filter_conds_gas[i],list):
+            cond_var = filter_conds_gas[i][0].split('/')[0]
         else:
-            cond_var = filter_conds[i].split('/')[0]
+            cond_var = filter_conds_gas[i].split('/')[0]
         if cond_var in geometrical_variables or cond_var in raw_gas_variables \
             or cond_var in derived_gas_variables or cond_var in gravity_variables:
-            f = init_filter(filter_conds[i],filter_name[i],group)
+            f = init_filter_hydro(filter_conds_gas[i],filter_name_gas[i],group)
         else:
             # When a filter asks for a variable not existent in the common_variables
             # or the grid_variables dictionaries just ignore it and set it to blank
-            f = init_filter('none','none',group)
-        filts.append(f)
+            f = init_filter_hydro('none','none',group)
+        filts_gas.append(f)
         
     # Construct substructure regions if we want them out of the projection
     remove_all = False
@@ -727,18 +733,18 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     obs_instruments.get_map_size(cam,proj.resolution)
 
     # Create projection_handler Fortran derived type for the results of the hydro data projection
-    hydro_handler = maps.projection_handler()
+    hydro_handler = maps.hydro_projection_handler()
     hydro_handler.pov = proj.pov
     hydro_handler.nvars = len(proj.vars['gas'])
     hydro_handler.nwvars = len(proj.weight['gas'])
-    hydro_handler.nfilter = nfilter
-    maps.allocate_projection_handler(hydro_handler)
+    hydro_handler.nfilter = nfilter_gas
+    maps.allocate_hydro_projection_handler(hydro_handler)
     for i in range(0, len(proj.vars['gas'])):
         hydro_handler.varnames.T.view('S128')[i] = proj.vars['gas'][i].ljust(128)
     for i in range(0, len(proj.weight['gas'])):
         hydro_handler.weightvars.T.view('S128')[i] = proj.weight['gas'][i].ljust(128)
-    for i in range(0, nfilter):
-        hydro_handler.filters[i] = filts[i]
+    for i in range(0, nfilter_gas):
+        hydro_handler.filters[i] = filts_gas[i]
     
     # COMPUTE HYDRO PROJECTION
     if verbose:
@@ -753,28 +759,34 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
                                     hydro_handler,int(lmax),int(lmin),nexp_factor)
         # TODO: Weird issue when the direct map array is given.
         data = np.copy(hydro_handler.map)
-        proj.data_maps.append(data)
+        proj.data_maps_gas.append(data)
     else:
         del proj.vars['gas']
+        del proj.weight['gas']
+        del proj.filters_gas
 
-    # Now settup the filters for particles, making sure
+    # Now setup the filters for particles, making sure
     # we do not include filters inexistent in particle data
-    filts = []
-    for i in range(0,nfilter):
-        if isinstance(filter_conds[i],list):
-            cond_var = filter_conds[i][0].split('/')[0]
+    filts_part = []
+    nfilter_part = len(filter_conds_part)
+    for i in range(0,nfilter_part):
+        f = init_filter_part(filter_conds_part[i],filter_name_part[i],group)
+        proj._get_python_filter(f)
+    
+    for i in range(0,nfilter_part):
+        if isinstance(filter_conds_part[i],list):
+            cond_var = filter_conds_part[i][0].split('/')[0]
         else:
-            cond_var = filter_conds[i].split('/')[0]
+            cond_var = filter_conds_part[i].split('/')[0]
         corrected_var = '_'.join(cond_var.split('_')[1:])
-        if corrected_var in geometrical_variables or corrected_var in raw_star_variables \
-            or corrected_var in derived_star_variables or corrected_var in raw_dm_variables \
-            or corrected_var in derived_dm_variables:
-            f = init_filter(filter_conds[i],filter_name[i],group)
+        if corrected_var in geometrical_variables or corrected_var in raw_part_variables \
+            or corrected_var in derived_part_variables or corrected_var in star_variables:
+            f = init_filter_part(filter_conds_part[i],filter_name_part[i],group)
         else:
             # When a filter asks for a variable not existent in the common_variables
             # or the particle_variables dictionaries just ignore it and set it to blank
-            f = init_filter('none','none',group)
-        filts.append(f)
+            f = init_filter_part('none','none',group)
+        filts_part.append(f)
     # Now give filters to camera Fortran type - updating the previous from hydro
     cam = obs_instruments.init_camera(centre,axis,up_vector,region_size/boxlen,region_axis,bulk,distance/boxlen,
                                       far_cut_depth/boxlen,map_max_size,nsubs)
@@ -784,12 +796,12 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
             cam.subs[i] = subs[i]
         
     # Create projection_handler Fortran derived type for the results of the hydro data projection
-    parts_handler = maps.projection_handler()
+    parts_handler = maps.part_projection_handler()
     parts_handler.type = proj.pov
     parts_handler.nvars = len(proj.vars['dm'])+len(proj.vars['star'])
     parts_handler.nwvars = len(proj.weight['dm'])+len(proj.weight['star'])
-    parts_handler.nfilter = nfilter
-    maps.allocate_projection_handler(parts_handler)
+    parts_handler.nfilter = nfilter_part
+    maps.allocate_part_projection_handler(parts_handler)
 
     for i in range(0, len(proj.vars['star'])):
         tempstr = 'star/'+proj.vars['star'][i]
@@ -805,48 +817,37 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         tempstr = 'dm/'+proj.weight['dm'][i-len(proj.weight['star'])]
         parts_handler.weightvars.T.view('S128')[i] = tempstr.ljust(128)
 
-    for i in range(0, nfilter):
-        parts_handler.filters[i] = filts[i]
+    for i in range(0, nfilter_part):
+        parts_handler.filters[i] = filts_part[i]
 
     # COMPUTE PARTICLES PROJECTION
-    if len(proj.vars['star'])+len(proj.vars['dm']) != 0:
-        print('Performing particle projection for '+str(len(proj.vars['star'])+len(proj.vars['dm']))+' variables')
+    if len(proj.vars['part']) != 0:
+        print(f'Performing particle projection for {len(proj.vars["part"])} variables')
         if tag_file != None and obj.use_part_vardict:
             print('Using the tag file for particles: ',tag_file)
             maps.projection_parts(obj.simulation.fullpath,cam,parts_handler,part_dict=obj.part_vardict,
-                                    part_vtypes=part_vartypes,tag_file=tag_file,inverse_tag=inverse_tag)
+                                    part_vtypes=obj.part_vartypes,tag_file=tag_file,inverse_tag=inverse_tag)
         elif obj.use_part_vardict:
             maps.projection_parts(obj.simulation.fullpath,cam,parts_handler,part_dict=obj.part_vardict,
-                                    part_vtypes=part_vartypes)
+                                    part_vtypes=obj.part_vartypes)
         elif tag_file != None:
             print('Using the tag file for particles: ',tag_file)
             maps.projection_parts(obj.simulation.fullpath,cam,parts_handler,tag_file=tag_file,inverse_tag=inverse_tag)
         else:
             maps.projection_parts(obj.simulation.fullpath,cam,parts_handler)
         # TODO: Weird issue when the direct toto array is given.
-        data = np.copy(parts_handler.toto)
-        if len(proj.vars['star']) == 0:
-            data_dm = data.reshape(nfilter,len(proj.vars['dm']),data.shape[2],data.shape[3])
-            proj.data_maps.append(data_dm)
-        elif len(proj.vars['dm']) == 0:
-            data_star = data[:,:len(proj.vars['star'])].reshape(nfilter,len(proj.vars['star']),data.shape[2],data.shape[3])
-            proj.data_maps.append(data_star)
-        else:
-            data_star = data[:,:len(proj.vars['star'])].reshape(nfilter,len(proj.vars['star']),data.shape[2],data.shape[3])
-            proj.data_maps.append(data_star)
-            data_dm = data[:,len(proj.vars['star']):].reshape(nfilter,len(proj.vars['dm']),data.shape[2],data.shape[3])
-            proj.data_maps.append(data_dm)
+        data_part = np.copy(parts_handler.toto)
+        proj.data_maps.append(data_part)
     else:
-        if 'star' in proj.vars.keys():
-            del proj.vars['star']
-        if 'dm' in proj.vars.keys():
-            del proj.vars['dm']
-    if 'star' in proj.vars.keys():
-        if len(proj.vars['star']) == 0:
-            del proj.vars['star']
-    if 'dm' in proj.vars.keys():
-        if len(proj.vars['dm']) == 0:
-            del proj.vars['dm']
+        if 'part' in proj.vars.keys():
+            del proj.vars['part']
+            del proj.weight['part']
+            del proj.filters_part
+    if 'part' in proj.vars.keys():
+        if len(proj.vars['part']) == 0:
+            del proj.vars['part']
+            del proj.weight['part']
+            del proj.filters_part
 
     return proj
 

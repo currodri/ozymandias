@@ -3,7 +3,7 @@ from pprint import pprint
 from amr2 import amr_integrator,stats_utils
 from part2 import part_integrator
 
-from ozy.utils import init_region,init_filter
+from ozy.utils import init_region,init_filter_hydro,init_filter_part
 
 MINIMUM_STARS_PER_GALAXY = 100
 MINIMUM_DM_PER_HALO      = 0
@@ -258,7 +258,7 @@ class Galaxy(Group):
         selected_reg = init_region(self,'sphere')
 
         # We do not want any particular filter, just simple integration will do
-        filt = init_filter('none','none',group=self)
+        filt = init_filter_part('none','none',group=self)
 
         # Initialise Fortran derived type with attributes
         # This object hold the following attributes:
@@ -322,11 +322,11 @@ class Galaxy(Group):
         selected_reg = init_region(self,'sphere',rmin=(0.0,'rvir'),rmax=(0.2,'rvir'))
 
         # Define phase filters (for ISM, based on entropy)
-        all_filt = init_filter('none','none',group=self)
+        all_filt = init_filter_hydro('none','none',group=self)
         phase_names = ['cold','warm','hot']
-        cold_filt = init_filter(cond_strs=['entropy_specific/</4.4e+8/erg*K**-1*g**-1'],name='cold',group=self)
-        warm_filt = init_filter(cond_strs=['entropy_specific/>=/4.4e+8/erg*K**-1*g**-1','entropy_specific/<=/23.2e+8/erg*K**-1*g**-1'],name='warm',group=self)
-        hot_filt  = init_filter(cond_strs=['entropy_specific/>/23.2e+8/erg*K**-1*g**-1'],name='hot',group=self)
+        cold_filt = init_filter_hydro(cond_strs=['entropy_specific/</4.4e+8/erg*K**-1*g**-1'],name='cold',group=self)
+        warm_filt = init_filter_hydro(cond_strs=['entropy_specific/>=/4.4e+8/erg*K**-1*g**-1','entropy_specific/<=/23.2e+8/erg*K**-1*g**-1'],name='warm',group=self)
+        hot_filt  = init_filter_hydro(cond_strs=['entropy_specific/>/23.2e+8/erg*K**-1*g**-1'],name='hot',group=self)
         filt = [all_filt,cold_filt,warm_filt,hot_filt]
 
         # Since the number of global quantities that can be computed
@@ -482,12 +482,12 @@ class Galaxy(Group):
         selected_reg = init_region(self,'sphere',rmin=(0.2,'rvir'),rmax=(1.0,'rvir'))
 
         # Define phase filters (for CGM)
-        all_filt = init_filter('none','none',group=self)
+        all_filt = init_filter_hydro('none','none',group=self)
         phase_names = ['hot','warm_ionised','warm_neutral','cold']
-        hot = init_filter(cond_strs=['temperature/>/1e5/K'],name='hot',group=self)
-        warm_ionised = init_filter(cond_strs=['temperature/</1e5/K','temperature/>/9e3/K'],name='warm_ionised',group=self)
-        warm_neutral = init_filter(cond_strs=['temperature/</9e3/K','temperature/>/1e3/K'],name='warm_neutral',group=self)
-        cold = init_filter(cond_strs=['temperature/</1e3/K'],name='cold',group=self)
+        hot = init_filter_hydro(cond_strs=['temperature/>/1e5/K'],name='hot',group=self)
+        warm_ionised = init_filter_hydro(cond_strs=['temperature/</1e5/K','temperature/>/9e3/K'],name='warm_ionised',group=self)
+        warm_neutral = init_filter_hydro(cond_strs=['temperature/</9e3/K','temperature/>/1e3/K'],name='warm_neutral',group=self)
+        cold = init_filter_hydro(cond_strs=['temperature/</1e3/K'],name='cold',group=self)
         filt = [all_filt,hot,warm_ionised,warm_neutral,cold]
 
         # Since the number of global quanties that can be computed
