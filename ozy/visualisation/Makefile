@@ -4,7 +4,7 @@
 
 CC       = gcc
 #CC       = ifort
-F90      = gfortran
+#F90      = gfortran
 F90      = ifx
 #F90      =  /opt/intel/composer_xe_2015.3.187/bin/intel64/ifort
 PYTHON   = python
@@ -112,6 +112,8 @@ LIBSRC_WRAP_FPP_FILES = $(addsuffix .fpp,${LIBSRC_WRAP_SOURCES})
 #=======================================================================
 
 .PHONY: all clean
+
+%.o: %.mod
 
 
 all: _${PYTHON_MODN}.so _${PYTHON_MODN}_pkg.so

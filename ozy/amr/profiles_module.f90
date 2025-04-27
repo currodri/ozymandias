@@ -44,7 +44,7 @@ module amr_profiles
         real(dbl),dimension(:),allocatable :: xdata
         type(pdf_handler),dimension(:),allocatable :: ydata
         type(region),dimension(:),allocatable :: subs
-        type(filter),dimension(:),allocatable :: filters
+        type(filter_hydro),dimension(:),allocatable :: filters
         type(hydro_var),dimension(:),allocatable :: yvars
         type(hydro_var),dimension(:),allocatable :: wvars
     end type profile_handler
@@ -68,7 +68,7 @@ module amr_profiles
         real(dbl),dimension(:),allocatable :: xdata,ydata
         real(dbl),dimension(:,:,:,:,:,:),allocatable :: zdata ! dimension(nfilter,nx,ny,nz,nw,4)
         type(region),dimension(:),allocatable :: subs
-        type(filter),dimension(:),allocatable :: filters
+        type(filter_hydro),dimension(:),allocatable :: filters
         type(hydro_var),dimension(:),allocatable :: zvars
         type(hydro_var),dimension(:),allocatable :: wvars
     end type profile_handler_twod
@@ -133,11 +133,15 @@ module amr_profiles
             if (prof%ydata(ibin)%do_binning(i)) then
                 ! Get variable
                 if (present(grav_var)) then
-                    ytemp = prof%yvars(i)%myfunction(amr,sim,prof%yvars(i),reg,cellsize,x,&
-                                                cellvars,cellsons,trans_matrix,grav_var)
+                    call findbinpos(reg,x,cellvars,cellsons,cellsize,ipdf,ytemp,trans_matrix,&
+                                    & prof%ydata(ibin)%scaletype(i),prof%ydata(ibin)%nbins,&
+                                    & prof%ydata(ibin)%bins(:,i),prof%ydata(ibin)%linthresh(i),&
+                                    & prof%ydata(ibin)%zero_index(i),prof%yvars(i),grav_var)
                 else
-                    ytemp = prof%yvars(i)%myfunction(amr,sim,prof%yvars(i),reg,cellsize,x,&
-                                                cellvars,cellsons,trans_matrix)
+                    call findbinpos(reg,x,cellvars,cellsons,cellsize,ipdf,ytemp,trans_matrix,&
+                                    & prof%ydata(ibin)%scaletype(i),prof%ydata(ibin)%nbins,&
+                                    & prof%ydata(ibin)%bins(:,i),prof%ydata(ibin)%linthresh(i),&
+                                    & prof%ydata(ibin)%zero_index(i),prof%yvars(i))
                 end if
                 if (ytemp.eq.0d0) cycle
                 ! Get min and max

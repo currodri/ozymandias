@@ -975,17 +975,17 @@ def init_filter_part(cond_strs, name, group):
     if check_none and name == 'none':
         filt.ncond = 0
         filt.name = 'none'
-        filtering.allocate_filter_hydro(filt)
+        filtering.allocate_filter_part(filt)
         return filt
     elif check_none and name != 'none':
         filt.ncond = 0
         filt.name = name
-        filtering.allocate_filter_hydro(filt)
+        filtering.allocate_filter_part(filt)
         return filt
     elif name != 'none':
         filt.ncond = ncond_real
         filt.name = name
-        filtering.allocate_filter_hydro(filt)
+        filtering.allocate_filter_part(filt)
         cond_strs = list(filter(lambda x: x != 'none', cond_strs))
         for i in range(0, filt.ncond):
             if cond_strs[i] != 'none':

@@ -22,6 +22,7 @@ module stats_utils
     use constants
     use io_ramses
     use hydro_commons
+    use part_commons
 
     type pdf_handler
         integer :: nbins,nvars,nwvars,nfilter
@@ -277,17 +278,31 @@ module stats_utils
         value = origvalue
     end subroutine findbinpos
 
-    subroutine findbinpos_part(reg,part,&
+    subroutine findbinpos_part(reg,dcell,part_data_d,&
+                            & part_data_i,part_data_b,&
                             & ibin,value,trans_matrix,&
                             & scaletype,nbins,bins,linthresh,&
-                            & zero_index,vname)
+                            & zero_index,xvar)
         use vectors
         use geometrical_regions
         implicit none
         type(region),intent(in) :: reg
-        type(particle),intent(in) :: part        
+        type(vector),intent(in) :: dcell
+        real(dbl),dimension(1:sim%nvar_part_d),intent(in) :: part_data_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:sim%nvar_part_i),intent(in) :: part_data_i
+#else
+        integer(irg),dimension(1:sim%nvar_part_i),intent(in) :: part_data_i
+#endif
+        integer(1),dimension(1:sim%nvar_part_b),intent(in) :: part_data_b
         integer,intent(inout) :: ibin
         real(dbl),intent(inout) :: value
+#ifdef LONGINT
+        integer(ilg) :: value_i
+#else
+        integer(irg) :: value_i
+#endif
+        integer(1) :: value_b
         real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
         character(128),intent(in) :: scaletype
         integer,intent(in) :: nbins
@@ -295,10 +310,21 @@ module stats_utils
         integer,intent(in) :: zero_index
         real(dbl) :: origvalue
         real(dbl),dimension(0:nbins) :: bins
-        character(128),intent(in) :: vname
+        type(part_var),intent(in) :: xvar
 
         ! Get variable value
-        call getpartvalue(reg,part,vname,value)
+        if (xvar%vartype==1) then
+            value = xvar%myfunction_d(amr,sim,xvar,reg,dcell,part_data_d,part_data_i,part_data_b)
+        else if (xvar%vartype==2) then
+            value_i = xvar%myfunction_i(amr,sim,xvar,reg,dcell,part_data_d,part_data_i,part_data_b)
+            value = real(value_i,kind=dbl)
+        else if (xvar%vartype==3) then
+            value_b = xvar%myfunction_b(amr,sim,xvar,reg,dcell,part_data_d,part_data_i,part_data_b)
+            value = real(value_b,kind=dbl)
+        else
+            write(*,*)'ERROR: Unknown variable type in findbinpos_part'
+            stop
+        end if
         origvalue = value
 
         ! Make sure we are not out of the outer boundaries

@@ -33,7 +33,7 @@ module amr_integrator
         integer :: total_ncell,tot_sel,tot_ref,tot_pos,tot_insubs
         character(128),dimension(:),allocatable :: varnames
         character(128),dimension(:),allocatable :: wvarnames
-        type(filter),dimension(:),allocatable :: filters
+        type(filter_hydro),dimension(:),allocatable :: filters
         type(region),dimension(:),allocatable :: subs
         type(pdf_handler) :: result
         type(hydro_var),dimension(:),allocatable :: vars

@@ -79,9 +79,9 @@ module io_ramses
 
     type particle
 #ifndef LONGINT
-        integer(irg) :: id
+        integer(irg) :: id,level
 #else
-        integer(ilg) :: id
+        integer(ilg) :: id,level
 #endif
         type(vector) :: x,v
         real(dbl) :: m,met,imass,age,tform
@@ -433,6 +433,7 @@ module io_ramses
     ! variables used in the RAMSES simulation.
     !---------------------------------------------------------------
     subroutine read_headerfile(repository)
+        use utils, only: get_word
         implicit none
         character(len=128), intent(in) :: repository
         integer :: iunit, ios, i, ipos, num_vars

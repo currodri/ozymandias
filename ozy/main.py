@@ -25,9 +25,9 @@ class Snapshot(object):
         self._info = self._get_my_info(fullpath)
         self.unit_registry = self._get_unit_registry()
         self.simulation  = SimulationAttributes()
-        self._assign_simulation_attributes(fullpath)
         self._set_variable_ordering()
-
+        self._assign_simulation_attributes(fullpath)
+        
     def array(self, value, units):
         return unyt_array(value, units, registry=self.unit_registry)
 
@@ -121,16 +121,16 @@ class Snapshot(object):
         if len(hydro_variables_ordering) > 0:
             print("Setting hydro variable ordering from local ozy_settings.py.")
             self.vardict.init(len(hydro_variables_ordering))
-            for i,var in enumerate(hydro_variables_ordering):
-                self.vardict.add(var,i+1)
+            for varname,varindex in hydro_variables_ordering.items():
+                self.vardict.add(varname,varindex)
             self.use_vardict = True
         else:
             self.use_vardict = False
         if len(part_variables_ordering) > 0:
             print("Setting particle variable ordering from local ozy_settings.py.")
             self.part_vardict.init(len(part_variables_ordering))
-            for i,var in enumerate(part_variables_ordering):
-                self.part_vardict.add(var,i+1)
+            for varname,varindex in part_variables_ordering.items():
+                self.part_vardict.add(varname,varindex)
             self.use_part_vardict = True
             self.part_vartypes.init(len(part_variables_ordering))
             for var,vtype in part_variables_ordering.items():

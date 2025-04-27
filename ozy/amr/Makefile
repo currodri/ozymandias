@@ -68,7 +68,7 @@ VPATH = ../fortran_commons
 #=======================================================================
 
 # names (without suffix), f90 sources
-LIBSRC_SOURCES = local dictionary_module linalg_module coordinates_module \
+LIBSRC_SOURCES = local utils dictionary_module linalg_module coordinates_module \
 					cooling_module read_amr_module variables statistics\
 					filtering \
 					profiles_module integrator_module export_module \
@@ -111,6 +111,8 @@ MAKEFLAGS += -r
 #=======================================================================
 
 .PHONY: all clean
+
+%.o: %.mod
 
 
 all: _${PYTHON_MODN}.so _${PYTHON_MODN}_pkg.so

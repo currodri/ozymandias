@@ -18,6 +18,8 @@ from vis import obs_instruments
 from vis import maps
 from vis import vectors
 from vis import io_ramses
+from part2 import filtering as filtering_part
+from amr2 import filtering as filtering_hydro
 
 cartesian_basis = {'x':np.array([1.,0.,0.]),'y':np.array([0.,0.,1.]),'z':np.array([0.,0.,1.])}
 
@@ -75,18 +77,18 @@ class Projection(object):
 
         # 1. Begin by saving the hydro maps if there are any
         first = True
-        nfilter_gas = len(self.filters_gas)
-        for nf in range(0,nfilter_gas):
-            filter_name = self.filters_gas[nf]['name']
-            counter = 0
-            for datatype, varlist in self.vars.items():
+        if len(self.vars['gas']) != 0:
+            nfilter_gas = len(self.filters_gas)
+            for nf in range(0,nfilter_gas):
+                filter_name = self.filters_gas[nf]['name']
+                varlist = self.vars['gas']
                 fields = []
                 if len(varlist)>0:
-                    imap = self.data_maps_gas[counter][nf]
+                    imap = self.data_maps_gas[nf]
                     if not isinstance(imap,list) and not isinstance(imap,np.ndarray):
                         imap = [imap]
                     for f in varlist:
-                        fields.append(datatype+'/'+f)
+                        fields.append('gas/'+f)
                     for i,field in enumerate(fields):
                         code_units = get_code_units(field.split('/')[1])
                         field_str = field.split('/')[1]
@@ -106,7 +108,7 @@ class Projection(object):
                             hdu.header["btype"] = field
                         hdu.header["bunit"] = re.sub('()', '', units)
                         hdu.header["redshift"] = self.group.obj.simulation.redshift
-                        hdu.header["data_type"] = 'gas'
+                        hdu.header["dtype"] = 'gas'
                         hdu.header["los_x"] = self.los_axis[0]
                         hdu.header["los_y"] = self.los_axis[1]
                         hdu.header["los_z"] = self.los_axis[2]
@@ -118,20 +120,19 @@ class Projection(object):
                         hdu.header["centre_z"] = float(self.centre[2].in_units(unit_system['code_length']).d)
                         self._save_filterinfo(hdu,self.filters_gas[nf])
                         self.hdulist.append(hdu)
-                counter += 1
 
-        nfilter_part = len(self.filters_part)
-        for nf in range(0,nfilter_part):
-            filter_name = self.filters[nf]['name']
-            counter = 0
-            for datatype, varlist in self.vars.items():
+        if len(self.vars['part']) != 0:
+            nfilter_part = len(self.filters_part)
+            for nf in range(0,nfilter_part):
+                filter_name = self.filters_part[nf]['name']
+                varlist = self.vars['part']
                 fields = []
                 if len(varlist)>0:
-                    imap = self.data_maps_part[counter][nf]
+                    imap = self.data_maps_part[nf]
                     if not isinstance(imap,list) and not isinstance(imap,np.ndarray):
                         imap = [imap]
                     for f in varlist:
-                        fields.append(datatype+'/'+f)
+                        fields.append('part/'+f)
                     for i,field in enumerate(fields):
                         # Some fields have specific numerical flags at the end
                         # which do not interfere with the units. If that is 
@@ -159,7 +160,7 @@ class Projection(object):
                             hdu.header["btype"] = field
                         hdu.header["bunit"] = re.sub('()', '', units)
                         hdu.header["redshift"] = self.group.obj.simulation.redshift
-                        hdu.header["data_type"] = 'part'
+                        hdu.header["dtype"] = 'part'
                         hdu.header["los_x"] = self.los_axis[0]
                         hdu.header["los_y"] = self.los_axis[1]
                         hdu.header["los_z"] = self.los_axis[2]
@@ -171,7 +172,6 @@ class Projection(object):
                         hdu.header["centre_z"] = float(self.centre[2].in_units(unit_system['code_length']).d)
                         self._save_filterinfo(hdu,self.filters_part[nf])
                         self.hdulist.append(hdu)
-                counter += 1
         # Setup WCS in the coordinate systems of the camera
         w = WCS(header=self.hdulist[0].header,naxis=2)
         dx = self.group.obj.array(self.width[0],'code_length').in_units(unit_system['code_length']).d
@@ -352,7 +352,7 @@ class Projection(object):
 
     def _get_python_filter(self,filt):
         """Save the Fortran derived type as a dictionary inside the PhaseDiagram class (only the necessary info)."""
-        if isinstance(filt,amr2.filtering.filter_hydro):
+        if isinstance(filt,filtering_hydro.filter_hydro):
             self.filters_gas.append(dict())
             self.filters_gas[-1]['name'] = filt.name.decode().split(' ')[0]
             self.filters_gas[-1]['conditions'] = []
@@ -364,7 +364,7 @@ class Projection(object):
                     cond_value = self.obj.quantity(filt.cond_vals[i], str(cond_units))
                     cond_str = cond_var+'/'+cond_op+'/'+str(cond_value.d)+'/'+cond_units
                     self.filters_gas[-1]['conditions'].append(cond_str)
-        elif isinstance(filt,part2.filtering.filter_part):
+        elif isinstance(filt,filtering_part.filter_part):
             self.filters_part.append(dict())
             self.filters_part[-1]['name'] = filt.name.decode().split(' ')[0]
             self.filters_part[-1]['conditions'] = []
@@ -376,6 +376,8 @@ class Projection(object):
                     cond_value = self.obj.quantity(filt.cond_vals[i], str(cond_units))
                     cond_str = cond_var+'/'+cond_op+'/'+str(cond_value.d)+'/'+cond_units
                     self.filters_part[-1]['conditions'].append(cond_str)
+        else:
+            raise TypeError('This filter is not supported!')
     def _save_filterinfo(self,hdu,filt,filter_type='gas'):
         """"This function unravels the information contained in a filter object into the FITS header"""
         if filt['name'] != 'none':
@@ -758,12 +760,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
             maps.projection_hydro(group.obj.simulation.fullpath,type_projection,cam,use_neigh,
                                     hydro_handler,int(lmax),int(lmin),nexp_factor)
         # TODO: Weird issue when the direct map array is given.
-        data = np.copy(hydro_handler.map)
-        proj.data_maps_gas.append(data)
-    else:
-        del proj.vars['gas']
-        del proj.weight['gas']
-        del proj.filters_gas
+        data = np.array(hydro_handler.map,order='F')
+        proj.data_maps_gas = data
 
     # Now setup the filters for particles, making sure
     # we do not include filters inexistent in particle data
@@ -798,24 +796,16 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     # Create projection_handler Fortran derived type for the results of the hydro data projection
     parts_handler = maps.part_projection_handler()
     parts_handler.type = proj.pov
-    parts_handler.nvars = len(proj.vars['dm'])+len(proj.vars['star'])
-    parts_handler.nwvars = len(proj.weight['dm'])+len(proj.weight['star'])
+    parts_handler.nvars = len(proj.vars['part'])
+    parts_handler.nwvars = len(proj.weight['part'])
     parts_handler.nfilter = nfilter_part
     maps.allocate_part_projection_handler(parts_handler)
 
-    for i in range(0, len(proj.vars['star'])):
-        tempstr = 'star/'+proj.vars['star'][i]
-        parts_handler.varnames.T.view('S128')[i] = tempstr.ljust(128)
-    for i in range(len(proj.vars['star']), len(proj.vars['star'])+len(proj.vars['dm'])):
-        tempstr = 'dm/'+proj.vars['dm'][i-len(proj.vars['star'])]
-        parts_handler.varnames.T.view('S128')[i] = tempstr.ljust(128)
+    for i in range(0, len(proj.vars['part'])):
+        parts_handler.varnames.T.view('S128')[i] = proj.vars['part'][i].ljust(128)
 
-    for i in range(0, len(proj.weight['star'])):
-        tempstr = 'star/'+proj.weight['star'][i]
-        parts_handler.weightvars.T.view('S128')[i] = tempstr.ljust(128)
-    for i in range(len(proj.weight['star']), len(proj.weight['star'])+len(proj.weight['dm'])):
-        tempstr = 'dm/'+proj.weight['dm'][i-len(proj.weight['star'])]
-        parts_handler.weightvars.T.view('S128')[i] = tempstr.ljust(128)
+    for i in range(0, len(proj.weight['part'])):
+        parts_handler.weightvars.T.view('S128')[i] = proj.weight['part'][i].ljust(128)
 
     for i in range(0, nfilter_part):
         parts_handler.filters[i] = filts_part[i]
@@ -837,17 +827,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
             maps.projection_parts(obj.simulation.fullpath,cam,parts_handler)
         # TODO: Weird issue when the direct toto array is given.
         data_part = np.copy(parts_handler.toto)
-        proj.data_maps.append(data_part)
-    else:
-        if 'part' in proj.vars.keys():
-            del proj.vars['part']
-            del proj.weight['part']
-            del proj.filters_part
-    if 'part' in proj.vars.keys():
-        if len(proj.vars['part']) == 0:
-            del proj.vars['part']
-            del proj.weight['part']
-            del proj.filters_part
+        proj.data_maps = data_part
 
     return proj
 
@@ -929,9 +909,9 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
     los_axis.x,los_axis.y,los_axis.z = hdul[0].header['LOS_X'],hdul[0].header['LOS_Y'],hdul[0].header['LOS_Z']
     up_axis.x,up_axis.y,up_axis.z = hdul[0].header['UP_X'],hdul[0].header['UP_Y'],hdul[0].header['UP_Z']
     centre.x,centre.y,centre.z = hdul[0].header['CENTRE_X'],hdul[0].header['CENTRE_Y'],hdul[0].header['CENTRE_Z']
-    cam = obs_instruments.init_camera(centre,los_axis,up_axis,width_x.d,los_axis,velocity,
+    cam = obs_instruments.init_camera(centre,los_axis,up_axis,np.array([width_x.d,width_y.d]),los_axis,velocity,
                                       width_x.d,width_x.d,hdul[0].header['NAXIS1'],
-                                      1,len(centers))
+                                      len(centers))
     stellar = False
     for i in range(0, ax.shape[0]):
         for j in range(0, ax.shape[1]):
