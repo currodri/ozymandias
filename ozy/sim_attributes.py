@@ -56,20 +56,29 @@ class SimulationAttributes(object):
                         'rt':False,
                         'bh':False,
                         'AGN':False,
-                        'dust':False}
+                        'dust':False,
+                        'PAHs':False}
         
-        varIDs = part2.io_ramses.hydroID()
-        part2.io_ramses.retrieve_vars(self.fullpath,varIDs)
-        if varIDs.density != 0 and varIDs.vx != 0:
+        if obj.vardict.get('density') !=0 and obj.vardict.get('velocity_x') != 0:
             self.physics['hydro'] = True
-        if varIDs.metallicity != 0:
+        if obj.vardict.get('metallicity') != 0:
             self.physics['metals'] = True
-        if varIDs.blx != 0:
+        if obj.vardict.get('B_left_x') != 0:
             self.physics['magnetic'] = True
-        if varIDs.cr_pressure != 0:
+        if obj.vardict.get('cr_pressure') != 0:
             self.physics['cr'] = True
-        if varIDs.xhii != 0:
+        if obj.vardict.get('xHII') != 0:
             self.physics['rt'] = True
+        if obj.vardict.get('CSmall') != 0:
+            self.physics['dust'] = True
+        if obj.vardict.get('PAHSmall') or obj.vardict.get('PAH') != 0:
+            self.physics['PAHs'] = True
+
+        # Determine the type of numerics included in this simulation
+        self.numerics = {'families':False}
+
+        if obj.part_vardict.get('family') != 0:
+            self.numerics['families'] = True
 
         
         
@@ -123,39 +132,3 @@ class SimulationAttributes(object):
                 self.physics[k] = v
         except:
             print('No physics details in this OZY file!')
-
-    def _update(self,obj,hd,variable='physics'):
-        if 'simulation_attributes' not in hd.keys():
-            print('WARNING: Simulation attributes not found in file.')
-            return
-        
-        if variable == 'physics':
-            # Determine the type of physics included in this simulation
-            self.physics = {'hydro':False,
-                            'metals':False,
-                            'magnetic':False,
-                            'cr':False,
-                            'rt':False,
-                            'bh':False,
-                            'AGN':False,
-                            'dust':False}
-            
-            varIDs = part2.io_ramses.hydroID()
-            part2.io_ramses.retrieve_vars(self.fullpath,varIDs)
-            if varIDs.density != 0 and varIDs.vx != 0:
-                self.physics['hydro'] = True
-            if varIDs.metallicity != 0:
-                self.physics['metals'] = True
-            if varIDs.blx != 0:
-                self.physics['magnetic'] = True
-            if varIDs.cr_pressure != 0:
-                self.physics['cr'] = True
-            if varIDs.xhii != 0:
-                self.physics['rt'] = True
-            
-            phyhdd = hd['simulation_attributes/physics']
-            for k,v in self.physics.items():
-                if k != 'namelist':
-                    phyhdd.attrs.create(k, v)
-        else:
-            print('This simulation attribute cannot be updated!')

@@ -3,6 +3,7 @@ import os
 import h5py
 import numpy as np
 from unyt import unyt_array, unyt_quantity
+from ozy.lazy_classes import LazyList,LazyDataset,LazyDict
 
 blacklist = [
     'G', 'initial_mass',
@@ -13,8 +14,15 @@ blacklist = [
     'lists','dicts'
 ]
 
-def _write_dataset(key, data, hd):
-    hd.create_dataset(key, data=data, compression=1)
+def _write_dataset(key, data, hd, indices=None):
+    if key in hd:
+        existing_dataset = hd[key]
+        if indices != None:
+            existing_dataset[indices] = data
+        else:
+            existing_dataset[...] = data
+    else:
+        hd.create_dataset(key, data=data, compression=1)
 
 def check_and_write_dataset(obj, key, hd):
     """General function that writes a HDF5 dataset.
@@ -84,21 +92,43 @@ def _write_attrib(obj_list, k, v, hd):
     else:
         return
     
-    _write_dataset(k, data, hd)
+    indices = [i._index for i in obj_list]
+
+    _write_dataset(k, data, hd, indices)
+    
     if unit:
-        hd[k].attrs.create('unit', str(v.units).encode('utf8'))
+        if not 'unit' in hd[k].attrs:
+            hd[k].attrs.create('unit', str(v.units).encode('utf8'))
+        else:
+            if str(v.units) != hd[k].attrs['unit']:
+                raise AttributeError(f"Incorrect update of dataset {k}. Units differ ({str(v.units)}) from original ({hd[k].attrs['unit']})!")
 
 def _write_dict(obj_list, k, v, hd):
     for kk, vv in v.items():
-        unit = False
         if isinstance(vv, (unyt_quantity, unyt_array)):
             data = np.array([getattr(i,k)[kk].d for i in obj_list])
             unit = True
+        elif isinstance(vv, LazyDataset):
+            if vv.units != None:
+                data = np.array([getattr(i,k)[kk].d for i in obj_list])
+                unit = True
+            else:
+                data = np.array([getattr(i,k)[kk] for i in obj_list])
+                unit =False
         else:
             data = np.array([getattr(i,k)[kk] for i in obj_list])
-        _write_dataset('%s.%s' % (k,kk), data, hd)
+            unit =False
+            
+        indices = [i._index for i in obj_list]
+        
+        _write_dataset('%s.%s' % (k,kk), data, hd, indices)
+
         if unit:
-            hd['%s.%s' % (k,kk)].attrs.create('unit', str(vv.units).encode('utf8'))
+            if not 'unit' in hd['%s.%s' % (k,kk)].attrs:
+                hd['%s.%s' % (k,kk)].attrs.create('unit', str(vv.units).encode('utf8'))
+            else:
+                if str(vv.units) != hd['%s.%s' % (k,kk)].attrs['unit']:
+                    raise AttributeError(f"Incorrect update of dataset '{k}.{kk}'. Units differ ({str(vv.units)}) from original ({hd['%s.%s' % (k,kk)].attrs['unit']})!")
             
 def seralise_global_attributes(obj, hd):
     """Function that goes through a OZY object and saves

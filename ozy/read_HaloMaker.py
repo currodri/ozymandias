@@ -90,6 +90,7 @@ def read_HM(obj, grouptype):
         # Halo integers.
         tempR = np.fromfile(file=HMfile, dtype=np.int32, count=3)
         new_group.ID=tempR[1]
+        new_group._index=i
         tempR = np.fromfile(file=HMfile, dtype=np.int32, count=3)
         halo_tstep=tempR[1]
         tempR = np.fromfile(file=HMfile, dtype=np.int32, count=7)

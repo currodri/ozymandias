@@ -26,7 +26,7 @@ module export_amr
     type chunk_handler
         integer :: nvars,nx=100,ny=100,nz=100
         character(128),dimension(:),allocatable :: varnames
-        type(filter) :: filt
+        type(filter_hydro) :: filt
         real(dbl),dimension(:,:,:,:),allocatable :: data
         type(hydro_var),dimension(:),allocatable :: vars
     end type chunk_handler
@@ -433,7 +433,7 @@ module export_amr
         integer,dimension(:,:),allocatable :: nbor
         integer,dimension(:),allocatable :: son,tempson
         integer,dimension(:),allocatable :: ind_grid,ind_cell,ind_cell2
-        integer ,dimension(0:amr%twondim)::ind_nbor
+        integer ,dimension(:),allocatable::ind_nbor
         logical,dimension(:),allocatable :: ref
 
         type(level),dimension(1:100) :: grid
@@ -503,8 +503,8 @@ module export_amr
             jmax = int(reg%ymax*dble(ny_full))+1
             kmin = int(reg%zmin*dble(nz_full))+1
             kmax = int(reg%zmax*dble(nz_full))+1
-            allocate(grid(ilevel)%cube(1:chunk%nvars,imin:imax,jmin:jmax,kmin:kmax))
-            grid(ilevel)%cube = 0D0
+            allocate(grid(ilevel)%map(1:chunk%nvars,imin:imax,jmin:jmax,kmin:kmax))
+            grid(ilevel)%map = 0D0
             grid(ilevel)%imin = imin
             grid(ilevel)%imax = imax
             grid(ilevel)%jmin = jmin
@@ -698,6 +698,7 @@ module export_amr
                             var(ind_cell(i),ivx:ivz) = vtemp
 
                             ! Get neighbours
+                            allocate(ind_nbor(0:amr%twondim))
                             allocate(ind_cell2(1))
                             ind_cell2(1) = ind_cell(i)
                             call getnbor(son,nbor,ind_cell2,ind_nbor,1)
@@ -708,6 +709,7 @@ module export_amr
                                 tempvar(inbor,:) = var(ind_nbor(inbor),:)
                                 tempson(inbor)       = son(ind_nbor(inbor))
                             end do
+                            deallocate(ind_nbor)
 
                             ! Check filter
                             ok_filter = filter_cell(reg,chunk%filt,xtemp,dx,tempvar,&
@@ -724,7 +726,7 @@ module export_amr
                                     & iy<=grid(ilevel)%jmax.and.&
                                     & iz<=grid(ilevel)%kmax) then
                                     amrvarloop: do ivar=1,chunk%nvars
-                                        grid(ilevel)%cube(ivar,ix,iy,iz) = chunk%vars(ivar)%myfunction(amr,sim,chunk%vars(ivar),&
+                                        grid(ilevel)%map(ivar,ix,iy,iz) = chunk%vars(ivar)%myfunction(amr,sim,chunk%vars(ivar),&
                                                                                             reg,dx,xtemp,tempvar,tempson,trans_matrix)
                                     end do amrvarloop
                                 endif
@@ -763,17 +765,17 @@ module export_amr
                         j = int(ymin*ndom)+1
                         k = int(zmin*ndom)+1
                         gridvarlooplmax: do ivar=1,chunk%nvars
-                            grid(amr%lmax)%cube(ivar,ix,iy,iz) = grid(amr%lmax)%cube(ivar,ix,iy,iz) + &
-                                                                & grid(ilevel)%cube(ivar,i,j,k)
+                            grid(amr%lmax)%map(ivar,ix,iy,iz) = grid(amr%lmax)%map(ivar,ix,iy,iz) + &
+                                                                & grid(ilevel)%map(ivar,i,j,k)
                         end do gridvarlooplmax
                     end do ilevelloop
                 end do zloop
            end do yloop
         end do xloop
         
-        write(*,*)'Min value:',minval(grid(amr%lmax)%cube(1,imin:imax,jmin:jmax,kmin:kmax))
-        write(*,*)'Max value:',maxval(grid(amr%lmax)%cube(1,imin:imax,jmin:jmax,kmin:kmax))
-        write(*,*)'Norm:     ',sum   (dble(grid(amr%lmax)%cube(1,imin:imax,jmin:jmax,kmin:kmax))) &
+        write(*,*)'Min value:',minval(grid(amr%lmax)%map(1,imin:imax,jmin:jmax,kmin:kmax))
+        write(*,*)'Max value:',maxval(grid(amr%lmax)%map(1,imin:imax,jmin:jmax,kmin:kmax))
+        write(*,*)'Norm:     ',sum   (dble(grid(amr%lmax)%map(1,imin:imax,jmin:jmax,kmin:kmax))) &
        & /(imax-imin+1)/(jmax-jmin+1)/(kmax-kmin+1)
         ! Adapt lmax grid to the required chunk resolution
         do i=1,chunk%nx
@@ -802,27 +804,27 @@ module export_amr
                     izp1=min(iz+1,kmax)
                     do ivar=1,chunk%nvars
                         SignConserve: if (symlog) then
-                            if (dex*dey*dez*(grid(amr%lmax)%cube(ivar,ix  ,iy  ,iz  ))+ &
-                                 &      ddx*dey*dez*(grid(amr%lmax)%cube(ivar,ixp1,iy  ,iz  ))+ &
-                                 &      dex*ddy*dez*(grid(amr%lmax)%cube(ivar,ix  ,iyp1,iz  ))+ &
-                                 &      dex*dey*ddz*(grid(amr%lmax)%cube(ivar,ix  ,iy  ,izp1))+ &
-                                 &      ddx*ddy*dez*(grid(amr%lmax)%cube(ivar,ixp1,iyp1,iz  ))+ &
-                                 &      dex*ddy*ddz*(grid(amr%lmax)%cube(ivar,ix  ,iyp1,izp1))+ &
-                                 &      ddx*dey*ddz*(grid(amr%lmax)%cube(ivar,ixp1,iy  ,izp1))+ &
-                                 &      ddx*ddy*ddz*(grid(amr%lmax)%cube(ivar,ixp1,iyp1,izp1)) .ge. 0) then
+                            if (dex*dey*dez*(grid(amr%lmax)%map(ivar,ix  ,iy  ,iz  ))+ &
+                                 &      ddx*dey*dez*(grid(amr%lmax)%map(ivar,ixp1,iy  ,iz  ))+ &
+                                 &      dex*ddy*dez*(grid(amr%lmax)%map(ivar,ix  ,iyp1,iz  ))+ &
+                                 &      dex*dey*ddz*(grid(amr%lmax)%map(ivar,ix  ,iy  ,izp1))+ &
+                                 &      ddx*ddy*dez*(grid(amr%lmax)%map(ivar,ixp1,iyp1,iz  ))+ &
+                                 &      dex*ddy*ddz*(grid(amr%lmax)%map(ivar,ix  ,iyp1,izp1))+ &
+                                 &      ddx*dey*ddz*(grid(amr%lmax)%map(ivar,ixp1,iy  ,izp1))+ &
+                                 &      ddx*ddy*ddz*(grid(amr%lmax)%map(ivar,ixp1,iyp1,izp1)) .ge. 0) then
                                signto = 1D0
                             else
                                signto = -1D0
                             end if
                          end if SignConserve
-                        chunk%data(ivar,i,j,k)=dex*dey*dez*log10(abs(grid(amr%lmax)%cube(ivar,ix  ,iy  ,iz  )))+ &
-                                        &      ddx*dey*dez*log10(abs(grid(amr%lmax)%cube(ivar,ixp1,iy  ,iz  )))+ &
-                                        &      dex*ddy*dez*log10(abs(grid(amr%lmax)%cube(ivar,ix  ,iyp1,iz  )))+ &
-                                        &      dex*dey*ddz*log10(abs(grid(amr%lmax)%cube(ivar,ix  ,iy  ,izp1)))+ &
-                                        &      ddx*ddy*dez*log10(abs(grid(amr%lmax)%cube(ivar,ixp1,iyp1,iz  )))+ &
-                                        &      dex*ddy*ddz*log10(abs(grid(amr%lmax)%cube(ivar,ix  ,iyp1,izp1)))+ &
-                                        &      ddx*dey*ddz*log10(abs(grid(amr%lmax)%cube(ivar,ixp1,iy  ,izp1)))+ &
-                                        &      ddx*ddy*ddz*log10(abs(grid(amr%lmax)%cube(ivar,ixp1,iyp1,izp1)))
+                        chunk%data(ivar,i,j,k)=dex*dey*dez*log10(abs(grid(amr%lmax)%map(ivar,ix  ,iy  ,iz  )))+ &
+                                        &      ddx*dey*dez*log10(abs(grid(amr%lmax)%map(ivar,ixp1,iy  ,iz  )))+ &
+                                        &      dex*ddy*dez*log10(abs(grid(amr%lmax)%map(ivar,ix  ,iyp1,iz  )))+ &
+                                        &      dex*dey*ddz*log10(abs(grid(amr%lmax)%map(ivar,ix  ,iy  ,izp1)))+ &
+                                        &      ddx*ddy*dez*log10(abs(grid(amr%lmax)%map(ivar,ixp1,iyp1,iz  )))+ &
+                                        &      dex*ddy*ddz*log10(abs(grid(amr%lmax)%map(ivar,ix  ,iyp1,izp1)))+ &
+                                        &      ddx*dey*ddz*log10(abs(grid(amr%lmax)%map(ivar,ixp1,iy  ,izp1)))+ &
+                                        &      ddx*ddy*ddz*log10(abs(grid(amr%lmax)%map(ivar,ixp1,iyp1,izp1)))
                         chunk%data(ivar,i,j,k) = signto * 10.**(chunk%data(ivar,i,j,k))
                     end do
                 end do
@@ -839,7 +841,7 @@ module export_amr
         ! Input/output variables
         character(128),intent(in) :: repository
         type(region),intent(in) :: reg
-        type(filter),intent(inout) :: filt
+        type(filter_hydro),intent(inout) :: filt
         character(128),intent(in) :: varname
         character(128),intent(in) :: outpath
         type(dictf90),intent(in),optional :: vardict

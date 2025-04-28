@@ -30,11 +30,12 @@ module amr_integrator
     type amr_region_attrs
         integer :: nvars=1,nwvars=1
         integer :: nfilter=1,nsubs=0
+        integer :: total_ncell,tot_sel,tot_ref,tot_pos,tot_insubs
         character(128),dimension(:),allocatable :: varnames
         character(128),dimension(:),allocatable :: wvarnames
-        type(filter),dimension(:),allocatable :: filters
+        type(filter_hydro),dimension(:),allocatable :: filters
         type(region),dimension(:),allocatable :: subs
-        type(pdf_handler),dimension(:),allocatable :: result
+        type(pdf_handler) :: result
         type(hydro_var),dimension(:),allocatable :: vars
         type(hydro_var),dimension(:),allocatable :: wvars
     end type amr_region_attrs
@@ -49,7 +50,6 @@ module amr_integrator
         if (.not.allocated(attrs%wvarnames)) allocate(attrs%wvarnames(attrs%nwvars))
         if (.not.allocated(attrs%vars))     allocate(attrs%vars(attrs%nvars))
         if (.not.allocated(attrs%wvars))     allocate(attrs%wvars(attrs%nwvars))
-        if (.not.allocated(attrs%result))   allocate(attrs%result(attrs%nvars))
         if (.not.allocated(attrs%filters))  allocate(attrs%filters(attrs%nfilter))
         if (.not.allocated(attrs%subs).and.attrs%nsubs>0) allocate(attrs%subs(attrs%nsubs))     
     end subroutine allocate_amr_regions_attrs
@@ -71,68 +71,74 @@ module amr_integrator
 
         ! Local variables
         integer :: i,j,ibin
-        real(dbl) :: ytemp,wtemp
+        real(dbl) :: ytemp,wtemp,ytemp2
         type(vector) :: x
 
         x = pos
-        varloop: do i=1,attrs%nvars
-            if (attrs%result(i)%do_binning) then
+        varloop: do i=1,attrs%result%nvars
+            if (attrs%result%do_binning(i)) then
                 ! Get variable
                 if (present(grav_var)) then
                     call findbinpos(reg,x,cellvars,cellsons,cellsize,&
-                                    & ibin,ytemp,trans_matrix,attrs%result(i)%scaletype,&
-                                    & attrs%result(i)%nbins,attrs%result(i)%bins,&
+                                    & ibin,ytemp,trans_matrix,attrs%result%scaletype(i),&
+                                    & attrs%result%nbins,attrs%result%bins(:,i),&
+                                    & attrs%result%linthresh(i),attrs%result%zero_index(i),&
                                     & attrs%vars(i),grav_var)
                 else
                     call findbinpos(reg,x,cellvars,cellsons,cellsize,&
-                                    & ibin,ytemp,trans_matrix,attrs%result(i)%scaletype,&
-                                    & attrs%result(i)%nbins,attrs%result(i)%bins,&
+                                    & ibin,ytemp,trans_matrix,attrs%result%scaletype(i),&
+                                    & attrs%result%nbins,attrs%result%bins(:,i),&
+                                    & attrs%result%linthresh(i),attrs%result%zero_index(i),&
                                     & attrs%vars(i))
                 end if
                 if (ytemp.eq.0d0) cycle
                 ! Get min and max
-                if (attrs%result(i)%minv(ifilt).eq.0D0) then
-                    attrs%result(i)%minv(ifilt) = ytemp ! Just to make sure that the initial min is not zero
+                if (attrs%result%minv(i,ifilt).eq.0D0) then
+                    attrs%result%minv(i,ifilt) = ytemp ! Just to make sure that the initial min is not zero
                 else
-                    attrs%result(i)%minv(ifilt) = min(ytemp,attrs%result(i)%minv(ifilt))    ! Min value
+                    attrs%result%minv(i,ifilt) = min(ytemp,attrs%result%minv(i,ifilt))    ! Min value
                 endif
-                attrs%result(i)%maxv(ifilt) = max(ytemp,attrs%result(i)%maxv(ifilt))    ! Max value
+                attrs%result%maxv(i,ifilt) = max(ytemp,attrs%result%maxv(i,ifilt))    ! Max value
+                attrs%result%nvalues(i,ifilt) = attrs%result%nvalues(i,ifilt) + 1
                 
-                wvarloop1: do j=1,attrs%nwvars
-                    ! Get weights
-                    if (attrs%wvarnames(j)=='counts') then
-                        wtemp =  1D0
-                    else if (attrs%wvarnames(j)=='cumulative') then
-                        wtemp = ytemp
-                    else
-                        if (present(grav_var)) then
-                            wtemp = attrs%wvars(j)%myfunction(amr,sim,attrs%wvars(j),reg,cellsize,x,&
-                                                                cellvars,cellsons,trans_matrix,grav_var)
+                if (ibin.gt.0) then
+                    wvarloop1: do j=1,attrs%result%nwvars
+                        ! Get weights
+                        ytemp2 = ytemp
+                        if (trim(attrs%result%wvarnames(j))=='counts') then
+                            wtemp =  1D0
+                        else if (trim(attrs%result%wvarnames(j))=='cumulative') then
+                            wtemp = ytemp2
                         else
-                            wtemp = attrs%wvars(j)%myfunction(amr,sim,attrs%wvars(j),reg,cellsize,x,&
+                            if (present(grav_var)) then
+                                wtemp = attrs%wvars(j)%myfunction(amr,sim,attrs%wvars(j),reg,cellsize,x,&
+                                                                cellvars,cellsons,trans_matrix,grav_var)
+                            else
+                                wtemp = attrs%wvars(j)%myfunction(amr,sim,attrs%wvars(j),reg,cellsize,x,&
                                                                 cellvars,cellsons,trans_matrix)
+                            endif
                         endif
-                    endif
-                    
-                    ! Save to PDFs
-                    if (ibin.gt.0) then
-                        attrs%result(i)%heights(ifilt,j,ibin) = attrs%result(i)%heights(ifilt,j,ibin) + wtemp ! Weight to the PDF bin
-                        attrs%result(i)%totweights(ifilt,j) = attrs%result(i)%totweights(ifilt,j) + wtemp       ! Weight
-                    end if
+                        
+                        ! Save to PDFs
+                        attrs%result%heights(i,ifilt,j,ibin) = attrs%result%heights(i,ifilt,j,ibin) + wtemp ! Weight to the PDF bin
+                        attrs%result%totweights(i,ifilt,j) = attrs%result%totweights(i,ifilt,j) + wtemp       ! Weight
 
-                    ! Now do it for the case of no binning (old integration method)
-                    ! Get weights
-                    if (attrs%wvarnames(j)=='counts') then
-                        wtemp =  1D0
-                        ytemp = 1D0
-                    else if (attrs%wvarnames(j)=='cumulative') then
-                        wtemp = 1D0
-                    endif
-                    
-                    ! Save to attrs
-                    attrs%result(i)%total(ifilt,j,1) = attrs%result(i)%total(ifilt,j,1) + ytemp*wtemp ! Value (weighted or not)
-                    attrs%result(i)%total(ifilt,j,2) = attrs%result(i)%total(ifilt,j,2) + wtemp       ! Weight
-                end do wvarloop1
+                        ! Now do it for the case of no binning (old integration method)
+                        ! Get weights
+                        if (trim(attrs%result%wvarnames(j))=='counts') then
+                            wtemp =  1D0
+                            ytemp2 = 1D0
+                        else if (trim(attrs%result%wvarnames(j))=='cumulative') then
+                            wtemp = 1D0
+                        endif
+                        
+                        ! Save to attrs
+                        attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) + ytemp2*wtemp ! Value (weighted or not)
+                        attrs%result%total(i,ifilt,j,2) = attrs%result%total(i,ifilt,j,2) + wtemp       ! Weight
+                    end do wvarloop1
+                else
+                    attrs%result%nout(i,ifilt) = attrs%result%nout(i,ifilt) + 1
+                end if
             else
                 ! Get variable
                 if (present(grav_var)) then
@@ -143,19 +149,21 @@ module amr_integrator
                                                         cellvars,cellsons,trans_matrix)
                 end if
                 ! Get min and max
-                if (attrs%result(i)%minv(ifilt).eq.0D0) then
-                    attrs%result(i)%minv(ifilt) = ytemp ! Just to make sure that the initial min is not zero
+                if (attrs%result%minv(i,ifilt).eq.0D0) then
+                    attrs%result%minv(i,ifilt) = ytemp ! Just to make sure that the initial min is not zero
                 else
-                    attrs%result(i)%minv(ifilt) = min(ytemp,attrs%result(i)%minv(ifilt))    ! Min value
+                    attrs%result%minv(i,ifilt) = min(ytemp,attrs%result%minv(i,ifilt))    ! Min value
                 endif
-                attrs%result(i)%maxv(ifilt) = max(ytemp,attrs%result(i)%maxv(ifilt))    ! Max value
+                attrs%result%maxv(i,ifilt) = max(ytemp,attrs%result%maxv(i,ifilt))    ! Max value
+                attrs%result%nvalues(i,ifilt) = attrs%result%nvalues(i,ifilt) + 1
 
-                wvarloop2: do j=1,attrs%nwvars
+                wvarloop2: do j=1,attrs%result%nwvars
                     ! Get weights
-                    if (attrs%wvarnames(j)=='counts') then
+                    ytemp2 = ytemp
+                    if (trim(attrs%result%wvarnames(j))=='counts') then
                         wtemp =  1D0
-                        ytemp = 1D0
-                    else if (attrs%wvarnames(j)=='cumulative') then
+                        ytemp2 = 1D0
+                    else if (trim(attrs%result%wvarnames(j))=='cumulative') then
                         wtemp = 1D0
                     else
                         if (present(grav_var)) then
@@ -168,8 +176,8 @@ module amr_integrator
                     endif
                     
                     ! Save to attrs
-                    attrs%result(i)%total(ifilt,j,1) = attrs%result(i)%total(ifilt,j,1) + ytemp*wtemp ! Value (weighted or not)
-                    attrs%result(i)%total(ifilt,j,2) = attrs%result(i)%total(ifilt,j,2) + wtemp       ! Weight
+                    attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) + ytemp2*wtemp ! Value (weighted or not)
+                    attrs%result%total(i,ifilt,j,2) = attrs%result%total(i,ifilt,j,2) + wtemp       ! Weight
                 end do wvarloop2
             end if
         end do varloop
@@ -184,18 +192,18 @@ module amr_integrator
         ! Local variables
         integer :: i,j,ifilt
         filterloop: do ifilt=1,attrs%nfilter
-            varloop: do i=1,attrs%nvars
-                if (attrs%result(i)%do_binning) then
-                    wvarloop1: do j=1,attrs%nwvars
-                        if (attrs%wvarnames(j) /= 'cumulative' .and. attrs%wvarnames(j) /= 'counts') then
-                            attrs%result(i)%heights(ifilt,j,:) = attrs%result(i)%heights(ifilt,j,:) / attrs%result(i)%totweights(ifilt,j)
-                            attrs%result(i)%total(ifilt,j,1) = attrs%result(i)%total(ifilt,j,1) / attrs%result(i)%total(ifilt,j,2)
+            varloop: do i=1,attrs%result%nvars
+                if (attrs%result%do_binning(i)) then
+                    wvarloop1: do j=1,attrs%result%nwvars
+                        if (trim(attrs%result%wvarnames(j)) /= 'cumulative' .and. trim(attrs%result%wvarnames(j)) /= 'counts') then
+                            attrs%result%heights(i,ifilt,j,:) = attrs%result%heights(i,ifilt,j,:) / attrs%result%totweights(i,ifilt,j)
+                            attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) / attrs%result%total(i,ifilt,j,2)
                         endif
                     end do wvarloop1
                 else
-                    wvarloop2: do j=1,attrs%result(i)%nwvars
-                        if (attrs%wvarnames(j) /= 'cumulative' .and. attrs%wvarnames(j) /= 'counts') then
-                            attrs%result(i)%total(ifilt,j,1) = attrs%result(i)%total(ifilt,j,1) / attrs%result(i)%total(ifilt,j,2)
+                    wvarloop2: do j=1,attrs%result%nwvars
+                        if (trim(attrs%result%wvarnames(j)) /= 'cumulative' .and. trim(attrs%result%wvarnames(j)) /= 'counts') then
+                            attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) / attrs%result%total(i,ifilt,j,2)
                         endif
                     end do wvarloop2
                 end if
@@ -203,7 +211,7 @@ module amr_integrator
         end do filterloop
     end subroutine renormalise
 
-    subroutine integrate_region(repository,reg,use_neigh,attrs,vardict)
+    subroutine integrate_region(repository,reg,use_neigh,use_grav,attrs,vardict)
         use vectors
         use coordinate_systems
         implicit none
@@ -211,7 +219,7 @@ module amr_integrator
         ! Input/output variables
         character(128),intent(in) :: repository
         type(region),intent(inout) :: reg
-        logical, intent(in) :: use_neigh
+        logical, intent(in) :: use_neigh,use_grav
         type(amr_region_attrs),intent(inout) :: attrs
         type(dictf90),intent(in),optional :: vardict
 
@@ -269,7 +277,7 @@ module amr_integrator
 
         ! Choose type if integrator
         if (use_neigh) then
-            write(*,*)'Loading neighbours...'
+            if (verbose) write(*,*)'Loading neighbours...'
             call integrate_region_neigh
         else
             call integrate_region_fast
@@ -311,14 +319,18 @@ module amr_integrator
             tot_ref = 0
 
             ! Check whether we need to read the gravity files
-            read_gravity = .false.
-            do ivar=1,attrs%nvars
-                if (attrs%varnames(ivar)(1:4) .eq. 'grav') then
-                    read_gravity = .true.
-                    write(*,*)'Reading gravity files...'
-                    exit
-                endif
-            end do
+            if (use_grav) then
+                read_gravity = .true.
+            else
+                read_gravity = .false.
+                do ivar=1,attrs%nvars
+                    if (attrs%varnames(ivar)(1:4) .eq. 'grav') then
+                        read_gravity = .true.
+                        if (verbose) write(*,*)'Reading gravity files...'
+                        exit
+                    endif
+                end do
+            end if
 
             ! Allocate grids
             allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
@@ -599,10 +611,13 @@ module amr_integrator
 
             ! Finally just renormalise for weighted quantities
             call renormalise(attrs)
+            attrs%total_ncell = total_ncell
+            attrs%tot_ref = tot_ref
+            attrs%tot_pos = tot_pos
 
-            write(*,*)'Total number of cells used: ', total_ncell
-            write(*,*)'Total number of cells refined: ', tot_ref
-            write(*,*)'Total number of cells in region: ', tot_pos
+            if (verbose) write(*,*)'Total number of cells used: ', total_ncell
+            if (verbose) write(*,*)'Total number of cells refined: ', tot_ref
+            if (verbose) write(*,*)'Total number of cells in region: ', tot_pos
 
         end subroutine integrate_region_fast
 
@@ -650,15 +665,18 @@ module amr_integrator
             allocate(ind_nbor(1,0:amr%twondim))
 
             ! Check whether we need to read the gravity files
-            read_gravity = .false.
-            do ivar=1,attrs%nvars
-                if (attrs%varnames(ivar)(1:4) .eq. 'grav' .or.&
-                & trim(attrs%varnames(ivar)) .eq. 'neighbour_accuracy') then
-                    read_gravity = .true.
-                    write(*,*)'Reading gravity files...'
-                    exit
-                endif
-            end do
+            if (use_grav) then
+                read_gravity = .true.
+            else
+                read_gravity = .false.
+                do ivar=1,attrs%nvars
+                    if (attrs%varnames(ivar)(1:4) .eq. 'grav') then
+                        read_gravity = .true.
+                        if (verbose) write(*,*)'Reading gravity files...'
+                        exit
+                    endif
+                end do
+            end if
 
             ! Allocate grids
             allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
@@ -983,12 +1001,17 @@ module amr_integrator
 
             ! Finally just renormalise for weighted quantities
             call renormalise(attrs)
+            attrs%total_ncell = total_ncell
+            attrs%tot_sel = tot_sel
+            attrs%tot_ref = tot_ref
+            attrs%tot_pos = tot_pos
+            attrs%tot_insubs = tot_insubs
 
-            write(*,*)'Total number of cells used: ', total_ncell
-            write(*,*)'Total number of cells in region and refined: ', tot_sel
-            write(*,*)'Total number of cells refined: ', tot_ref
-            write(*,*)'Total number of cells in region: ', tot_pos
-            write(*,*)'Total number of cells in substructures: ', tot_insubs
+            if (verbose) write(*,*)'Total number of cells used: ', total_ncell
+            if (verbose) write(*,*)'Total number of cells in region and refined: ', tot_sel
+            if (verbose) write(*,*)'Total number of cells refined: ', tot_ref
+            if (verbose) write(*,*)'Total number of cells in region: ', tot_pos
+            if (verbose) write(*,*)'Total number of cells in substructures: ', tot_insubs
 
         end subroutine integrate_region_neigh
     end subroutine integrate_region

@@ -25,7 +25,7 @@ def galaxies_to_halos(obj):
             vec_dist       = galaxy.position - halo.position
             d              = np.linalg.norm(vec_dist)
             # TODO: Change to virial radius
-            halo_linking_l = 0.5 * halo.radius[linking_variable]
+            halo_linking_l = halo.radius[linking_variable]
             # halo_linking_l = 0.2 * halo.virial_quantities['radius']
             # If the galaxy is below the halo linking length, save distance.
             if d <= halo_linking_l:
@@ -33,8 +33,8 @@ def galaxies_to_halos(obj):
                 masses[i]    = halo.virial_quantities['mass']
         # Assign most massive halo to galaxy.
         if not np.all(distances == np.infty):
-            galaxy.parent_halo_index = np.argmin(distances)
-            #galaxy.parent_halo_index = np.argmax(masses)
+            #galaxy.parent_halo_index = np.argmin(distances)
+            galaxy.parent_halo_index = np.argmax(masses)
     
     for halo in obj.halos:
         halo.galaxy_index_list = []

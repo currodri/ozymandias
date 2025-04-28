@@ -49,6 +49,7 @@ module constants
   ! Other constants
   real(dbl) :: pi=3.14159265359
   real(dbl) :: twopi = 6.283185307179586
+  real(dbl) :: halfsqrt2 = 0.7071067811865476
   real(dbl) :: smallc = 1D-10
   real(dbl) :: smallr = 1D-10
   ! Mass
@@ -84,8 +85,12 @@ module constants
   real(dbl),parameter :: cVHydrogen=1.4D8 !123746.76463754028 ! Specific heat capacity at constat volume, in erg/(K*g)
   real(dbl),parameter :: XH=0.76 ! Hydrogen fraction
   real(dbl),parameter :: YHe=0.24 ! Helium fraction
+  real(dbl),parameter :: mu=0.5882352941176471 ! Primordial, fully ionised mean molecular weight
   real(dbl),parameter :: gamma_gas=1.6666667   ! Always assuming monatomic adiabatic gas
   real(dbl),parameter :: gamma_cr=1.3333333   ! Cosmic rays assumed always relativistic
   ! Cosmology
   real(dbl),parameter :: rhoc=1.8800000d-29   ! Critical density of the Universe (g cm-3)
+  ! Milky Way constants
+  real(dbl),parameter :: ecr_sun=1.4d-12 ! CR energy density in the Solar neighbourhood (Boschini et al. 2020, erg/cm-3)
+  real(dbl),parameter :: LgammaH=1.1d-28 ! Gamma-ray luminosity per H atom in the 0.5-5 GeV range (Casandjian 2015)
 end module constants

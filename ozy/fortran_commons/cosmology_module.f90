@@ -1,5 +1,6 @@
 module cosmology
     use local
+    use io_ramses
     contains
 
     !---------------------------------------------------------------
@@ -11,7 +12,6 @@ module cosmology
     ! simulation in that snapshot.
     !---------------------------------------------------------------
     subroutine cosmology_model
-        use io_ramses
         implicit none
 
         ! These values are hardcoded, such that consistency with other
@@ -29,7 +29,7 @@ module cosmology
         allocate(sim%tau_frw(0:sim%n_frw),sim%t_frw(0:sim%n_frw))
 
         ! Compute Friedmann model look-up tables
-        write(*,*)'Computing Friedmann model'
+        if (verbose) write(*,*)'Computing Friedmann model'
         call friedmann(dble(sim%omega_m),dble(sim%omega_l),dble(sim%omega_k), &
             & alpha,axp_min,sim%aexp_frw,sim%hexp_frw,sim%tau_frw,sim%t_frw,sim%n_frw,sim%time_tot)
 
@@ -42,7 +42,7 @@ module cosmology
         ! Interpolate time
         sim%time_simu=sim%t_frw(i)*(sim%aexp-sim%aexp_frw(i-1))/(sim%aexp_frw(i)-sim%aexp_frw(i-1))+ &
             & sim%t_frw(i-1)*(sim%aexp-sim%aexp_frw(i))/(sim%aexp_frw(i-1)-sim%aexp_frw(i))
-        write(*,*)'Age simu=',(sim%time_tot+sim%time_simu)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
+        if (verbose) write(*,*)'Age simu=',(sim%time_tot+sim%time_simu)/(sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
     end subroutine cosmology_model
 
 
@@ -93,7 +93,7 @@ module cosmology
         end do
 
         age_tot=-t
-        write(*,666)-t
+        if (verbose) write(*,666)-t
         666 format(' Age of the Universe (in unit of 1/H0)=',1pe10.3)
 
         nskip=nstep/ntable

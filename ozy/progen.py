@@ -144,7 +144,7 @@ def _find_target_group(pid_curr, pid_targ, gid_targ, min_in_common):
         modestats = stats.mode(ig_matched)
 
         # 2 Store target group numbers
-        prog_index_ig = modestats[0][0]
+        prog_index_ig = modestats[0]
 
         # 3 Remove the first-most common group, recompute mode
         ig_matched = ig_matched[(ig_matched!=prog_index_ig)]
@@ -155,7 +155,7 @@ def _find_target_group(pid_curr, pid_targ, gid_targ, min_in_common):
     if len(ig_matched) > 0:
         # Now find it for the second-most matches
         modestats = stats.mode(ig_matched)
-        prog_index_ig2 = modestats[0][0]
+        prog_index_ig2 = modestats[0]
     else:
         prog_index_ig2 = -1
     

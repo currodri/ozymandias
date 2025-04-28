@@ -5,7 +5,7 @@
 CC       = gcc
 #CC       = ifort
 #F90      = gfortran
-F90      = ifort
+F90      = ifx
 #F90      =  /opt/intel/composer_xe_2015.3.187/bin/intel64/ifort
 PYTHON   = python
 
@@ -15,13 +15,13 @@ PYTHON   = python
 
 ifeq ($(F90),gfortran)
 	FPP      = gfortran -E
-	FPP_F90FLAGS = -x f95-cpp-input -fPIC
-	F90FLAGS = -O3 -fPIC -cpp -ffree-line-length-256 -DIMASS -DNOIFPORT
+	FPP_F90FLAGS = -x f95-cpp-input -fPIC -g
+	F90FLAGS = -Ofast -fPIC -cpp -ffree-line-length-256 -DIMASS -DNOIFPORT
     FCOMP    = gfortran
     LIBS     =
 endif
 
-ifeq ($(F90),ifort)
+ifeq ($(F90),ifx)
 
 	FPP      = gfortran -E # gfortran f90wrap temp files only. not compilation
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
@@ -64,8 +64,8 @@ VPATH = ../fortran_commons
 #=======================================================================
 
 # names (without suffix), f90 sources
-LIBSRC_SOURCES = local utils linalg_module coordinates_module cooling_module \
- 				read_amr_module \
+LIBSRC_SOURCES = local utils dictionary_module linalg_module coordinates_module cooling_module \
+ 				read_amr_module variables statistics filtering\
 				cosmology_module profiles_module integrator_module \
 				export_module
 
@@ -83,9 +83,10 @@ LIBSRC_FPP_FILES = $(addsuffix .fpp,${LIBSRC_SOURCES})
 #=======================================================================
 
 # names (without suffix), f90 sources
-LIBSRC_WRAP_SOURCES = linalg_module coordinates_module read_amr_module \
-					cosmology_module profiles_module integrator_module \
-					export_module
+LIBSRC_WRAP_SOURCES = dictionary_module linalg_module coordinates_module cooling_module \
+ 				read_amr_module variables statistics filtering\
+				cosmology_module profiles_module integrator_module \
+				export_module
 
 # file names
 LIBSRC_WRAP_FILES = $(addsuffix .f90,${LIBSRC_WRAP_SOURCES})
@@ -108,6 +109,7 @@ LIBSRC_WRAP_FPP_FILES = $(addsuffix .fpp,${LIBSRC_WRAP_SOURCES})
 
 .PHONY: all clean
 
+%.o: %.mod
 
 all: _${PYTHON_MODN}.so _${PYTHON_MODN}_pkg.so
 
