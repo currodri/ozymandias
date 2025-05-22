@@ -4,8 +4,8 @@
 
 CC       = gcc
 #CC       = ifort
-#F90      = gfortran
-F90      = ifx
+F90      = gfortran
+#F90      = ifx
 #F90      =  /opt/intel/composer_xe_2015.3.187/bin/intel64/ifort
 PYTHON   = python
 
@@ -21,9 +21,10 @@ PYTHON   = python
 ifeq ($(F90),gfortran)
 	FPP      = gfortran -E
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
-	HP_FLAGS = -L/softs/healpix/3.82-ifx-2024.0/lib -I/softs/healpix/3.82-ifx-2024.0/include -lchealpix -lhealpix -lcfitsio -liomp5
-	F90FLAGS = -O3 -cpp -fPIC -DIMASS -ffree-line-length-256 ${HP_FLAGS}
-    FCOMP    = gfortran
+	HP_FLAGS = -L/Users/currodri/Documents/codes/Healpix_3.83/lib -I/Users/currodri/Documents/codes/Healpix_3.83/include -L/Users/currodri/Documents/codes/cfitsio-4.6.2/lib -I/Users/currodri/Documents/codes/cfitsio-4.6.2/include -lchealpix -lhealpix -lcfitsio
+	F90FLAGS = -Ofast -cpp -fPIC -DIMASS -ffree-line-length-256 ${HP_FLAGS}
+	#F90FLAGS = -O0 -g -fbacktrace -cpp -fPIC -DIMASS -ffree-line-length-256 ${HP_FLAGS}    
+	FCOMP    = gfortran
     LIBS     =
 endif
 

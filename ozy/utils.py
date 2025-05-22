@@ -15,63 +15,103 @@ from variables_settings import geometrical_variables, raw_gas_variables,\
            circle_dictionary, basic_conv, hydro_variables_ordering,\
            part_variables_ordering, part_variables_type,circle_dictionary
 
+def ends_with_int_suffix(s):
+    parts = s.rsplit('_', 1)
+    if len(parts) == 2:
+        return parts[1].isdigit()
+    return False
 
-def get_code_units(varname):
+def remove_last_suffix_if_numeric(s):
+    if ends_with_int_suffix(s):
+        return s.rsplit('_', 1)[0]
+    return s
 
-    if varname in geometrical_variables:
-        unit = geometrical_variables[varname]['code_units']
-    elif varname in raw_gas_variables:
-        unit = raw_gas_variables[varname]['code_units']
-    elif varname in raw_part_variables:
-        unit = raw_part_variables[varname]['code_units']
-    elif varname in derived_gas_variables:
-        unit = derived_gas_variables[varname]['code_units']
-    elif varname in derived_part_variables:
-        unit = derived_part_variables[varname]['code_units']
-    elif varname in star_variables:
-        unit = star_variables[varname]['code_units']
-    elif varname in gravity_variables:
-        unit = gravity_variables[varname]['code_units']
-    else:
-        raise KeyError('Variable not found, check: '+str(varname))
+def get_code_units(varname,vartype):
+    if vartype == 'gas':
+        if varname in geometrical_variables:
+            unit = geometrical_variables[varname]['code_units']
+        elif varname in raw_gas_variables:
+            unit = raw_gas_variables[varname]['code_units']
+        elif varname in derived_gas_variables:
+            unit = derived_gas_variables[varname]['code_units']
+        elif varname in gravity_variables:
+            unit = gravity_variables[varname]['code_units']
+        else:
+            raise KeyError('Gas variable not found, check: '+str(varname))
+    elif vartype == 'part':
+        if varname in geometrical_variables:
+            unit = geometrical_variables[varname]['code_units']
+        elif varname in raw_part_variables:
+            unit = raw_part_variables[varname]['code_units']
+        elif varname in derived_part_variables:
+            unit = derived_part_variables[varname]['code_units']
+        elif varname in star_variables:
+            unit = star_variables[varname]['code_units']
+        else:
+            raise KeyError('Part variable not found, check: '+str(varname))
     return unit
-    
-def check_need_neighbours(varname):
-    if varname in geometrical_variables:
-        need = geometrical_variables[varname]['neighbour']
-    elif varname in raw_gas_variables:
-        need = raw_gas_variables[varname]['neighbour']
-    elif varname in raw_part_variables:
-        need = raw_part_variables[varname]['neighbour']
-    elif varname in derived_gas_variables:
-        need = derived_gas_variables[varname]['neighbour']
-    elif varname in derived_part_variables:
-        need = derived_part_variables[varname]['neighbour']
-    elif varname in star_variables:
-        need = star_variables[varname]['neighbour']
-    elif varname in gravity_variables:
-        need = gravity_variables[varname]['neighbour']
+
+def get_part_vartype(varname):
+    if varname in part_variables_type:
+        varttype = part_variables_type[varname]
+    elif varname in geometrical_variables or \
+        varname in raw_part_variables or \
+        varname in derived_part_variables or \
+        varname in star_variables:
+        varttype = 1
     else:
         raise KeyError('Variable not found, check: '+str(varname))
+    return varttype
+
+    
+def check_need_neighbours(varname,vartype):
+    if vartype == 'gas':
+        if varname in geometrical_variables:
+            need = geometrical_variables[varname]['neighbour']
+        elif varname in raw_gas_variables:
+            need = raw_gas_variables[varname]['neighbour']
+        elif varname in derived_gas_variables:
+            need = derived_gas_variables[varname]['neighbour']
+        elif varname in gravity_variables:
+            need = gravity_variables[varname]['neighbour']
+        else:
+            raise KeyError('Gas variable not found, check: '+str(varname))
+    elif vartype == 'part':
+        if varname in geometrical_variables:
+            need = geometrical_variables[varname]['neighbour']
+        elif varname in raw_part_variables:
+            need = raw_part_variables[varname]['neighbour']
+        elif varname in derived_part_variables:
+            need = derived_part_variables[varname]['neighbour']
+        elif varname in star_variables:
+            need = star_variables[varname]['neighbour']
+        else:
+            raise KeyError('Part variable not found, check: '+str(varname))
     return need
 
-def get_plotting_def(varname):
-    if varname in geometrical_variables:
-        plotting_def = geometrical_variables[varname]
-    elif varname in raw_gas_variables:
-        plotting_def = raw_gas_variables[varname]
-    elif varname in raw_part_variables:
-        plotting_def = raw_part_variables[varname]
-    elif varname in derived_gas_variables:
-        plotting_def = derived_gas_variables[varname]
-    elif varname in derived_part_variables:
-        plotting_def = derived_part_variables[varname]
-    elif varname in star_variables:
-        plotting_def = star_variables[varname]
-    elif varname in gravity_variables:
-        plotting_def = gravity_variables[varname]
-    else:
-        raise KeyError('Variable not found, check: '+str(varname))
+def get_plotting_def(varname,vartype):
+    if vartype == 'gas':
+        if varname in geometrical_variables:
+            plotting_def = geometrical_variables[varname]
+        elif varname in raw_gas_variables:
+            plotting_def = raw_gas_variables[varname]
+        elif varname in derived_gas_variables:
+            plotting_def = derived_gas_variables[varname]
+        elif varname in gravity_variables:
+            plotting_def = gravity_variables[varname]
+        else:
+            raise KeyError('Gas variable not found, check: '+str(varname))
+    elif vartype == 'part':
+        if varname in geometrical_variables:
+            plotting_def = geometrical_variables[varname]
+        elif varname in raw_part_variables:
+            plotting_def = raw_part_variables[varname]
+        elif varname in derived_part_variables:
+            plotting_def = derived_part_variables[varname]
+        elif varname in star_variables:
+            plotting_def = star_variables[varname]
+        else:
+            raise KeyError('Part variable not found, check: '+str(varname))
     return plotting_def
 
 def get_mu(X,Y):
@@ -139,13 +179,13 @@ def most_contrast_rgba(rgba):
         return (1, 1, 1, alpha) # White
 
 
-def invert_tick_colours(ax,var,type_scale,vmin=None,vmax=None,
+def invert_tick_colours(ax,var,vartype,type_scale,vmin=None,vmax=None,
                         linthresh=None,linscale=None,orientation='horizontal'):
     from matplotlib.colors import LogNorm,SymLogNorm
     from matplotlib import colormaps
 
     fig = plt.gcf()
-    plotting_def = get_plotting_def(var)
+    plotting_def = get_plotting_def(var,vartype)
     cmap = colormaps.get_cmap(plotting_def['cmap'])
     if vmin == None:
         vmin = plotting_def['vmin'+type_scale]
@@ -556,7 +596,7 @@ def tidal_radius(central, satellite, method='BT87_simple'):
 
         # Initialise region
         selected_reg = init_region(central,'sphere',rmax=(d.to('kpc').d,'kpc'),rmin=(0.0,'kpc'))
-        filt = init_filter('none','none',central)
+        filt = init_filter_part('none','none',central)
 
         # Particles first
         glob_attrs = part_integrator.part_region_attrs()
@@ -579,7 +619,7 @@ def tidal_radius(central, satellite, method='BT87_simple'):
         glob_attrs.result[0].nfilter = 1
         glob_attrs.result[0].nwvars = 1
         glob_attrs.result[0].varname = 'mass'
-        mybins = get_code_bins(central.obj,'gas/mass',5)
+        mybins = get_code_bins(central.obj,'gas','mass',5)
         glob_attrs.result[0].scaletype = mybins[1]
         stats_utils.allocate_pdf(glob_attrs.result[0])
         glob_attrs.result[0].bins = mybins[0]
@@ -941,19 +981,19 @@ def init_filter_hydro(cond_strs, name, group):
         for i in range(0, filt.ncond):
             if cond_strs[i] != 'none':
                 correct_str = cond_strs[i].split('/')[0]
-                filt.cond_vars_name = correct_str
+                filt.cond_vars_name.T.view('S128')[i] = correct_str.ljust(128)
                 # Expresion operator
                 filt.cond_ops.T.view('S2')[i] = cond_strs[i].split('/')[1].ljust(2)
                 # Value transformed to code units
                 try:
                     value = group.obj.quantity(float(cond_strs[i].split('/')[2]), cond_strs[i].split('/')[3])
-                    filt.cond_vals[i] = value.in_units(get_code_units(correct_str)).d
+                    filt.cond_vals[i] = value.in_units(get_code_units(correct_str,'gas')).d
                 except:
                     # In the case of the condition value being a string
                     # we use variables for the filters
                     filt.use_var[i] = True
-                    units1 = get_code_units(correct_str)
-                    units2 = get_code_units(cond_strs[i].split('/')[2])
+                    units1 = get_code_units(correct_str,'gas')
+                    units2 = get_code_units(cond_strs[i].split('/')[2],'gas')
                     if units1 != units2:
                         raise ValueError("You cannot compare %s and %s"%(units1,units2))
                     filt.cond_vars_comp_name = cond_strs[i].split('/')[2]
@@ -994,25 +1034,34 @@ def init_filter_part(cond_strs, name, group):
                     nonum_str = correct_str.split('_')[0]
                 else:
                     nonum_str = correct_str
-                filt.cond_vars_name = correct_str
+                filt.cond_vars_name.T.view('S128')[i] = correct_str.ljust(128)
                 # Expresion operator
                 filt.cond_ops.T.view('S2')[i] = cond_strs[i].split('/')[1].ljust(2)
                 # Value transformed to code units
                 try:
                     value = group.obj.quantity(float(cond_strs[i].split('/')[2]), cond_strs[i].split('/')[3])
-                    filt.cond_vals[i] = value.in_units(get_code_units(nonum_str)).d
+                    if get_part_vartype(nonum_str) == 1:
+                        filt.cond_vals_d[i] = value.in_units(get_code_units(nonum_str,'part')).d
+                    elif get_part_vartype(nonum_str) == 2:
+                        filt.cond_vals_i[i] = int(value.in_units(get_code_units(nonum_str,'part')).d)
+                    elif get_part_vartype(nonum_str) == 3:
+                        filt.cond_vals_l[i] = int(value.in_units(get_code_units(nonum_str,'part')).d)
                 except:
                     # In the case of the condition value being a string
                     # we use variables for the filters
                     filt.use_var[i] = True
-                    units1 = get_code_units(nonum_str)
-                    units2 = get_code_units(nonum_str[i].split('/')[2])
+                    units1 = get_code_units(nonum_str,'part')
+                    units2 = get_code_units(nonum_str[i].split('/')[2],'part')
                     if units1 != units2:
                         raise ValueError("You cannot compare %s and %s"%(units1,units2))
                     filt.cond_vars_comp_name = cond_strs[i].split('/')[2]
                     # And in place of units we should have the factor of that variable that we want
-                    filt.cond_vals[i] = cond_strs[i].split('/')[3]
-
+                    if get_part_vartype(nonum_str) == 1:
+                        filt.cond_vals_d[i] = float(cond_strs[i].split('/')[3])
+                    elif get_part_vartype(nonum_str) == 2:
+                        filt.cond_vals_i[i] = int(cond_strs[i].split('/')[3])
+                    elif get_part_vartype(nonum_str) == 3:
+                        filt.cond_vals_l[i] = int(cond_strs[i].split('/')[3])
         return filt
     else:
         raise ValueError("Condition strings are given, but not a name for the filter. Please set!")
@@ -1465,7 +1514,7 @@ def stats_from_pdf(varname,x,PDF,xmin,xmax,verbose=False):
         # exit(0)
     return np.array([mean,median,std,q2,q4])
 
-def pdf_handler_to_stats(obj,pdf_obj,ivar,ifilt,verbose=False):
+def pdf_handler_to_stats(obj,vartype,pdf_obj,ivar,ifilt,verbose=False):
     # This returns:
     # mean,median,std,q2,q4,minvalue,max_value
     nwvar = pdf_obj.nwvars
@@ -1475,30 +1524,17 @@ def pdf_handler_to_stats(obj,pdf_obj,ivar,ifilt,verbose=False):
     # the case, get rid of that last 
     varname = str(pdf_obj.varname.T.view('S128')[ivar][0].decode()).rstrip()
     scaletype = str(pdf_obj.scaletype.T.view('S128')[ivar][0].decode()).rstrip()
-    plotting_def = get_plotting_def(varname)
-    try:
-        numflag = int(varname.split('_')[-1])
-        numflag = True
-    except:
-        numflag = False
-    if varname.split('/')[0] == 'star' or varname.split('/')[0] == 'dm':
-        varname = varname.split('/')[1]
-    if numflag:
-        sfrstr = varname.split('_')[0] +'_'+ varname.split('_')[1]
-        code_units = get_code_units(sfrstr)
-    else:
-        code_units = get_code_units(varname)
+    clean_name = remove_last_suffix_if_numeric(varname)
+    code_units = get_code_units(clean_name,vartype)
     for i in range(0, nwvar):
         wvarname = str(pdf_obj.wvarnames.T.view('S128')[i][0].decode()).rstrip()
-        if wvarname.split('/')[0] == 'star' or wvarname.split('/')[0] == 'dm':
-            wvarname = wvarname.split('/')[1]
         if wvarname != 'cumulative' and wvarname != 'counts':
             PDF = np.nan_to_num(pdf_obj.heights[ivar,ifilt,i,:],nan=0.0)
             x = 0.5*(pdf_obj.bins[1:,ivar]+pdf_obj.bins[:-1,ivar])
             if all(PDF==0.0):
                 if pdf_obj.minv[ivar,ifilt] != 0 or pdf_obj.maxv[ivar,ifilt] != 0:
                     if verbose:
-                        plt_def = get_plotting_def(varname)
+                        plt_def = get_plotting_def(varname,vartype)
                         minv = obj.quantity(pdf_obj.minv[ivar,ifilt],code_units)
                         maxv = obj.quantity(pdf_obj.maxv[ivar,ifilt],code_units)
                         minpdf = obj.quantity(pdf_obj.bins[0,ivar],code_units)
@@ -1573,48 +1609,34 @@ def symlog_bins(min_val, max_val, n_bins, zero_eps=0.1, padding=0):
     result = neg_bin_edges + zero_bin_edges + pos_bin_edges
     return np.asarray(result),neg_n_bin_edges
 
-def get_code_bins(obj,varname,nbins=100,logscale=True,
+def get_code_bins(obj,var_type,var_name,nbins=100,logscale=True,
                   minval=None,maxval=None,linthresh=None):
     """This function provides bins for RAMSES variables in 
         code units, taking into account issues with variables
         with negative values."""
     # Begin by checking the existence of the variable
-    var_type = varname.split('/')[0]
-    var_name = varname.split('/')[1]
     ok_var = False
     if var_type == 'gas':
         if var_name in geometrical_variables or var_name in raw_gas_variables \
-            or var_name in derived_gas_variables:
+            or var_name in derived_gas_variables or var_name in gravity_variables:
                 ok_var = True
         else:
             raise KeyError('This gas variable is not supported. Please check!: %s', varname)
-    elif var_type == 'star':
-        if var_name.split('_')[0] == 'sfr':
-            if len(var_name.split('_')) == 3:
-                sfr_name = var_name.split('_')[0] +'_'+var_name.split('_')[1]
-            else:
-                sfr_name = var_name.split('_')[0]
-            if sfr_name in raw_star_variables or sfr_name in derived_star_variables:
+    elif var_type == 'part':
+        var_name_temp = remove_last_suffix_if_numeric(var_name)
+        if var_name_temp in geometrical_variables or var_name_temp in raw_part_variables \
+            or var_name_temp in derived_part_variables or var_name_temp in star_variables:
                 ok_var = True
-            else:
-                raise KeyError('This star variable is not supported. Please check!')
         else:
-            if var_name in raw_star_variables or var_name in derived_star_variables:
-                ok_var = True
-            else:
-                raise KeyError('This star variable is not supported. Please check!')
-    elif var_type == 'dm':
-        if var_name in raw_dm_variables or var_name in derived_dm_variables:
-            ok_var = True
-        else:
-            raise KeyError('This DM variable is not supported. Please check!')
+            raise KeyError('This part variable is not supported. Please check!: %s', varname)
     
     if not ok_var:
         print('Your variable is not found!')
         exit
 
     # If everything is fine, we go and compute the bin edges
-    plotting_def = get_plotting_def(varname.split('/')[1])
+    clean_name = remove_last_suffix_if_numeric(var_name)
+    plotting_def = get_plotting_def(clean_name,var_type)
 
     # The quantities should be in code units, so we transform them
     if minval == None:
@@ -1625,19 +1647,8 @@ def get_code_bins(obj,varname,nbins=100,logscale=True,
         max_val = obj.quantity(plotting_def['bin_max'],plotting_def['units'])
     else:
         max_val = maxval
-    # Some fields have specific numerical flags at the end
-    # which do not interfere with the units. If that is 
-    # the case, get rid of that last bit
-    try:
-        numflag = int(varname.split('/')[1].split('_')[-1])
-        numflag = True
-    except:
-        numflag = False
-    if numflag:
-        sfrstr = varname.split('/')[1].split('_')[0] #+'_'+ varname.split('/')[1].split('_')[1]
-        code_units = get_code_units(sfrstr)
-    else:
-        code_units = get_code_units(varname.split('/')[1])
+
+    code_units = get_code_units(clean_name,var_type)
     min_val = min_val.to(code_units).d
     max_val = max_val.to(code_units).d
     zero_index = 0

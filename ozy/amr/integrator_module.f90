@@ -226,16 +226,16 @@ module amr_integrator
         integer :: ivx,ivy,ivz
         integer :: ii
 
-        ! Obtain details of the hydro variables stored
-        call read_hydrofile_descriptor(repository)
-
         ! Initialise parameters of the AMR structure and simulation attributes
         call init_amr_read(repository)
         amr%lmax = amr%nlevelmax
+        
+        ! Obtain details of the hydro variables stored
+        if (.not.present(vardict)) call read_hydrofile_descriptor(repository)
 
         ! Compute the Hilbert curve
         call get_cpu_map(reg)
-        write(*,*)'ncpu_read:',amr%ncpu_read
+        if (verbose) write(*,*)'ncpu_read:',amr%ncpu_read
 
         ! Set up hydro variables quicklook tools
         if (present(vardict)) then
@@ -244,7 +244,7 @@ module amr_integrator
             ! hydro descriptor file (RAMSES)
             call get_var_tools(vardict,attrs%nvars,attrs%varnames,attrs%vars)
 
-            ! Do it now for the weighted variables
+            ! Do it now for the weight variables
             call get_var_tools(vardict,attrs%nwvars,attrs%wvarnames,attrs%wvars)
             
             ! We also do it for the filter variables

@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import ozy
-from ozy.phase_diagrams import compute_phase_diagram,plot_single_phase_diagram
+from ozy.multivariate_histograms import compute_phase_diagram,plot_single_phase_diagram
 
 obj = ozy.load('test_00010.hdf5')
 virial_mass = [i.virial_quantities['mass'] for i in obj.galaxies]

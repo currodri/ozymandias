@@ -440,6 +440,7 @@ module io_ramses
         character(len=256) :: line
         character(256)            :: nomfich
         character(len=50), dimension(:), allocatable :: variables
+        character(len=25) :: varname
         character(5) :: nchar
         logical :: found_header
 
@@ -494,6 +495,22 @@ module io_ramses
         
         ! Now loop over the variables assigning them to the particle
         ! variables dictionary
+        if (.not.allocated(sim%part_var_types)) then
+            if (amr%ndim>2) then
+                allocate(sim%part_var_types(num_vars+4))
+                call partIDs%init(num_vars+4)
+                call partvar_types%init(num_vars+4)
+            elseif (amr%ndim>1) then
+                allocate(sim%part_var_types(num_vars+2))
+                call partIDs%init(num_vars+2)
+                call partvar_types%init(num_vars+2)
+            else
+                allocate(sim%part_var_types(num_vars))
+                call partIDs%init(num_vars)
+                call partvar_types%init(num_vars)
+            end if
+        end if
+        
         do i = 1, num_vars
             if (trim(variables(i)) == 'pos') then
                 sim%nvar_part = sim%nvar_part + 1
@@ -860,7 +877,33 @@ module io_ramses
             cV = XH * cVHydrogen * mHydrogen / kBoltzmann
             lambda_crGH08 = 2.63d-16 * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
         endif
+
+        ! Check for the presence of RT files
+        call check_rt_files(repository,nchar)
     end subroutine init_amr_read
+
+    !---------------------------------------------------------------
+    ! Subroutine: CHECK RT FILES
+    !
+    ! This routine checks the output directory for the presence of
+    ! files starting with "rt_". If found, it sets the variable
+    ! sim%rt to .true.
+    !---------------------------------------------------------------
+    subroutine check_rt_files(repository,nchar)
+        implicit none
+        character(128), intent(in) :: repository
+        character(5), intent(in) :: nchar
+        character(128) :: filename
+        logical :: file_found     
+
+        file_found = .false.
+
+        write(filename, '(A,"/rt_",A,".out",I5.5)') trim(repository), trim(nchar), 1
+        inquire(file=filename, exist=file_found)
+        if (file_found) then
+            sim%rt = .true.
+        end if      
+    end subroutine check_rt_files
 
     !---------------------------------------------------------------
     ! Subroutine: GET DCR

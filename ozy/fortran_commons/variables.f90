@@ -1084,12 +1084,9 @@ module hydro_commons
         real(dbl) :: T,rho
 
         ! Specific entropy, following Gent 2012 equation
-        T = (var(0,hvar%ids(2))*((my_sim%unit_l/my_sim%unit_t)**2) &
-            & / var(0,hvar%ids(1)) / kBoltzmann * mHydrogen)
-        !TODO: This is a fix to the low temperature in CRMHD
-        if (T<15) T = 15
-        rho = (var(0,hvar%ids(1)) * my_sim%unit_d / mHydrogen )
-        entropy_specific = cV * (log(T) - (2D0/3D0) * log(rho))
+        T = var(0,hvar%ids(2))/var(0,hvar%ids(1)) * my_sim%T2 * mu
+        rho = var(0,hvar%ids(1)) * my_sim%unit_d / mHydrogen
+        entropy_specific = log(T) - (gamma_gas-1d0) * log(rho)
     end function entropy_specific
 
     function sound_speed(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
@@ -1108,8 +1105,8 @@ module hydro_commons
         real(dbl) :: sound_speed
 
         ! Thermal sound speed, ideal gas
-        sound_speed = sqrt(gamma_gas * (max(var(0,hvar%ids(2)), Tmin*var(0,hvar%ids(2))) &
-                            & / var(0,hvar%ids(2))))
+        sound_speed = sqrt(gamma_gas * (max(var(0,hvar%ids(2)), Tmin*var(0,hvar%ids(1))) &
+                            & / var(0,hvar%ids(1))))
     end function sound_speed
 
     function grad_thermalpressure(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
@@ -2993,6 +2990,249 @@ module hydro_commons
         CO_mass = ((var(0,hvar%ids(1)) * var(0,hvar%ids(2)) * dx) * dx) * dx
     end function CO_mass
 
+    function DTM(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: DTM
+        real(dbl) :: total_dust_mass, total_metal_mass
+
+        total_dust_mass = var(0,hvar%ids(1)) + var(0,hvar%ids(2)) + var(0,hvar%ids(3)) + var(0,hvar%ids(4))
+        total_metal_mass = var(0,hvar%ids(5))
+        DTM = total_dust_mass / (total_dust_mass + total_metal_mass)
+    end function DTM
+
+    function STL(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: STL
+        real(dbl) :: total_small_grains, total_large_grains
+
+        total_small_grains = var(0,hvar%ids(1)) + var(0,hvar%ids(3))
+        total_large_grains = var(0,hvar%ids(2)) + var(0,hvar%ids(4))
+        STL = total_small_grains / total_large_grains
+    end function STL
+
+    function CSR(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: CSR
+        real(dbl) :: total_carbon, total_silicon
+
+        total_carbon = var(0,hvar%ids(1)) + var(0,hvar%ids(2))
+        total_silicon = var(0,hvar%ids(3)) + var(0,hvar%ids(4))
+        CSR = total_carbon / total_silicon
+    end function CSR
+
+    function CSmall_Stokes(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: CSmall_Stokes
+        real(dbl) :: c_s,t_s,t_turb,sdust,adust
+        real(dbl) :: vel_dis,value
+        type(vector) :: v
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: tempvar
+
+        ! 1. Compute the local sound speed
+        c_s = sqrt(gamma_gas * (max(var(0,hvar%ids(2)), Tmin*var(0,hvar%ids(1))) &
+                            & / var(0,hvar%ids(1))))
+
+        ! 2. Compute the stopping time
+        sdust = 2.2d0 / my_sim%unit_d
+        adust = 0.005d-4 / my_sim%unit_l
+        t_s = sdust * adust / (var(0,hvar%ids(1)) * sqrt(8d0/pi) * c_s)
+
+        ! 3. Compute the dynamical (turbulent) time
+        ! Go back to box coordinates for the central cell, which is transformed usually
+        ! before sent to read_amr
+        tempvar(:,:) = var(:,:)
+        v = (/tempvar(0,hvar%ids(3)),tempvar(0,hvar%ids(4)),tempvar(0,hvar%ids(5))/)
+        call rotate_vector(v,transpose(trans_matrix))
+        v = v + reg%bulk_velocity
+        tempvar(0,hvar%ids(3)) = v%x
+        tempvar(0,hvar%ids(4)) = v%y
+        tempvar(0,hvar%ids(5)) = v%z
+        call cmp_sigma_turb(my_amr,my_sim,hvar,tempvar,vel_dis)
+        t_turb = dx / vel_dis
+
+        ! 4. Compute the Stokes number
+        CSmall_Stokes = t_s / t_turb
+    end function CSmall_Stokes
+
+    function CLarge_Stokes(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: CLarge_Stokes
+        real(dbl) :: c_s,t_s,t_turb,sdust,adust
+        real(dbl) :: vel_dis,value
+        type(vector) :: v
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: tempvar
+
+        ! 1. Compute the local sound speed
+        c_s = sqrt(gamma_gas * (max(var(0,hvar%ids(2)), Tmin*var(0,hvar%ids(1))) &
+                            & / var(0,hvar%ids(1))))
+
+        ! 2. Compute the stopping time
+        sdust = 2.2d0 / my_sim%unit_d
+        adust = 0.1d-4 / my_sim%unit_l
+        t_s = sdust * adust / (var(0,hvar%ids(1)) * sqrt(8d0/pi) * c_s)
+
+        ! 3. Compute the dynamical (turbulent) time
+        ! Go back to box coordinates for the central cell, which is transformed usually
+        ! before sent to read_amr
+        tempvar(:,:) = var(:,:)
+        v = (/tempvar(0,hvar%ids(3)),tempvar(0,hvar%ids(4)),tempvar(0,hvar%ids(5))/)
+        call rotate_vector(v,transpose(trans_matrix))
+        v = v + reg%bulk_velocity
+        tempvar(0,hvar%ids(3)) = v%x
+        tempvar(0,hvar%ids(4)) = v%y
+        tempvar(0,hvar%ids(5)) = v%z
+        call cmp_sigma_turb(my_amr,my_sim,hvar,tempvar,vel_dis)
+        t_turb = dx / vel_dis
+        
+        ! 4. Compute the Stokes number
+        CLarge_Stokes = t_s / t_turb
+    end function CLarge_Stokes
+
+    function SilSmall_Stokes(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: SilSmall_Stokes
+        real(dbl) :: c_s,t_s,t_turb,sdust,adust
+        real(dbl) :: vel_dis,value
+        type(vector) :: v
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: tempvar
+
+        ! 1. Compute the local sound speed
+        c_s = sqrt(gamma_gas * (max(var(0,hvar%ids(2)), Tmin*var(0,hvar%ids(1))) &
+                            & / var(0,hvar%ids(1))))
+
+        ! 2. Compute the stopping time
+        sdust = 3.3d0 / my_sim%unit_d
+        adust = 0.005d-4 / my_sim%unit_l
+        t_s = sdust * adust / (var(0,hvar%ids(1)) * sqrt(8d0/pi) * c_s)
+
+        ! 3. Compute the dynamical (turbulent) time
+        ! Go back to box coordinates for the central cell, which is transformed usually
+        ! before sent to read_amr
+        tempvar(:,:) = var(:,:)
+        v = (/tempvar(0,hvar%ids(3)),tempvar(0,hvar%ids(4)),tempvar(0,hvar%ids(5))/)
+        call rotate_vector(v,transpose(trans_matrix))
+        v = v + reg%bulk_velocity
+        tempvar(0,hvar%ids(3)) = v%x
+        tempvar(0,hvar%ids(4)) = v%y
+        tempvar(0,hvar%ids(5)) = v%z
+        call cmp_sigma_turb(my_amr,my_sim,hvar,tempvar,vel_dis)
+        t_turb = dx / vel_dis
+        
+        ! 4. Compute the Stokes number
+        SilSmall_Stokes = t_s / t_turb
+    end function SilSmall_Stokes
+
+    function SilLarge_Stokes(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: SilLarge_Stokes
+        real(dbl) :: c_s,t_s,t_turb,sdust,adust
+        real(dbl) :: vel_dis,value
+        type(vector) :: v
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: tempvar
+
+        ! 1. Compute the local sound speed
+        c_s = sqrt(gamma_gas * (max(var(0,hvar%ids(2)), Tmin*var(0,hvar%ids(1))) &
+                            & / var(0,hvar%ids(1))))
+
+        ! 2. Compute the stopping time
+        sdust = 3.3d0 / my_sim%unit_d
+        adust = 0.1d-4 / my_sim%unit_l
+        t_s = sdust * adust / (var(0,hvar%ids(1)) * sqrt(8d0/pi) * c_s)
+
+        ! 3. Compute the dynamical (turbulent) time
+        ! Go back to box coordinates for the central cell, which is transformed usually
+        ! before sent to read_amr
+        tempvar(:,:) = var(:,:)
+        v = (/tempvar(0,hvar%ids(3)),tempvar(0,hvar%ids(4)),tempvar(0,hvar%ids(5))/)
+        call rotate_vector(v,transpose(trans_matrix))
+        v = v + reg%bulk_velocity
+        tempvar(0,hvar%ids(3)) = v%x
+        tempvar(0,hvar%ids(4)) = v%y
+        tempvar(0,hvar%ids(5)) = v%z
+        call cmp_sigma_turb(my_amr,my_sim,hvar,tempvar,vel_dis)
+        t_turb = dx / vel_dis
+        
+        ! 4. Compute the Stokes number
+        SilLarge_Stokes = t_s / t_turb
+    end function SilLarge_Stokes
+
     subroutine check_dervar(vardict,varname,hvar,ok)
         implicit none
 
@@ -3916,6 +4156,83 @@ module hydro_commons
             hvar%ids(1) = vardict%get('density')
             hvar%ids(2) = vardict%get('CO_fraction')
             hvar%myfunction => CO_mass
+        case ('DTM')
+            ! dust-to-metal mass ratio
+            hvar%type = 'derived'
+            hvar%name = 'DTM'
+            allocate(hvar%ids(5))
+            hvar%ids(1) = vardict%get('CSmall_fraction')
+            hvar%ids(2) = vardict%get('CLarge_fraction')
+            hvar%ids(3) = vardict%get('SilSmall_fraction')
+            hvar%ids(4) = vardict%get('SilLarge_fraction')
+            hvar%ids(5) = vardict%get('metallicity')
+            hvar%myfunction => DTM
+        case ('STL')
+            ! small-to-large grain mass ratio
+            hvar%type = 'derived'
+            hvar%name = 'STL'
+            allocate(hvar%ids(5))
+            hvar%ids(1) = vardict%get('CSmall_fraction')
+            hvar%ids(2) = vardict%get('CLarge_fraction')
+            hvar%ids(3) = vardict%get('SilSmall_fraction')
+            hvar%ids(4) = vardict%get('SilLarge_fraction')
+            hvar%ids(5) = vardict%get('metallicity')
+            hvar%myfunction => STL
+        case ('CSR')
+            ! carbon-to-silicate grain mass ratio
+            hvar%type = 'derived'
+            hvar%name = 'CSR'
+            allocate(hvar%ids(5))
+            hvar%ids(1) = vardict%get('CSmall_fraction')
+            hvar%ids(2) = vardict%get('CLarge_fraction')
+            hvar%ids(3) = vardict%get('SilSmall_fraction')
+            hvar%ids(4) = vardict%get('SilLarge_fraction')
+            hvar%ids(5) = vardict%get('metallicity')
+            hvar%myfunction => CSR
+        case ('CSmall_Stokes')
+            ! Stokes number of the small C grains
+            hvar%type = 'derived'
+            hvar%name = 'CSmall_Stokes'
+            allocate(hvar%ids(5))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('thermal_pressure')
+            hvar%ids(3) = vardict%get('velocity_x')
+            hvar%ids(4) = vardict%get('velocity_y')
+            hvar%ids(5) = vardict%get('velocity_z')
+            hvar%myfunction => CSmall_Stokes
+        case ('CLarge_Stokes')
+            ! Stokes number of the large C grains
+            hvar%type = 'derived'
+            hvar%name = 'CLarge_Stokes'
+            allocate(hvar%ids(5))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('thermal_pressure')
+            hvar%ids(3) = vardict%get('velocity_x')
+            hvar%ids(4) = vardict%get('velocity_y')
+            hvar%ids(5) = vardict%get('velocity_z')
+            hvar%myfunction => CLarge_Stokes
+        case ('SilSmall_Stokes')
+            ! Stokes number of the small silicate grains
+            hvar%type = 'derived'
+            hvar%name = 'SilSmall_Stokes'
+            allocate(hvar%ids(5))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('thermal_pressure')
+            hvar%ids(3) = vardict%get('velocity_x')
+            hvar%ids(4) = vardict%get('velocity_y')
+            hvar%ids(5) = vardict%get('velocity_z')
+            hvar%myfunction => SilSmall_Stokes
+        case ('SilLarge_Stokes')
+            ! Stokes number of the large silicate grains
+            hvar%type = 'derived'
+            hvar%name = 'SilLarge_Stokes'
+            allocate(hvar%ids(5))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('thermal_pressure')
+            hvar%ids(3) = vardict%get('velocity_x')
+            hvar%ids(4) = vardict%get('velocity_y')
+            hvar%ids(5) = vardict%get('velocity_z')
+            hvar%myfunction => SilLarge_Stokes
         case default
             ok = .false.
         end select
@@ -3968,7 +4285,7 @@ module hydro_commons
                 
                 if (.not.ok_check) then
                     write(*,*)'Variable not supported: ',TRIM(reqvars(i))
-                    write(*,*)'Aborting!'
+                    write(*,*)'Aborting!',nreq,i
                     stop
                 end if
             end if
@@ -4629,6 +4946,7 @@ module part_commons
         character(128) :: name,type
         integer :: vartype
         integer, dimension(:), allocatable :: ids,vtypes
+        real(dbl) :: num_suffix
         procedure(myinterface_d),pointer,nopass :: myfunction_d
         procedure(myinterface_i),pointer,nopass :: myfunction_i
         procedure(myinterface_b),pointer,nopass :: myfunction_b
@@ -5730,6 +6048,7 @@ module part_commons
             ! Velocity component in the spherical radial direction
             pvar%type = 'derived'
             pvar%name = 'v_sphere_r'
+            pvar%vartype = 1
             allocate(pvar%ids(6))
             allocate(pvar%vtypes(6))
             pvar%ids(1) = vardict%get('x')
@@ -5749,6 +6068,7 @@ module part_commons
             ! Velocity component in the spherical phi direction
             pvar%type = 'derived'
             pvar%name = 'v_sphere_phi'
+            pvar%vartype = 1
             allocate(pvar%ids(6))
             allocate(pvar%vtypes(6))
             pvar%ids(1) = vardict%get('x')
@@ -5768,6 +6088,7 @@ module part_commons
             ! Velocity component in the spherical theta direction
             pvar%type = 'derived'
             pvar%name = 'v_sphere_theta'
+            pvar%vartype = 1
             allocate(pvar%ids(6))
             allocate(pvar%vtypes(6))
             pvar%ids(1) = vardict%get('x')
@@ -5787,6 +6108,7 @@ module part_commons
             ! Velocity component in the cylindrical z direction
             pvar%type = 'derived'
             pvar%name = 'v_cyl_z'
+            pvar%vartype = 1
             allocate(pvar%ids(6))
             allocate(pvar%vtypes(6))
             pvar%ids(1) = vardict%get('x')
@@ -5806,6 +6128,7 @@ module part_commons
             ! Velocity component in the cylindrical phi direction
             pvar%type = 'derived'
             pvar%name = 'v_cyl_phi'
+            pvar%vartype = 1
             allocate(pvar%ids(6))
             allocate(pvar%vtypes(6))
             pvar%ids(1) = vardict%get('x')
@@ -5825,6 +6148,7 @@ module part_commons
             ! Velocity component in the cylindrical r direction
             pvar%type = 'derived'
             pvar%name = 'v_cyl_r'
+            pvar%vartype = 1
             allocate(pvar%ids(6))
             allocate(pvar%vtypes(6))
             pvar%ids(1) = vardict%get('x')
@@ -5844,6 +6168,7 @@ module part_commons
             ! Magnitude of the velocity vector
             pvar%type = 'derived'
             pvar%name = 'v_magnitude'
+            pvar%vartype = 1
             allocate(pvar%ids(3))
             allocate(pvar%vtypes(3))
             pvar%ids(1) = vardict%get('velocity_x')
@@ -5857,6 +6182,7 @@ module part_commons
             ! Square of the magnitude of the velocity vector
             pvar%type = 'derived'
             pvar%name = 'v_squared'
+            pvar%vartype = 1
             allocate(pvar%ids(3))
             allocate(pvar%vtypes(3))
             pvar%ids(1) = vardict%get('velocity_x')
@@ -5870,6 +6196,7 @@ module part_commons
             ! Tangential velocity magnitude
             pvar%type = 'derived'
             pvar%name = 'v_tangential'
+            pvar%vartype = 1
             allocate(pvar%ids(6))
             allocate(pvar%vtypes(6))
             pvar%ids(1) = vardict%get('x')
@@ -5889,6 +6216,7 @@ module part_commons
             ! Centripetal acceleration
             pvar%type = 'derived'
             pvar%name = 'centripetal_acc'
+            pvar%vartype = 1
             allocate(pvar%ids(7))
             allocate(pvar%vtypes(7))
             pvar%ids(1) = vardict%get('x')
@@ -5910,6 +6238,7 @@ module part_commons
             ! x-component of momentum
             pvar%type = 'derived'
             pvar%name = 'momentum_x'
+            pvar%vartype = 1
             allocate(pvar%ids(4))
             allocate(pvar%vtypes(4))
             pvar%ids(1) = vardict%get('velocity_x')
@@ -5925,6 +6254,7 @@ module part_commons
             ! y-component of momentum
             pvar%type = 'derived'
             pvar%name = 'momentum_y'
+            pvar%vartype = 1
             allocate(pvar%ids(4))
             allocate(pvar%vtypes(4))
             pvar%ids(1) = vardict%get('velocity_x')
@@ -5940,6 +6270,7 @@ module part_commons
             ! z-component of momentum
             pvar%type = 'derived'
             pvar%name = 'momentum_z'
+            pvar%vartype = 1
             allocate(pvar%ids(4))
             allocate(pvar%vtypes(4))
             pvar%ids(1) = vardict%get('velocity_x')
@@ -5955,6 +6286,7 @@ module part_commons
             ! Magnitude of momentum
             pvar%type = 'derived'
             pvar%name = 'momentum'
+            pvar%vartype = 1
             allocate(pvar%ids(4))
             allocate(pvar%vtypes(4))
             pvar%ids(1) = vardict%get('velocity_x')
@@ -5970,6 +6302,7 @@ module part_commons
             ! Linear momentum in the spherical radial direction
             pvar%type = 'derived'
             pvar%name = 'momentum_sphere_r'
+            pvar%vartype = 1
             allocate(pvar%ids(7))
             allocate(pvar%vtypes(7))
             pvar%ids(1) = vardict%get('x')
@@ -5991,6 +6324,7 @@ module part_commons
             ! Linear momentum in the cylindrical z direction
             pvar%type = 'derived'
             pvar%name = 'momentum_cyl_z'
+            pvar%vartype = 1
             allocate(pvar%ids(7))
             allocate(pvar%vtypes(7))
             pvar%ids(1) = vardict%get('x')
@@ -6012,6 +6346,7 @@ module part_commons
             ! Angular momentum x-component
             pvar%type = 'derived'
             pvar%name = 'ang_momentum_x'
+            pvar%vartype = 1
             allocate(pvar%ids(7))
             allocate(pvar%vtypes(7))
             pvar%ids(1) = vardict%get('x')
@@ -6033,6 +6368,7 @@ module part_commons
             ! Angular momentum y-component
             pvar%type = 'derived'
             pvar%name = 'ang_momentum_y'
+            pvar%vartype = 1
             allocate(pvar%ids(7))
             allocate(pvar%vtypes(7))
             pvar%ids(1) = vardict%get('x')
@@ -6054,6 +6390,7 @@ module part_commons
             ! Angular momentum z-component
             pvar%type = 'derived'
             pvar%name = 'ang_momentum_z'
+            pvar%vartype = 1
             allocate(pvar%ids(7))
             allocate(pvar%vtypes(7))
             pvar%ids(1) = vardict%get('x')
@@ -6075,6 +6412,7 @@ module part_commons
             ! Magnitude of angular momentum
             pvar%type = 'derived'
             pvar%name = 'ang_momentum'
+            pvar%vartype = 1
             allocate(pvar%ids(7))
             allocate(pvar%vtypes(7))
             pvar%ids(1) = vardict%get('x')
@@ -6096,6 +6434,7 @@ module part_commons
             ! Density of the particle
             pvar%type = 'derived'
             pvar%name = 'density'
+            pvar%vartype = 1
             allocate(pvar%ids(1))
             allocate(pvar%vtypes(1))
             pvar%ids(1) = vardict%get('mass')
@@ -6105,6 +6444,7 @@ module part_commons
             ! Surface density of the particle
             pvar%type = 'derived'
             pvar%name = 'sdensity'
+            pvar%vartype = 1
             allocate(pvar%ids(1))
             allocate(pvar%vtypes(1))
             pvar%ids(1) = vardict%get('mass')
@@ -6135,6 +6475,11 @@ module part_commons
         real(dbl) :: t
         integer :: iii
 
+        if (part_var_d(pvar%ids(1)).eq.0d0) then
+            age = 0d0
+            return
+        end if
+        
         ! Age of the star
         ! Time of the simulation minus the time of the star formation
         if (my_sim%cosmo) then
@@ -6146,8 +6491,13 @@ module part_commons
 #ifdef AGEPROPER
             t = part_var_d(pvar%ids(1))
 #else
-            t = my_sim%t_frw(iii)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii-1))/(my_sim%tau_frw(iii)-my_sim%tau_frw(iii-1))+ &
-            & my_sim%t_frw(iii-1)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii))/(my_sim%tau_frw(iii-1)-my_sim%tau_frw(iii))
+            if (my_sim%rt) then
+                ! RT simulations always force use_proper_time=.true.
+                t = part_var_d(pvar%ids(1))
+            else
+                t = my_sim%t_frw(iii)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii-1))/(my_sim%tau_frw(iii)-my_sim%tau_frw(iii-1))+ &
+                & my_sim%t_frw(iii-1)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii))/(my_sim%tau_frw(iii-1)-my_sim%tau_frw(iii))
+            end if
 #endif
             age = (my_sim%time_simu-t)/(my_sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
         else
@@ -6187,8 +6537,13 @@ module part_commons
 #ifdef AGEPROPER
             t = part_var_d(pvar%ids(1))
 #else
-            t = my_sim%t_frw(iii)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii-1))/(my_sim%tau_frw(iii)-my_sim%tau_frw(iii-1))+ &
-            & my_sim%t_frw(iii-1)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii))/(my_sim%tau_frw(iii-1)-my_sim%tau_frw(iii))
+            if (my_sim%rt) then
+                ! RT simulations always force use_proper_time=.true.
+                t = part_var_d(pvar%ids(1))
+            else
+                t = my_sim%t_frw(iii)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii-1))/(my_sim%tau_frw(iii)-my_sim%tau_frw(iii-1))+ &
+                & my_sim%t_frw(iii-1)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii))/(my_sim%tau_frw(iii-1)-my_sim%tau_frw(iii))
+            end if
 #endif
             age = (my_sim%time_simu-t)
             birth_date = (my_sim%time_tot+age)/(my_sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
@@ -6215,8 +6570,7 @@ module part_commons
 
         real(dbl) :: sfr
         real(dbl) :: t,birth_date
-        integer :: iii,index2,index3
-        character(128) :: sfrstr,sfrtype
+        integer :: iii
         real(dbl) :: sfrind,current_age_univ,m
 
         sfr = 0d0
@@ -6227,12 +6581,7 @@ module part_commons
         ! This quantity only makes sense on a cumulative sense,
         ! as the SFR per individual stellar particle is not well defined
         ! 1. Get the indicator desired (timescale over which SFR is averaged)
-        index2 = scan(pvar%name,'_')
-        sfrstr = pvar%name(index2+1:)
-        index3 = scan(sfrstr,'_')
-        read(sfrstr,'(F10.0)') sfrind
-        ! We want it in units of Gyr, that's why we divide by 1e+3
-        sfrind = sfrind/1D3
+        sfrind = pvar%num_suffix
 
         ! Get the initial mass of the stellar particle
 #ifdef IMASS
@@ -6251,8 +6600,13 @@ module part_commons
 #ifdef AGEPROPER
             t = part_var_d(pvar%ids(1))
 #else
-            t = my_sim%t_frw(iii)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii-1))/(my_sim%tau_frw(iii)-my_sim%tau_frw(iii-1))+ &
-            & my_sim%t_frw(iii-1)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii))/(my_sim%tau_frw(iii-1)-my_sim%tau_frw(iii))
+            if (my_sim%rt) then
+                ! RT simulations always force use_proper_time=.true.
+                t = part_var_d(pvar%ids(1))
+            else
+                t = my_sim%t_frw(iii)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii-1))/(my_sim%tau_frw(iii)-my_sim%tau_frw(iii-1))+ &
+                & my_sim%t_frw(iii-1)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii))/(my_sim%tau_frw(iii-1)-my_sim%tau_frw(iii))
+            end if
 #endif
             current_age_univ = (my_sim%time_tot+my_sim%time_simu)/(my_sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
             birth_date = (my_sim%time_tot+t)/(my_sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
@@ -6291,8 +6645,7 @@ module part_commons
 
         real(dbl) :: sfr_surface
         real(dbl) :: t,birth_date
-        integer :: iii,index2,index3
-        character(128) :: sfrstr,sfrtype
+        integer :: iii
         real(dbl) :: sfrind,current_age_univ,m
 
         sfr_surface = 0d0
@@ -6303,12 +6656,7 @@ module part_commons
         ! This quantity only makes sense on a cumlative sense,
         ! as the SFR per individual stellar particle is not well defined
         ! 1. Get the indicator desired (timescale over which SFR is averaged)
-        index2 = scan(pvar%name,'_')
-        sfrstr = pvar%name(index2+1:)
-        index3 = scan(sfrstr,'_')
-        read(sfrstr,'(F10.0)') sfrind
-        ! We want it in units of Gyr, that's why we divide by 1e+3
-        sfrind = sfrind/1D3
+        sfrind = pvar%num_suffix
     
         ! Get the initial mass of the stellar particle
 #ifdef IMASS
@@ -6327,8 +6675,13 @@ module part_commons
 #ifdef AGEPROPER
             t = part_var_d(pvar%ids(1))
 #else
-            t = my_sim%t_frw(iii)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii-1))/(my_sim%tau_frw(iii)-my_sim%tau_frw(iii-1))+ &
-            & my_sim%t_frw(iii-1)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii))/(my_sim%tau_frw(iii-1)-my_sim%tau_frw(iii))
+            if (my_sim%rt) then
+                ! RT simulations always force use_proper_time=.true.
+                t = part_var_d(pvar%ids(1))
+            else
+                t = my_sim%t_frw(iii)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii-1))/(my_sim%tau_frw(iii)-my_sim%tau_frw(iii-1))+ &
+                & my_sim%t_frw(iii-1)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii))/(my_sim%tau_frw(iii-1)-my_sim%tau_frw(iii))
+            end if
 #endif
             current_age_univ = (my_sim%time_tot+my_sim%time_simu)/(my_sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
             birth_date = (my_sim%time_tot+t)/(my_sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
@@ -6367,8 +6720,7 @@ module part_commons
 
         real(dbl) :: sfr_density
         real(dbl) :: t,birth_date
-        integer :: iii,index2,index3
-        character(128) :: sfrstr,sfrtype
+        integer :: iii
         real(dbl) :: sfrind,current_age_univ,m
 
         sfr_density = 0d0
@@ -6379,12 +6731,7 @@ module part_commons
         ! This quantity only makes sense on a cumlative sense,
         ! as the SFR per individual stellar particle is not well defined
         ! 1. Get the indicator desired (timescale over which SFR is averaged)
-        index2 = scan(pvar%name,'_')
-        sfrstr = pvar%name(index2+1:)
-        index3 = scan(sfrstr,'_')
-        read(sfrstr,'(F10.0)') sfrind
-        ! We want it in units of Gyr, that's why we divide by 1e+3
-        sfrind = sfrind/1D3
+        sfrind = pvar%num_suffix
 
         ! Get the initial mass of the stellar particle
 #ifdef IMASS
@@ -6403,8 +6750,13 @@ module part_commons
 #ifdef AGEPROPER
             t = part_var_d(pvar%ids(1))
 #else
-            t = my_sim%t_frw(iii)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii-1))/(my_sim%tau_frw(iii)-my_sim%tau_frw(iii-1))+ &
-            & my_sim%t_frw(iii-1)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii))/(my_sim%tau_frw(iii-1)-my_sim%tau_frw(iii))
+            if (my_sim%rt) then
+                ! RT simulations always force use_proper_time=.true.
+                t = part_var_d(pvar%ids(1))
+            else
+                t = my_sim%t_frw(iii)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii-1))/(my_sim%tau_frw(iii)-my_sim%tau_frw(iii-1))+ &
+                & my_sim%t_frw(iii-1)*(part_var_d(pvar%ids(1))-my_sim%tau_frw(iii))/(my_sim%tau_frw(iii-1)-my_sim%tau_frw(iii))
+            end if
 #endif
             current_age_univ = (my_sim%time_tot+my_sim%time_simu)/(my_sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
             birth_date = (my_sim%time_tot+t)/(my_sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
@@ -6427,7 +6779,7 @@ module part_commons
     end function sfr_density
 
     subroutine check_starvar(vardict,varname,pvar,ok)
-        use utils, only: get_cleaned_string
+        use utils, only: get_cleaned_string,get_numeric_suffix
         implicit none
         type(part_var),intent(inout) :: pvar
         type(dictf90),intent(in) :: vardict
@@ -6446,6 +6798,7 @@ module part_commons
             ! Age of the star
             pvar%type = 'derived'
             pvar%name = 'age'
+            pvar%vartype = 1
             allocate(pvar%ids(1))
             allocate(pvar%vtypes(1))
             pvar%ids(1) = vardict%get('birth_time')
@@ -6455,6 +6808,7 @@ module part_commons
             ! Birth date of the star
             pvar%type = 'derived'
             pvar%name = 'birth_date'
+            pvar%vartype = 1
             allocate(pvar%ids(1))
             allocate(pvar%vtypes(1))
             pvar%ids(1) = vardict%get('birth_time')
@@ -6464,6 +6818,7 @@ module part_commons
             ! Star formation rate
             pvar%type = 'derived'
             pvar%name = varname
+            pvar%vartype = 1
             allocate(pvar%ids(2))
             allocate(pvar%vtypes(2))
             pvar%ids(1) = vardict%get('birth_time')
@@ -6475,10 +6830,12 @@ module part_commons
 #endif
             pvar%vtypes(2) = 1
             pvar%myfunction_d => sfr
+            pvar%num_suffix = dble(get_numeric_suffix(varname))/1D3
         case('sfr_surface')
             ! Star formation rate per unit area
             pvar%type = 'derived'
             pvar%name = varname
+            pvar%vartype = 1
             allocate(pvar%ids(2))
             allocate(pvar%vtypes(2))
             pvar%ids(1) = vardict%get('birth_time')
@@ -6490,10 +6847,13 @@ module part_commons
 #endif
             pvar%vtypes(2) = 1
             pvar%myfunction_d => sfr_surface
+            pvar%num_suffix = dble(get_numeric_suffix(varname))/1D3
+            print*,get_numeric_suffix(varname),pvar%num_suffix
         case('sfr_density')
             ! Star formation rate
             pvar%type = 'derived'
             pvar%name = varname
+            pvar%vartype = 1
             allocate(pvar%ids(2))
             allocate(pvar%vtypes(2))
             pvar%ids(1) = vardict%get('birth_time')
@@ -6505,6 +6865,7 @@ module part_commons
 #endif
             pvar%vtypes(2) = 1
             pvar%myfunction_d => sfr_density
+            pvar%num_suffix = dble(get_numeric_suffix(varname))/1D3
         case default
             ok = .false.
         end select
@@ -6533,6 +6894,7 @@ module part_commons
                 allocate(cleaned_vars(i)%vtypes(1))
                 cleaned_vars(i)%ids(1) = ivar
                 cleaned_vars(i)%vtypes(1) = vtypedict%get(reqvars(i))
+                cleaned_vars(i)%vartype = vtypedict%get(reqvars(i))
                 if (cleaned_vars(i)%vtypes(1).eq.1) then
                     ! Double float variable
                     cleaned_vars(i)%myfunction_d => raw_part_d
@@ -6551,6 +6913,7 @@ module part_commons
                 allocate(cleaned_vars(i)%vtypes(1))
                 cleaned_vars(i)%ids(1) = 0
                 cleaned_vars(i)%vtypes(1) = 1
+                cleaned_vars(i)%vartype = 1
             else
                 ! 3. Variable is not a raw variable, so it is either a
                 ! geometrical, derived or star derived variable
@@ -6563,9 +6926,9 @@ module part_commons
 
                 ! And finally check for derived star variables
                 call check_starvar(vardict,reqvars(i),cleaned_vars(i),ok_check)
-                
                 if (.not.ok_check) then
                     write(*,*) 'ERROR: Variable ',trim(reqvars(i)),' not found in particle dictionary'
+                    write(*,*) 'vardict: ',vardict%keys
                     stop
                 end if
             end if

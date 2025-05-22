@@ -114,7 +114,8 @@ class Snapshot(object):
     def _set_variable_ordering(self):
         from amr2 import dictionary_commons
         from variables_settings import hydro_variables_ordering, \
-                                        part_variables_ordering
+                                        part_variables_ordering, \
+                                        part_variables_type
         self.vardict = dictionary_commons.dictf90()
         self.part_vardict = dictionary_commons.dictf90()
         self.part_vartypes = dictionary_commons.dictf90()
@@ -132,8 +133,8 @@ class Snapshot(object):
             for varname,varindex in part_variables_ordering.items():
                 self.part_vardict.add(varname,varindex)
             self.use_part_vardict = True
-            self.part_vartypes.init(len(part_variables_ordering))
-            for var,vtype in part_variables_ordering.items():
+            self.part_vartypes.init(len(part_variables_type))
+            for var,vtype in part_variables_type.items():
                 self.part_vartypes.add(var,vtype)
         else:
             self.use_part_vardict = False

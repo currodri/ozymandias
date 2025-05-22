@@ -273,6 +273,7 @@ module part_integrator
         integer :: i,j,k
         integer :: ipos,icpu,binpos,ifilt,isub
         integer :: npart,npart2,nstar,inpart=0
+        integer :: npart_selected=0,npart_sub=0
         integer :: ncpu2,ndim2
         real(dbl) :: distance
         real(dbl),dimension(1:3,1:3) :: trans_matrix
@@ -288,31 +289,25 @@ module part_integrator
         real(dbl),dimension(:,:),allocatable :: part_data_d
         integer(1),dimension(:,:),allocatable :: part_data_b
         real(dbl),dimension(:,:),allocatable :: x,v
-
-        integer :: count=0
-        integer :: nmasscont=0
-        integer :: npartcont=0
-        real(dbl) :: ptmassmin=1d0,ptmassmax=0d0
-        real(dbl) :: masshr=0d0,masslr=0d0
-        real(dbl),dimension(1:100) :: massresbins=0d0
-        integer,dimension(1:100) :: order=0
+        integer,dimension(:),allocatable :: npart_filtered
 
         integer :: ii
         integer :: ivx,ivy,ivz
-
-        ! Obtain details of the particle variables stored
-        call read_partfile_descriptor(repository)
 
         ! Intialise parameters of the AMR structure and simulation attributes
         call init_amr_read(repository)
         amr%lmax = lmax
         if (lmax.eq.0) amr%lmax = amr%nlevelmax
 
+        ! Obtain details of the particle variables stored
+        call read_partfile_descriptor(repository)
+
         ! Compute the Hilbert curve
         call get_cpu_map(reg)
 
         if (attrs%nsubs>0 .and. verbose) write(*,*)'Exluding substructures: ',attrs%nsubs
         if (verbose) write(*,*)'ncpu_read:',amr%ncpu_read
+        print*,'verbose:',verbose
 
         ! Set up the part variables quicklook tools
         if (present(part_dict).and.present(part_vtypes)) then
@@ -353,6 +348,22 @@ module part_integrator
             ! ones provided by the user
             partIDs = part_dict
             partvar_types = part_vtypes
+
+            if (verbose) then
+                write(*,*) 'Using particle dictionary provided by the user'
+                write(*,*) 'Number of variables: ',attrs%nvars
+                write(*,*) 'Number of weight variables: ',attrs%nwvars
+                write(*,*) 'Number of filters: ',attrs%nfilter
+
+                do ii = 1, attrs%nvars
+                    write(*,*) 'Variable ',ii,' name: ',attrs%varnames(ii)
+                    write(*,*) 'Variable ',ii,' type: ',attrs%vars(ii)%vartype
+                end do
+                do ii = 1, attrs%nwvars
+                    write(*,*) 'Weight variable ',ii,' name: ',attrs%wvarnames(ii)
+                    write(*,*) 'Weight variable ',ii,' type: ',attrs%wvars(ii)%vartype
+                end do
+            end if
         else
             ! If the user does not provide a dictionary, we just use the one
             ! from the particle_file_descriptor.txt (RAMSES)
@@ -400,6 +411,8 @@ module part_integrator
         ipos = INDEX(repository,'output_')
         nchar = repository(ipos+7:ipos+13)
         npart = 0
+        allocate(npart_filtered(1:attrs%nfilter))
+        npart_filtered = 0
         do k=1,amr%ncpu_read
             icpu = amr%cpu_list(k)
             call title(icpu,ncharcpu)
@@ -484,9 +497,11 @@ module part_integrator
                     do isub=1,attrs%nsubs
                         ok_sub = ok_sub .and. filter_sub(attrs%subs(isub),x(i,:))
                     end do
+                    if (.not.ok_sub) npart_sub = npart_sub + 1
                     ok_part = ok_part .and. ok_sub
                 end if
                 if (ok_part) then
+                    npart_selected = npart_selected + 1
                     ! Rotate the particle velocity
                     vtemp = v(i,:)
                     vtemp = vtemp - reg%bulk_velocity
@@ -512,6 +527,7 @@ module part_integrator
                                                 &part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
                         if (ok_filter) call extract_data(reg,part_data_d(:,i),part_data_i(:,i),&
                                                         &part_data_b(:,i),attrs,ifilt,trans_matrix)
+                        if (ok_filter) npart_filtered(ifilt) = npart_filtered(ifilt) + 1
                     end do filterloop  
                 endif
             end do partloop
@@ -521,6 +537,12 @@ module part_integrator
 
         ! Finally, just renormalise for weighted quantities
         call renormalise(attrs)
+        if (verbose) then
+            write(*,*)'Number of particles selected: ',npart_selected
+            write(*,*)'Number of particles in the region: ',inpart
+            write(*,*)'Number of particles filtered: ',npart_filtered
+            write(*,*)'Number of particles in substructure: ',npart_sub
+        end if
     end subroutine integrate_region
 
 end module part_integrator

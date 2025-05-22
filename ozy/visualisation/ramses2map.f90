@@ -639,12 +639,14 @@ module maps
         integer :: ivx,ivy,ivz
         integer :: ii
 
-        ! Obtain details of the hydro variables stored
-        if (.not.present(vardict)) call read_hydrofile_descriptor(repository)
-
         ! Initialise parameters of the AMR structure and simulation attributes
         call init_amr_read(repository)
         amr%lmax = min(get_required_resolution(cam),amr%nlevelmax)
+
+        ! Obtain details of the hydro variables stored
+        if (.not.present(vardict)) call read_hydrofile_descriptor(repository)
+
+        ! Setup the levels to use and the bounding box
         if (verbose) write(*,*)'Maximum resolution level: ',amr%nlevelmax
         if (verbose) write(*,*)'Using: ',amr%lmax
         cam%lmin = 1;cam%lmax = amr%lmax
@@ -653,6 +655,11 @@ module maps
         if(present(lmin)) cam%lmin = max(1,min(lmin,amr%lmax))
         if (verbose) write(*,*)'Camera using lmin, lmax: ',cam%lmin,cam%lmax
         call get_bounding_box(cam,bbox)
+        if (verbose) then
+            write(*,*)'Bounding box x: ',bbox%xmin,bbox%ymin
+            write(*,*)'Bounding box y: ',bbox%xmax,bbox%ymax
+            write(*,*)'Bounding box z: ',bbox%zmin,bbox%zmax
+        end if
         bbox%name = 'cube'
         bbox%bulk_velocity = cam%region_velocity
         bbox%criteria_name = 'd_euclid'
@@ -698,6 +705,9 @@ module maps
             ivx = vardict%get('velocity_x')
             ivy = vardict%get('velocity_y')
             ivz = vardict%get('velocity_z')
+
+            ! Set nvar based on the number of variables in the dictionary
+            sim%nvar = vardict%count
         else
             call get_var_tools(varIDs,proj%nvars,proj%varnames,proj%vars)
 
@@ -1578,18 +1588,24 @@ module maps
 
         type(region) :: bbox
         integer :: ivx,ivy,ivz
-        integer :: ii
+        integer :: ii,vv
 
-        ! Obtain details of the particle variables stored
-        call read_partfile_descriptor(repository)
-
-        ! Intialise parameters of the AMR structure and simulation attributes
+        ! Initialise parameters of the AMR structure and simulation attributes
         call init_amr_read(repository)
         amr%lmax = amr%nlevelmax !min(get_required_resolution(cam),amr%nlevelmax)
         if (verbose) write(*,*)'Maximum resolution level: ',amr%nlevelmax
         if (verbose) write(*,*)'Using: ',amr%lmax
-        if (sim%dm .and. sim%hydro) call check_families(repository)
+
+        ! Obtain details of the particle variables stored
+        call read_partfile_descriptor(repository)
+
+        ! Set the bounding box
         call get_bounding_box(cam,bbox)
+        if (verbose) then
+            write(*,*)'Bounding box x: ',bbox%xmin,bbox%ymin
+            write(*,*)'Bounding box y: ',bbox%xmax,bbox%ymax
+            write(*,*)'Bounding box z: ',bbox%zmin,bbox%zmax
+        end if
         bbox%name = 'cube'
         bbox%bulk_velocity = cam%region_velocity
         bbox%criteria_name = 'd_euclid'
@@ -1638,6 +1654,38 @@ module maps
             ! ones provided by the user
             partIDs = part_dict
             partvar_types = part_vtypes
+
+            if (verbose) then
+                write(*,*) 'Using particle dicionary from user!'
+                write(*,*) 'Number of variables: ',proj%nvars
+                write(*,*) 'Number of weight variables: ',proj%nwvars
+                write(*,*) 'Number of filters: ',proj%nfilter
+                do ii = 1, proj%nvars
+                    write(*,*) 'Variable ',ii,' : ',trim(proj%vars(ii)%name),' at index ',partIDs%get(proj%vars(ii)%name)
+                end do
+                do ii = 1, proj%nwvars
+                    write(*,*) 'Weight variable ',ii,' : ',trim(proj%wvars(ii)%name),' at index ',partIDs%get(proj%wvars(ii)%name)
+                end do
+                do ii = 1, proj%nvars
+                    write(*,*) 'Variable ',ii,' : ',trim(proj%vars(ii)%name),' with type ',proj%vars(ii)%vartype
+                end do
+                do ii = 1, proj%nwvars
+                    write(*,*) 'Weight variable ',ii,' : ',trim(proj%wvars(ii)%name),' with type ',proj%wvars(ii)%vartype
+                end do
+                do ii = 1, proj%nfilter
+                    write(*,*) 'Filter name ',ii,' : ',trim(proj%filters(ii)%name),proj%filters(ii)%ncond
+                    do vv = 1, proj%filters(ii)%ncond
+                        print*,'vartype: ',proj%filters(ii)%cond_vars(vv)%vartype
+                        if (proj%filters(ii)%cond_vars(vv)%vartype == 1) then
+                            write(*,*)'     Filter condition: ',trim(proj%filters(ii)%cond_vars(vv)%name),trim(proj%filters(ii)%cond_ops(vv)),proj%filters(ii)%cond_vals_d(vv)
+                        elseif (proj%filters(ii)%cond_vars(vv)%vartype == 2) then
+                            write(*,*)'     Filter condition: ',trim(proj%filters(ii)%cond_vars(vv)%name),trim(proj%filters(ii)%cond_ops(vv)),proj%filters(ii)%cond_vals_i(vv)
+                        elseif (proj%filters(ii)%cond_vars(vv)%vartype == 3) then
+                            write(*,*)'     Filter condition: ',trim(proj%filters(ii)%cond_vars(vv)%name),trim(proj%filters(ii)%cond_ops(vv)),proj%filters(ii)%cond_vals_b(vv)                            
+                        end if
+                    end do
+                end do
+            end if
         else
             ! If the user does not provide their own particle dictionary,
             ! use the automatic one from the particle_file_descriptor.txt (RAMSES)
@@ -1699,6 +1747,7 @@ module maps
 #endif
             integer,dimension(1:2) :: n_map
             real(dbl),dimension(:,:),allocatable :: part_data_d
+            real(dbl),dimension(:),allocatable :: x_test
             integer(1),dimension(:,:),allocatable :: part_data_b
 #ifdef LONGINT
             integer(ilg),dimension(:,:),allocatable :: part_data_i
@@ -1834,15 +1883,17 @@ module maps
                 if (amr%ndim > 2) x(:,3) = part_data_d(partIDs%get('z'),:) / sim%boxlen
 
                 ! 4. Save also the particle velocities so they can be rotated
-                v(:,1) = part_data_d(partIDs%get('velocity_x'),:)
-                if (amr%ndim > 1) v(:,2) = part_data_d(partIDs%get('velocity_y'),:)
-                if (amr%ndim > 2) v(:,3) = part_data_d(partIDs%get('velocity_z'),:)
+                v(:,1) = part_data_d(ivx,:)
+                if (amr%ndim > 1) v(:,2) = part_data_d(ivy,:)
+                if (amr%ndim > 2) v(:,3) = part_data_d(ivz,:)
 
                 ! 5. If a tag file is used, get a hold of the particle ids
                 if (present(tag_file)) id(:) = part_data_i(partIDs%get('id'),:)
     
                 ! 6. Project positions onto the camera frame
                 call project_points(cam,npart2,x)
+                ! x is now position centre on the camera frame
+                ! and rotate with the LOS of the camera
     
                 ! 7. Project variables into map for particles
                 ! of interest in the region
@@ -1897,66 +1948,59 @@ module maps
                             vtemp = vtemp - bbox%bulk_velocity
                             call rotate_vector(vtemp,trans_matrix)
                             
-                            ! Return the x array (now in boxlen units,
-                            ! rotated for the camera frame and centered)
-                            xtemp = x(i,:)
-                            xtemp = xtemp - bbox%centre
-                            call rotate_vector(xtemp,trans_matrix)
-                            part_data_d(partIDs%get('x'),i) = xtemp%x
-                            if (amr%ndim > 1) part_data_d(partIDs%get('y'),i) = xtemp%y
-                            if (amr%ndim > 2) part_data_d(partIDs%get('z'),i) = xtemp%z
-                            
                             ! Return the velocity array (now rotated to the
                             ! camera frame and corrected for the bulk velocity)
-                            part_data_d(partIDs%get('velocity_x'),i) = vtemp%x
-                            if (amr%ndim > 1) part_data_d(partIDs%get('velocity_y'),i) = vtemp%y
-                            if (amr%ndim > 2) part_data_d(partIDs%get('velocity_z'),i) = vtemp%z
+                            part_data_d(ivx,i) = vtemp%x
+                            if (amr%ndim > 1) part_data_d(ivy,i) = vtemp%y
+                            if (amr%ndim > 2) part_data_d(ivz,i) = vtemp%z
 
                             filtloopmap: do ifilt=1,proj%nfilter
                                 ok_filter = filter_particle(bbox,proj%filters(ifilt),dcell,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
                                 if (ok_filter) then
-                                    projvarloop: do ivar=1,proj%nvars
-                                        if (proj%vars(ivar)%vartype==1) then
-                                            mapvalue_d = proj%vars(ivar)%myfunction_d(amr,sim,proj%vars(ivar),bbox,dcell &
-                                                & ,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
-                                            mapvalue = mapvalue_d
-                                        else if (proj%vars(ivar)%vartype==2) then
-                                            mapvalue_i = proj%vars(ivar)%myfunction_i(amr,sim,proj%vars(ivar),bbox,dcell &
-                                                & ,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
-                                            mapvalue = real(mapvalue_i,kind=dbl)
-                                        else if (proj%vars(ivar)%vartype==3) then
-                                            mapvalue_b = proj%vars(ivar)%myfunction_b(amr,sim,proj%vars(ivar),bbox,dcell &
-                                                & ,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
-                                            mapvalue = real(mapvalue_b,kind=dbl)
-                                        end if
-                                        weightloop: do iweight=1,proj%nwvars
-                                            if (trim(proj%weightvars(iweight)).eq.'cumulative') then
-                                                weight = 1d0
-                                            else
-                                                if (proj%wvars(iweight)%vartype==1) then
-                                                    weight = proj%wvars(iweight)%myfunction_d(amr,sim,proj%wvars(iweight),bbox,dcell &
-                                                        & ,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
-                                                else if (proj%wvars(iweight)%vartype==2) then
-                                                    weight = proj%wvars(iweight)%myfunction_i(amr,sim,proj%wvars(iweight),bbox,dcell &
-                                                        & ,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
-                                                else if (proj%wvars(iweight)%vartype==3) then
-                                                    weight = proj%wvars(iweight)%myfunction_b(amr,sim,proj%wvars(iweight),bbox,dcell &
-                                                        & ,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
-                                                end if
+                                    weightloop: do iweight=1,proj%nwvars
+                                        weight = 0d0
+                                        if (trim(proj%weightvars(iweight)).eq.'cumulative') then
+                                            weight = 1d0
+                                        else
+                                            if (proj%wvars(iweight)%vartype==1) then
+                                                weight = proj%wvars(iweight)%myfunction_d(amr,sim,proj%wvars(iweight),bbox,dcell &
+                                                    & ,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
+                                            else if (proj%wvars(iweight)%vartype==2) then
+                                                weight = proj%wvars(iweight)%myfunction_i(amr,sim,proj%wvars(iweight),bbox,dcell &
+                                                    & ,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
+                                            else if (proj%wvars(iweight)%vartype==3) then
+                                                weight = proj%wvars(iweight)%myfunction_b(amr,sim,proj%wvars(iweight),bbox,dcell &
+                                                    & ,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
                                             end if
-                                            ! Add the weights
-                                            proj%weights(ifilt,iweight,ix,iy) = proj%weights(ifilt,iweight,ix,iy) + weight*dex*dey
-                                            proj%weights(ifilt,iweight,ix,iyp1) = proj%weights(ifilt,iweight,ix,iyp1) + weight*dex*ddy
-                                            proj%weights(ifilt,iweight,ixp1,iy) = proj%weights(ifilt,iweight,ixp1,iy) + weight*ddx*dey
-                                            proj%weights(ifilt,iweight,ixp1,iyp1) = proj%weights(ifilt,iweight,ixp1,iyp1) + weight*ddx*ddy
+                                        end if
+                                        ! Add the weights
+                                        proj%weights(ifilt,iweight,ix,iy) = proj%weights(ifilt,iweight,ix,iy) + weight*dex*dey
+                                        proj%weights(ifilt,iweight,ix,iyp1) = proj%weights(ifilt,iweight,ix,iyp1) + weight*dex*ddy
+                                        proj%weights(ifilt,iweight,ixp1,iy) = proj%weights(ifilt,iweight,ixp1,iy) + weight*ddx*dey
+                                        proj%weights(ifilt,iweight,ixp1,iyp1) = proj%weights(ifilt,iweight,ixp1,iyp1) + weight*ddx*ddy
 
+                                        projvarloop: do ivar=1,proj%nvars
+                                            mapvalue = 0d0
+                                            if (proj%vars(ivar)%vartype==1) then
+                                                mapvalue_d = proj%vars(ivar)%myfunction_d(amr,sim,proj%vars(ivar),bbox,dcell &
+                                                    & ,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
+                                                mapvalue = mapvalue_d
+                                            else if (proj%vars(ivar)%vartype==2) then
+                                                mapvalue_i = proj%vars(ivar)%myfunction_i(amr,sim,proj%vars(ivar),bbox,dcell &
+                                                    & ,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
+                                                mapvalue = real(mapvalue_i,kind=dbl)
+                                            else if (proj%vars(ivar)%vartype==3) then
+                                                mapvalue_b = proj%vars(ivar)%myfunction_b(amr,sim,proj%vars(ivar),bbox,dcell &
+                                                    & ,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
+                                                mapvalue = real(mapvalue_b,kind=dbl)
+                                            end if
                                             ! Add the map values
                                             proj%map(ifilt,ivar,iweight,ix  ,iy  ) = proj%map(ifilt,ivar,iweight,ix  ,iy  ) + mapvalue*dex*dey*weight
                                             proj%map(ifilt,ivar,iweight,ix  ,iyp1) = proj%map(ifilt,ivar,iweight,ix  ,iyp1) + mapvalue*dex*ddy*weight
                                             proj%map(ifilt,ivar,iweight,ixp1,iy  ) = proj%map(ifilt,ivar,iweight,ixp1,iy  ) + mapvalue*ddx*dey*weight
-                                            proj%map(ifilt,ivar,iweight,ixp1,iyp1) = proj%map(ifilt,ivar,iweight,ixp1,iyp1) + mapvalue*ddx*ddy*weight    
-                                        end do weightloop
-                                    end do projvarloop
+                                            proj%map(ifilt,ivar,iweight,ixp1,iyp1) = proj%map(ifilt,ivar,iweight,ixp1,iyp1) + mapvalue*ddx*ddy*weight
+                                        end do projvarloop
+                                    end do weightloop
                                     nparttoto(ifilt) = nparttoto(ifilt) + 1
                                 end if
                             end do filtloopmap

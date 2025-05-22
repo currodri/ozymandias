@@ -96,6 +96,30 @@ module utils
         end do
     end function get_cleaned_string
 
+    function get_numeric_suffix(str) result(suffix_value)
+        implicit none
+        character(len=*), intent(in) :: str
+        integer :: suffix_value
+        integer :: i, len_str
+        character(len=32) :: suffix_str
+
+        suffix_value = -1  ! Default: not found
+        len_str = len_trim(str)
+
+        ! Search backward for last underscore
+        do i = len_str, 1, -1
+            if (str(i:i) == '_') then
+                if (i < len_str) then
+                    suffix_str = str(i+1:len_str)
+                    if (all_digits(suffix_str)) then
+                        read(suffix_str, *) suffix_value
+                    end if
+                end if
+                exit
+            end if
+        end do
+    end function get_numeric_suffix
+
     SUBROUTINE quick_sort_irg(list, order, n)
         IMPLICIT NONE
         ! Quick sort routine from:

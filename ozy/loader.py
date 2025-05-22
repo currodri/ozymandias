@@ -96,38 +96,38 @@ class PhaseDiagram:
 
     def _unpack(self, hd):
         if self.nosubs:
-            path = str(self.group_type+'_data/phase_diagrams_nosubs/'+str(self._index)+'/'+self.key)
+            path = str(self.group_type+'_data/histograms_nosubs/'+str(self._index)+'/'+self.key)
         else:
-            path = str(self.group_type+'_data/phase_diagrams/'+str(self._index)+'/'+self.key)            
-        phase_diagrams_gp = hd[path]
-        for k,v in phase_diagrams_gp.attrs.items():
+            path = str(self.group_type+'_data/histograms/'+str(self._index)+'/'+self.key)            
+        histograms_gp = hd[path]
+        for k,v in histograms_gp.attrs.items():
             if k in self.blacklist:
                 continue
             else:
                 setattr(self, k, v)
         self.region = {}
-        self.region['type'] = phase_diagrams_gp.attrs['type']
-        self.region['centre'] = phase_diagrams_gp.attrs['centre']
-        self.region['axis'] = phase_diagrams_gp.attrs['axis']
+        self.region['type'] = histograms_gp.attrs['type']
+        self.region['centre'] = histograms_gp.attrs['centre']
+        self.region['axis'] = histograms_gp.attrs['axis']
         self.filter = {}
-        self.filter['name'] = phase_diagrams_gp.attrs['name']
-        self.filter['conditions'] = phase_diagrams_gp['conditions'][:]
-        for k in phase_diagrams_gp.keys():
+        self.filter['name'] = histograms_gp.attrs['name']
+        self.filter['conditions'] = histograms_gp['conditions'][:]
+        for k in histograms_gp.keys():
             if k != 'xdata' and k != 'ydata' and k != 'conditions':
                 self.zvars[k] = []
                 self.zdata[k] = []
-                for j in phase_diagrams_gp[k].keys():
+                for j in histograms_gp[k].keys():
                     if j == 'weightvars':
-                        self.weightvars[k] = phase_diagrams_gp[k+'/'+j][:]
+                        self.weightvars[k] = histograms_gp[k+'/'+j][:]
                         for w in range(0, len(self.weightvars[k])):
                             self.weightvars[k][w] = self.weightvars[k][w].decode('utf8')
                         continue
                     self.zvars[k].append(j)
-                    data = phase_diagrams_gp[k+'/'+j]
+                    data = histograms_gp[k+'/'+j]
                     self.zdata[k].append(unyt_array(data[:], str(data.attrs['units']), registry=self.obj.unit_registry))
             else:
-                self.xdata = unyt_array(phase_diagrams_gp['xdata'][:], phase_diagrams_gp['xdata'].attrs['units'], registry=self.obj.unit_registry)
-                self.ydata = unyt_array(phase_diagrams_gp['ydata'][:], phase_diagrams_gp['ydata'].attrs['units'], registry=self.obj.unit_registry)
+                self.xdata = unyt_array(histograms_gp['xdata'][:], histograms_gp['xdata'].attrs['units'], registry=self.obj.unit_registry)
+                self.ydata = unyt_array(histograms_gp['ydata'][:], histograms_gp['ydata'].attrs['units'], registry=self.obj.unit_registry)
 
 class GalacticFlow:
     def __init__(self,obj,index,group_type,key,hd,nosubs):
@@ -230,8 +230,8 @@ class OZY:
         self.have_flows_nosubs = False
         self.have_profiles = False
         self.have_profiles_nosubs = False
-        self.have_phase_diagrams = False
-        self.have_phase_diagrams_nosubs = False
+        self.have_histograms = False
+        self.have_histograms_nosubs = False
         self._galaxy_data  = {}
         self._galaxy_dicts = defaultdict(dict)
         self.ngalaxies     = 0
@@ -288,24 +288,24 @@ class OZY:
                     len(prof_nosubs_indices), lambda i: int(prof_nosubs_indices[i])
                 )
                 self._galaxy_profiles_nosubs = [Profile(self,int(prof_nosubs_indices[i]),'galaxy', prof_nosubs_keys[i],hd,True) for i in range(0, len(prof_nosubs_indices))]
-            if 'galaxy_data/phase_diagrams' in hd:
-                self.have_phase_diagrams = True
+            if 'galaxy_data/histograms' in hd:
+                self.have_histograms = True
                 pd_indices = []
                 pd_keys = []
-                for k in hd['galaxy_data/phase_diagrams'].keys():
-                    for j in hd['galaxy_data/phase_diagrams/'+k].keys():
+                for k in hd['galaxy_data/histograms'].keys():
+                    for j in hd['galaxy_data/histograms/'+k].keys():
                         pd_indices.append(int(k))
                         pd_keys.append(j)
                 self._galaxy_phasediag_index_list = LazyList(
                     len(pd_indices), lambda i: int(pd_indices[i])
                 )
                 self._galaxy_phasediag = [PhaseDiagram(self,int(pd_indices[i]),'galaxy', pd_keys[i],hd,False) for i in range(0, len(pd_indices))]
-            if 'galaxy_data/phase_diagrams_nosubs' in hd:
-                self.have_phase_diagrams_nosubs = True
+            if 'galaxy_data/histograms_nosubs' in hd:
+                self.have_histograms_nosubs = True
                 pd_nosubs_indices = []
                 pd_nosubs_keys = []
-                for k in hd['galaxy_data/phase_diagrams_nosubs'].keys():
-                    for j in hd['galaxy_data/phase_diagrams_nosubs/'+k].keys():
+                for k in hd['galaxy_data/histograms_nosubs'].keys():
+                    for j in hd['galaxy_data/histograms_nosubs/'+k].keys():
                         pd_nosubs_indices.append(int(k))
                         pd_nosubs_keys.append(j)
                 self._galaxy_phasediag_nosubs_index_list = LazyList(
@@ -474,7 +474,7 @@ class Galaxy(Group):
         self._index = index
         self.halo = obj.halos[self.parent_halo_index]
         self.profiles = None
-        self.phase_diagrams = None
+        self.histograms = None
         self.flows = None
 
     def __dir__(self):
@@ -496,20 +496,20 @@ class Galaxy(Group):
                     profile = self.obj._galaxy_profiles_nosubs[p]
                     self.profiles_nosubs.append(profile)
     
-    def _init_phase_diagrams(self):
-        self.phase_diagrams = []
-        if self.obj.have_phase_diagrams:
+    def _init_histograms(self):
+        self.histograms = []
+        if self.obj.have_histograms:
             for p,phasediag_index in enumerate(self.obj._galaxy_phasediag_index_list):
                 if phasediag_index == self._index:
                     phasediag = self.obj._galaxy_phasediag[p]
-                    self.phase_diagrams.append(phasediag)
+                    self.histograms.append(phasediag)
         
-        self.phase_diagrams_nosubs = []
-        if self.obj.have_phase_diagrams_nosubs:
+        self.histograms_nosubs = []
+        if self.obj.have_histograms_nosubs:
             for p,phasediag_index in enumerate(self.obj._galaxy_phasediag_nosubs_index_list):
                 if phasediag_index == self._index:
                     phasediag = self.obj._galaxy_phasediag_nosubs[p]
-                    self.phase_diagrams_nosubs.append(phasediag)
+                    self.histograms_nosubs.append(phasediag)
 
     def _init_flows(self):
         self.flows = []

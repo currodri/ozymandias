@@ -17,7 +17,7 @@ import subprocess
 from ozy.loader import Galaxy
 from unyt import G
 import ozy
-from ozy.phase_diagrams import compute_phase_diagram, \
+from ozy.multivariate_histograms import compute_phase_diagram, \
                                 plot_compare_phase_diagram, \
                                 plot_compare_stacked_pd
 from ozy.utils import closest_snap_z, find_neigh_snaps, get_tdyn

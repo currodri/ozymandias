@@ -42,9 +42,9 @@ module filtering
         type(filter_hydro), intent(inout) :: filt
 
         if (.not.allocated(filt%cond_vars)) allocate(filt%cond_vars(filt%ncond))
-        if (.not.allocated(filt%cond_vars)) allocate(filt%cond_vars_name(filt%ncond))
+        if (.not.allocated(filt%cond_vars_name)) allocate(filt%cond_vars_name(filt%ncond))
         if (.not.allocated(filt%cond_vars_comp)) allocate(filt%cond_vars_comp(filt%ncond))
-        if (.not.allocated(filt%cond_vars_comp)) allocate(filt%cond_vars_comp_name(filt%ncond))
+        if (.not.allocated(filt%cond_vars_comp_name)) allocate(filt%cond_vars_comp_name(filt%ncond))
         if (.not.allocated(filt%cond_ops)) allocate(filt%cond_ops(filt%ncond))
         if (.not.allocated(filt%cond_vals)) allocate(filt%cond_vals(filt%ncond))
         if (.not.allocated(filt%use_var)) allocate(filt%use_var(filt%ncond))
@@ -56,14 +56,14 @@ module filtering
         type(filter_part), intent(inout) :: filt
 
         if (.not.allocated(filt%cond_vars)) allocate(filt%cond_vars(filt%ncond))
-        if (.not.allocated(filt%cond_vars)) allocate(filt%cond_vars_name(filt%ncond))
+        if (.not.allocated(filt%cond_vars_name)) allocate(filt%cond_vars_name(filt%ncond))
         if (.not.allocated(filt%cond_vars_comp)) allocate(filt%cond_vars_comp(filt%ncond))
-        if (.not.allocated(filt%cond_vars_comp)) allocate(filt%cond_vars_comp_name(filt%ncond))
+        if (.not.allocated(filt%cond_vars_comp_name)) allocate(filt%cond_vars_comp_name(filt%ncond))
         if (.not.allocated(filt%cond_ops)) allocate(filt%cond_ops(filt%ncond))
         if (.not.allocated(filt%cond_vtype)) allocate(filt%cond_vtype(filt%ncond))
-        if (.not.allocated(filt%cond_vals_d)) allocate(filt%cond_vals_d(filt%ncond_d))
-        if (.not.allocated(filt%cond_vals_i)) allocate(filt%cond_vals_i(filt%ncond_i))
-        if (.not.allocated(filt%cond_vals_b)) allocate(filt%cond_vals_b(filt%ncond_b))
+        if (.not.allocated(filt%cond_vals_d)) allocate(filt%cond_vals_d(filt%ncond))
+        if (.not.allocated(filt%cond_vals_i)) allocate(filt%cond_vals_i(filt%ncond))
+        if (.not.allocated(filt%cond_vals_b)) allocate(filt%cond_vals_b(filt%ncond))
         if (.not.allocated(filt%use_var)) allocate(filt%use_var(filt%ncond))
         filt%use_var = .false.
     end subroutine allocate_filter_part
@@ -120,6 +120,16 @@ module filtering
             ! 2. Set the variable
             filt%cond_vars(i)%name = filt%cond_vars_name(i)
             call set_part_var(vardict,vtypedict,filt%cond_vars(i))
+            if (filt%cond_vars(i)%vartype==1) then
+                filt%ncond_d = filt%ncond_d + 1
+                filt%cond_vtype(i) = 1
+            elseif (filt%cond_vars(i)%vartype==2) then
+                filt%ncond_i = filt%ncond_i + 1
+                filt%cond_vtype(i) = 2
+            elseif (filt%cond_vars(i)%vartype==3) then
+                filt%ncond_b = filt%ncond_b + 1
+                filt%cond_vtype(i) = 3
+            end if
             if (filt%use_var(i)) then
                 filt%cond_vars_comp(i)%name = filt%cond_vars_comp_name(i)
                 call set_part_var(vardict,vtypedict,filt%cond_vars_comp(i))
