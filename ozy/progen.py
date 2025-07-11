@@ -9,7 +9,7 @@ from scipy import stats
 def run_progen(snapdirs, snapname, snapindexes, prefix='ozy_', extension='hdf5', **kwargs):
     """Function to run progenitor/descendant finder in specified snapshot folders in a given directory.
     """
-    from ozy.driver import Snapshot
+    from ozy.driver import RAMSESSnapshot
 
     # Find existing snapshots in snapdirs
     if isinstance(snapdirs, str):
@@ -22,7 +22,7 @@ def run_progen(snapdirs, snapname, snapindexes, prefix='ozy_', extension='hdf5',
     snaps = []
     for snapdir in snapdirs:
         for snapindex in snapindexes:
-            snaps.append(Snapshot(snapdir, snapname, snapindex))
+            snaps.append(RAMSESSnapshot(snapdir, snapname, snapindex))
     
     verified_snaps = []
     missing_snaps = []

@@ -1107,6 +1107,9 @@ module maps
                         end if
                     endif
                 end do levelloop
+                close(10)
+                close(11)
+                if (read_gravity) close(12)
             end do cpuloop
             if (verbose) write(*,*)'ncells:',ncells
 

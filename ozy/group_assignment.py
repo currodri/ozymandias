@@ -33,8 +33,9 @@ def galaxies_to_halos(obj):
                 masses[i]    = halo.virial_quantities['mass']
         # Assign most massive halo to galaxy.
         if not np.all(distances == np.infty):
-            #galaxy.parent_halo_index = np.argmin(distances)
-            galaxy.parent_halo_index = np.argmax(masses)
+            galaxy.parent_halo_index = np.argmin(distances)
+            #galaxy.parent_halo_index = np.argmax(masses)
+            # print('Galaxy %d assigned to halo %d' % (galaxy.ID, galaxy.parent_halo_index))
     
     for halo in obj.halos:
         halo.galaxy_index_list = []
@@ -72,6 +73,8 @@ def galaxies_to_halos(obj):
                 if not np.all(distances == np.infty):
                     galaxy.parent_halo_index = lonely_halos_index_list[np.argmin(distances)]
                     obj.halos[galaxy.parent_halo_index].galaxy_index_list.append(i)
+                else:
+                    print('Galaxy %d not assigned to any halo.' % galaxy.ID)
 
 
                 

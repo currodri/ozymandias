@@ -4,8 +4,8 @@ from ozy.dict_variables import common_variables,grid_variables,particle_variable
 def unigrid_amr(obj, group=None, filter=None, lmax =0, n=[100,100,100], vars=['gas/density'], xmin=(0,'code_length'), xmax=(1,'code_length'), ymin=(0,'code_length'),
                  ymax=(1,'code_length'), zmin=(0,'code_length'), zmax=(1,'code_length'), angmom = np.array([0,0,1]), symlog=True):
     
-    from ozy.utils import init_region,init_filter
-    from ozy.group import create_new_group
+    from .utils import init_region,init_filter
+    from .group import create_new_group
 
     from amr2 import export_amr
 
@@ -65,8 +65,8 @@ def export2skirt(obj, group=None, filter=None, lmax =0, var='dust_density', xmin
     
     import os
     import ozy
-    from ozy.utils import init_region,init_filter
-    from ozy.group import create_new_group
+    from .utils import init_region,init_filter
+    from .group import create_new_group
 
     from part2 import export_part
     from amr2 import export_amr
@@ -120,8 +120,8 @@ def export2disperse(obj, group=None, filter=None, xmin=(0,'code_length'), xmax=(
 
     import os
     import ozy
-    from ozy.utils import init_region,init_filter
-    from ozy.group import create_new_group
+    from .utils import init_region,init_filter
+    from .group import create_new_group
 
     from part2 import export_part
 
@@ -164,8 +164,8 @@ def basicexport2txt(obj, group=None, filter=None, lmax =0, var='dust_density', x
     
     import os
     import ozy
-    from ozy.utils import init_region,init_filter
-    from ozy.group import create_new_group
+    from .utils import init_region,init_filter
+    from .group import create_new_group
 
     from part2 import export_part
     from amr2 import export_amr

@@ -242,7 +242,7 @@ module part_integrator
                         if (trim(wvarname) .eq. 'cumulative' .and. index2.ne.0 .and. trim(varname(1:index2-1)).eq.'sfr') then
                             sfrstr = varname(index2+1:)
                             read(sfrstr,'(F10.0)') sfrind
-                            attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) / attrs%result%total(i,ifilt,j,2) * sim%unit_m/ (sfrind*1D6*2D33) ! We now have it in Msun/yr
+                            attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) * sim%unit_m/ (sfrind*1D6*2D33) ! We now have it in Msun/yr
                         elseif (trim(wvarname) /= 'cumulative' .and. index2.eq.0) then
                             attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) / attrs%result%total(i,ifilt,j,2)
                         endif
@@ -252,7 +252,7 @@ module part_integrator
         end do filterloop
     end subroutine renormalise
 
-    subroutine integrate_region(repository,reg,attrs,lmax,&
+    subroutine integrate_region(repository,reg,attrs,&
                                 &part_dict,part_vtypes)
         use utils, only:quick_sort_dp
         use vectors
@@ -264,7 +264,6 @@ module part_integrator
         character(128),intent(in) :: repository
         type(region),intent(inout) :: reg
         type(part_region_attrs),intent(inout) :: attrs
-        integer,intent(in) :: lmax
         type(dictf90),intent(in),optional :: part_dict,part_vtypes
 
         ! Specific variables for this subroutine
@@ -296,8 +295,7 @@ module part_integrator
 
         ! Intialise parameters of the AMR structure and simulation attributes
         call init_amr_read(repository)
-        amr%lmax = lmax
-        if (lmax.eq.0) amr%lmax = amr%nlevelmax
+        amr%lmax = amr%nlevelmax
 
         ! Obtain details of the particle variables stored
         call read_partfile_descriptor(repository)
@@ -307,7 +305,6 @@ module part_integrator
 
         if (attrs%nsubs>0 .and. verbose) write(*,*)'Exluding substructures: ',attrs%nsubs
         if (verbose) write(*,*)'ncpu_read:',amr%ncpu_read
-        print*,'verbose:',verbose
 
         ! Set up the part variables quicklook tools
         if (present(part_dict).and.present(part_vtypes)) then
@@ -427,8 +424,8 @@ module part_integrator
             close(1)
             npart=npart+npart2
         end do
-        write(*,*)'Found ',npart,' particles.'
-        if(nstar>0)then
+        if (verbose) write(*,*)'Found ',npart,' particles.'
+        if(nstar>0.and.verbose)then
             write(*,*)'Found ',nstar,' star particles.'
         endif
 

@@ -6,10 +6,10 @@ import h5py
 import numpy as np
 from unyt import UnitRegistry,unyt_array,unyt_quantity
 from collections import defaultdict
-from ozy.sim_attributes import SimulationAttributes
-from ozy.utils import info_printer
-from ozy.saver import _write_attrib, _write_dict
-from ozy.lazy_classes import LazyList,LazyDataset,LazyDict
+from .sim_attributes import SimulationAttributes
+from .utils import info_printer
+from .saver import _write_attrib, _write_dict
+from .lazy_classes import LazyList,LazyDataset,LazyDict
 from unyt.dimensions import length,mass,time,temperature
 from unyt import mp,erg,K,g,kb
 
@@ -189,6 +189,7 @@ class OZY:
         self.data_file = os.path.abspath(filename)
         self.snapname = self.data_file.split('/')[-1]
         self.snapID = self.snapname.split('.')[0].split('_')[-1]
+        self._set_variable_ordering()
         self._galaxy_slist = LazyDataset(self, 'galaxy_data/lists/slist')
 
         hd = h5py.File(filename, read_mode)
@@ -378,6 +379,34 @@ class OZY:
 
     def cloudinfo(self, top=10):
         info_printer(self, 'cloud', top)
+
+    def _set_variable_ordering(self):
+        from amr2 import dictionary_commons
+        from variables_settings import hydro_variables_ordering, \
+                                        part_variables_ordering, \
+                                        part_variables_type
+        self.vardict = dictionary_commons.dictf90()
+        self.part_vardict = dictionary_commons.dictf90()
+        self.part_vartypes = dictionary_commons.dictf90()
+        if len(hydro_variables_ordering) > 0:
+            print("Setting hydro variable ordering from local ozy_settings.py.")
+            self.vardict.init(len(hydro_variables_ordering))
+            for varname,varindex in hydro_variables_ordering.items():
+                self.vardict.add(varname,varindex)
+            self.use_vardict = True
+        else:
+            self.use_vardict = False
+        if len(part_variables_ordering) > 0:
+            print("Setting particle variable ordering from local ozy_settings.py.")
+            self.part_vardict.init(len(part_variables_ordering))
+            for varname,varindex in part_variables_ordering.items():
+                self.part_vardict.add(varname,varindex)
+            self.use_part_vardict = True
+            self.part_vartypes.init(len(part_variables_type))
+            for var,vtype in part_variables_type.items():
+                self.part_vartypes.add(var,vtype)
+        else:
+            self.use_part_vardict = False
 
 # TODO: All of these classes need to be adapted to be able to load particle lists.
         

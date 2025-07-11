@@ -20,8 +20,15 @@ class SimulationAttributes(object):
         self.fullpath        = fullpath
         self.hubble_constant = obj._info['H0']
         self.boxsize = obj.quantity(obj._info['unit_l']*obj._info['boxlen'],'cm').to(obj.units['length'])
-        # TODO: Read this from simulation file. Right now for NUT:
-        self.zoom = True
+        # Get from the DM particle numbers whether or not this is a zoom simulation
+        self.zoom = False
+        if self.omega_matter!=1.0:
+            try:
+                ndm = obj._header['particle_counts']['dark_matter_particles']
+            except:
+                ndm = obj._header['particle_counts']['DM']
+            if ndm != (2**obj._info['levelmin'])**obj._info['ndim']:
+                self.zoom = True
         
         H0 = obj.quantity(self.hubble_constant * 3.24077929e-20, '1/s')
         Om_0 = obj._info['omega_m']
@@ -50,7 +57,9 @@ class SimulationAttributes(object):
 
         # Determine the type of physics included in this simulation
         self.physics = {'hydro':False,
+                        'metallicity':False,
                         'metals':False,
+                        'CO':False,
                         'magnetic':False,
                         'cr':False,
                         'rt':False,
@@ -62,6 +71,8 @@ class SimulationAttributes(object):
         if obj.vardict.get('density') !=0 and obj.vardict.get('velocity_x') != 0:
             self.physics['hydro'] = True
         if obj.vardict.get('metallicity') != 0:
+            self.physics['metallicity'] = True
+        if obj.vardict.get('iron_fraction') != 0:
             self.physics['metals'] = True
         if obj.vardict.get('B_left_x') != 0:
             self.physics['magnetic'] = True
@@ -73,6 +84,8 @@ class SimulationAttributes(object):
             self.physics['dust'] = True
         if obj.vardict.get('PAHSmall') or obj.vardict.get('PAH') != 0:
             self.physics['PAHs'] = True
+        if obj.vardict.get('CO_fraction') != 0:
+            self.physics['CO'] = True
 
         # Determine the type of numerics included in this simulation
         self.numerics = {'families':False}
@@ -80,6 +93,41 @@ class SimulationAttributes(object):
         if obj.part_vardict.get('family') != 0:
             self.numerics['families'] = True
 
+        # Determine what elements are included in this simulation
+        if self.physics['metals']:
+            self.elements = {'helium':False,
+                             'carbon':False,
+                             'nitrogen':False,
+                             'oxygen':False,
+                             'neon':False,
+                             'magnesium':False,
+                             'silicon':False,
+                             'sulfur':False,
+                             'iron':False,
+                             'calcium':False,
+                             'fluoride':False}
+            if obj.vardict.get('helium_fraction') != 0:
+                self.elements['helium'] = True
+            if obj.vardict.get('carbon_fraction') != 0:
+                self.elements['carbon'] = True
+            if obj.vardict.get('nitrogen_fraction') != 0:
+                self.elements['nitrogen'] = True
+            if obj.vardict.get('oxygen_fraction') != 0:
+                self.elements['oxygen'] = True
+            if obj.vardict.get('neon_fraction') != 0:
+                self.elements['neon'] = True
+            if obj.vardict.get('magnesium_fraction') != 0:
+                self.elements['magnesium'] = True
+            if obj.vardict.get('silicon_fraction') != 0:
+                self.elements['silicon'] = True
+            if obj.vardict.get('sulfur_fraction') != 0:
+                self.elements['sulfur'] = True
+            if obj.vardict.get('iron_fraction') != 0:
+                self.elements['iron'] = True
+            if obj.vardict.get('calcium_fraction') != 0:
+                self.elements['calcium'] = True
+            if obj.vardict.get('fluoride_fraction') != 0:
+                self.elements['fluoride'] = True
         
         
     def _serialise(self, obj, hd):

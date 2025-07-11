@@ -3,6 +3,9 @@ import swiftascmaps
 import seaborn as sns
 sns.set_theme(style="white")
 
+MINIMUM_STARS_PER_GALAXY = 100
+MINIMUM_DM_PER_HALO      = 1000
+
 hydro_variables_ordering = {}
 
 part_variables_ordering = {}
@@ -2301,7 +2304,7 @@ def load_custom_settings():
            derived_part_variables, star_variables, gravity_variables,\
            circle_dictionary, basic_conv, hydro_variables_ordering,\
            part_variables_ordering, part_variables_type  # Declare the dictionaries as global to override them
-    
+    global MINIMUM_DM_PER_HALO, MINIMUM_STARS_PER_GALAXY
     current_dir = os.getcwd()
     ozy_settings_path = os.path.join(current_dir, 'ozy_settings.py')
     
@@ -2329,6 +2332,9 @@ def load_custom_settings():
         part_variables_ordering = getattr(ozy_settings, 'part_variables_ordering', part_variables_ordering)
         part_variables_type = getattr(ozy_settings, 'part_variables_type', part_variables_type)
 
+        # Override the default minimum particle group size
+        MINIMUM_DM_PER_HALO = getattr(ozy_settings, 'MINIMUM_DM_PER_HALO', 1000)
+        MINIMUM_STARS_PER_GALAXY = getattr(ozy_settings, 'MINIMUM_STARS_PER_GALAXY', 100)
         print(f"Custom settings loaded successfully from {ozy_settings_path}.")
     else:
         print("No 'ozy_settings.py' file found in the current directory. Using default settings.")

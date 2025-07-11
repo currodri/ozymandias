@@ -30,7 +30,8 @@ module amr_integrator
     type amr_region_attrs
         integer :: nvars=1,nwvars=1
         integer :: nfilter=1,nsubs=0
-        integer :: total_ncell,tot_sel,tot_ref,tot_pos,tot_insubs
+        integer :: tot_ref,tot_pos,tot_insubs
+        integer,dimension(:),allocatable :: total_ncell
         character(128),dimension(:),allocatable :: varnames
         character(128),dimension(:),allocatable :: wvarnames
         type(filter_hydro),dimension(:),allocatable :: filters
@@ -46,12 +47,13 @@ module amr_integrator
         implicit none
         type(amr_region_attrs),intent(inout) :: attrs
 
-        if (.not.allocated(attrs%varnames)) allocate(attrs%varnames(attrs%nvars))
-        if (.not.allocated(attrs%wvarnames)) allocate(attrs%wvarnames(attrs%nwvars))
-        if (.not.allocated(attrs%vars))     allocate(attrs%vars(attrs%nvars))
-        if (.not.allocated(attrs%wvars))     allocate(attrs%wvars(attrs%nwvars))
-        if (.not.allocated(attrs%filters))  allocate(attrs%filters(attrs%nfilter))
-        if (.not.allocated(attrs%subs).and.attrs%nsubs>0) allocate(attrs%subs(attrs%nsubs))     
+        if (.not.allocated(attrs%varnames)) allocate(attrs%varnames(1:attrs%nvars))
+        if (.not.allocated(attrs%wvarnames)) allocate(attrs%wvarnames(1:attrs%nwvars))
+        if (.not.allocated(attrs%vars))     allocate(attrs%vars(1:attrs%nvars))
+        if (.not.allocated(attrs%wvars))     allocate(attrs%wvars(1:attrs%nwvars))
+        if (.not.allocated(attrs%filters))  allocate(attrs%filters(1:attrs%nfilter))
+        if (.not.allocated(attrs%total_ncell)) allocate(attrs%total_ncell(1:attrs%nfilter))
+        if (.not.allocated(attrs%subs).and.attrs%nsubs>0) allocate(attrs%subs(1:attrs%nsubs))     
     end subroutine allocate_amr_regions_attrs
 
     subroutine extract_data(reg,pos,cellvars,cellsons,cellsize,attrs,ifilt,trans_matrix,grav_var)
@@ -211,7 +213,7 @@ module amr_integrator
         end do filterloop
     end subroutine renormalise
 
-    subroutine integrate_region(repository,reg,use_neigh,use_grav,attrs,vardict)
+    subroutine integrate_region(repository,reg,use_neigh,use_grav,attrs,lmax,lmin,vardict)
         use vectors
         use coordinate_systems
         implicit none
@@ -221,6 +223,7 @@ module amr_integrator
         type(region),intent(inout) :: reg
         logical, intent(in) :: use_neigh,use_grav
         type(amr_region_attrs),intent(inout) :: attrs
+        integer, intent(in),optional :: lmax,lmin
         type(dictf90),intent(in),optional :: vardict
 
         integer :: ivx,ivy,ivz
@@ -228,7 +231,9 @@ module amr_integrator
 
         ! Initialise parameters of the AMR structure and simulation attributes
         call init_amr_read(repository)
-        amr%lmax = amr%nlevelmax
+        if(present(lmax)) amr%lmax = max(min(lmax,amr%nlevelmax),1)
+        if(present(lmin)) amr%lmin = max(1,min(lmin,amr%lmax))
+        if (verbose) write(*,*)'lmax:',amr%lmax,' lmin:',amr%lmin
         
         ! Obtain details of the hydro variables stored
         if (.not.present(vardict)) call read_hydrofile_descriptor(repository)
@@ -295,7 +300,7 @@ module amr_integrator
             integer :: i,j,k
             integer :: ipos,icpu,ilevel,ind,idim,ivar,ifilt,isub
             integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
-            integer :: tot_pos,tot_ref,total_ncell
+            integer :: tot_pos,tot_ref,tot_insubs
             integer :: nvarh
             integer :: roterr
             character(5) :: nchar,ncharcpu
@@ -303,6 +308,7 @@ module amr_integrator
             real(dbl) :: distance,dx
             type(vector) :: xtemp,vtemp,gtemp
             logical :: ok_cell,ok_filter,ok_cell_each,ok_sub,read_gravity
+            integer,dimension(:),allocatable :: total_ncell 
             integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
             real(dbl),dimension(1:8,1:3) :: xc
             real(dbl),dimension(3,3) :: trans_matrix
@@ -314,9 +320,11 @@ module amr_integrator
             integer,dimension(:),allocatable :: tempson
             logical,dimension(:),allocatable :: ref
 
-            total_ncell = 0
+            allocate(total_ncell(1:attrs%nfilter))
+            total_ncell(:) = 0
             tot_pos = 0
             tot_ref = 0
+            tot_insubs = 0
 
             ! Check whether we need to read the gravity files
             if (use_grav) then
@@ -531,6 +539,7 @@ module amr_integrator
                             ! Check if cell is refined
                             do i=1,ngrida
                                 ref(i) = son(i,ind)>0.and.ilevel<amr%lmax
+                                if (.not.ref(i))tot_ref = tot_ref + 1
                             end do
                             xorig  = x
                             ngridaloop: do i=1,ngrida
@@ -543,15 +552,19 @@ module amr_integrator
                                 call checkifinside(x(i,:),reg,ok_cell,distance)
 
                                 ! If we are avoiding substructure, check whether we are safe
+                                if (ok_cell)tot_pos = tot_pos + 1
                                 if (attrs%nsubs>0) then
                                     ok_sub = .true.
                                     do isub=1,attrs%nsubs
                                         ok_sub = ok_sub .and. filter_sub(attrs%subs(isub),xorig(i,:))
                                     end do
+                                    if (.not.ok_sub) tot_insubs = tot_insubs + 1
                                     ok_cell = ok_cell .and. ok_sub
                                 end if
-                                if (ok_cell) then
-                                    ! Transform position to galaxy frame
+                                ! If cell is inside region, not inside a substructure
+                                ! and it is a leaf cell, we can extract data
+                                if (ok_cell.and.(.not.ref(i))) then
+                                        ! Transform position to galaxy frame
                                         xtemp = xorig(i,:)
                                         xtemp = xtemp - reg%centre
                                         call rotate_vector(xtemp,trans_matrix)
@@ -574,8 +587,6 @@ module amr_integrator
                                         if (read_gravity) tempgrav_var(0,:) = grav_var(i,ind,:)
                                         tempvar(0,ivx:ivz) = vtemp
                                         if (read_gravity) tempgrav_var(0,2:4) = gtemp
-                                        if (ok_cell)tot_pos = tot_pos + 1
-                                        if (.not.ref(i))tot_ref = tot_ref + 1
                                         filterloop: do ifilt=1,attrs%nfilter
                                             if (read_gravity) then
                                                 ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx,tempvar,&
@@ -584,9 +595,9 @@ module amr_integrator
                                                 ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx,tempvar,&
                                                                         &tempson,trans_matrix)
                                             end if
-                                            ok_cell_each= ok_cell.and..not.ref(i).and.ok_filter
+                                            ok_cell_each= ok_cell.and.ok_filter
                                             if (ok_cell_each) then
-                                                total_ncell = total_ncell + 1
+                                                total_ncell(ifilt) = total_ncell(ifilt) + 1
                                                 if (read_gravity) then
                                                     call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt,trans_matrix,tempgrav_var)
                                                 else
@@ -607,6 +618,7 @@ module amr_integrator
                 end do levelloop
                 close(10)
                 close(11)
+                if (read_gravity) close(12)
             end do cpuloop
 
             ! Finally just renormalise for weighted quantities
@@ -614,10 +626,12 @@ module amr_integrator
             attrs%total_ncell = total_ncell
             attrs%tot_ref = tot_ref
             attrs%tot_pos = tot_pos
+            attrs%tot_insubs = tot_insubs
 
             if (verbose) write(*,*)'Total number of cells used: ', total_ncell
             if (verbose) write(*,*)'Total number of cells refined: ', tot_ref
             if (verbose) write(*,*)'Total number of cells in region: ', tot_pos
+            if (verbose) write(*,*)'Total number of cells in substructures: ', tot_insubs
 
         end subroutine integrate_region_fast
 
@@ -630,8 +644,7 @@ module amr_integrator
             integer :: i,j,k
             integer :: ipos,icpu,ilevel,ind,idim,ivar,ifilt,iskip,inbor,ison,isub
             integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
-            integer :: tot_pos,tot_ref,total_ncell,tot_insubs
-            integer :: tot_sel
+            integer :: tot_pos,tot_ref,tot_insubs
             integer :: nvarh
             integer :: roterr
             character(5) :: nchar,ncharcpu
@@ -639,6 +652,7 @@ module amr_integrator
             real(dbl) :: distance,dx
             type(vector) :: xtemp,vtemp,gtemp
             logical :: ok_cell,ok_filter,ok_cell_each,read_gravity,ok_sub
+            integer,dimension(:),allocatable :: total_ncell 
             integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
             real(dbl),dimension(1:8,1:3) :: xc
             real(dbl),dimension(1:3,1:3) :: trans_matrix
@@ -656,11 +670,11 @@ module amr_integrator
             logical,dimension(:),allocatable :: ref
             type(level),dimension(1:100) :: grid
 
-            total_ncell = 0
+            allocate(total_ncell(1:attrs%nfilter))
+            total_ncell(:) = 0
             tot_pos = 0
             tot_ref = 0
             tot_insubs = 0
-            tot_sel = 0
 
             allocate(ind_nbor(1,0:amr%twondim))
 
@@ -911,6 +925,7 @@ module amr_integrator
                             ! Check if cell is refined
                             do i=1,ngrida
                                 ref(i) = son(ind_cell(i))>0.and.ilevel<amr%lmax
+                                if (.not.ref(i))tot_ref = tot_ref + 1
                             end do
 
                             xorig  = x
@@ -922,40 +937,9 @@ module amr_integrator
                                 call rotate_vector(xtemp,trans_matrix)
                                 x(i,:) = xtemp
                                 call checkifinside(x(i,:),reg,ok_cell,distance)
-                                
-                                ! Velocity transformed --> ONLY FOR CENTRAL CELL
-                                vtemp = var(ind_cell(i),ivx:ivz)
-                                vtemp = vtemp - reg%bulk_velocity
-                                call rotate_vector(vtemp,trans_matrix)
 
-                                ! Gravitational acc --> ONLY FOR CENTRAL CELL
-                                if (read_gravity) then
-                                    gtemp = grav_var(ind_cell(i),2:4)
-                                    call rotate_vector(gtemp,trans_matrix)
-                                endif
-
-                                ! Get neighbours
-                                allocate(ind_cell2(1))
-                                ind_cell2(1) = ind_cell(i)
-                                call getnbor(son,nbor,ind_cell2,ind_nbor,1)
-                                deallocate(ind_cell2)
-                                allocate(tempvar(0:amr%twondim,nvarh))
-                                allocate(tempson(0:amr%twondim))
-                                if (read_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
-                                ! Just correct central cell vectors for the region
-                                tempvar(0,:) = var(ind_nbor(1,0),:)
-                                tempson(0)       = son(ind_nbor(1,0))
-                                if (read_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
-                                tempvar(0,ivx:ivz) = vtemp
-                                if (read_gravity) tempgrav_var(0,2:4) = gtemp
-                                do inbor=1,amr%twondim
-                                    tempvar(inbor,:) = var(ind_nbor(1,inbor),:)
-                                    tempson(inbor)       = son(ind_nbor(1,inbor))
-                                    if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(1,inbor),:)
-                                end do
                                 ! If we are avoiding substructure, check whether we are safe
                                 if (ok_cell)tot_pos = tot_pos + 1
-                                if (.not.ref(i))tot_ref = tot_ref + 1
                                 if (attrs%nsubs>0) then
                                     ok_sub = .true.
                                     do isub=1,attrs%nsubs
@@ -964,27 +948,65 @@ module amr_integrator
                                     if (.not.ok_sub) tot_insubs = tot_insubs + 1
                                     ok_cell = ok_cell .and. ok_sub
                                 end if
-                                if(ok_cell.and..not.ref(i))tot_sel = tot_sel + 1
-                                filterloop: do ifilt=1,attrs%nfilter
+                                ! If cell is inside region, not inside a substructure
+                                ! and it is a leaf cell, we can extract data
+                                if (ok_cell.and.(.not.ref(i))) then
+                                    ! Transform position to galaxy frame
+                                    xtemp = xorig(i,:)
+                                    xtemp = xtemp - reg%centre
+                                    call rotate_vector(xtemp,trans_matrix)
+                                    ! Velocity transformed --> ONLY FOR CENTRAL CELL
+                                    vtemp = var(ind_cell(i),ivx:ivz)
+                                    vtemp = vtemp - reg%bulk_velocity
+                                    call rotate_vector(vtemp,trans_matrix)
+
+                                    ! Gravitational acc --> ONLY FOR CENTRAL CELL
                                     if (read_gravity) then
-                                        ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx,tempvar,&
-                                                                &tempson,trans_matrix,tempgrav_var)
-                                    else
-                                        ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx,tempvar,&
-                                                                &tempson,trans_matrix)
-                                    end if
-                                    ok_cell_each= ok_cell.and..not.ref(i).and.ok_filter
-                                    if (ok_cell_each) then
-                                        if (ifilt.eq.1) total_ncell = total_ncell + 1
-                                        if (read_gravity) then
-                                            call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt,trans_matrix,tempgrav_var)
-                                        else
-                                            call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt,trans_matrix)
-                                        endif
+                                        gtemp = grav_var(ind_cell(i),2:4)
+                                        call rotate_vector(gtemp,trans_matrix)
                                     endif
-                                end do filterloop
-                                deallocate(tempvar,tempson)
-                                if (read_gravity) deallocate(tempgrav_var)
+
+                                    ! Get neighbours
+                                    allocate(ind_cell2(1))
+                                    ind_cell2(1) = ind_cell(i)
+                                    call getnbor(son,nbor,ind_cell2,ind_nbor,1)
+                                    deallocate(ind_cell2)
+                                    allocate(tempvar(0:amr%twondim,nvarh))
+                                    allocate(tempson(0:amr%twondim))
+                                    if (read_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
+                                    ! Just correct central cell vectors for the region
+                                    tempvar(0,:) = var(ind_nbor(1,0),:)
+                                    tempson(0)       = son(ind_nbor(1,0))
+                                    if (read_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
+                                    tempvar(0,ivx:ivz) = vtemp
+                                    if (read_gravity) tempgrav_var(0,2:4) = gtemp
+                                    do inbor=1,amr%twondim
+                                        tempvar(inbor,:) = var(ind_nbor(1,inbor),:)
+                                        tempson(inbor)       = son(ind_nbor(1,inbor))
+                                        if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(1,inbor),:)
+                                    end do
+                                
+                                    filterloop: do ifilt=1,attrs%nfilter
+                                        if (read_gravity) then
+                                            ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx,tempvar,&
+                                                                    &tempson,trans_matrix,tempgrav_var)
+                                        else
+                                            ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx,tempvar,&
+                                                                    &tempson,trans_matrix)
+                                        end if
+                                        ok_cell_each= ok_cell.and.ok_filter
+                                        if (ok_cell_each) then
+                                            total_ncell(ifilt) = total_ncell(ifilt) + 1
+                                            if (read_gravity) then
+                                                call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt,trans_matrix,tempgrav_var)
+                                            else
+                                                call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt,trans_matrix)
+                                            endif
+                                        endif
+                                    end do filterloop
+                                    deallocate(tempvar,tempson)
+                                    if (read_gravity) deallocate(tempgrav_var)
+                                end if
                             end do ngridaloop
                         end do cellloop
                         deallocate(ref,x,ind_cell,xorig)
@@ -1002,13 +1024,11 @@ module amr_integrator
             ! Finally just renormalise for weighted quantities
             call renormalise(attrs)
             attrs%total_ncell = total_ncell
-            attrs%tot_sel = tot_sel
             attrs%tot_ref = tot_ref
             attrs%tot_pos = tot_pos
             attrs%tot_insubs = tot_insubs
 
             if (verbose) write(*,*)'Total number of cells used: ', total_ncell
-            if (verbose) write(*,*)'Total number of cells in region and refined: ', tot_sel
             if (verbose) write(*,*)'Total number of cells refined: ', tot_ref
             if (verbose) write(*,*)'Total number of cells in region: ', tot_pos
             if (verbose) write(*,*)'Total number of cells in substructures: ', tot_insubs

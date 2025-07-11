@@ -9,6 +9,7 @@ import subprocess
 import matplotlib.text as mtext
 import matplotlib.transforms as mtransforms
 import matplotlib.pyplot as plt
+from unyt import unyt_array,unyt_quantity
 from variables_settings import geometrical_variables, raw_gas_variables,\
            raw_part_variables, derived_gas_variables,\
            derived_part_variables, star_variables, gravity_variables,\
@@ -85,6 +86,31 @@ def check_need_neighbours(varname,vartype):
             need = derived_part_variables[varname]['neighbour']
         elif varname in star_variables:
             need = star_variables[varname]['neighbour']
+        else:
+            raise KeyError('Part variable not found, check: '+str(varname))
+    return need
+
+def check_need_gravity(varname,vartype):
+    if vartype == 'gas':
+        if varname in geometrical_variables:
+            need = geometrical_variables[varname]['gravity']
+        elif varname in raw_gas_variables:
+            need = raw_gas_variables[varname]['gravity']
+        elif varname in derived_gas_variables:
+            need = derived_gas_variables[varname]['gravity']
+        elif varname in gravity_variables:
+            need = gravity_variables[varname]['gravity']
+        else:
+            raise KeyError('Gas variable not found, check: '+str(varname))
+    elif vartype == 'part':
+        if varname in geometrical_variables:
+            need = geometrical_variables[varname]['gravity']
+        elif varname in raw_part_variables:
+            need = raw_part_variables[varname]['gravity']
+        elif varname in derived_part_variables:
+            need = derived_part_variables[varname]['gravity']
+        elif varname in star_variables:
+            need = star_variables[varname]['gravity']
         else:
             raise KeyError('Part variable not found, check: '+str(varname))
     return need
@@ -232,6 +258,7 @@ def read_infofile(infopath):
     info = {}
     info['aexp'] = 0.0
     info['redshift'] = 0.0
+    info['omega_b'] = 0.0
 
     # Open info file and read the units conversion factors from it
     with open(infopath,'r') as infofile:
@@ -262,6 +289,52 @@ def read_infofile(infopath):
         if info['aexp'] < 1.0 and info['time'] <= 0.0:
             info['redshift'] = 1./info['aexp'] - 1.
     return info
+
+def read_headerfile(filename):
+    data = {}
+    particle_fields = []
+    particle_counts = {}
+    with open(filename, 'r') as f:
+        lines = [line.strip() for line in f if line.strip()]
+
+    for i, line in enumerate(lines):
+        # New style with "# Family Count" header
+        if line.startswith("#") and "family" in line.lower() and "count" in line.lower():
+            j = i + 1
+            while j < len(lines) and not lines[j].lower().startswith("particle fields"):
+                parts = lines[j].split()
+                if len(parts) == 2:
+                    family, count = parts
+                    particle_counts[family.strip()] = int(count)
+                j += 1
+        # Old style with "Total number of ..." lines
+        elif line.lower().startswith("total number of"):
+            if "dark matter" in line.lower():
+                key = "dark_matter_particles"
+            elif "star" in line.lower():
+                key = "star_particles"
+            elif "sink" in line.lower():
+                key = "sink_particles"
+            elif "particles" in line.lower():
+                key = "total_particles"
+            else:
+                continue
+            try:
+                count = int(lines[i + 1].strip())
+                particle_counts[key] = count
+            except (IndexError, ValueError):
+                continue
+
+        # Handle particle fields line
+        if line.lower().startswith("particle fields"):
+            if i + 1 < len(lines):
+                particle_fields = lines[i + 1].split()
+
+    # Assemble final output
+    data['particle_counts'] = particle_counts
+    data['particle_fields'] = particle_fields
+    data['num_fields'] = len(particle_fields)
+    return data
 
 def closest_snap_z(simfolder,z,return_index=False):
     """
@@ -465,7 +538,7 @@ def info_printer(obj, grouptype, top):
         TODO: Check and update group variables.
     """
     
-    from ozy.group import grouptypes
+    from .group import grouptypes
     
     group_list = obj.__dict__[grouptypes[grouptype]]
     
@@ -575,8 +648,7 @@ def tidal_radius(central, satellite, method='BT87_simple'):
     """
     Computation of the tidal radius of a satellite with respect to a central galaxy.
     """
-    from amr2 import amr_integrator,stats_utils
-    from part2 import part_integrator
+    from .integrators import integrate_hydro, integrate_part
 
     if method == 'BT87_simple':
         """
@@ -590,43 +662,24 @@ def tidal_radius(central, satellite, method='BT87_simple'):
         # 1. Compute enclosed mass of the host halo within R0 (radial distance of satellite
         #    to the halo centre)
 
-        output_path = central.obj.simulation.fullpath
         distance = central.position - satellite.position
         d = central.obj.quantity(np.linalg.norm(distance.to('code_length')),'code_length')
 
-        # Initialise region
-        selected_reg = init_region(central,'sphere',rmax=(d.to('kpc').d,'kpc'),rmin=(0.0,'kpc'))
-        filt = init_filter_part('none','none',central)
-
         # Particles first
-        glob_attrs = part_integrator.part_region_attrs()
-        glob_attrs.nvars = 2
-        glob_attrs.nwvars = 1
-        part_integrator.allocate_part_regions_attrs(glob_attrs)
-        glob_attrs.varnames.T.view('S128')[0] = b'dm/mass'.ljust(128)
-        glob_attrs.varnames.T.view('S128')[1] = b'star/mass'.ljust(128)
-        glob_attrs.wvarnames.T.view('S128')[0] = b'cumulative'.ljust(128)
-        part_integrator.integrate_region(output_path,selected_reg,filt,glob_attrs)
-        part_mass = central.obj.quantity(glob_attrs.data[0,0,0]+glob_attrs.data[1,0,0], 'code_mass')
+        glob_attrs = integrate_part(central.obj,rmin=(0.0,'kpc'),
+                                    rmax=(d.to('kpc').d,'kpc'),region_type='sphere',
+                                    variables=['mass'],
+                                    weights=['cumulative'],
+                                    do_binning=[False])
+        part_mass = central.obj.quantity(glob_attrs.result.total[0,0,0,0], 'code_mass')
 
         # Then gas
-        glob_attrs = amr_integrator.amr_region_attrs()
-        glob_attrs.nvars = 1
-        glob_attrs.nfilter = 1
-        amr_integrator.allocate_amr_regions_attrs(glob_attrs)
-        glob_attrs.varnames.T.view('S128')[0] = b'mass'.ljust(128)
-        glob_attrs.result[0].nbins = 5
-        glob_attrs.result[0].nfilter = 1
-        glob_attrs.result[0].nwvars = 1
-        glob_attrs.result[0].varname = 'mass'
-        mybins = get_code_bins(central.obj,'gas','mass',5)
-        glob_attrs.result[0].scaletype = mybins[1]
-        stats_utils.allocate_pdf(glob_attrs.result[0])
-        glob_attrs.result[0].bins = mybins[0]
-        glob_attrs.result[0].wvarnames.T.view('S128')[0] = b'mass'.ljust(128)
-        glob_attrs.filters[0] = filt
-        amr_integrator.integrate_region(output_path,selected_reg,False,glob_attrs)
-        gas_mass = central.obj.quantity(glob_attrs.result[0].totweights[0,0], 'code_mass')
+        glob_attrs = integrate_hydro(central.obj,rmin=(0.0,'kpc'),
+                                    rmax=(d.to('kpc').d,'kpc'),region_type='sphere',
+                                    variables=['mass'],
+                                    weights=['cumulative'],
+                                    do_binning=[False])
+        gas_mass = central.obj.quantity(glob_attrs.result.total[0,0,0,0], 'code_mass')
 
         tot_mass = gas_mass  + part_mass
         r = (satellite.virial_quantities['mass'] / (3.0*tot_mass))**(1.0/3.0) * d
@@ -635,9 +688,7 @@ def tidal_radius(central, satellite, method='BT87_simple'):
         #TODO: Add this calculation, which is significantly more complex
         pass
     else:
-        print('This tidal radius method is not contemplated. Stoping!')
-        exit
-    
+        ValueError('Tidal radius method %s not implemented.' % method)
     return r
 
 def structure_regions(group, position=None, radius=None,
@@ -649,8 +700,8 @@ def structure_regions(group, position=None, radius=None,
     This routine returns the regions of substructures so they can be used
     by the Ozymandias Fortran routines
     """
-    from ozy.variables_settings import circle_dictionary
-    from ozy.utils import tidal_radius
+    from .variables_settings import circle_dictionary
+    from .utils import tidal_radius
     
     mysubs = []
 
@@ -795,7 +846,7 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
     elif region_type == 'basic_cube':
         reg.name = 'cube'
         centre = vectors.vector()
-        centre.x, centre.y, centre.z = group.position[0], group.position[1], group.position[2]
+        centre.x, centre.y, centre.z = group.position[0]/boxlen, group.position[1]/boxlen, group.position[2]/boxlen
         reg.centre = centre
         axis = vectors.vector()
         norm_L = group.angular_mom['total']/np.linalg.norm(group.angular_mom['total'])
@@ -804,13 +855,13 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
         bulk = vectors.vector()
         bulk.x, bulk.y, bulk.z = 0,0,0
         reg.bulk_velocity = bulk
-        reg.xmin = group.obj.quantity(xmin[0],str(xmin[1])).in_units('code_length')
-        reg.xmax = group.obj.quantity(xmax[0],str(xmax[1])).in_units('code_length')
-        reg.ymin = group.obj.quantity(ymin[0],str(ymin[1])).in_units('code_length')
-        reg.ymax = group.obj.quantity(ymax[0],str(ymax[1])).in_units('code_length')
-        reg.zmin = group.obj.quantity(zmin[0],str(zmin[1])).in_units('code_length')
-        reg.zmax = group.obj.quantity(zmax[0],str(zmax[1])).in_units('code_length')
-        enclosing_sphere_p = group.position
+        reg.xmin = group.obj.quantity(xmin[0],str(xmin[1])).in_units('code_length')/boxlen
+        reg.xmax = group.obj.quantity(xmax[0],str(xmax[1])).in_units('code_length')/boxlen
+        reg.ymin = group.obj.quantity(ymin[0],str(ymin[1])).in_units('code_length')/boxlen
+        reg.ymax = group.obj.quantity(ymax[0],str(ymax[1])).in_units('code_length')/boxlen
+        reg.zmin = group.obj.quantity(zmin[0],str(zmin[1])).in_units('code_length')/boxlen
+        reg.zmax = group.obj.quantity(zmax[0],str(zmax[1])).in_units('code_length')/boxlen
+        enclosing_sphere_p = group.position/boxlen
         corner = np.array([reg.xmax-centre.x,reg.ymax-centre.y,reg.zmax-centre.z])
         enclosing_sphere_r = np.linalg.norm(corner)
         
@@ -955,7 +1006,7 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
     else:
         return reg
 
-def init_filter_hydro(cond_strs, name, group):
+def init_filter_hydro(cond_strs, name, obj):
     """Initialise filter Fortran derived type with the condition strings provided."""
     from amr2 import filtering
     if isinstance(cond_strs, str):
@@ -986,7 +1037,7 @@ def init_filter_hydro(cond_strs, name, group):
                 filt.cond_ops.T.view('S2')[i] = cond_strs[i].split('/')[1].ljust(2)
                 # Value transformed to code units
                 try:
-                    value = group.obj.quantity(float(cond_strs[i].split('/')[2]), cond_strs[i].split('/')[3])
+                    value = obj.quantity(float(cond_strs[i].split('/')[2]), cond_strs[i].split('/')[3])
                     filt.cond_vals[i] = value.in_units(get_code_units(correct_str,'gas')).d
                 except:
                     # In the case of the condition value being a string
@@ -1004,7 +1055,7 @@ def init_filter_hydro(cond_strs, name, group):
     else:
         raise ValueError("Condition strings are given, but not a name for the filter. Please set!")
 
-def init_filter_part(cond_strs, name, group):
+def init_filter_part(cond_strs, name, obj):
     """ Initialise filter_part Fortran derived type with the condition strings provided."""
     from part2 import filtering
     if isinstance(cond_strs, str):
@@ -1039,7 +1090,7 @@ def init_filter_part(cond_strs, name, group):
                 filt.cond_ops.T.view('S2')[i] = cond_strs[i].split('/')[1].ljust(2)
                 # Value transformed to code units
                 try:
-                    value = group.obj.quantity(float(cond_strs[i].split('/')[2]), cond_strs[i].split('/')[3])
+                    value = obj.quantity(float(cond_strs[i].split('/')[2]), cond_strs[i].split('/')[3])
                     if get_part_vartype(nonum_str) == 1:
                         filt.cond_vals_d[i] = value.in_units(get_code_units(nonum_str,'part')).d
                     elif get_part_vartype(nonum_str) == 2:
@@ -1621,14 +1672,14 @@ def get_code_bins(obj,var_type,var_name,nbins=100,logscale=True,
             or var_name in derived_gas_variables or var_name in gravity_variables:
                 ok_var = True
         else:
-            raise KeyError('This gas variable is not supported. Please check!: %s', varname)
+            raise KeyError('This gas variable is not supported. Please check!: %s', var_name)
     elif var_type == 'part':
         var_name_temp = remove_last_suffix_if_numeric(var_name)
         if var_name_temp in geometrical_variables or var_name_temp in raw_part_variables \
             or var_name_temp in derived_part_variables or var_name_temp in star_variables:
                 ok_var = True
         else:
-            raise KeyError('This part variable is not supported. Please check!: %s', varname)
+            raise KeyError('This part variable is not supported. Please check!: %s', var_name_temp)
     
     if not ok_var:
         print('Your variable is not found!')
@@ -1668,14 +1719,3 @@ def get_code_bins(obj,var_type,var_name,nbins=100,logscale=True,
     if linthresh == None:
         linthresh = 0.0
     return bin_edges,scaletype,zero_index,linthresh
-
-    
-
-
-
-
-
-    
-
-
-

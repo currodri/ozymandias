@@ -1,6 +1,6 @@
 import numpy as np
-from ozy.sim_attributes import SimulationAttributes
-from ozy.utils import get_mu,get_electron_mu
+from .sim_attributes import SimulationAttributes
+from .utils import get_mu,get_electron_mu
 from unyt import UnitRegistry,unyt_array,unyt_quantity
 
 class Snapshot(object):
@@ -21,8 +21,12 @@ class Snapshot(object):
             time        = 'yr',
             temperature = 'K'
         )
-
+        self.fullpath = fullpath
+        self.snapname = fullpath.split('/')[-1]
+        self.snapindex = int(self.snapname[-5:])  # Assuming RAMSES convention of integer of length 5 for the snapindex
+        self.simupath = '/'.join(fullpath.split('/')[:-1])
         self._info = self._get_my_info(fullpath)
+        self._header = self._get_my_header(fullpath)
         self.unit_registry = self._get_unit_registry()
         self.simulation  = SimulationAttributes()
         self._set_variable_ordering()
@@ -35,10 +39,16 @@ class Snapshot(object):
         return unyt_quantity(value, units, registry=self.unit_registry)
 
     def _get_my_info(self,fullpath):
-        from ozy.utils import read_infofile
+        from .utils import read_infofile
         index = int(fullpath[-5:])
         infofile_path = fullpath + '/info_%05d.txt' % index
         return read_infofile(infofile_path)
+    
+    def _get_my_header(self,fullpath):
+        from .utils import read_headerfile
+        index = int(fullpath[-5:])
+        headerfile_path = fullpath + '/header_%05d.txt' % index
+        return read_headerfile(headerfile_path)
 
     def _get_unit_registry(self):
         from unyt.dimensions import length,mass,time,temperature,dimensionless,magnetic_field_cgs
@@ -141,7 +151,7 @@ class Snapshot(object):
     
     def save(self, filename):
         """Save Snapshot object as HDF5 file."""
-        from ozy.saver import save
+        from .saver import save
         save(self, filename)
 
 class CosmoSnapshot(Snapshot):
@@ -153,9 +163,11 @@ class CosmoSnapshot(Snapshot):
     general analysis without requiring the original snapshot.
     """
     def __init__(self, fullpath, *args, **kwargs):
-        
+        super().__init__(fullpath, *args, **kwargs)
         self.nhalos      = 0
+        self.nsubhalos   = 0
         self.ngalaxies   = 0
+        self.nsatellites = 0
         self.halos       = []
         self.galaxies    = []
         self.group_types = []
@@ -185,44 +197,40 @@ class CosmoSnapshot(Snapshot):
     
     def _link_groups(self):
         """Two-way linking of objects."""
-        from ozy.group_linking import link
+        from .group_linking import link
         link.galaxies_to_halos(self)
         link.create_sublists(self)
     
     def save(self, filename):
         """Save OZY object as HDF5 file."""
-        from ozy.saver import save
+        from .saver import save
         save(self, filename)
-    
-    def build_HaloMaker(self, *args, **kwargs):
-        """This is the central function of the OZY class for the HALOMAKER catalogues.
 
-        This method is reponsible for:
-        1) Calling the Fortran routines that cleans up the raw HaloMaker catalogues
-        2) Creating halos and galaxies
-        3) Linking objects through the chosen method
-        4) Computing additional quantities
-        5) Saving all as a clean HDF5 file
+    def build_HaloMaker(self,*args,**kwargs):
+        """This is the central function of the CosmoSnapshot class for the HALOMAKER catalogues.
+
+        This method is responsible for:
+        
 
         """
         import ozy.group_assignment as assign
         import ozy.group_linking as link
-        from ozy.read_HaloMaker import read_HM
-        
+        from .HaloMaker_utils import hmCatalogue,galaxyCatalogue
+
         self._args = args
         self._kwargs = kwargs
 
-        # TODO: Add the option to run HaloMaker if the brick files do not exist
-        # import ozy.run_halomaker as run
-        # run(self, 'halo')
-        # run(self, 'galaxy')
-        # run(self, 'cloud')
-        self.clean_brickfile = True
+        # 1. Setup the HaloMaker runs
+        DM_catalogue = hmCatalogue(self,self.simupath,self.snapindex)
+        stars_catalogue = galaxyCatalogue(self,self.simupath,self.snapindex)
 
-        # Read HaloMaker brick catalogues
-        print("Running build_HaloMaker")
-        read_HM(self, 'halo')
-        read_HM(self, 'galaxy')
+        # 2. Run the halo finder
+        DM_catalogue.setup_HaloFinderRun(run=True)
+        stars_catalogue.setup_GalFinderRun(run=True)
+
+        # 3. Read the catalogues and save the new groups
+        DM_catalogue.load_catalogue()
+        stars_catalogue.load_catalogue()
 
         if self._has_halos:
             # Make assignment
@@ -252,12 +260,71 @@ class CosmoSnapshot(Snapshot):
         else:
             print("WARNING: Not a single virialised halo above the minimum particle threshold.")
 
+    
+    # def build_HaloMaker(self, *args, **kwargs):
+    #     """This is the central function of the OZY class for the HALOMAKER catalogues.
+
+    #     This method is reponsible for:
+    #     1) Calling the Fortran routines that cleans up the raw HaloMaker catalogues
+    #     2) Creating halos and galaxies
+    #     3) Linking objects through the chosen method
+    #     4) Computing additional quantities
+    #     5) Saving all as a clean HDF5 file
+
+    #     """
+    #     import ozy.group_assignment as assign
+    #     import ozy.group_linking as link
+    #     from .read_HaloMaker import read_HM
+        
+    #     self._args = args
+    #     self._kwargs = kwargs
+
+    #     # TODO: Add the option to run HaloMaker if the brick files do not exist
+    #     # import .run_halomaker as run
+    #     # run(self, 'halo')
+    #     # run(self, 'galaxy')
+    #     # run(self, 'cloud')
+    #     self.clean_brickfile = True
+
+    #     # Read HaloMaker brick catalogues
+    #     print("Running build_HaloMaker")
+    #     read_HM(self, 'halo')
+    #     read_HM(self, 'galaxy')
+
+    #     if self._has_halos:
+    #         # Make assignment
+    #         assign.galaxies_to_halos(self)
+
+    #         # Now process galaxies using their assigned halo
+    #         main_gal_ID = -1
+    #         if 'main_gal' in self._kwargs:
+    #             if self._kwargs['main_gal']:
+    #                 print('Computing details just for main galaxy in simulation.')
+    #                 masses = [i.virial_quantities['mass'] for i in self.galaxies]
+    #                 main_gal_ID = self.galaxies[np.argmax(masses)].ID
+                    
+    #         if main_gal_ID != -1:
+    #             for gal in self.galaxies:
+    #                 gal._empty_galaxy()
+    #             self.galaxies[np.argmax(masses)]._process_galaxy()
+    #         else:
+    #             for gal in self.galaxies:
+    #                 gal._process_galaxy(**self._kwargs)
+
+    #         # Link objects between each other
+    #         link.galaxies_to_halos(self)
+
+    #         assign.central_galaxies(self)
+    #         link.create_sublists(self)
+    #     else:
+    #         print("WARNING: Not a single virialised halo above the minimum particle threshold.")
+
     def galaxies_summary(self, top=10):
         """Method to briefly print information for the most massive galaxies in the catalogue."""
-        from ozy.utils import info_printer
+        from .utils import info_printer
         info_printer(self, 'galaxy', top)
 
     def halos_summary(self, top=10):
         """Method to briefly print information for the most massive halos in the catalogue."""
-        from ozy.utils import info_printer
+        from .utils import info_printer
         info_printer(self, 'halo', top)

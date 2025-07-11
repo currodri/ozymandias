@@ -3011,6 +3011,24 @@ module hydro_commons
         DTM = total_dust_mass / (total_dust_mass + total_metal_mass)
     end function DTM
 
+    function DTG(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: DTG
+
+        DTG = var(0,hvar%ids(1)) + var(0,hvar%ids(2)) + var(0,hvar%ids(3)) + var(0,hvar%ids(4))
+    end function DTG
+
     function STL(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
@@ -3052,6 +3070,27 @@ module hydro_commons
         total_silicon = var(0,hvar%ids(3)) + var(0,hvar%ids(4))
         CSR = total_carbon / total_silicon
     end function CSR
+
+    function qPAH(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: qPAH
+        real(dbl) :: total_dust, total_pah
+
+        total_dust = var(0,hvar%ids(1)) + var(0,hvar%ids(2)) + var(0,hvar%ids(3)) + var(0,hvar%ids(4))
+        total_pah = var(0,hvar%ids(5)) + var(0,hvar%ids(6))
+        qPAH = total_pah / total_dust
+    end function qPAH
 
     function CSmall_Stokes(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
         implicit none
@@ -4167,6 +4206,16 @@ module hydro_commons
             hvar%ids(4) = vardict%get('SilLarge_fraction')
             hvar%ids(5) = vardict%get('metallicity')
             hvar%myfunction => DTM
+        case ('DTG')
+            ! dust-to-gas mass ratio
+            hvar%type = 'derived'
+            hvar%name = 'DTG'
+            allocate(hvar%ids(4))
+            hvar%ids(1) = vardict%get('CSmall_fraction')
+            hvar%ids(2) = vardict%get('CLarge_fraction')
+            hvar%ids(3) = vardict%get('SilSmall_fraction')
+            hvar%ids(4) = vardict%get('SilLarge_fraction')
+            hvar%myfunction => DTG
         case ('STL')
             ! small-to-large grain mass ratio
             hvar%type = 'derived'
@@ -4189,6 +4238,18 @@ module hydro_commons
             hvar%ids(4) = vardict%get('SilLarge_fraction')
             hvar%ids(5) = vardict%get('metallicity')
             hvar%myfunction => CSR
+        case ('qPAH')
+            ! PAH-to-dust mass ratio
+            hvar%type = 'derived'
+            hvar%name = 'qPAH'
+            allocate(hvar%ids(6))
+            hvar%ids(1) = vardict%get('CSmall_fraction')
+            hvar%ids(2) = vardict%get('CLarge_fraction')
+            hvar%ids(3) = vardict%get('SilSmall_fraction')
+            hvar%ids(4) = vardict%get('SilLarge_fraction')
+            hvar%ids(5) = vardict%get('PAHSmall_fraction')
+            hvar%ids(6) = vardict%get('PAHLarge_fraction')
+            hvar%myfunction => qPAH
         case ('CSmall_Stokes')
             ! Stokes number of the small C grains
             hvar%type = 'derived'

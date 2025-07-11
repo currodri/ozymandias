@@ -403,8 +403,9 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     """Function which computes a 2D projection centered on an objected from an OZY file."""
 
     if isinstance(group,ozy.Snapshot):
+        from ozy.group import Group
         obj = group
-        group = ozy.group.Group(obj)
+        group = Group(obj)
         use_snapshot = True
     else:
         obj = group.obj
@@ -691,7 +692,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     # Now create filters if any conditions have been given...
     nfilter_gas = len(filter_conds_gas)
     for i in range(0,nfilter_gas):
-        f = init_filter_hydro(filter_conds_gas[i],filter_name_gas[i],group)
+        f = init_filter_hydro(filter_conds_gas[i],filter_name_gas[i],obj)
         proj._get_python_filter(f)
         
     # Do it for hydro first
@@ -703,11 +704,11 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
             cond_var = filter_conds_gas[i].split('/')[0]
         if cond_var in geometrical_variables or cond_var in raw_gas_variables \
             or cond_var in derived_gas_variables or cond_var in gravity_variables:
-            f = init_filter_hydro(filter_conds_gas[i],filter_name_gas[i],group)
+            f = init_filter_hydro(filter_conds_gas[i],filter_name_gas[i],obj)
         else:
             # When a filter asks for a variable not existent in the common_variables
             # or the grid_variables dictionaries just ignore it and set it to blank
-            f = init_filter_hydro('none','none',group)
+            f = init_filter_hydro('none','none',obj)
         filts_gas.append(f)
         
     # Construct substructure regions if we want them out of the projection
@@ -777,7 +778,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     filts_part = []
     nfilter_part = len(filter_conds_part)
     for i in range(0,nfilter_part):
-        f = init_filter_part(filter_conds_part[i],filter_name_part[i],group)
+        f = init_filter_part(filter_conds_part[i],filter_name_part[i],obj)
         proj._get_python_filter(f)
     
     for i in range(0,nfilter_part):
@@ -787,11 +788,11 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
             cond_var = filter_conds_part[i].split('/')[0]
         if cond_var in geometrical_variables or cond_var in raw_part_variables \
             or cond_var in derived_part_variables or cond_var in star_variables:
-            f = init_filter_part(filter_conds_part[i],filter_name_part[i],group)
+            f = init_filter_part(filter_conds_part[i],filter_name_part[i],obj)
         else:
             # When a filter asks for a variable not existent in the common_variables
             # or the particle_variables dictionaries just ignore it and set it to blank
-            f = init_filter_part('none','none',group)
+            f = init_filter_part('none','none',obj)
         filts_part.append(f)
     # Now give filters to camera Fortran type - updating the previous from hydro
     cam = obs_instruments.init_camera(centre,axis,up_vector,region_size/boxlen,region_axis,bulk,distance/boxlen,
@@ -874,6 +875,22 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
     if not os.path.exists(proj_FITS):
         raise ImportError('File not found. Please check!: '+str(proj_FITS))
 
+    # If individual filters for each variable, check that the number of fields is the same as filters
+    filter_per_field_gas = False
+    filter_per_field_part = False
+    if isinstance(filter_name_gas,list):
+        # Count the number of fields that start with 'gas/;
+        nfields_gas = len([f for f in fields if f.split('/')[0] == 'gas'])
+        if len(filter_name_gas) != nfields_gas:
+            raise ValueError('The number of gas filters does not match the number of gas fields!')
+        filter_per_field_gas = True
+    if isinstance(filter_name_part,list):
+        # Count the number of fields that start with 'part/';
+        nfields_part = len([f for f in fields if f.split('/')[0] == 'part'])
+        if len(filter_name_part) != nfields_part:
+            raise ValueError('The number of particle filters does not match the number of particle fields!')
+        filter_per_field_part = True
+    
 
     # Load FITS file
     hdul = fits.open(proj_FITS)
@@ -881,18 +898,28 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
 
     # Add filter identification to the field
     hdul_filtername_gas = ['GAS_F_0' in h.header for h in hdul]
+    nvars_gas = 0
     if any(hdul_filtername_gas):
         for f in range(0,len(fields)):
             if fields[f].split('/')[0] == 'gas':
-                fields[f] = fields[f] + '/' + filter_name_gas
+                if filter_per_field_gas:
+                    fields[f] = fields[f] + '/' + filter_name_gas[nvars_gas]
+                else:
+                    fields[f] = fields[f] + '/' + filter_name_gas
+                nvars_gas += 1
     else:
         print('WARNING: This FITS file does not have gas filter information, so anything you added will be ignored!')
 
     hdul_filtername_part = ['PART_F_0' in h.header for h in hdul]
+    nvars_part = 0
     if any(hdul_filtername_part):
         for f in range(0,len(fields)):
             if fields[f].split('/')[0] == 'part':
-                fields[f] = fields[f] + '/' + filter_name_part
+                if filter_per_field_part:
+                    fields[f] = fields[f] + '/' + filter_name_part[nvars_part]
+                else:
+                    fields[f] = fields[f] + '/' + filter_name_part
+                nvars_part += 1
     else:
         print('WARNING: This FITS file does not have particle filter information, so anything you added will be ignored!')
 
@@ -926,6 +953,7 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
     los_axis.x,los_axis.y,los_axis.z = hdul[0].header['LOS_X'],hdul[0].header['LOS_Y'],hdul[0].header['LOS_Z']
     up_axis.x,up_axis.y,up_axis.z = hdul[0].header['UP_X'],hdul[0].header['UP_Y'],hdul[0].header['UP_Z']
     centre.x,centre.y,centre.z = hdul[0].header['CENTRE_X'],hdul[0].header['CENTRE_Y'],hdul[0].header['CENTRE_Z']
+    print(ex,centre)
     cam = obs_instruments.init_camera(centre,los_axis,up_axis,np.array([width_x.d,width_y.d]),los_axis,velocity,
                                       width_x.d,width_x.d,hdul[0].header['NAXIS1'],
                                       len(centers))
@@ -1014,15 +1042,17 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
                 # 2. a radius given as an OZY.quantity
                 # 3. a dictionary of the plotting settings of the circle,
                 #    including the "edgecolor" and the "linestyle"
+                pos = np.zeros((1,3))
                 for c in range(0, len(centers)):
                     centrecircle = centers[c].in_units(hdul[0].header['CUNIT1']).d
+                    pos[0,:] = centrecircle
                     dist = centrecircle - np.array([centre.x,centre.y,centre.z])
                     dist = np.linalg.norm(dist) - radii[c].in_units(hdul[0].header['CUNIT1']).d
                     if dist <= (width_x/2):
-                        obs_instruments.project_points(cam,1,centrecircle)
+                        obs_instruments.project_points(cam,1,pos)
                         r = radii[c].in_units(hdul[0].header['CUNIT1']).d
                         circle_settings = circle_keys[c]
-                        circle = plt.Circle(centrecircle,r,fill=False,
+                        circle = plt.Circle(list(pos[0,:]),r,fill=False,
                                             edgecolor=circle_settings['edgecolor'],
                                             linestyle=circle_settings['linestyle'],
                                             linewidth=circle_settings['linewidth'])
@@ -1032,14 +1062,7 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
     if returnfig:
         return fig
     else:
-        if filter_name_gas != 'none' and filter_name_part != 'none':
-            fig.savefig(proj_FITS.split('.')[0]+'_'+filter_name_gas+'_'+filter_name_part+'.png',format='png',dpi=300)
-        elif filter_name_gas != 'none' and filter_name_part == 'none':
-            fig.savefig(proj_FITS.split('.')[0]+'_'+filter_name_gas+'.png',format='png',dpi=300)
-        elif filter_name_gas == 'none' and filter_name_part != 'none':
-            fig.savefig(proj_FITS.split('.')[0]+'_'+filter_name_part+'.png',format='png',dpi=300)
-        else:
-            fig.savefig(proj_FITS.split('.')[0]+'.png',format='png',dpi=300)
+        fig.savefig(proj_FITS.split('.')[0]+'.png',format='png',dpi=300)
 
 def plot_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=(3,'kpc'),
                  redshift=True,returnfig=False,pov='x',type_scale='galaxy',

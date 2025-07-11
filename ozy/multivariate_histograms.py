@@ -3,7 +3,7 @@ import h5py
 import os
 import ozy
 from unyt import unyt_array,unyt_quantity
-from ozy.utils import init_region,init_filter_hydro,gent_curve_T,\
+from .utils import init_region,init_filter_hydro,gent_curve_T,\
                     check_need_neighbours, get_code_units, \
                     get_plotting_def
 from variables_settings import geometrical_variables,raw_gas_variables,\
@@ -76,7 +76,7 @@ class HydroHistogram(object):
             for i in range(0, filt.ncond):
                 cond_var = filt.cond_vars_name.T.view('S128')[i][0].decode().split(' ')[0]
                 cond_op = filt.cond_ops.T.view('S2')[i][0].decode().split(' ')[0]
-                cond_units = get_code_units(cond_var)
+                cond_units = get_code_units(cond_var,'gas')
                 cond_value = self.obj.quantity(filt.cond_vals[i], str(cond_units))
                 cond_str = cond_var+'/'+cond_op+'/'+str(cond_value.d)+'/'+cond_units
                 self.filters[-1]['conditions'].append(cond_str)
@@ -89,12 +89,13 @@ def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,max
                             mycentre=([0.5,0.5,0.5],'code_length'), myaxis=np.array([1.,0.,0.]),
                             remove_subs=False,cr_st=False,cr_heat=False,Dcr=0.0,verbose=False):
     """Function which computes a phase diagram (2D profile) for a given group object."""
-    from ozy.utils import structure_regions,get_code_bins
+    from .utils import structure_regions,get_code_bins
 
     # 1. Determine if we are handling a snapshot or a catalogue OZY object
     if isinstance(group,ozy.Snapshot):
+        from ozy.group import Group
         obj = group
-        group = ozy.group.Group(obj)
+        group = Group(obj)
         use_snapshot = True
     else:
         obj = group.obj
@@ -160,20 +161,20 @@ def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,max
     
     # 6. Check that the xaxis min and max quantities have the units expected for that variable
     try:
-        minval[0] = minval[0].to(get_code_units(xvar))
-        maxval[0] = maxval[0].to(get_code_units(xvar))
+        minval[0] = minval[0].to(get_code_units(xvar,'gas'))
+        maxval[0] = maxval[0].to(get_code_units(xvar,'gas'))
     except:
         raise ValueError(f"It seems the dimensions of your bins min ({minval[0].units}) and max \
                           ({maxval[0].units}) values do not agree with the dimensions of the \
-                            chosen xvar ({xvar},{get_code_units(xvar)})")
+                            chosen xvar ({xvar},{get_code_units(xvar,'gas')})")
     # 7. Check that the yaxis min and max quantities have the units expected for that variable
     try:
-        minval[1] = minval[1].to(get_code_units(yvar))
-        maxval[1] = maxval[1].to(get_code_units(yvar))
+        minval[1] = minval[1].to(get_code_units(yvar,'gas'))
+        maxval[1] = maxval[1].to(get_code_units(yvar,'gas'))
     except:
         raise ValueError(f"It seems the dimensions of your bins min ({minval[1].units}) and max \
                          ({maxval[1].units}) values do not agree with the dimensions of the \
-                            chosen yvar ({yvar},{get_code_units(yvar)})")
+                            chosen yvar ({yvar},{get_code_units(yvar,'gas')})")
 
     # 8. Now create region
     if use_snapshot:
@@ -217,11 +218,11 @@ def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,max
             cond_var = filter_conds[i].split('/')[0]
         if cond_var in geometrical_variables or cond_var in raw_gas_variables \
             or cond_var in derived_gas_variables or cond_var in gravity_variables:
-            f = init_filter_hydro(filter_conds[i],filter_name[i],group)
+            f = init_filter_hydro(filter_conds[i],filter_name[i],obj)
         else:
             # When a filter asks for a variable not existent in the common_variables
             # or the grid_variables dictionaries just ignore it and set it to blank
-            f = init_filter_hydro('none','none',group)
+            f = init_filter_hydro('none','none',obj)
         filts.append(f)
         # Save region details to phase diagram object
         pd = histograms[i]
@@ -336,14 +337,14 @@ def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,max
             hydro_data.subs[i] = subs[i]
     
     # Add the scaletype for the xaxis and the preo-computed bin edges
-    bin_edges, stype, zero_index, linthresh = get_code_bins(group.obj,'gas/'+xvar,nbins=nbins[0],logscale=scaletype[0],
+    bin_edges, stype, zero_index, linthresh = get_code_bins(group.obj,'gas',xvar,nbins=nbins[0],logscale=scaletype[0],
                                         minval=minval[0],maxval=maxval[0],linthresh=linthresh)
     hydro_data.xdata = bin_edges
     hydro_data.scaletype.T.view('S128')[0] = stype.ljust(128)
     hydro_data.linthresh[0] = linthresh
     hydro_data.zero_index[0] = zero_index
     # Add the scaletype for the yaxis and the preo-computed bin edges
-    bin_edges, stype, zero_index, linthresh = get_code_bins(group.obj,'gas/'+yvar,nbins=nbins[1],logscale=scaletype[1],
+    bin_edges, stype, zero_index, linthresh = get_code_bins(group.obj,'gas',yvar,nbins=nbins[1],logscale=scaletype[1],
                                         minval=minval[1],maxval=maxval[1],linthresh=linthresh)
     hydro_data.ydata = bin_edges
     hydro_data.scaletype.T.view('S128')[1] = stype.ljust(128)
@@ -375,22 +376,22 @@ def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,max
         for i in range(0,nfilter):
             if pds_fr[i] == True:
                 pd  = histograms[i]
-                pd.xdata.append(group.obj.array(xdata, get_code_units(pd.xvar)))
-                pd.ydata.append(group.obj.array(ydata, get_code_units(pd.yvar)))
-                
+                pd.xdata.append(group.obj.array(xdata, get_code_units(pd.xvar,'gas')))
+                pd.ydata.append(group.obj.array(ydata, get_code_units(pd.yvar,'gas')))
+
                 for j in range(0, len(pd.zvars)):
-                    code_units = get_code_units(pd.zvars[j])
+                    code_units = get_code_units(pd.zvars[j],'gas')
                     copy_data = np.copy(hydro_data.zdata[counter,:,:,j,:,::2])
                     pd.zdata.append(group.obj.array(copy_data, code_units))
                 counter += 1
     else:
         for i in range(0,nfilter):
             pd  = histograms[i]
-            pd.xdata.append(group.obj.array(xdata, get_code_units(pd.xvar)))
-            pd.ydata.append(group.obj.array(ydata, get_code_units(pd.yvar)))
-            
+            pd.xdata.append(group.obj.array(xdata, get_code_units(pd.xvar,'gas')))
+            pd.ydata.append(group.obj.array(ydata, get_code_units(pd.yvar,'gas')))
+
             for j in range(0, len(pd.zvars)):
-                code_units = get_code_units(pd.zvars[j])
+                code_units = get_code_units(pd.zvars[j],'gas')
                 copy_data = np.copy(hydro_data.zdata[i,:,:,j,:,::2])
                 pd.zdata.append(group.obj.array(copy_data, code_units))
 
@@ -460,20 +461,20 @@ def write_phasediag(obj,nfilter,ozy_file,hydro,pds):
         if hydro != None:
             xdata[0,:] = hydro.xdata[1:]
         hdpd.create_dataset('xdata', data=xdata)
-        hdpd['xdata'].attrs.create('units', get_code_units(pd.xvar))
+        hdpd['xdata'].attrs.create('units', get_code_units(pd.xvar,'gas'))
 
         ydata = np.zeros(pd.nbins[1])
         if hydro != None:
             ydata[0,:] = hydro.ydata[1:]
         hdpd.create_dataset('ydata', data=ydata)
-        hdpd['ydata'].attrs.create('units', get_code_units(pd.yvar))
+        hdpd['ydata'].attrs.create('units', get_code_units(pd.yvar,'gas'))
 
         # Save hydro z data
         if hydro != None:
             clean_hydro = hdpd.create_group('hydro')
             for v,var in enumerate(pd.zvars):
                 clean_hydro.create_dataset(var, data=hydro.zdata[i,:,:,v,:,::2])
-                clean_hydro[var].attrs.create('units', get_code_units(pd.zvars[v]))
+                clean_hydro[var].attrs.create('units', get_code_units(pd.zvars[v],'gas'))
             clean_hydro.create_dataset('weightvars', data=pd.weightvars[:])
     f.close()
     return
@@ -517,9 +518,9 @@ def plot_single_histogram_hydro(pd,field,name,weightvar='cumulative',logscale=Tr
 
     # Since everything appears fine, we begin plotting...
     fig, ax = plt.subplots(1,1, figsize=(8,6))
-    plotting_x = get_plotting_def(pd.xvar)
-    plotting_y = get_plotting_def(pd.yvar)
-    plotting_z = get_plotting_def(field)
+    plotting_x = get_plotting_def(pd.xvar,'gas')
+    plotting_y = get_plotting_def(pd.yvar,'gas')
+    plotting_z = get_plotting_def(field,'gas')
     ax.set_xlabel(plotting_x['label'],fontsize=18)
     ax.set_ylabel(plotting_y['label'],fontsize=18)
 
@@ -532,13 +533,13 @@ def plot_single_histogram_hydro(pd,field,name,weightvar='cumulative',logscale=Tr
     ax.set_ylim([15,1e+8])
     ax.set_xscale('log')
     ax.set_yscale('log')
-    code_units_x = get_code_units(pd.xvar)
+    code_units_x = get_code_units(pd.xvar,'gas')
     x = pd.obj.array(pd.xdata[0].d,code_units_x)
     x = x.in_units(plotting_x['units'])
-    code_units_y = get_code_units(pd.yvar)
+    code_units_y = get_code_units(pd.yvar,'gas')
     y = pd.obj.array(pd.ydata[0].d,code_units_y)
     y = y.in_units(plotting_y['units'])
-    code_units_z = get_code_units(field)
+    code_units_z = get_code_units(field,'gas')
     z = np.array(pd.zdata[field_index][:,:,weight_index].d,order='F')
     z = pd.obj.array(z,code_units_z)
     print(field,np.nanmin(z).in_units(plotting_z['units']),np.nanmax(z).in_units(plotting_z['units']))
@@ -711,9 +712,9 @@ def plot_compare_histogram_hydro(pds,field,name,weightvar='cumulative',
                 pd = pds[ipd][0]
             else:
                 pd = pds[ipd]
-            plotting_x = get_plotting_def(pd.xvar)
-            plotting_y = get_plotting_def(pd.yvar)
-            plotting_z = get_plotting_def(field)
+            plotting_x = get_plotting_def(pd.xvar,'gas')
+            plotting_y = get_plotting_def(pd.yvar,'gas')
+            plotting_z = get_plotting_def(field,'gas')
             print(field,plotting_z)
             ax[i,j].set_xlabel(plotting_x['label'],fontsize=20)
             # Get rid of the y-axis labels for the panels in the middle
@@ -737,7 +738,7 @@ def plot_compare_histogram_hydro(pds,field,name,weightvar='cumulative',
             ax[i,j].set_xlim([1e-30,8e-20])
             ax[i,j].set_ylim([15,1e+8])
             
-            code_units_x = get_code_units(pd.xvar)
+            code_units_x = get_code_units(pd.xvar,'gas')
             if scaletype=='log_even':
                 ax[i,j].set_xscale('log')
                 ax[i,j].set_yscale('log')
@@ -745,14 +746,14 @@ def plot_compare_histogram_hydro(pds,field,name,weightvar='cumulative',
             else:
                 x = pd.obj.array(pd.xdata[0].d,code_units_x)
             x = x.in_units(plotting_x['units'])
-            code_units_y = get_code_units(pd.yvar)
+            code_units_y = get_code_units(pd.yvar,'gas')
             
             if scaletype=='log_even':
                 y = pd.obj.array(10**(pd.ydata[0].d),code_units_y)
             else:
                 y = pd.obj.array(pd.ydata[0].d,code_units_y)
             y = y.in_units(plotting_y['units'])
-            code_units_z = get_code_units(field[i])
+            code_units_z = get_code_units(field[i],'gas')
             z = np.array(pd.zdata[field_indexes[ipd]][:,:,weight_indexes[ipd],0].d,order='F')
             z = pd.obj.array(z,code_units_z)
             print(field[i],np.nanmin(z).to(plotting_z['units']),np.nanmax(z).to(plotting_z['units']),pd.obj.simulation.redshift)
@@ -1017,12 +1018,12 @@ def plot_compare_stacked_histogram_hydro(pds,weights,field,name,weightvar='cumul
             pd = pds[ipd]
             pd_weight = weights[ipd]
             if doflows or do_sf:
-                plotting_x = get_plotting_def(pd[0][0].xvar)
-                plotting_y = get_plotting_def(pd[0][0].yvar)
+                plotting_x = get_plotting_def(pd[0][0].xvar,'gas')
+                plotting_y = get_plotting_def(pd[0][0].yvar,'gas')
             else:
-                plotting_x = get_plotting_def(pd[0].xvar)
-                plotting_y = get_plotting_def(pd[0].yvar)
-            plotting_z = get_plotting_def(field[ipd])
+                plotting_x = get_plotting_def(pd[0].xvar,'gas')
+                plotting_y = get_plotting_def(pd[0].yvar,'gas')
+            plotting_z = get_plotting_def(field[ipd],'gas')
             ax[i,j].set_xlabel(plotting_x['label'],fontsize=18)
             ax[i,j].xaxis.set_ticks_position('both')
             ax[i,j].yaxis.set_ticks_position('left')
@@ -1053,9 +1054,9 @@ def plot_compare_stacked_histogram_hydro(pds,weights,field,name,weightvar='cumul
 
             
             if doflows or do_sf:
-                code_units_x = get_code_units(pd[0][0].xvar)
+                code_units_x = get_code_units(pd[0][0].xvar,'gas')
             else:
-                code_units_x = get_code_units(pd[0].xvar)
+                code_units_x = get_code_units(pd[0].xvar,'gas')
 
             z = np.zeros((100,100))
             sim_z = np.zeros(len(pd_weight))
@@ -1071,10 +1072,10 @@ def plot_compare_stacked_histogram_hydro(pds,weights,field,name,weightvar='cumul
                 x = temp_pd.xdata[0]
                 print(x)
                 x = x.in_units(plotting_x['units'])
-                code_units_y = get_code_units(temp_pd.yvar)
+                code_units_y = get_code_units(temp_pd.yvar,'gas')
                 y = temp_pd.ydata[0]
                 y = y.in_units(plotting_y['units'])
-                code_units_z = get_code_units(field[ipd])
+                code_units_z = get_code_units(field[ipd],'gas')
                 XX,YY = np.meshgrid(x,y)
                 ztemp = np.array(temp_pd.zdata[field_indexes[ipd][w]][:,:,weight_indexes[ipd][w],0].d,order='F')
                 ztemp = np.nan_to_num(ztemp, nan=0)
