@@ -3,11 +3,15 @@ OZYPATH = os.path.realpath(__file__).split('/__init__.py')[0]
 AMRPATH = os.path.join(OZYPATH,'amr')
 PARTPATH = os.path.join(OZYPATH,'part')
 VISPATH = os.path.join(OZYPATH,'visualisation')
+HMUTILSPATH = os.path.join(OZYPATH,'HaloFinder')
+TMUTILSPATH = os.path.join(OZYPATH,'TreeMaker')
 import sys
 sys.path.append(OZYPATH)
 sys.path.append(AMRPATH)
 sys.path.append(PARTPATH)
 sys.path.append(VISPATH)
+sys.path.append(HMUTILSPATH)
+sys.path.append(TMUTILSPATH)
 
 from ozy.loader import load
 from ozy.main import Snapshot, CosmoSnapshot

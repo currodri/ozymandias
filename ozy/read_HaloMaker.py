@@ -40,21 +40,12 @@ def read_HM(obj, grouptype):
     if not os.path.exists(file_route):
         return
     
-    # If it does exist, find the cleaned version, if that option is used.
-    clean_route = sim_folder + haloM_folder + 'clean_' + read_file
-    if os.path.exists(clean_route) and obj.clean_brickfile:
-        file_route = clean_route
-    elif obj.clean_brickfile:
-        clean_up_done = auto_cleanHM(sim_folder, haloM_folder)
-        if clean_up_done:
-            file_route = clean_route
-    # Override if its a galaxy, since we need particles for progen search
-    if grouptype == 'galaxy':
-        file_route = sim_folder + haloM_folder + read_file
     # BEGIN - Open file to be read.
+    file_route = sim_folder + haloM_folder + read_file
     HMfile = open(file_route, 'rb')
     
     # Reading header...
+    print(HMfile)
     nbodies = np.fromfile(file=HMfile, dtype=np.int32, count=3)
     nbodies = nbodies[1]
     realvals = np.fromfile(file=HMfile, dtype=np.float32, count=12)
@@ -62,9 +53,11 @@ def read_HM(obj, grouptype):
     aexp = realvals[4]
     omega_t = realvals[7]
     age_univ = realvals[10]
+    
     nhalos = np.fromfile(file=HMfile, dtype=np.int32, count=4)
     nb_of_halos = nhalos[1]
     nb_of_subhalos = nhalos[2]
+    print(massp,aexp,omega_t,age_univ,nb_of_halos,nb_of_subhalos)
     
     print( "Number of halos in output: " + str(nb_of_halos))
     print( "Number of subhalos in output: " + str(nb_of_subhalos))
@@ -77,10 +70,14 @@ def read_HM(obj, grouptype):
         new_group = create_new_group(obj, grouptype)
         halo1 = np.fromfile(file=HMfile, dtype=np.int32, count=3)
         new_group.npart = int(halo1[1])
+        print("Reading halo %d with %d particles" % (i, new_group.npart))
         if grouptype == 'halo':
             new_group.ndm = new_group.npart
-        # TODO: Allow particle data to be store for each structure. 
-        if not os.path.isfile(clean_route) or grouptype == 'galaxy':
+            print("Reading halo %d with %d (%d) particles" % (i, new_group.ndm,new_group.npart))
+            ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
+            new_group.dmlist = np.fromfile(file=HMfile, dtype=np.int32, count=new_group.npart)
+            ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
+        elif grouptype == 'galaxy':
             ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
             new_group.slist = np.fromfile(file=HMfile, dtype=np.int32, count=new_group.npart)
             ignore = np.fromfile(file=HMfile, dtype=np.int32, count=1)
@@ -90,6 +87,7 @@ def read_HM(obj, grouptype):
         # Halo integers.
         tempR = np.fromfile(file=HMfile, dtype=np.int32, count=3)
         new_group.ID=tempR[1]
+        new_group._index=i
         tempR = np.fromfile(file=HMfile, dtype=np.int32, count=3)
         halo_tstep=tempR[1]
         tempR = np.fromfile(file=HMfile, dtype=np.int32, count=7)

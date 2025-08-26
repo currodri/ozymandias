@@ -20,24 +20,22 @@
 
 module part_integrator
     use local
+    use geometrical_regions
     use io_ramses
     use filtering
     use cosmology
+    use stats_utils
 
     type part_region_attrs
-        integer :: nvars
+        integer :: nvars=1,nwvars=1
         character(128),dimension(:),allocatable :: varnames
-        integer :: nwvars
         character(128),dimension(:),allocatable :: wvarnames
-        real(dbl),dimension(:,:,:),allocatable :: data
-        integer(irg) :: ndm,nstar,nids,ncont
-#ifndef LONGINT
-        integer(irg), dimension(:),allocatable :: ids
-        integer(irg), dimension(:),allocatable :: cont_ids
-#else
-        integer(ilg), dimension(:),allocatable :: ids
-        integer(ilg), dimension(:),allocatable :: cont_ids
-#endif
+        integer :: nfilter=1,nsubs=0
+        type(filter_part),dimension(:),allocatable :: filters
+        type(region),dimension(:),allocatable :: subs
+        type(pdf_handler) :: result
+        type(part_var),dimension(:),allocatable :: vars
+        type(part_var),dimension(:),allocatable :: wvars
     end type part_region_attrs
 
     contains
@@ -48,52 +46,164 @@ module part_integrator
 
         if (.not.allocated(attrs%varnames)) allocate(attrs%varnames(attrs%nvars))
         if (.not.allocated(attrs%wvarnames)) allocate(attrs%wvarnames(attrs%nwvars))
-        if (.not.allocated(attrs%data)) allocate(attrs%data(attrs%nvars,attrs%nwvars,4))
+        if (.not.allocated(attrs%filters)) allocate(attrs%filters(attrs%nfilter))
+        if (.not.allocated(attrs%subs).and.attrs%nsubs>0) allocate(attrs%subs(attrs%nsubs))
+        if (.not.allocated(attrs%vars)) allocate(attrs%vars(attrs%nvars))
+        if (.not.allocated(attrs%wvars)) allocate(attrs%wvars(attrs%nwvars))
     end subroutine allocate_part_regions_attrs
 
-    subroutine extract_data(reg,part,attrs)
+    subroutine extract_data(reg,part_data_d,part_data_i,part_data_b,attrs,ifilt,trans_matrix)
         use vectors
         use geometrical_regions
         implicit none
 
         ! Input/output variables
         type(region),intent(in) :: reg
-        type(particle),intent(in) :: part
+        real(dbl),dimension(1:sim%nvar_part_d),intent(in) :: part_data_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:sim%nvar_part_i),intent(in) :: part_data_i
+#else
+        integer(irg),dimension(1:sim%nvar_part_i),intent(in) :: part_data_i
+#endif
+        integer(1),dimension(1:sim%nvar_part_b),intent(in) :: part_data_b
+        integer, intent(in) :: ifilt
         type(part_region_attrs),intent(inout) :: attrs
+        real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
 
         ! Local variables
-        integer :: i,j,index
-        real(dbl) :: ytemp,wtemp
-        character(128) :: tempvar,vartype,varname
+        integer :: i,j,index,ibin
+        real(dbl) :: ytemp,wtemp,ytemp2
+#ifdef LONGINT
+        integer(ilg) :: wtemp_i,ytemp_i
+#else
+        integer(irg) :: wtemp_i,ytemp_i
+#endif
+        integer(1) :: wtemp_b,ytemp_b
+        type(vector) :: dcell
 
-        varloop: do i=1,attrs%nvars
-            ! Get variable
-            call getpartvalue(reg,part,attrs%varnames(i),ytemp)
-            if (ytemp/=0D0) then
-                wvarloop: do j=1,attrs%nwvars
-                    tempvar = TRIM(attrs%wvarnames(j))
-                    index = scan(tempvar,'/')
-                    vartype = tempvar(1:index-1)
-                    varname = tempvar(index+1:)
-                    wtemp = 0D0
+        ! TODO: dcell is not used. Think about the meaning of dcell in an integration
+
+        varloop: do i=1,attrs%result%nvars
+            if (attrs%result%do_binning(i)) then
+                ! Get variable
+                call findbinpos_part(reg,dcell,part_data_d,part_data_i,part_data_b,&
+                                    & ibin,ytemp,trans_matrix,attrs%result%scaletype(i),&
+                                    & attrs%result%nbins,attrs%result%bins(:,i),&
+                                    & attrs%result%linthresh(i),attrs%result%zero_index(i),&
+                                    & attrs%vars(i))
+                if (ytemp.eq.0d0) cycle
+                ! Get min and max
+                if (attrs%result%minv(i,ifilt).eq.0D0) then
+                    attrs%result%minv(i,ifilt) = ytemp ! Just to make sure that the initial min is not zero
+                else
+                    attrs%result%minv(i,ifilt) = min(ytemp,attrs%result%minv(i,ifilt))    ! Min value
+                endif
+                attrs%result%maxv(i,ifilt) = max(ytemp,attrs%result%maxv(i,ifilt))    ! Max value
+                attrs%result%nvalues(i,ifilt) = attrs%result%nvalues(i,ifilt) + 1
+                
+                if (ibin.gt.0) then
+                    wvarloop1: do j=1,attrs%result%nwvars
+                        ! Get weights
+                        ytemp2 = ytemp
+                        if (TRIM(attrs%result%wvarnames(j))=='counts') then
+                            wtemp =  1D0
+                        else if (TRIM(attrs%result%wvarnames(j))=='cumulative') then
+                            wtemp = ytemp2
+                        else
+                            if (attrs%wvars(j)%vartype == 1) then
+                                wtemp = attrs%wvars(j)%myfunction_d(amr,sim,attrs%wvars(j),reg,dcell,&
+                                                                & part_data_d,part_data_i,part_data_b)
+                            else if (attrs%wvars(j)%vartype == 2) then
+                                wtemp_i = attrs%wvars(j)%myfunction_i(amr,sim,attrs%wvars(j),reg,dcell,&
+                                                                & part_data_d,part_data_i,part_data_b)
+                                wtemp = real(wtemp_i,kind=dbl)
+                            else if (attrs%wvars(j)%vartype == 3) then
+                                wtemp_b = attrs%wvars(j)%myfunction_b(amr,sim,attrs%wvars(j),reg,dcell,&
+                                                                & part_data_d,part_data_i,part_data_b)
+                                wtemp = real(wtemp_b,kind=dbl)
+                            else
+                                write(*,*)'Error: unknown variable type in extract_data'
+                                stop
+                            end if
+                        endif
+                        
+                        ! Save to PDFs
+                        attrs%result%heights(i,ifilt,j,ibin) = attrs%result%heights(i,ifilt,j,ibin) + wtemp ! Weight to the PDF bin
+                        attrs%result%totweights(i,ifilt,j) = attrs%result%totweights(i,ifilt,j) + wtemp       ! Weight
+
+                        ! Now do it for the case of no binning (old integration method)
+                        ! Get weights
+                        if (TRIM(attrs%result%wvarnames(j))=='counts') then
+                            wtemp =  1D0
+                            ytemp2 = 1D0
+                        else if (TRIM(attrs%result%wvarnames(j))=='cumulative') then
+                            wtemp = 1D0
+                        endif
+                        
+                        ! Save to attrs
+                        attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) + ytemp2*wtemp ! Value (weighted or not)
+                        attrs%result%total(i,ifilt,j,2) = attrs%result%total(i,ifilt,j,2) + wtemp       ! Weight
+                    end do wvarloop1
+                else
+                    attrs%result%nout(i,ifilt) = attrs%result%nout(i,ifilt) + 1
+                end if
+            else
+                ! Get variable
+                if (attrs%vars(i)%vartype == 1) then
+                    ytemp = attrs%vars(i)%myfunction_d(amr,sim,attrs%vars(i),reg,dcell,&
+                                                        & part_data_d,part_data_i,part_data_b)
+                else if (attrs%vars(i)%vartype == 2) then
+                    ytemp_i = attrs%vars(i)%myfunction_i(amr,sim,attrs%vars(i),reg,dcell,&
+                                                        & part_data_d,part_data_i,part_data_b)
+                    ytemp = real(ytemp_i,kind=dbl)
+                else if (attrs%vars(i)%vartype == 3) then
+                    ytemp_b = attrs%vars(i)%myfunction_b(amr,sim,attrs%vars(i),reg,dcell,&
+                                                        & part_data_d,part_data_i,part_data_b)
+                    ytemp = real(ytemp_b,kind=dbl)
+                else
+                    write(*,*)'Error: unknown variable type in extract_data'
+                    stop
+                end if
+                ! Get min and max
+                if (attrs%result%minv(i,ifilt).eq.0D0) then
+                    attrs%result%minv(i,ifilt) = ytemp ! Just to make sure that the initial min is not zero
+                else
+                    attrs%result%minv(i,ifilt) = min(ytemp,attrs%result%minv(i,ifilt))    ! Min value
+                endif
+                attrs%result%maxv(i,ifilt) = max(ytemp,attrs%result%maxv(i,ifilt))    ! Max value
+                attrs%result%nvalues(i,ifilt) = attrs%result%nvalues(i,ifilt) + 1
+
+                wvarloop2: do j=1,attrs%result%nwvars
                     ! Get weights
-                    if (varname=='counts'.or.varname=='cumulative') then
+                    ytemp2 = ytemp
+                    if (TRIM(attrs%result%wvarnames(j))=='counts') then
+                        wtemp =  1D0
+                        ytemp2 = 1D0
+                    else if (TRIM(attrs%result%wvarnames(j))=='cumulative') then
                         wtemp = 1D0
                     else
-                        call getpartvalue(reg,part,attrs%wvarnames(j),wtemp)
+                        if (attrs%wvars(j)%vartype == 1) then
+                            wtemp = attrs%wvars(j)%myfunction_d(amr,sim,attrs%wvars(j),reg,dcell,&
+                                                                & part_data_d,part_data_i,part_data_b)
+                        else if (attrs%wvars(j)%vartype == 2) then
+                            wtemp_i = attrs%wvars(j)%myfunction_i(amr,sim,attrs%wvars(j),reg,dcell,&
+                                                                & part_data_d,part_data_i,part_data_b)
+                            wtemp = real(wtemp_i,kind=dbl)
+                        else if (attrs%wvars(j)%vartype == 3) then
+                            wtemp_b = attrs%wvars(j)%myfunction_b(amr,sim,attrs%wvars(j),reg,dcell,&
+                                                                & part_data_d,part_data_i,part_data_b)
+                            wtemp = real(wtemp_b,kind=dbl)
+                        else
+                            write(*,*)'Error: unknown variable type in extract_data'
+                            stop
+                        end if
                     endif
+                    
                     ! Save to attrs
-                    attrs%data(i,j,1) = attrs%data(i,j,1) + ytemp*wtemp ! Value (weighted or not)
-                    if (attrs%data(i,j,2).eq.0D0) then
-                        attrs%data(i,j,2) = ytemp ! Just to make sure that the initial min is not zero
-                    else
-                        attrs%data(i,j,2) = min(ytemp,attrs%data(i,j,2))    ! Min value
-                    endif
-                    attrs%data(i,j,3) = max(ytemp,attrs%data(i,j,3))    ! Max value
-                    attrs%data(i,j,4) = attrs%data(i,j,4) + wtemp       ! Weight
-
-                end do wvarloop
-            endif
+                    attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) + ytemp2*wtemp ! Value (weighted or not)
+                    attrs%result%total(i,ifilt,j,2) = attrs%result%total(i,ifilt,j,2) + wtemp       ! Weight
+                end do wvarloop2
+            end if
         end do varloop
 
     end subroutine extract_data
@@ -105,34 +215,45 @@ module part_integrator
         type(part_region_attrs),intent(inout) :: attrs
 
         ! Local variable
-        integer :: i,j,index,index2,indexw
-        character(128) :: tempvar,vartype,varname,sfrstr
-        character(128) :: tempwvar,wvartype,wvarname
+        integer :: i,j,index2,ifilt
+        character(128) :: varname,sfrstr,wvarname
         real(dbl) :: sfrind
 
-        varloop: do i=1,attrs%nvars
-            tempvar = TRIM(attrs%varnames(i))
-            index = scan(tempvar,'/')
-            vartype = tempvar(1:index-1)
-            varname = tempvar(index+1:)
-            index2 = scan(varname,'_')
-            wvarloop: do j=1,attrs%nwvars
-                tempwvar = TRIM(attrs%wvarnames(j))
-                indexw = scan(tempwvar,'/')
-                wvartype = tempwvar(1:indexw-1)
-                wvarname = tempwvar(indexw+1:)
-                if (wvarname .eq. 'cumulative' .and. index2.ne.0 .and. varname(1:index2-1).eq.'sfr') then
-                    sfrstr = varname(index2+1:)
-                    read(sfrstr,'(F10.0)') sfrind
-                    attrs%data(i,j,1) = attrs%data(i,j,1) * sim%unit_m/ (sfrind*1D6*2D33) ! We now have it in Msun/yr
-                elseif (wvarname /= 'cumulative' .and. index2.eq.0) then
-                    attrs%data(i,j,1) = attrs%data(i,j,1) / attrs%data(i,j,4)
-                endif
-            end do wvarloop
-        end do varloop
+        filterloop: do ifilt=1,attrs%nfilter
+            varloop: do i=1,attrs%result%nvars
+                varname = TRIM(attrs%result%varname(i))
+                index2 = scan(varname,'_')
+                if (attrs%result%do_binning(i)) then
+                    wvarloop1: do j=1,attrs%result%nwvars
+                        wvarname = TRIM(attrs%result%wvarnames(j))
+                        if (trim(wvarname) .eq. 'cumulative' .and. index2.ne.0 .and. trim(varname(1:index2-1)).eq.'sfr') then
+                            sfrstr = varname(index2+1:)
+                            read(sfrstr,'(F10.0)') sfrind
+                            attrs%result%heights(i,ifilt,j,:) = attrs%result%heights(i,ifilt,j,:) / attrs%result%totweights(i,ifilt,j) * sim%unit_m/ (sfrind*1D6*2D33) ! We now have it in Msun/yr
+                            attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) / attrs%result%total(i,ifilt,j,2) * sim%unit_m/ (sfrind*1D6*2D33) ! We now have it in Msun/yr
+                        elseif (trim(wvarname) /= 'cumulative' .and. index2.eq.0) then
+                            attrs%result%heights(i,ifilt,j,:) = attrs%result%heights(i,ifilt,j,:) / attrs%result%totweights(i,ifilt,j)
+                            attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) / attrs%result%total(i,ifilt,j,2)
+                        endif
+                    end do wvarloop1
+                else
+                    wvarloop2: do j=1,attrs%result%nwvars
+                        wvarname = TRIM(attrs%result%wvarnames(j))
+                        if (trim(wvarname) .eq. 'cumulative' .and. index2.ne.0 .and. trim(varname(1:index2-1)).eq.'sfr') then
+                            sfrstr = varname(index2+1:)
+                            read(sfrstr,'(F10.0)') sfrind
+                            attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) * sim%unit_m/ (sfrind*1D6*2D33) ! We now have it in Msun/yr
+                        elseif (trim(wvarname) /= 'cumulative' .and. index2.eq.0) then
+                            attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) / attrs%result%total(i,ifilt,j,2)
+                        endif
+                    end do wvarloop2
+                end if
+            end do varloop
+        end do filterloop
     end subroutine renormalise
 
-    subroutine integrate_region(repository,reg,filt,attrs,get_ids,check_contamination)
+    subroutine integrate_region(repository,reg,attrs,&
+                                &part_dict,part_vtypes)
         use utils, only:quick_sort_dp
         use vectors
         use coordinate_systems
@@ -142,71 +263,129 @@ module part_integrator
         ! Input/output variables
         character(128),intent(in) :: repository
         type(region),intent(inout) :: reg
-        type(filter),intent(in) :: filt
         type(part_region_attrs),intent(inout) :: attrs
-        logical,intent(in),optional :: get_ids
-        logical,intent(in),optional :: check_contamination
+        type(dictf90),intent(in),optional :: part_dict,part_vtypes
 
         ! Specific variables for this subroutine
-        logical :: ok_part,ok_filter
+        logical :: ok_part,ok_filter,ok_sub
         integer :: roterr
         integer :: i,j,k
-        integer :: ipos,icpu,binpos
+        integer :: ipos,icpu,binpos,ifilt,isub
         integer :: npart,npart2,nstar,inpart=0
+        integer :: npart_selected=0,npart_sub=0
         integer :: ncpu2,ndim2
         real(dbl) :: distance
         real(dbl),dimension(1:3,1:3) :: trans_matrix
         character(5) :: nchar,ncharcpu
         character(6) :: ptype
         character(128) :: nomfich
-        type(vector) :: xtemp,vtemp
-        type(particle) :: part
+        type(vector) :: xtemp,vtemp,dcell
 #ifndef LONGINT
-        integer(irg),dimension(:),allocatable :: id
+        integer(irg),dimension(:,:),allocatable :: part_data_i
 #else
-        integer(ilg),dimension(:),allocatable :: id
+        integer(ilg),dimension(:,:),allocatable :: part_data_i
 #endif
-#ifndef IMASS
-        integer(1),dimension(:), allocatable :: part_tags
-#endif
-        real(dbl),dimension(:),allocatable :: m,age,met,imass
+        real(dbl),dimension(:,:),allocatable :: part_data_d
+        integer(1),dimension(:,:),allocatable :: part_data_b
         real(dbl),dimension(:,:),allocatable :: x,v
+        integer,dimension(:),allocatable :: npart_filtered
 
-        integer :: count=0
-        integer :: nmasscont=0
-        integer :: npartcont=0
-        real(dbl) :: ptmassmin=1d0,ptmassmax=0d0
-        real(dbl) :: masshr=0d0,masslr=0d0
-        real(dbl),dimension(1:100) :: massresbins=0d0
-        integer,dimension(1:100) :: order=0
+        integer :: ii
+        integer :: ivx,ivy,ivz
 
-#ifdef LONGINT
-        write(*,*) 'Using LONGINT for particle IDs'
-#endif
+        ! Intialise parameters of the AMR structure and simulation attributes
+        call init_amr_read(repository)
+        amr%lmax = amr%nlevelmax
+
+        ! Obtain details of the particle variables stored
+        call read_partfile_descriptor(repository)
+
+        ! Compute the Hilbert curve
+        call get_cpu_map(reg)
+
+        if (attrs%nsubs>0 .and. verbose) write(*,*)'Exluding substructures: ',attrs%nsubs
+        if (verbose) write(*,*)'ncpu_read:',amr%ncpu_read
+
+        ! Set up the part variables quicklook tools
+        if (present(part_dict).and.present(part_vtypes)) then
+            ! If the user provides their own particle dictionary,
+            ! use that one instead of the automatic from the
+            ! particle_file_descriptor.txt (RAMSES)
+            call get_partvar_tools(part_dict,part_vtypes,attrs%nvars,&
+                                    &attrs%varnames,attrs%vars)
+
+            ! Do the same for the weight variables
+            call get_partvar_tools(part_dict,part_vtypes,attrs%nwvars,&
+                                    &attrs%wvarnames,attrs%wvars)
+            
+            ! Do it for the filters
+            do ii=1,attrs%nfilter
+                call get_filter_part_tools(part_dict,part_vtypes,attrs%filters(ii))
+            end do
+
+            ! We always need the indexes od the velocities to perform rotation
+            ivx = part_dict%get('velocity_x')
+            ivy = part_dict%get('velocity_y')
+            ivz = part_dict%get('velocity_z')
+
+            ! If there exists a particle_file_descriptor.txt, make sure
+            ! that the provided part_vtype is consistent with that one
+            if (sim%isthere_part_descriptor) then
+                do ii = 1, sim%nvar_part
+                    if (sim%part_var_types(ii) /= part_vtypes%get(part_vtypes%keys(ii))) then
+                        write(*,*)'Error: Provided particle dictionary is not consistent with the particle_file_descriptor.txt'
+                        write(*,*)'sim%part_var_types: ',sim%part_var_types
+                        write(*,*)sim%part_var_types(ii), part_vtypes%get(part_vtypes%keys(ii))
+                        stop
+                    end if
+                end do
+            end if
+
+            !  Since all its alright, we just set the partIDs and partvar_types to the
+            ! ones provided by the user
+            partIDs = part_dict
+            partvar_types = part_vtypes
+
+            if (verbose) then
+                write(*,*) 'Using particle dictionary provided by the user'
+                write(*,*) 'Number of variables: ',attrs%nvars
+                write(*,*) 'Number of weight variables: ',attrs%nwvars
+                write(*,*) 'Number of filters: ',attrs%nfilter
+
+                do ii = 1, attrs%nvars
+                    write(*,*) 'Variable ',ii,' name: ',attrs%varnames(ii)
+                    write(*,*) 'Variable ',ii,' type: ',attrs%vars(ii)%vartype
+                end do
+                do ii = 1, attrs%nwvars
+                    write(*,*) 'Weight variable ',ii,' name: ',attrs%wvarnames(ii)
+                    write(*,*) 'Weight variable ',ii,' type: ',attrs%wvars(ii)%vartype
+                end do
+            end if
+        else
+            ! If the user does not provide a dictionary, we just use the one
+            ! from the particle_file_descriptor.txt (RAMSES)
+            call get_partvar_tools(partIDs,partvar_types,attrs%nvars,&
+                                    &attrs%varnames,attrs%vars)
+            
+            ! Now for the weight variables
+            call get_partvar_tools(partIDs,partvar_types,attrs%nwvars,&
+                                    &attrs%wvarnames,attrs%wvars)
+            ! And for the filters
+            do ii=1,attrs%nfilter
+                call get_filter_part_tools(partIDs,partvar_types,attrs%filters(ii))
+            end do
+            ! We always need the indexes od the velocities to perform rotation
+            ivx = partIDs%get('velocity_x')
+            ivy = partIDs%get('velocity_y')
+            ivz = partIDs%get('velocity_z')
+        end if
+
 #ifndef IMASS
         if (sim%eta_sn .eq. -1D0) then
             write(*,*)': eta_sn=-1 and not IMASS --> should set this up!'
             stop
         end if
 #endif
-        ! Obtain details of the hydro variables stored
-        call read_hydrofile_descriptor(repository)
-
-        ! Initialise parameters of the AMR structure and simulation attributes
-        call init_amr_read(repository)
-        amr%lmax = amr%nlevelmax
-
-        ! Check if particle data uses family
-        if (sim%dm .and. sim%hydro) call check_families(repository)
-
-        ! Compute the Hilbert curve
-        call get_cpu_map(reg)
-        write(*,*)'ncpu_read:',amr%ncpu_read
-
-        ! Just make sure that initial values are zero
-        attrs%data = 0D0
-        attrs%nstar = 0
-        attrs%ndm = 0
 
         ! Compute rotation matrix
         trans_matrix = 0D0
@@ -229,6 +408,8 @@ module part_integrator
         ipos = INDEX(repository,'output_')
         nchar = repository(ipos+7:ipos+13)
         npart = 0
+        allocate(npart_filtered(1:attrs%nfilter))
+        npart_filtered = 0
         do k=1,amr%ncpu_read
             icpu = amr%cpu_list(k)
             call title(icpu,ncharcpu)
@@ -243,26 +424,9 @@ module part_integrator
             close(1)
             npart=npart+npart2
         end do
-        write(*,*)'Found ',npart,' particles.'
-        if(nstar>0)then
+        if (verbose) write(*,*)'Found ',npart,' particles.'
+        if(nstar>0.and.verbose)then
             write(*,*)'Found ',nstar,' star particles.'
-        endif
-
-        ! If we're asked to get particle IDs, allocate array with maximum number of particles
-        ! and initiliase to zero
-        if (present(get_ids) .and. get_ids) then
-            allocate(attrs%ids(1:npart))
-            attrs%ids = 0
-            attrs%nids = npart
-        endif
-
-        ! If we're asked to check contamination, we also need to save the IDs
-        ! of the low resolution particles
-        if (present(get_ids) .and. get_ids .and. &
-            & present(check_contamination) .and. check_contamination) then
-            allocate(attrs%cont_ids(1:npart))
-            attrs%cont_ids = 0
-            attrs%ncont = 0
         endif
 
         ! Compute binned variables
@@ -279,147 +443,103 @@ module part_integrator
             read(1)
             read(1)
             read(1)
-            allocate(m(1:npart2))
-            if(nstar>0)then
-                allocate(age(1:npart2))
-                allocate(id(1:npart2))
-                allocate(met(1:npart2))
-                allocate(imass(1:npart2))
-#ifndef IMASS
-                allocate(part_tags(1:npart2))
-#endif
-            endif
-            if (present(get_ids) .and. get_ids .and. (.not. allocated(id))) allocate(id(1:npart2))
-            allocate(x(1:npart2,1:ndim2))
-            allocate(v(1:npart2,1:ndim2))
 
-            ! Read position
-            do i=1,amr%ndim
-                read(1)m
-                x(1:npart2,i) = m/sim%boxlen
-            end do
+            ! 1. Allocate particle data arrays
+            allocate(part_data_d(sim%nvar_part_d,1:npart2))
+            allocate(part_data_b(sim%nvar_part_b,1:npart2))
+            allocate(part_data_i(sim%nvar_part_i,1:npart2))
 
-            ! Read velocity
-            do i=1,amr%ndim
-                read(1)m
-                v(1:npart2,i) = m
-            end do
+            allocate(x(1:npart2,1:3))
+            allocate(v(1:npart2,1:3))
 
-            ! Read mass
-            read(1)m
-            if (nstar>0) then
-                read(1)id
-                read(1) ! Skip level
-                if (sim%family) then
-                    read(1) ! Skip family
-#ifndef IMASS
-                    read(1)part_tags
-#else
-                    read(1) ! Skip tags
-#endif
+
+            ! 2. Loop over variables reading in the correct way as determined
+                    ! by the particle_file_descriptor.txt
+            do i = 1, sim%nvar_part
+                if (sim%part_var_types(i) == 1) then
+                    read(1) part_data_d(partIDs%get(partIDs%keys(i)),:)
+                elseif (sim%part_var_types(i) == 2) then
+                    read(1) part_data_i(partIDs%get(partIDs%keys(i)),:)
+                elseif (sim%part_var_types(i) == 3) then
+                    read(1) part_data_b(partIDs%get(partIDs%keys(i)),:)
                 endif
-                read(1)age
-                read(1)met
-#ifdef IMASS
-                read(1)imass
-#endif
-            elseif (present(get_ids) .and. get_ids .and. nstar .eq. 0) then
-                read(1)id
-            endif
+            end do
             close(1)
+
+            ! 3. The particle position needs to be in units of the boxlen
+            x(:,1) = part_data_d(partIDs%get('x'),:) / sim%boxlen
+            if (amr%ndim > 1) x(:,2) = part_data_d(partIDs%get('y'),:) / sim%boxlen
+            if (amr%ndim > 2) x(:,3) = part_data_d(partIDs%get('z'),:) / sim%boxlen
+
+            ! 4. Save also the particle velocities so they can be rotated
+            v(:,1) = part_data_d(partIDs%get('velocity_x'),:)
+            if (amr%ndim > 1) v(:,2) = part_data_d(partIDs%get('velocity_y'),:)
+            if (amr%ndim > 2) v(:,3) = part_data_d(partIDs%get('velocity_z'),:)
+
 
             ! Get variable info for particles in the 
             ! region of interest
             partloop: do i=1,npart2
                 distance = 0D0
-                part%x = x(i,:)
-                part%v = v(i,:)
-                part%m = m(i)
-                if (nstar>0) then
-                    part%id = id(i)
-                    part%age = age(i)
-                    part%met = met(i)
-#ifdef IMASS
-                    part%imass = imass(i)
-#else
-                    part%imass = 0D0
-                    if (part_tags(i)==1) then
-                        part%imass = m(i)
-                    elseif (part_tags(i)==0.or.part_tags(i)==-1) then
-                        part%imass = m(i) / (1D0 - sim%eta_sn)
-                    end if
-#endif
-                elseif (present(get_ids) .and. get_ids) then
-                    part%id = id(i)
-                    part%age = 0D0
-                    part%met = 0D0
-                    part%imass = 0D0
-                else
-                    part%id = 0
-                    part%age = 0D0
-                    part%met = 0D0
-                    part%imass = 0D0
-                endif
-                ! Check if particle is inside the desired region
-                part%x = part%x - reg%centre
-                call rotate_vector(part%x,trans_matrix)
-                x(i,:) = part%x
+                xtemp = x(i,:)
+                xtemp = xtemp - reg%centre
+                x(i,:) = xtemp
                 call checkifinside(x(i,:),reg,ok_part,distance)
-                ok_filter = filter_particle(reg,filt,part)
-                ok_part = ok_part.and.ok_filter
+                xtemp = xtemp + reg%centre
+                x(i,:) = xtemp
+
+                ! If we are avoiding substructure, check whether we are safe
+                if (attrs%nsubs>0) then
+                    ok_sub = .true.
+                    do isub=1,attrs%nsubs
+                        ok_sub = ok_sub .and. filter_sub(attrs%subs(isub),x(i,:))
+                    end do
+                    if (.not.ok_sub) npart_sub = npart_sub + 1
+                    ok_part = ok_part .and. ok_sub
+                end if
                 if (ok_part) then
-                    if (present(get_ids) .and. get_ids) attrs%ids(inpart+i) = part%id
-                    call getparttype(part,ptype)
-                    if (present(check_contamination) .and. check_contamination &
-                        .and. ptype .eq. 'dm') then
-                        ptmassmin = min(part%m,ptmassmin)
-                        ptmassmax = max(part%m,ptmassmax)
-                        if (.not. any(massresbins == part%m)) then
-                            massresbins(nmasscont+1) = part%m
-                            nmasscont = nmasscont + 1
-                        endif
-                        if (part%m > ptmassmin) then
-                            npartcont = npartcont + 1
-                            if (present(get_ids) .and. get_ids) attrs%cont_ids(inpart+i) = part%id
-                            masslr = masslr + part%m
-                        else
-                            masshr = masshr + part%m
-                        endif
-                    endif
-                    if (ptype.eq.'dm') attrs%ndm = attrs%ndm + 1
-                    if (ptype.eq.'star') attrs%nstar = attrs%nstar + 1
-                    call rotate_vector(part%v,trans_matrix)
-                    call extract_data(reg,part,attrs)
+                    npart_selected = npart_selected + 1
+                    ! Rotate the particle velocity
+                    vtemp = v(i,:)
+                    vtemp = vtemp - reg%bulk_velocity
+                    call rotate_vector(vtemp,trans_matrix)
+
+                    ! Return the x array (now in boxlen units,
+                    ! rotated for the region axis and centered)
+                    xtemp = x(i,:)
+                    xtemp = xtemp - reg%centre
+                    call rotate_vector(xtemp,trans_matrix)
+                    part_data_d(partIDs%get('x'),i) = xtemp%x
+                    if (amr%ndim > 1) part_data_d(partIDs%get('y'),i) = xtemp%y
+                    if (amr%ndim > 2) part_data_d(partIDs%get('z'),i) = xtemp%z
+
+                    ! Return the velocity array (now rotated for the r
+                    ! region axis and bulk velocity-corrected)
+                    part_data_d(partIDs%get('velocity_x'),i) = vtemp%x
+                    if (amr%ndim > 1) part_data_d(partIDs%get('velocity_y'),i) = vtemp%y
+                    if (amr%ndim > 2) part_data_d(partIDs%get('velocity_z'),i) = vtemp%z
+
+                    filterloop: do ifilt=1,attrs%nfilter
+                        ok_filter = filter_particle(reg,attrs%filters(ifilt),dcell,&
+                                                &part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
+                        if (ok_filter) call extract_data(reg,part_data_d(:,i),part_data_i(:,i),&
+                                                        &part_data_b(:,i),attrs,ifilt,trans_matrix)
+                        if (ok_filter) npart_filtered(ifilt) = npart_filtered(ifilt) + 1
+                    end do filterloop  
                 endif
             end do partloop
-            deallocate(m,x,v)
-            if (allocated(id))deallocate(id)
-            if (nstar>0)deallocate(age,met,imass)
-#ifndef IMASS
-            if (nstar>0)deallocate(part_tags)
-#endif
+            deallocate(x,v,part_data_d,part_data_i,part_data_b)
             inpart = inpart + npart2
         end do cpuloop
 
         ! Finally, just renormalise for weighted quantities
         call renormalise(attrs)
-
-        ! If we want to check contamination, print
-        ! some global statistics
-        if (present(check_contamination) .and. check_contamination) then
-            write(*,*)'==== CONTAMINATION REPORT ===='
-            write(*,*)'>>> Total Mass:   ',masslr+masshr
-            write(*,*)'>>> % Mass in LR: ', masslr/(masslr+masshr)
-            write(*,*)'>>> # of LR:      ', npartcont
-            write(*,*)'>>> # of mass res:', nmasscont
-            if (nmasscont .gt. 0) then
-                call quick_sort_dp(massresbins(1:nmasscont),order(1:nmasscont),nmasscont)
-                write(*,*)'>>> Mass resolutions >>>'
-                do i=1,nmasscont
-                    write(*,*) massresbins(i)
-                end do
-            endif
-        endif
+        if (verbose) then
+            write(*,*)'Number of particles selected: ',npart_selected
+            write(*,*)'Number of particles in the region: ',inpart
+            write(*,*)'Number of particles filtered: ',npart_filtered
+            write(*,*)'Number of particles in substructure: ',npart_sub
+        end if
     end subroutine integrate_region
 
 end module part_integrator

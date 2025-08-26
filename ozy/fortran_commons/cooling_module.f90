@@ -115,7 +115,7 @@ module cooling_module
         precoeff=2d0*XH/(3d0*kBoltzmann)
     end subroutine read_cool
 
-    subroutine solve_cooling(nH,T2,zsolar,lambda,lambda_prime)
+    subroutine solve_net_cooling(nH,T2,zsolar,lambda,lambda_prime)
         ! nH [H/cc], T2 [T/mu in Kelvin], Zsolar [metallicity in Zsun]
         implicit none
         real(kind=8),intent(in)::nH,T2,zsolar
@@ -179,6 +179,117 @@ module cooling_module
 
 
         endif
+    end subroutine solve_net_cooling 
+
+    subroutine solve_cooling(nH,T2,zsolar,lambda,lambda_prime)
+        ! nH [H/cc], T2 [T/mu in Kelvin], Zsolar [metallicity in Zsun]
+        implicit none
+        real(kind=8),intent(in)::nH,T2,zsolar
+        real(kind=8),intent(out)::lambda,lambda_prime
+
+        integer::i_nH,i_T2
+        real(kind=8)::boost
+        real(kind=8)::facT,dlog_nH,dlog_T2
+        real(kind=8)::metal,cool,cool_com
+        real(kind=8)::metal_prime,cool_prime,cool_com_prime,wcool
+        real(kind=8)::fa,fb,fprimea,fprimeb,alpha,beta,gamma
+        real(kind=8)::rgt,lft,tau
+        real(kind=8)::facH,zzz
+
+        ! Compute radiation boost factor
+        if(self_shielding)then
+            boost=MAX(exp(-nH/0.01),1.0D-20)
+        else
+            boost=1.0
+        endif
+
+        ! Get the necessary values for the cell
+        dlog_nH = dble(ctable%n1-1)/(ctable%nH(ctable%n1)-ctable%nH(1))
+        dlog_T2 = dble(ctable%n2-1)/(ctable%T2(ctable%n2)-ctable%T2(1))
+        zzz = zsolar
+        facH = MIN(MAX(log10(nH/boost),ctable%nH(1)),ctable%nH(ctable%n1))
+        i_nH = MIN(MAX(int((facH-ctable%nH(1))*dlog_nH)+1,1),ctable%n1-1)
+        facT=log10(T2)
+        i_T2 = MIN(MAX(int((facT-ctable%T2(1))*dlog_T2)+1,1),ctable%n2-1)
+        tau = T2
+
+        if(facT.le.logT2max)then
+           ! Cooling
+           cool=10d0**(ctable%cool(i_nH,i_T2  ))
+           cool_prime=10d0**(ctable%cool_prime(i_nH,i_T2  ))
+
+           ! Compton cooling
+           cool_com=10d0**(ctable%cool_com(i_nH,i_T2  ))
+           cool_com_prime=10d0**(ctable%cool_com(i_nH,i_T2  ))
+
+           ! Metal cooling
+           metal=10d0**(ctable%metal(i_nH,i_T2  ))
+           metal_prime=10d0**(ctable%metal_prime(i_nH,i_T2  ))
+
+           ! Total cooling
+           lambda=cool+zzz*metal+cool_com/nH
+           lambda_prime=cool_prime+zzz*metal_prime+cool_com_prime/nH
+
+        else
+
+           lambda = 1.42*1d-27*sqrt(tau)*1.1
+           lambda_prime = lambda/2./tau
+
+
+        endif
     end subroutine solve_cooling 
+
+    subroutine solve_heating(nH,T2,zsolar,lambda,lambda_prime)
+        ! nH [H/cc], T2 [T/mu in Kelvin], Zsolar [metallicity in Zsun]
+        implicit none
+        real(kind=8),intent(in)::nH,T2,zsolar
+        real(kind=8),intent(out)::lambda,lambda_prime
+
+        integer::i_nH,i_T2
+        real(kind=8)::boost
+        real(kind=8)::facT,dlog_nH,dlog_T2
+        real(kind=8)::heat,heat_com
+        real(kind=8)::heat_prime,heat_com_prime,wcool
+        real(kind=8)::fa,fb,fprimea,fprimeb,alpha,beta,gamma
+        real(kind=8)::rgt,lft,tau
+        real(kind=8)::facH,zzz
+
+        ! Compute radiation boost factor
+        if(self_shielding)then
+            boost=MAX(exp(-nH/0.01),1.0D-20)
+        else
+            boost=1.0
+        endif
+
+        ! Get the necessary values for the cell
+        dlog_nH = dble(ctable%n1-1)/(ctable%nH(ctable%n1)-ctable%nH(1))
+        dlog_T2 = dble(ctable%n2-1)/(ctable%T2(ctable%n2)-ctable%T2(1))
+        zzz = zsolar
+        facH = MIN(MAX(log10(nH/boost),ctable%nH(1)),ctable%nH(ctable%n1))
+        i_nH = MIN(MAX(int((facH-ctable%nH(1))*dlog_nH)+1,1),ctable%n1-1)
+        facT=log10(T2)
+        i_T2 = MIN(MAX(int((facT-ctable%T2(1))*dlog_T2)+1,1),ctable%n2-1)
+        tau = T2
+
+        if(facT.le.logT2max)then
+           ! Heating
+           heat=10d0**(ctable%heat(i_nH,i_T2  ))
+           heat_prime=10d0**(ctable%heat_prime(i_nH,i_T2  ))
+
+           ! Compton heating
+           heat_com=10d0**(ctable%heat_com(i_nH,i_T2  ))
+           heat_com_prime=10d0**(ctable%heat_com_prime(i_nH,i_T2  ))
+
+           ! Total heating
+           lambda=heat+heat_com/nH
+           lambda_prime=heat_prime+heat_com_prime/nH
+
+        else
+
+           lambda = 1.42*1d-27*sqrt(tau)*1.1
+           lambda_prime = lambda/2./tau
+
+        endif
+    end subroutine solve_heating
 
 end module cooling_module

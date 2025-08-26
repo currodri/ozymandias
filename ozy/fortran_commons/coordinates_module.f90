@@ -202,9 +202,9 @@ module geometrical_regions
     type region
         character(128) :: name
         type(vector) ::      centre,axis,bulk_velocity
-        real(dbl)                ::       xmin,xmax,ymin,ymax,zmin,zmax
-        real(dbl)                ::       rmin,rmax
-        real(dbl)                ::       angle
+        real(dbl)                ::       xmin=0.0,xmax=1.0,ymin=0.0,ymax=1.0,zmin=0.0,zmax=1.0
+        real(dbl)                ::       rmin=0.0,rmax=1.0
+        real(dbl)                ::       angle=6.283185307179586
         character(128)          ::       criteria_name
     end type region
 

@@ -22,16 +22,21 @@ module stats_utils
     use constants
     use io_ramses
     use hydro_commons
+    use part_commons
 
     type pdf_handler
-        integer :: nbins,nwvars,nfilter
-        logical :: do_binning
-        character(128) :: varname,scaletype
-        real(dbl),dimension(:),allocatable :: maxv, minv
-        real(dbl),dimension(:),allocatable :: bins
-        real(dbl),dimension(:,:,:),allocatable :: heights
-        real(dbl),dimension(:,:),allocatable :: totweights
-        real(dbl),dimension(:,:,:),allocatable :: total
+        integer :: nbins,nvars,nwvars,nfilter
+        integer,dimension(:,:),allocatable :: nvalues,nout
+        integer,dimension(:),allocatable :: zero_index
+        logical,dimension(:),allocatable :: do_binning
+        character(128),dimension(:),allocatable :: varname,scaletype
+        character(128),dimension(:),allocatable :: wvarnames
+        real(dbl),dimension(:),allocatable :: linthresh
+        real(dbl),dimension(:,:),allocatable :: maxv, minv
+        real(dbl),dimension(:,:),allocatable :: bins
+        real(dbl),dimension(:,:,:,:),allocatable :: heights
+        real(dbl),dimension(:,:,:),allocatable :: totweights
+        real(dbl),dimension(:,:,:,:),allocatable :: total
     end type pdf_handler
 
 
@@ -41,21 +46,32 @@ module stats_utils
         implicit none
         type(pdf_handler),intent(inout) :: mypdf
 
-        if (.not.allocated(mypdf%maxv)) allocate(mypdf%maxv(1:mypdf%nfilter))
-        if (.not.allocated(mypdf%minv)) allocate(mypdf%minv(1:mypdf%nfilter))
-        if (.not.allocated(mypdf%bins)) allocate(mypdf%bins(0:mypdf%nbins))
-        if (.not.allocated(mypdf%heights)) allocate(mypdf%heights(1:mypdf%nfilter,1:mypdf%nwvars,1:mypdf%nbins))
-        if (.not.allocated(mypdf%totweights)) allocate(mypdf%totweights(1:mypdf%nfilter,1:mypdf%nwvars))
-        if (.not.allocated(mypdf%total)) allocate(mypdf%total(1:mypdf%nfilter,1:mypdf%nwvars,2))
-
+        if (.not.allocated(mypdf%do_binning)) allocate(mypdf%do_binning(1:mypdf%nvars))
+        if (.not.allocated(mypdf%maxv)) allocate(mypdf%maxv(1:mypdf%nvars,1:mypdf%nfilter))
+        if (.not.allocated(mypdf%minv)) allocate(mypdf%minv(1:mypdf%nvars,1:mypdf%nfilter))
+        if (.not.allocated(mypdf%bins)) allocate(mypdf%bins(0:mypdf%nbins,1:mypdf%nvars))
+        if (.not.allocated(mypdf%zero_index)) allocate(mypdf%zero_index(1:mypdf%nvars))
+        if (.not.allocated(mypdf%linthresh)) allocate(mypdf%linthresh(1:mypdf%nvars))
+        if (.not.allocated(mypdf%heights)) allocate(mypdf%heights(1:mypdf%nvars,1:mypdf%nfilter,1:mypdf%nwvars,1:mypdf%nbins))
+        if (.not.allocated(mypdf%wvarnames)) allocate(mypdf%wvarnames(mypdf%nwvars))
+        if (.not.allocated(mypdf%varname)) allocate(mypdf%varname(mypdf%nvars))
+        if (.not.allocated(mypdf%scaletype)) allocate(mypdf%scaletype(mypdf%nvars))
+        if (.not.allocated(mypdf%totweights)) allocate(mypdf%totweights(1:mypdf%nvars,1:mypdf%nfilter,1:mypdf%nwvars))
+        if (.not.allocated(mypdf%total)) allocate(mypdf%total(1:mypdf%nvars,1:mypdf%nfilter,1:mypdf%nwvars,2))
+        if (.not.allocated(mypdf%nvalues)) allocate(mypdf%nvalues(1:mypdf%nvars,1:mypdf%nfilter))
+        if (.not.allocated(mypdf%nout)) allocate(mypdf%nout(1:mypdf%nvars,1:mypdf%nfilter))
         ! Just make sure that initial values are zero
-        mypdf%do_binning = .true.
-        mypdf%maxv(:) = 0D0
-        mypdf%minv(:) = 0D0
-        mypdf%bins(:) = 0D0
-        mypdf%heights(:,:,:) = 0D0
-        mypdf%totweights(:,:) = 0D0
-        mypdf%total(:,:,:) = 0D0
+        mypdf%do_binning(:) = .true.
+        mypdf%maxv(:,:) = 0D0
+        mypdf%minv(:,:) = 0D0
+        mypdf%bins(:,:) = 0D0
+        mypdf%linthresh(:) = 0D0
+        mypdf%zero_index(:) = 0
+        mypdf%nvalues(:,:) = 0
+        mypdf%nout(:,:) = 0
+        mypdf%heights(:,:,:,:) = 0D0
+        mypdf%totweights(:,:,:) = 0D0
+        mypdf%total(:,:,:,:) = 0D0
     end subroutine allocate_pdf
 
     function makebins(reg,varname,nbins,scaletype)
@@ -122,12 +138,20 @@ module stats_utils
         case('total_coolingtime')
             do n=0,nbins
                 if (logscale) then
-                    makebins(n) = dble(n)*(log10(3.15D18/sim%unit_t)-log10(3.15D13/sim%unit_t))/dble(nbins) + log10(3.15D13/sim%unit_t)
+                    makebins(n) = dble(n)*(log10(3.15D20/sim%unit_t)-log10(3.15D11/sim%unit_t))/dble(nbins) + log10(3.15D11/sim%unit_t)
                 else
-                    makebins(n) = dble(n)*(3.15D18/sim%unit_t - 3.15D13/sim%unit_t)/dble(nbins) + 3.15D13/sim%unit_t
+                    makebins(n) = dble(n)*(3.15D20/sim%unit_t - 3.15D11/sim%unit_t)/dble(nbins) + 3.15D11/sim%unit_t
                 endif
             end do
         case('thermal_pressure')
+            do n=0,nbins
+                if (logscale) then
+                    makebins(n) = dble(n)*(log10(1D-9/sim%unit_p)-log10(1D-16/sim%unit_p))/dble(nbins) + log10(1D-16/sim%unit_p)
+                else
+                    makebins(n) = dble(n)*(1D-9/sim%unit_p - 1D-16/sim%unit_p)/dble(nbins) + 1D-16/sim%unit_p
+                endif
+            end do
+        case('cr_pressure')
             do n=0,nbins
                 if (logscale) then
                     makebins(n) = dble(n)*(log10(1D-9/sim%unit_p)-log10(1D-16/sim%unit_p))/dble(nbins) + log10(1D-16/sim%unit_p)
@@ -152,6 +176,14 @@ module stats_utils
                     makebins(n) = dble(n)*(pi + 0D0)/dble(nbins) - 0D0
                 endif
             end do
+        case('magnetic_magnitude')
+            do n=0,nbins
+                if (logscale) then
+                    makebins(n) = dble(n)*(log10(pi))/dble(nbins)
+                else
+                    makebins(n) = dble(n)*(pi + 0D0)/dble(nbins) - 0D0
+                endif
+            end do
         !TODO: Add more cases
         case default
             write(*,*)'Variable not supported for makebins: ',TRIM(varname)
@@ -162,7 +194,8 @@ module stats_utils
 
     subroutine findbinpos(reg,x,cvars,csons,csize,&
                             & ibin,value,trans_matrix,&
-                            & scaletype,nbins,bins,xvar,&
+                            & scaletype,nbins,bins,linthresh,&
+                            & zero_index,xvar,&
                             & gvars)
         use vectors
         use geometrical_regions
@@ -177,8 +210,10 @@ module stats_utils
         real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
         character(128),intent(in) :: scaletype
         integer,intent(in) :: nbins
+        real(dbl),intent(in) :: linthresh
+        integer,intent(in) :: zero_index
         real(dbl) :: origvalue
-        real(dbl),dimension(0:nbins) :: bins
+        real(dbl),dimension(0:nbins),intent(in) :: bins
         type(hydro_var),intent(in) :: xvar
         real(dbl),dimension(0:amr%twondim,1:4),optional,intent(in) :: gvars
 
@@ -190,12 +225,147 @@ module stats_utils
         end if
         origvalue = value
 
+        ! Make sure we are not out of the outer boundaries
+        if (trim(scaletype).eq.'log_even') then
+            value = log10(value)
+        end if
+        if (value .eq. bins(nbins)) then
+            ibin = nbins
+            value = origvalue
+            return
+        else if (value<bins(0).or.value>bins(nbins)) then
+            ibin = 0
+            value = origvalue
+            return
+        end if
+
+        value = origvalue
+
         ! Transform value depending how the bins are provided
         if (trim(scaletype).eq.'log_even') then
             value = log10(value)
             ibin = int(dble(nbins)*(value-bins(0))/(bins(nbins)-bins(0))) + 1
         else if (trim(scaletype).eq.'linear_even') then
             ibin = int(dble(nbins)*(value-bins(0))/(bins(nbins)-bins(0))) + 1
+        else if (trim(scaletype).eq.'symlog') then
+            if (value <= -linthresh) then
+                ! Negative logarithmic region
+                value = log10(-value)
+                ibin = -int(dble(zero_index-1) * (value - log10(-bins(0))) / (log10(-bins(0)) - log10(-bins(zero_index-1)))) + 1
+                ! print*,'ERROR',trim(vname),origvalue,value,zero_index,bins(0),bins(nbins),ibin,nbins
+                ! print*,'Negative ',trim(vname),10**value,ibin,bins(ibin:ibin+1),bins(0),bins(zero_index-1)
+            elseif (value > linthresh) then
+                ! Positive logarithmic region
+                value = log10(value)
+                ibin = int(dble(nbins - zero_index + 1) * (value - log10(bins(zero_index))) / (log10(bins(nbins)) - log10(bins(zero_index)))) + zero_index
+                ! print*,'Positive ',trim(vname),10**value,ibin,bins(ibin),bins(zero_index),bins(nbins)
+            else
+                ! Linear region around zero
+                ibin = zero_index
+                ! print*,'Linear ',trim(vname),value,ibin,bins(ibin)
+            endif
+        else
+            ibin = 1
+            do while (ibin .lt. nbins)
+                if (value .le. bins(ibin)) exit
+                ibin = ibin + 1
+            end do
+        end if
+
+        ! Last check
+        if (ibin < 0) ibin = 0
+
+        value = origvalue
+    end subroutine findbinpos
+
+    subroutine findbinpos_part(reg,dcell,part_data_d,&
+                            & part_data_i,part_data_b,&
+                            & ibin,value,trans_matrix,&
+                            & scaletype,nbins,bins,linthresh,&
+                            & zero_index,xvar)
+        use vectors
+        use geometrical_regions
+        implicit none
+        type(region),intent(in) :: reg
+        type(vector),intent(in) :: dcell
+        real(dbl),dimension(1:sim%nvar_part_d),intent(in) :: part_data_d
+#ifdef LONGINT
+        integer(ilg),dimension(1:sim%nvar_part_i),intent(in) :: part_data_i
+#else
+        integer(irg),dimension(1:sim%nvar_part_i),intent(in) :: part_data_i
+#endif
+        integer(1),dimension(1:sim%nvar_part_b),intent(in) :: part_data_b
+        integer,intent(inout) :: ibin
+        real(dbl),intent(inout) :: value
+#ifdef LONGINT
+        integer(ilg) :: value_i
+#else
+        integer(irg) :: value_i
+#endif
+        integer(1) :: value_b
+        real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
+        character(128),intent(in) :: scaletype
+        integer,intent(in) :: nbins
+        real(dbl),intent(in) :: linthresh
+        integer,intent(in) :: zero_index
+        real(dbl) :: origvalue
+        real(dbl),dimension(0:nbins) :: bins
+        type(part_var),intent(in) :: xvar
+
+        ! Get variable value
+        if (xvar%vartype==1) then
+            value = xvar%myfunction_d(amr,sim,xvar,reg,dcell,part_data_d,part_data_i,part_data_b)
+        else if (xvar%vartype==2) then
+            value_i = xvar%myfunction_i(amr,sim,xvar,reg,dcell,part_data_d,part_data_i,part_data_b)
+            value = real(value_i,kind=dbl)
+        else if (xvar%vartype==3) then
+            value_b = xvar%myfunction_b(amr,sim,xvar,reg,dcell,part_data_d,part_data_i,part_data_b)
+            value = real(value_b,kind=dbl)
+        else
+            write(*,*)'ERROR: Unknown variable type in findbinpos_part'
+            stop
+        end if
+        origvalue = value
+
+        ! Make sure we are not out of the outer boundaries
+        if (trim(scaletype).eq.'log_even') then
+            value = log10(value)
+        end if
+        if (value .eq. bins(nbins)) then
+            ibin = nbins
+            value = origvalue
+            return
+        else if (value<bins(0).or.value>bins(nbins)) then
+            ibin = 0
+            value = origvalue
+            return
+        end if
+
+        value = origvalue
+
+        ! Transform value depending how the bins are provided
+        if (trim(scaletype).eq.'log_even') then
+            value = log10(value)
+            ibin = int(dble(nbins)*(value-bins(0))/(bins(nbins)-bins(0))) + 1
+        else if (trim(scaletype).eq.'linear_even') then
+            ibin = int(dble(nbins)*(value-bins(0))/(bins(nbins)-bins(0))) + 1
+        else if (trim(scaletype).eq.'symlog') then
+            if (value <= -linthresh) then
+                ! Negative logarithmic region
+                value = log10(-value)
+                ibin = -int(dble(zero_index-1) * (value - log10(-bins(0))) / (log10(-bins(0)) - log10(-bins(zero_index-1)))) + 1
+                ! print*,'ERROR',trim(vname),origvalue,value,zero_index,bins(0),bins(nbins),ibin,nbins
+                ! print*,'Negative ',trim(vname),10**value,ibin,bins(ibin:ibin+1),bins(0),bins(zero_index-1)
+            elseif (value > linthresh) then
+                ! Positive logarithmic region
+                value = log10(value)
+                ibin = int(dble(nbins - zero_index + 1) * (value - log10(bins(zero_index))) / (log10(bins(nbins)) - log10(bins(zero_index)))) + zero_index
+                ! print*,'Positive ',trim(vname),10**value,ibin,bins(ibin),bins(zero_index),bins(nbins)
+            else
+                ! Linear region around zero
+                ibin = zero_index
+                ! print*,'Linear ',trim(vname),value,ibin,bins(ibin)
+            endif
         else
             ibin = 1
             do while (ibin .lt. nbins)
@@ -204,14 +374,9 @@ module stats_utils
             end do
         end if
         
-        ! Make sure we are not out of the outer boundaries
-        if (value .eq. bins(nbins)) then
-            ibin = nbins
-        else if (value<bins(0).or.value>bins(nbins)) then
-            ibin = 0
-        else if (ibin < 0) then
-            ibin = 0
-        end if
+        ! Last check
+        if (ibin < 0) ibin = 0
+
         value = origvalue
-    end subroutine findbinpos
+    end subroutine findbinpos_part
 end module stats_utils

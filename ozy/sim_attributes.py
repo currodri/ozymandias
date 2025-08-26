@@ -20,8 +20,15 @@ class SimulationAttributes(object):
         self.fullpath        = fullpath
         self.hubble_constant = obj._info['H0']
         self.boxsize = obj.quantity(obj._info['unit_l']*obj._info['boxlen'],'cm').to(obj.units['length'])
-        # TODO: Read this from simulation file. Right now for NUT:
-        self.zoom = True
+        # Get from the DM particle numbers whether or not this is a zoom simulation
+        self.zoom = False
+        if self.omega_matter!=1.0:
+            try:
+                ndm = obj._header['particle_counts']['dark_matter_particles']
+            except:
+                ndm = obj._header['particle_counts']['DM']
+            if ndm != (2**obj._info['levelmin'])**obj._info['ndim']:
+                self.zoom = True
         
         H0 = obj.quantity(self.hubble_constant * 3.24077929e-20, '1/s')
         Om_0 = obj._info['omega_m']
@@ -50,27 +57,77 @@ class SimulationAttributes(object):
 
         # Determine the type of physics included in this simulation
         self.physics = {'hydro':False,
+                        'metallicity':False,
                         'metals':False,
+                        'CO':False,
                         'magnetic':False,
                         'cr':False,
                         'rt':False,
                         'bh':False,
                         'AGN':False,
-                        'dust':False}
+                        'dust':False,
+                        'PAHs':False}
         
-        varIDs = part2.io_ramses.hydroID()
-        part2.io_ramses.retrieve_vars(self.fullpath,varIDs)
-        if varIDs.density != 0 and varIDs.vx != 0:
+        if obj.vardict.get('density') !=0 and obj.vardict.get('velocity_x') != 0:
             self.physics['hydro'] = True
-        if varIDs.metallicity != 0:
+        if obj.vardict.get('metallicity') != 0:
+            self.physics['metallicity'] = True
+        if obj.vardict.get('iron_fraction') != 0:
             self.physics['metals'] = True
-        if varIDs.blx != 0:
+        if obj.vardict.get('B_left_x') != 0:
             self.physics['magnetic'] = True
-        if varIDs.cr_pressure != 0:
+        if obj.vardict.get('cr_pressure') != 0:
             self.physics['cr'] = True
-        if varIDs.xhii != 0:
+        if obj.vardict.get('xHII') != 0:
             self.physics['rt'] = True
+        if obj.vardict.get('CSmall') != 0:
+            self.physics['dust'] = True
+        if obj.vardict.get('PAHSmall') or obj.vardict.get('PAH') != 0:
+            self.physics['PAHs'] = True
+        if obj.vardict.get('CO_fraction') != 0:
+            self.physics['CO'] = True
 
+        # Determine the type of numerics included in this simulation
+        self.numerics = {'families':False}
+
+        if obj.part_vardict.get('family') != 0:
+            self.numerics['families'] = True
+
+        # Determine what elements are included in this simulation
+        if self.physics['metals']:
+            self.elements = {'helium':False,
+                             'carbon':False,
+                             'nitrogen':False,
+                             'oxygen':False,
+                             'neon':False,
+                             'magnesium':False,
+                             'silicon':False,
+                             'sulfur':False,
+                             'iron':False,
+                             'calcium':False,
+                             'fluoride':False}
+            if obj.vardict.get('helium_fraction') != 0:
+                self.elements['helium'] = True
+            if obj.vardict.get('carbon_fraction') != 0:
+                self.elements['carbon'] = True
+            if obj.vardict.get('nitrogen_fraction') != 0:
+                self.elements['nitrogen'] = True
+            if obj.vardict.get('oxygen_fraction') != 0:
+                self.elements['oxygen'] = True
+            if obj.vardict.get('neon_fraction') != 0:
+                self.elements['neon'] = True
+            if obj.vardict.get('magnesium_fraction') != 0:
+                self.elements['magnesium'] = True
+            if obj.vardict.get('silicon_fraction') != 0:
+                self.elements['silicon'] = True
+            if obj.vardict.get('sulfur_fraction') != 0:
+                self.elements['sulfur'] = True
+            if obj.vardict.get('iron_fraction') != 0:
+                self.elements['iron'] = True
+            if obj.vardict.get('calcium_fraction') != 0:
+                self.elements['calcium'] = True
+            if obj.vardict.get('fluoride_fraction') != 0:
+                self.elements['fluoride'] = True
         
         
     def _serialise(self, obj, hd):
@@ -123,39 +180,3 @@ class SimulationAttributes(object):
                 self.physics[k] = v
         except:
             print('No physics details in this OZY file!')
-
-    def _update(self,obj,hd,variable='physics'):
-        if 'simulation_attributes' not in hd.keys():
-            print('WARNING: Simulation attributes not found in file.')
-            return
-        
-        if variable == 'physics':
-            # Determine the type of physics included in this simulation
-            self.physics = {'hydro':False,
-                            'metals':False,
-                            'magnetic':False,
-                            'cr':False,
-                            'rt':False,
-                            'bh':False,
-                            'AGN':False,
-                            'dust':False}
-            
-            varIDs = part2.io_ramses.hydroID()
-            part2.io_ramses.retrieve_vars(self.fullpath,varIDs)
-            if varIDs.density != 0 and varIDs.vx != 0:
-                self.physics['hydro'] = True
-            if varIDs.metallicity != 0:
-                self.physics['metals'] = True
-            if varIDs.blx != 0:
-                self.physics['magnetic'] = True
-            if varIDs.cr_pressure != 0:
-                self.physics['cr'] = True
-            if varIDs.xhii != 0:
-                self.physics['rt'] = True
-            
-            phyhdd = hd['simulation_attributes/physics']
-            for k,v in self.physics.items():
-                if k != 'namelist':
-                    phyhdd.attrs.create(k, v)
-        else:
-            print('This simulation attribute cannot be updated!')

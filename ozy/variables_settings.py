@@ -3,7 +3,14 @@ import swiftascmaps
 import seaborn as sns
 sns.set_theme(style="white")
 
-variables_ordering = {}
+MINIMUM_STARS_PER_GALAXY = 100
+MINIMUM_DM_PER_HALO      = 1000
+
+hydro_variables_ordering = {}
+
+part_variables_ordering = {}
+
+part_variables_type = {}
 
 geometrical_variables = dict(
         x = {'cmap': sns.color_palette("mako", as_cmap=True),
@@ -1760,7 +1767,7 @@ gravity_variables = dict(
     } 
 )
 
-raw_star_variables = dict(
+raw_part_variables = dict(
         mass = {'cmap':'gray',
                 'text_over':'white',
                 'label':r'$M_{*}$ [M$_{\odot}$]',
@@ -1797,23 +1804,384 @@ raw_star_variables = dict(
 
 )
 
-raw_dm_variables = dict(
-        mass = {'cmap':'cividis',
+derived_part_variables = dict(
+        v_sphere_r = {'cmap':sns.color_palette("icefire", as_cmap=True),
+                  'cmap_inflow':'GnBu_r',
+                  'cmap_outflow':'YlOrBr_r',
+                    'text_over':'white',
+                    'label':r'$v_r$ [km/s]',
+                    'label_log':r'$\log(\frac{v_r}{\rm km/s})$',
+                    'units':'km*s**-1',
+                    'vmin':-180,
+                    'vmax':+210,
+                    'bin_min':-400,
+                    'bin_max':+400,
+                    'vmin_galaxy':-200,
+                    'vmax_galaxy':+250,
+                    'vmin_outflow':15,
+                    'vmax_outflow':300,
+                    'vmin_inflow':80,
+                    'vmax_inflow':20,
+                    'vmin_cgm':-180,
+                    'vmax_cgm':+210,
+                    'linthresh':10,
+                    'linscale':1,
+                    'code_units':'code_velocity',
+                    'neighbour':False,
+                    'symlog':True
+    },
+    v_sphere_phi = {'cmap': sns.color_palette("mako", as_cmap=True),
                 'text_over':'white',
-                'label':r'$M_{DM}$ [M$_{\odot}$]',
-                'label_log':r'$\log\left(\frac{M_{\rm DM}}{{\rmM}_{\odot}}\right)$',
-                'units':'Msun',
-                'vmin':3.0e+3,
-                'vmax':7e+6,
-                'vmin_galaxy':3.0e+3,
-                'vmax_galaxy':7e+6,
-                'code_units':'code_mass',
+                'label':r'$v_{\phi}$ [km/s]',
+                'label_log':r'$\log\left(v_{\phi}/{\rm km/s}\right)$',
+                'units':'km/s',
+                'vmin':1e-3,
+                'vmax':1e3,
+                'bin_min':1e-3,
+                'bin_max':1e3,
+                'vmin_galaxy':1e-3,
+                'vmax_galaxy':1e3,
+                'vmin_cgm':1e-3,
+                'vmax_cgm':1e3,
+                'vmin_cluster':1e0,
+                'vmax_cluster':1e4,
+                'code_units':'code_velocity',
+                'neighbour':False,
+                'symlog':True
+    },
+    v_sphere_theta = {'cmap': sns.color_palette("mako", as_cmap=True),
+                'text_over':'white',
+                'label':r'$v_{\theta}$ [km/s]',
+                'label_log':r'$\log\left(v_{\theta}/{\rm km/s}\right)$',
+                'units':'km/s',
+                'vmin':1e-3,
+                'vmax':1e3,
+                'bin_min':1e-3,
+                'bin_max':1e3,
+                'vmin_galaxy':1e-3,
+                'vmax_galaxy':1e3,
+                'vmin_cgm':1e-3,
+                'vmax_cgm':1e3,
+                'vmin_cluster':1e0,
+                'vmax_cluster':1e4,
+                'code_units':'code_velocity',
+                'neighbour':False,
+                'symlog':True
+    },
+    v_cyl_r = {'cmap': sns.color_palette("mako", as_cmap=True),
+                'text_over':'white',
+                'label':r'$v_{R}$ [km/s]',
+                'label_log':r'$\log\left(v_{R}/{\rm km/s}\right)$',
+                'units':'km/s',
+                'vmin':1e-3,
+                'vmax':1e3,
+                'bin_min':1e-3,
+                'bin_max':1e3,
+                'vmin_galaxy':1e-3,
+                'vmax_galaxy':1e3,
+                'vmin_cgm':1e-3,
+                'vmax_cgm':1e3,
+                'vmin_cluster':1e0,
+                'vmax_cluster':1e4,
+                'code_units':'code_velocity',
+                'neighbour':False,
+                'symlog':True
+    },
+    v_cyl_z = {'cmap': sns.color_palette("mako", as_cmap=True),
+                'text_over':'white',
+                'label':r'$v_{z}$ [km/s]',
+                'label_log':r'$\log\left(v_{z}/{\rm km/s}\right)$',
+                'units':'km/s',
+                'vmin':1e-3,
+                'vmax':1e3,
+                'bin_min':1e-3,
+                'bin_max':1e3,
+                'vmin_galaxy':1e-3,
+                'vmax_galaxy':1e3,
+                'vmin_cgm':1e-3,
+                'vmax_cgm':1e3,
+                'vmin_cluster':1e0,
+                'vmax_cluster':1e4,
+                'code_units':'code_velocity',
+                'neighbour':False,
+                'symlog':True
+    },
+    v_cyl_phi = {'cmap': sns.color_palette("mako", as_cmap=True),
+                'text_over':'white',
+                'label':r'$v_{\phi}$ [km/s]',
+                'label_log':r'$\log\left(v_{\phi}/{\rm km/s}\right)$',
+                'units':'km/s',
+                'vmin':1e-3,
+                'vmax':1e3,
+                'bin_min':1e-3,
+                'bin_max':1e3,
+                'vmin_galaxy':1e-3,
+                'vmax_galaxy':1e3,
+                'vmin_cgm':1e-3,
+                'vmax_cgm':1e3,
+                'vmin_cluster':1e0,
+                'vmax_cluster':1e4,
+                'code_units':'code_velocity',
+                'neighbour':False,
+                'symlog':True
+    },
+    v_magnitude = {'cmap': sns.color_palette("mako", as_cmap=True),
+                'text_over':'white',
+                'label':r'$\vert v \vert$ [km/s]',
+                'label_log':r'$\log\left(\vert v \vert/{\rm km/s}\right)$',
+                'units':'km/s',
+                'vmin':1e-3,
+                'vmax':1e3,
+                'bin_min':1e-3,
+                'bin_max':1e3,
+                'vmin_galaxy':1e-3,
+                'vmax_galaxy':1e3,
+                'vmin_cgm':1e-3,
+                'vmax_cgm':1e3,
+                'vmin_cluster':1e0,
+                'vmax_cluster':1e4,
+                'code_units':'code_velocity',
                 'neighbour':False,
                 'symlog':False
-        },
+    },
+    v_squared = {'cmap': sns.color_palette("mako", as_cmap=True),
+                'text_over':'white',
+                'label':r'$\vert v \vert^2$ [km$^2$/s$^2$]',
+                'label_log':r'$\log\left(\vert v \vert^2/{{\rm (km/s)}^2}\right)$',
+                'units':'km**2/s**2',
+                'vmin':1e-3,
+                'vmax':1e3,
+                'bin_min':1e-3,
+                'bin_max':1e3,
+                'vmin_galaxy':1e-3,
+                'vmax_galaxy':1e3,
+                'vmin_cgm':1e-3,
+                'vmax_cgm':1e3,
+                'vmin_cluster':1e0,
+                'vmax_cluster':1e4,
+                'code_units':'code_velocity*code_velocity',
+                'neighbour':False,
+                'symlog':False
+    },
+    kinetic_energy = {'cmap': sns.color_palette("mako", as_cmap=True),
+                'text_over':'white',
+                'label':r'$E_{\rm k}$ [erg]',
+                'label_log':r'$\log\left(\vert v \vert^2/{{\rm erg}}\right)$',
+                'units':'erg',
+                'vmin':1e-3,
+                'vmax':1e3,
+                'bin_min':1e-3,
+                'bin_max':1e3,
+                'vmin_galaxy':1e-3,
+                'vmax_galaxy':1e3,
+                'vmin_cgm':1e-3,
+                'vmax_cgm':1e3,
+                'vmin_cluster':1e0,
+                'vmax_cluster':1e4,
+                'code_units':'code_energy',
+                'neighbour':False,
+                'symlog':False
+    },
+    momentum_x = {'cmap': sns.color_palette("mako", as_cmap=True),
+                'text_over':'white',
+                'label':r'$p_{\rm x}$ [M$_{\odot}$ km/s]',
+                'label_log':r'$\log\left(p_{\rm x}/{{\rm M}_{\odot}{\rm km/s}}\right)$',
+                'units':'Msun*km/s',
+                'vmin':1e-3,
+                'vmax':1e3,
+                'bin_min':1e-3,
+                'bin_max':1e3,
+                'vmin_galaxy':1e-3,
+                'vmax_galaxy':1e3,
+                'vmin_cgm':1e-3,
+                'vmax_cgm':1e3,
+                'vmin_cluster':1e0,
+                'vmax_cluster':1e4,
+                'code_units':'code_mass*code_velocity',
+                'neighbour':False,
+                'symlog':True
+    },
+    momentum_y = {'cmap': sns.color_palette("mako", as_cmap=True),
+                'text_over':'white',
+                'label':r'$p_{\rm y}$ [M$_{\odot}$ km/s]',
+                'label_log':r'$\log\left(p_{\rm y}/{{\rm M}_{\odot}{\rm km/s}}\right)$',
+                'units':'Msun*km/s',
+                'vmin':1e-3,
+                'vmax':1e3,
+                'bin_min':1e-3,
+                'bin_max':1e3,
+                'vmin_galaxy':1e-3,
+                'vmax_galaxy':1e3,
+                'vmin_cgm':1e-3,
+                'vmax_cgm':1e3,
+                'vmin_cluster':1e0,
+                'vmax_cluster':1e4,
+                'code_units':'code_mass*code_velocity',
+                'neighbour':False,
+                'symlog':True
+    },
+    momentum_z = {'cmap': sns.color_palette("mako", as_cmap=True),
+                'text_over':'white',
+                'label':r'$p_{\rm z}$ [M$_{\odot}$ km/s]',
+                'label_log':r'$\log\left(p_{\rm z}/{{\rm M}_{\odot}{\rm km/s}}\right)$',
+                'units':'Msun*km/s',
+                'vmin':1e-3,
+                'vmax':1e3,
+                'bin_min':1e-3,
+                'bin_max':1e3,
+                'vmin_galaxy':1e-3,
+                'vmax_galaxy':1e3,
+                'vmin_cgm':1e-3,
+                'vmax_cgm':1e3,
+                'vmin_cluster':1e0,
+                'vmax_cluster':1e4,
+                'code_units':'code_mass*code_velocity',
+                'neighbour':False,
+                'symlog':True
+    },
+    momentum = {'cmap': sns.color_palette("mako", as_cmap=True),
+                'text_over':'white',
+                'label':r'$\vert p\vert$ [M$_{\odot}$ km/s]',
+                'label_log':r'$\log\left(\vert p \vert/{{\rm M}_{\odot}{\rm km/s}}\right)$',
+                'units':'Msun*km/s',
+                'vmin':1e-3,
+                'vmax':1e3,
+                'bin_min':1e-3,
+                'bin_max':1e3,
+                'vmin_galaxy':1e-3,
+                'vmax_galaxy':1e3,
+                'vmin_cgm':1e-3,
+                'vmax_cgm':1e3,
+                'vmin_cluster':1e0,
+                'vmax_cluster':1e4,
+                'code_units':'code_mass*code_velocity',
+                'neighbour':False,
+                'symlog':False
+    },
+    momentum_sphere_r = {'cmap': sns.color_palette("mako", as_cmap=True),
+                'text_over':'white',
+                'label':r'$p_r$ [M$_{\odot}$ km/s]',
+                'label_log':r'$\log\left(p_r /{{\rm M}_{\odot}{\rm km/s}}\right)$',
+                'units':'Msun*km/s',
+                'vmin':1e-3,
+                'vmax':1e3,
+                'bin_min':1e-3,
+                'bin_max':1e3,
+                'vmin_galaxy':1e-3,
+                'vmax_galaxy':1e3,
+                'vmin_cgm':1e-3,
+                'vmax_cgm':1e3,
+                'vmin_cluster':1e0,
+                'vmax_cluster':1e4,
+                'code_units':'code_mass*code_velocity',
+                'neighbour':False,
+                'symlog':True
+    },
+    momentum_cyl_z = {'cmap': sns.color_palette("mako", as_cmap=True),
+                'text_over':'white',
+                'label':r'$p_z$ [M$_{\odot}$ km/s]',
+                'label_log':r'$\log\left(p_z /{{\rm M}_{\odot}{\rm km/s}}\right)$',
+                'units':'Msun*km/s',
+                'vmin':1e-3,
+                'vmax':1e3,
+                'bin_min':1e-3,
+                'bin_max':1e3,
+                'vmin_galaxy':1e-3,
+                'vmax_galaxy':1e3,
+                'vmin_cgm':1e-3,
+                'vmax_cgm':1e3,
+                'vmin_cluster':1e0,
+                'vmax_cluster':1e4,
+                'code_units':'code_mass*code_velocity',
+                'neighbour':False,
+                'symlog':True
+    },
+    ang_momentum = {'cmap':sns.color_palette("vlag", as_cmap=True),
+                    'text_over':'black',
+                    'label':r'$\vert L\vert$ [M$_{\odot}$ kpc$\cdot$km/s]',
+                    'units':'Msun*kpc*km*s**-1',
+                    'bin_min':-1e+7,
+                    'bin_max':1e+7,
+                    'linthresh':10,
+                    'linscale':10,
+                    'code_units':'code_mass*code_length*code_velocity',
+                    'neighbour':False,
+                    'symlog':True
+    },
+    ang_momentum_x = {'cmap':sns.color_palette("vlag", as_cmap=True),
+                    'text_over':'black',
+                    'label':r'$L_x$ [M$_{\odot}$ kpc$\cdot$km/s]',
+                    'units':'Msun*kpc*km*s**-1',
+                    'bin_min':-1e+7,
+                    'bin_max':1e+7,
+                    'linthresh':10,
+                    'linscale':10,
+                    'code_units':'code_mass*code_length*code_velocity',
+                    'neighbour':False,
+                    'symlog':True
+    },
+    ang_momentum_y = {'cmap':sns.color_palette("vlag", as_cmap=True),
+                    'text_over':'black',
+                    'label':r'$L_y$ [M$_{\odot}$ kpc$\cdot$km/s]',
+                    'units':'Msun*kpc*km*s**-1',
+                    'bin_min':-1e+7,
+                    'bin_max':1e+7,
+                    'linthresh':10,
+                    'linscale':10,
+                    'code_units':'code_mass*code_length*code_velocity',
+                    'neighbour':False,
+                    'symlog':True
+    },
+    ang_momentum_z = {'cmap':sns.color_palette("vlag", as_cmap=True),
+                    'text_over':'black',
+                    'label':r'$L_z$ [M$_{\odot}$ kpc$\cdot$km/s]',
+                    'units':'Msun*kpc*km*s**-1',
+                    'bin_min':-1e+7,
+                    'bin_max':1e+7,
+                    'linthresh':10,
+                    'linscale':10,
+                    'code_units':'code_mass*code_length*code_velocity',
+                    'neighbour':False,
+                    'symlog':True
+    },
+    density = {'cmap': sns.color_palette("mako", as_cmap=True),
+                'text_over':'white',
+                'label':r'$\rho$ [M$_{\odot}$/kpc$^{3}$]',
+                'label_log':r'$\log\left(\rho/{\rm M}_{\odot}{\rm kpc}^{-3}\right)$',
+                'units':'Msun/(kpc**3)',
+                'vmin':8e-31,
+                'vmax':7e-22,
+                'bin_min':1e-30,
+                'bin_max':8e-20,
+                'vmin_galaxy':8e-28,
+                'vmax_galaxy':5e-22,
+                'vmin_cgm':5e-29,
+                'vmax_cgm':8e-26,
+                'vmin_cluster':8e-31,
+                'vmax_cluster':7e-22,
+                'code_units':'code_density',
+                'neighbour':False,
+                'symlog':False
+    },
+    sdensity = {'cmap': sns.color_palette("mako", as_cmap=True),
+                'text_over':'white',
+                'label':r'$\Sigma$ [g/cm$^{2}$]',
+                'label_log':r'$\log\left(\Sigma/{\rm g\,cm}^{-2}\right)$',
+                'units':'g*cm**-2',
+                'bin_min':1e0,
+                'bin_max':1e11,
+                'vmin':3e+4,
+                'vmax':5e+9,
+                'vmin_galaxy':3e+3,
+                'vmax_galaxy':5e+9,
+                'vmin_cgm':3e+1,
+                'vmax_cgm':5e+3,
+                'code_units':'code_density*code_length',
+                'neighbour':False,
+                'symlog':False
+    },
 )
-
-derived_star_variables = dict(
+star_variables = dict(
         age = {'cmap':'BuPu',
                 'text_over':'white',
                 'label':r'Age [Gyr]',
@@ -1824,39 +2192,33 @@ derived_star_variables = dict(
                 'neighbour':False,
                 'symlog':False
         },
-        sdensity = {'cmap':'gray',
-                        'text_over':'white',
-                        'label':r'$\Sigma_{*}$ [M$_{\odot}$ kpc$^{-2}$]',
-                        'label_log':r'$\log\left(\frac{\Sigma_{*}}{{\rm M}_{\odot}{\rm kpc}^{-2}}\right)$',
-                        'units':'Msun/(kpc**2)',
-                        'vmin':3e+4,
-                        'vmax':5e+9,
-                        'vmin_galaxy':3e+3,
-                        'vmax_galaxy':5e+9,
-                        'vmin_cgm':3e+1,
-                        'vmax_cgm':5e+3,
-                        'code_units':'code_density*code_length',
-                        'neighbour':False,
-                        'symlog':False
-
+        birth_date = {'cmap':'BuPu',
+                'text_over':'white',
+                'label':r'Birth date [Gyr]',
+                'units':'Gyr',
+                'vmin':None,
+                'vmax':None,
+                'code_units':'Gyr',
+                'neighbour':False,
+                'symlog':False
+        },
+        sfr = {'cmap':'magma',
+                            'text_over':'white',
+                            'label':r'$\langle {\rm SFR}\rangle))$ [M$_{\odot}$ yr$^{-1}$]',
+                            'label_log':r'$\log\left(\frac{ \langle {\rm SFR}\rangle }{{\rm M}_{\odot}{\rm yr}^{-1}\right)$',
+                            'units':'Msun/yr',
+                            'vmin':3e-4,
+                            'vmax':90,
+                            'vmin_galaxy':3e-4,
+                            'vmax_galaxy':90,
+                            'code_units':'code_mass/code_time',
+                            'neighbour':False,
+                            'symlog':False
         },
         sfr_surface = {'cmap':'magma',
                             'text_over':'white',
                             'label':r'$\langle \Sigma_{\rm SFR}\rangle))$ [M$_{\odot}$ yr$^{-1}$ kpc$^{-2}$]',
                             'label_log':r'$\log\left(\frac{ \langle\Sigma_{\rm SFR}\rangle }{{\rm M}_{\odot}{\rm yr}^{-1}{\rm kpc}^{-2}}\right)$',
-                            'units':'Msun/(yr*kpc**2)',
-                            'vmin':3e-4,
-                            'vmax':90,
-                            'vmin_galaxy':3e-4,
-                            'vmax_galaxy':90,
-                            'code_units':'code_density*code_velocity',
-                            'neighbour':False,
-                            'symlog':False
-        },
-        sfr_surface_100 = {'cmap':'magma',
-                            'text_over':'white',
-                            'label':r'$\langle \Sigma_{\rm SFR}\rangle)_{\rm 100 Myr})$ [M$_{\odot}$ yr$^{-1}$ kpc$^{-2}$]',
-                            'label_log':r'$\log\left(\frac{ \langle\Sigma_{\rm SFR}\rangle _{\rm 100 Myr}}{{\rm M}_{\odot}{\rm yr}^{-1}{\rm kpc}^{-2}}\right)$',
                             'units':'Msun/(yr*kpc**2)',
                             'vmin':3e-4,
                             'vmax':90,
@@ -1879,42 +2241,8 @@ derived_star_variables = dict(
                             'neighbour':False,
                             'symlog':False
         },
-        sfr_density_100 = {'cmap':'magma',
-                            'text_over':'white',
-                            'label':r'$\langle \rho_{\rm SFR}\rangle)_{\rm 100 Myr})$ [M$_{\odot}$ yr$^{-1}$ kpc$^{-3}$]',
-                            'label_log':r'$\log\left(\frac{ \langle\rho_{\rm SFR}\rangle _{\rm 100 Myr}}{{\rm M}_{\odot}{\rm yr}^{-1}{\rm kpc}^{-3}}\right)$',
-                            'units':'Msun/(yr*kpc**3)',
-                            'vmin':3e-4,
-                            'vmax':90,
-                            'vmin_galaxy':3e-4,
-                            'vmax_galaxy':90,
-                            'code_units':'code_mass/Gyr/code_length**3',
-                            'neighbour':False,
-                            'symlog':False
-        },
 )
 
-derived_dm_variables = dict(
-        sdensity = {'cmap':'cividis',
-                        'text_over':'white',
-                        'label':r'$\Sigma_{\rm DM}$ [M$_{\odot}$ kpc$^{-2}$]',
-                        'label_log':r'$\log\left(\frac{\Sigma_{\rm DM}}{{\rm M}_{\odot}{\rm kpc}^{-2}}\right)$',
-                        'units':'Msun/(kpc**2)',
-                        'vmin':4e+7,
-                        'vmax':3e+9,
-                        'vmin_galaxy':8e+6,
-                        'vmax_galaxy':7e+8,
-                        'vmin_cluster':4e+5,
-                        'vmax_cluster':3e+8,
-                        'vmin_cgm':4e+3,
-                        'vmax_cgm':3e+6,
-                        'code_units':'code_density*code_length',
-                        'neighbour':False,
-                        'symlog':False
-
-        },
-
-)
 
 circle_dictionary = dict(
         rvir_halo = {'edgecolor': 'r',
@@ -1972,10 +2300,11 @@ import sys
 def load_custom_settings():
     """Load custom settings if 'ozy_settings.py' exists in the current directory."""
     global geometrical_variables, raw_gas_variables,\
-           raw_star_variables, raw_dm_variables, derived_gas_variables,\
-           derived_star_variables, derived_dm_variables, gravity_variables,\
-           circle_dictionary, basic_conv, variables_ordering  # Declare the dictionaries as global to override them
-    
+           raw_part_variables, derived_gas_variables,\
+           derived_part_variables, star_variables, gravity_variables,\
+           circle_dictionary, basic_conv, hydro_variables_ordering,\
+           part_variables_ordering, part_variables_type  # Declare the dictionaries as global to override them
+    global MINIMUM_DM_PER_HALO, MINIMUM_STARS_PER_GALAXY
     current_dir = os.getcwd()
     ozy_settings_path = os.path.join(current_dir, 'ozy_settings.py')
     
@@ -1992,16 +2321,20 @@ def load_custom_settings():
         # Override the dictionaries
         geometrical_variables = getattr(ozy_settings, 'geometrical_variables', geometrical_variables)
         raw_gas_variables = getattr(ozy_settings, 'raw_gas_variables', raw_gas_variables)
-        raw_star_variables = getattr(ozy_settings, 'raw_star_variables', raw_star_variables)
-        raw_dm_variables = getattr(ozy_settings, 'raw_dm_variables', raw_dm_variables)
+        raw_part_variables = getattr(ozy_settings, 'raw_part_variables', raw_part_variables)
         derived_gas_variables = getattr(ozy_settings, 'derived_gas_variables', derived_gas_variables)
-        derived_star_variables = getattr(ozy_settings, 'derived_star_variables', derived_star_variables)
-        derived_dm_variables = getattr(ozy_settings, 'derived_dm_variables', derived_dm_variables)
+        derived_part_variables = getattr(ozy_settings, 'derived_part_variables', derived_part_variables)
+        star_variables = getattr(ozy_settings, 'star_variables', star_variables)
         gravity_variables = getattr(ozy_settings, 'gravity_variables', gravity_variables)
         circle_dictionary = getattr(ozy_settings, 'circle_dictionary', circle_dictionary)
         basic_conv = getattr(ozy_settings, 'basic_conv', basic_conv)
-        variables_ordering = getattr(ozy_settings, 'variables_ordering', variables_ordering)
-        
+        hydro_variables_ordering = getattr(ozy_settings, 'hydro_variables_ordering', hydro_variables_ordering)
+        part_variables_ordering = getattr(ozy_settings, 'part_variables_ordering', part_variables_ordering)
+        part_variables_type = getattr(ozy_settings, 'part_variables_type', part_variables_type)
+
+        # Override the default minimum particle group size
+        MINIMUM_DM_PER_HALO = getattr(ozy_settings, 'MINIMUM_DM_PER_HALO', 1000)
+        MINIMUM_STARS_PER_GALAXY = getattr(ozy_settings, 'MINIMUM_STARS_PER_GALAXY', 100)
         print(f"Custom settings loaded successfully from {ozy_settings_path}.")
     else:
         print("No 'ozy_settings.py' file found in the current directory. Using default settings.")
