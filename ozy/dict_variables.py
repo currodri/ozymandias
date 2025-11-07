@@ -169,6 +169,7 @@ grid_variables = dict(
     grav_gz = {'unit':'code_specific_energy/code_length','neighbour':False},
     grav_grsphere = {'unit':'code_specific_energy/code_length','neighbour':False},
     grav_fz = {'unit':'code_pressure/code_length','neighbour':False},
+    xHI = {'unit':'dimensionless','neighbour':False},
     xHII = {'unit':'dimensionless','neighbour':False},
     xHeII = {'unit':'dimensionless','neighbour':False},
     xHeIII = {'unit':'dimensionless','neighbour':False},

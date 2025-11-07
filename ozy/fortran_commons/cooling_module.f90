@@ -292,4 +292,44 @@ module cooling_module
         endif
     end subroutine solve_heating
 
+    subroutine get_xHI(nH,T2,zsolar,xHI)
+        ! nH [H/cc], T2 [T/mu in Kelvin], Zsolar [metallicity in Zsun]
+        implicit none
+        real(kind=8),intent(in)::nH,T2,zsolar
+        real(kind=8),intent(out)::xHI
+
+        integer::i_nH,i_T2
+        real(kind=8)::boost
+        real(kind=8)::dlog_nH,dlog_T2
+        real(kind=8)::zzz,facH,facT
+        real(kind=8)::w1T,w2T,w1H,w2H
+        real(kind=8)::fa,fb
+
+        ! Compute radiation boost factor
+        if(self_shielding)then
+            boost=MAX(exp(-nH/0.01),1.0D-20)
+        else
+            boost=1.0
+        endif
+
+        ! Get the necessary values for the cell
+        dlog_nH = dble(ctable%n1-1)/(ctable%nH(ctable%n1)-ctable%nH(1))
+        dlog_T2 = dble(ctable%n2-1)/(ctable%T2(ctable%n2)-ctable%T2(1))
+        zzz = zsolar
+        facH = MIN(MAX(log10(nH/boost),ctable%nH(1)),ctable%nH(ctable%n1))
+        i_nH = MIN(MAX(int((facH-ctable%nH(1))*dlog_nH)+1,1),ctable%n1-1)
+        facT=log10(T2)
+        i_T2 = MIN(MAX(int((facT-ctable%T2(1))*dlog_T2)+1,1),ctable%n2-1)
+
+        ! Get the HI density from the cooling table
+        w1T = (ctable%T2(i_T2+1)-facT) * dlog_T2
+        w2T = (facT-ctable%T2(i_T2  )) * dlog_T2
+        w1H = (ctable%nH(i_nH+1)-facH) * dlog_nH
+        w2H = (facH-ctable%nH(i_nH  )) * dlog_nH
+        fa = ctable%n_spec(i_nH,i_T2,2) * w1H + ctable%n_spec(i_nH+1,i_T2,2) * w2H
+        fb = ctable%n_spec(i_nH,i_T2+1,2) * w1H + ctable%n_spec(i_nH+1,i_T2+1,2) * w2H
+        xHI = (fa * w1T + fb * w2T) / nH
+
+    end subroutine get_xHI
+
 end module cooling_module

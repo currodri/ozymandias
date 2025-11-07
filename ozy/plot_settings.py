@@ -1596,6 +1596,21 @@ plotting_dictionary = dict(
                         'linscale':1
 
     },
+    xHI = {'cmap':'bone',
+            'text_over':'white',
+            'label':r'$X_{\rm HI}$',
+            'label_log':r'$\log(X_{\rm HI})$',
+            'units':'dimensionless',
+            'vmin':5e-4,
+            'vmax':0.8,
+            'vmin_galaxy':5e-4,
+            'vmax_galaxy':0.8,
+            'vmin_cgm':5e-4,
+            'vmax_cgm':0.8,
+            'bin_min':1e-5,
+            'bin_max':0.999
+
+    },
     xHII = {'cmap':'bone',
             'text_over':'white',
             'label':r'$X_{\rm HII}$',

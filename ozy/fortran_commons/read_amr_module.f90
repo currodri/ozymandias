@@ -1761,6 +1761,17 @@ module io_ramses
                 ! Convert to code time unit
                 value = value / ((lambda_co - lambda_st - lambda_cr)/(sim%unit_p / sim%unit_t))
             end if
+        case ('xHI')
+            ! Hydrogen neutral fraction
+            if (varIDs%xHII /= 0) then
+                value = 1d0 - var(0,varIDs%xHII)
+            else
+                T = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * sim%T2
+                ! TODO: This a fix only for some messed up CRMHD simulations!
+                if (T<15d0) T = 15d0
+                nH = var(0,varIDs%density) * sim%nH
+                call get_xHI(nH,T,var(0,varIDs%metallicity)/2D-2,value)
+            end if
         case ('xHII')
             ! Hydrogen ionisation fraction
             value = var(0,varIDs%xHII)
