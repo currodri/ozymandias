@@ -3005,10 +3005,25 @@ module hydro_commons
 
         real(dbl) :: DTM
         real(dbl) :: total_dust_mass, total_metal_mass
+        integer :: i
 
-        total_dust_mass = var(0,hvar%ids(1)) + var(0,hvar%ids(2)) + var(0,hvar%ids(3)) + var(0,hvar%ids(4))
-        total_metal_mass = var(0,hvar%ids(5))
+        total_dust_mass = var(0,hvar%ids(1)) + var(0,hvar%ids(2)) &
+                            & + var(0,hvar%ids(3)) + var(0,hvar%ids(4)) &
+                            & + var(0,hvar%ids(5)) + var(0,hvar%ids(6))
+        if (hvar%ids(7).eq. 0) then
+            total_metal_mass = 0d0
+            do i = 8, size(hvar%ids(:))
+                total_metal_mass = total_metal_mass + var(0,hvar%ids(i))
+            end do
+        else
+            total_metal_mass = var(0,hvar%ids(7))
+        end if
         DTM = total_dust_mass / (total_dust_mass + total_metal_mass)
+        ! print*,'DTM calculation: dust mass = ', total_dust_mass, ' metal mass = ', total_metal_mass, ' DTM = ', DTM
+        ! print*,'hvar ids: ', hvar%ids(:)
+        ! print*,'dust: ', var(0,hvar%ids(5):hvar%ids(4))
+        ! print*,'metal: ',var(0,hvar%ids(8):size(hvar%ids(:)))
+        ! print*,'density: ', var(0,1)
     end function DTM
 
     function DTG(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
@@ -3087,10 +3102,51 @@ module hydro_commons
         real(dbl) :: qPAH
         real(dbl) :: total_dust, total_pah
 
-        total_dust = var(0,hvar%ids(1)) + var(0,hvar%ids(2)) + var(0,hvar%ids(3)) + var(0,hvar%ids(4))
+        total_dust = var(0,hvar%ids(1)) + var(0,hvar%ids(2)) + var(0,hvar%ids(3)) + var(0,hvar%ids(4)) + &
+                     & var(0,hvar%ids(5)) + var(0,hvar%ids(6))
         total_pah = var(0,hvar%ids(5)) + var(0,hvar%ids(6))
         qPAH = total_pah / total_dust
     end function qPAH
+
+    function fionPAH(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: fionPAH
+        real(dbl) :: total_ion, total_pah
+
+        total_pah = var(0,hvar%ids(1)) + var(0,hvar%ids(2))
+        total_ion = var(0,hvar%ids(1)) * var(0,hvar%ids(3)) + var(0,hvar%ids(2)) * var(0,hvar%ids(4))
+        
+        fionPAH = total_ion / total_pah
+    end function fionPAH
+
+    function STL_PAH(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+
+        real(dbl) :: STL_PAH
+
+        STL_PAH = var(0,hvar%ids(1)) / var(0,hvar%ids(2))
+    end function STL_PAH
 
     function CSmall_Stokes(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
         implicit none
@@ -4199,12 +4255,24 @@ module hydro_commons
             ! dust-to-metal mass ratio
             hvar%type = 'derived'
             hvar%name = 'DTM'
-            allocate(hvar%ids(5))
+            allocate(hvar%ids(17))
             hvar%ids(1) = vardict%get('CSmall_fraction')
             hvar%ids(2) = vardict%get('CLarge_fraction')
             hvar%ids(3) = vardict%get('SilSmall_fraction')
             hvar%ids(4) = vardict%get('SilLarge_fraction')
-            hvar%ids(5) = vardict%get('metallicity')
+            hvar%ids(5) = vardict%get('PAHSmall_fraction')
+            hvar%ids(6) = vardict%get('PAHLarge_fraction')
+            hvar%ids(7) = vardict%get('metallicity')
+            hvar%ids(8) = vardict%get('iron_fraction')
+            hvar%ids(9) = vardict%get('oxygen_fraction')
+            hvar%ids(10) = vardict%get('nitrogen_fraction')
+            hvar%ids(11) = vardict%get('magnesium_fraction')
+            hvar%ids(12) = vardict%get('neon_fraction')
+            hvar%ids(13) = vardict%get('silicon_fraction')
+            hvar%ids(14) = vardict%get('calcium_fraction')
+            hvar%ids(15) = vardict%get('carbon_fraction')
+            hvar%ids(16) = vardict%get('sulfur_fraction')
+            hvar%ids(17) = vardict%get('CO_fraction')
             hvar%myfunction => DTM
         case ('DTG')
             ! dust-to-gas mass ratio
@@ -4250,6 +4318,24 @@ module hydro_commons
             hvar%ids(5) = vardict%get('PAHSmall_fraction')
             hvar%ids(6) = vardict%get('PAHLarge_fraction')
             hvar%myfunction => qPAH
+        case ('fionPAH')
+            ! PAH-to-dust mass ratio
+            hvar%type = 'derived'
+            hvar%name = 'fionPAH'
+            allocate(hvar%ids(4))
+            hvar%ids(1) = vardict%get('PAHSmall_fraction')
+            hvar%ids(2) = vardict%get('PAHLarge_fraction')
+            hvar%ids(3) = vardict%get('PAHSmall_fion')
+            hvar%ids(4) = vardict%get('PAHLarge_fion')
+            hvar%myfunction => fionPAH
+        case ('STL_PAH')
+            ! PAH-to-dust mass ratio
+            hvar%type = 'derived'
+            hvar%name = 'STL_PAH'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('PAHSmall_fraction')
+            hvar%ids(2) = vardict%get('PAHLarge_fraction')
+            hvar%myfunction => STL_PAH
         case ('CSmall_Stokes')
             ! Stokes number of the small C grains
             hvar%type = 'derived'

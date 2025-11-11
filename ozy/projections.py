@@ -463,7 +463,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         print('At least one variable needs neighbours!')
 
     # Setup camera details for the requested POV (Point of View)
-    boxlen = obj.simulation.boxsize.to('code_length').d   
+    boxlen = 1 #obj.simulation.boxsize.to('code_length').d   
     if use_snapshot:
         group.position = obj.array(mycentre[0],mycentre[1])
         window = obj.quantity(window[0],window[1]).in_units('code_length').d
@@ -1545,7 +1545,7 @@ def plot_comp_fe(faceon_fits,edgeon_fits,fields,logscale=True,scalebar=(3,'kpc')
 
 def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=(3,'kpc'),redshift=True,colorbar=True,
                                 colormap=None, type_scale='',centers=[],radii=[],names=[],filter_name='none',
-                                smooth=False):
+                                smooth=False, as_eps=False):
     """This function uses the projection information in a FITS file following the 
         OZY format and plots it following the OZY standards."""
     
@@ -1609,13 +1609,11 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=(3,'kpc'),
     ax.axes.yaxis.set_visible(False)
     ax.axis('off')
     h = [k for k in range(0,len(hdul)) if hdul[k].header['btype']==field][0]
-    if field.split('/')[0] == 'star' or field.split('/')[0] == 'dm':
-        plotting_def = get_plotting_def(field.split('/')[0]+'_'+field.split('/')[1])
-        stellar = True
-        full_varname = field.split('/')[0]+'_'+field.split('/')[1]
-    else:
-        plotting_def = get_plotting_def(field.split('/')[1])
-        full_varname = field.split('/')[1]
+    correct_str = field.split('/')[1]
+    nonum_str = remove_last_suffix_if_numeric(correct_str)
+    plotting_def = get_plotting_def(nonum_str,field.split('/')[0])
+    print(field,np.nanmin(hdul[h].data.T),np.nanmax(hdul[h].data.T))
+    print(plotting_def['vmin'+type_scale],plotting_def['vmax'+type_scale])
     if colormap == None:
         colormap = plotting_def['cmap']
     if smooth:
@@ -1631,33 +1629,19 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=(3,'kpc'),
         cImage = hdul[h].data.T
     print(field,np.nanmin(cImage),np.nanmax(cImage))
     if logscale and not plotting_def['symlog']:
-        plot = ax.imshow(np.log10(cImage), cmap=colormap,
+        plot = ax.imshow(np.log10(cImage), cmap=plotting_def['cmap'],
                         origin='upper',vmin=np.log10(plotting_def['vmin'+type_scale]),
                         vmax=np.log10(plotting_def['vmax'+type_scale]),extent=ex,
                         interpolation='nearest')
-    elif logscale and not plotting_def['symlog']:
-        if (filter_name != 'outflow' and filter_name != 'inflow'):
-            plot = ax.imshow(cImage, cmap=colormap,
-                            origin='upper',norm=SymLogNorm(linthresh=0.1, linscale=1,
-                            vmin=plotting_def['vmin'+type_scale], vmax=plotting_def['vmax'+type_scale]),
-                            extent=ex,
-                            interpolation='nearest')
-        elif field.split('/')[1] == 'v_sphere_r':
-            if filter_name == 'inflow' and smooth:                                                                                                                                                                                          
-                cImage = sp.ndimage.filters.gaussian_filter(-hdul[h].data.T, sigma, mode='constant')
-            plot = ax.imshow(np.log10(cImage), cmap=plotting_def['cmap_'+filter_name],
-                            origin='upper',vmin=np.log10(plotting_def['vmin_'+filter_name]),
-                            vmax=np.log10(plotting_def['vmax_'+filter_name]),extent=ex,
-                            interpolation='nearest')
-        else:
-            plot = ax.imshow(cImage, cmap=colormap,
-                            origin='upper',norm=SymLogNorm(linthresh=0.1, linscale=1,
-                            vmin=plotting_def['vmin'+type_scale], vmax=plotting_def['vmax'+type_scale]),
-                            extent=ex,
-                            interpolation='nearest')
+    elif logscale and plotting_def['symlog']:
+        plot = ax.imshow(cImage, cmap=plotting_def['cmap'],
+                        origin='upper',norm=SymLogNorm(linthresh=plotting_def['linthresh'], linscale=1,
+                        vmin=plotting_def['vmin'+type_scale], vmax=plotting_def['vmax'+type_scale]),
+                        extent=ex,
+                        interpolation='none')
     else:
-        plot = ax.imshow(hdul[h].data.T, cmap=colormap,
-                        origin='upper',extent=ex,interpolation='nearest',
+        plot = ax.imshow(hdul[h].data.T, cmap=plotting_def['cmap'],
+                        origin='upper',extent=ex,interpolation='none',
                         vmin=plotting_def['vmin'+type_scale],vmax=plotting_def['vmax'+type_scale])
     if colorbar:
         cbaxes = inset_axes(ax, width="80%", height="5%", loc='lower center')
@@ -1669,7 +1653,7 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=(3,'kpc'),
         cbar.ax.xaxis.label.set_font_properties(matplotlib.font_manager.FontProperties(weight='bold',size=15))
         cbar.ax.tick_params(axis='x', pad=-16, labelsize=13,labelcolor=plotting_def['text_over'])
         cbar.ax.tick_params(length=0,width=0)
-        invert_tick_colours(cbar.ax,full_varname,type_scale)
+        invert_tick_colours(cbar.ax,nonum_str,field.split('/')[0],type_scale)
 
     if redshift:
         ax.text(0.03, 0.95, r'$z = {z:.2f}$'.format(z=hdul[h].header['redshift']), # Redshift
@@ -1710,10 +1694,16 @@ def plot_single_var_projection(proj_FITS,field,logscale=True,scalebar=(3,'kpc'),
 
     fig.subplots_adjust(hspace=0,wspace=0,left=0,right=1, bottom=0, top=1)
 
-    if filter_name != 'none':
-        fig.savefig(proj_FITS.split('.fits')[0]+'_'+field.split('/')[1]+'_'+filter_name+'.png',format='png',dpi=330)
+    if as_eps:
+        if filter_name != 'none':
+            fig.savefig(proj_FITS.split('.fits')[0]+'_'+field.split('/')[1]+'_'+filter_name+'.eps',format='eps',dpi=330)
+        else:
+            fig.savefig(proj_FITS.split('.fits')[0]+'_'+field.split('/')[1]+'.eps',format='eps',dpi=330)
     else:
-        fig.savefig(proj_FITS.split('.fits')[0]+'_'+field.split('/')[1]+'.png',format='png',dpi=330)
+        if filter_name != 'none':
+            fig.savefig(proj_FITS.split('.fits')[0]+'_'+field.split('/')[1]+'_'+filter_name+'.png',format='png',dpi=330)
+        else:
+            fig.savefig(proj_FITS.split('.fits')[0]+'_'+field.split('/')[1]+'.png',format='png',dpi=330)
 
 def plot_lupton_rgb_projection(proj_FITS,fields,stars=False,scalebar=(3,'kpc'),redshift=True, type_scale='galaxy'):
     """This function uses the projection information in a FITS file following the 

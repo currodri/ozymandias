@@ -66,7 +66,7 @@ class Snapshot(object):
         length_unit = self._info["unit_l"]/1e+2 # cm to m
         density_unit = self._info["unit_d"] * 1e+3 # g/cm**3 to kg/m**3
         time_unit = self._info["unit_t"]
-        mass_unit = density_unit * length_unit ** 3
+        mass_unit = density_unit * (length_unit* self._info['boxlen']) ** 3
         magnetic_unit = np.sqrt(4. *np.pi) * length_unit * (density_unit**0.5) / time_unit
         velocity_unit = length_unit / time_unit
         pressure_unit = density_unit * (length_unit / time_unit) ** 2
@@ -77,13 +77,13 @@ class Snapshot(object):
 
 
         # Code length
-        registry.add("code_length", base_value=length_unit, dimensions=length)
+        registry.add("code_length", base_value=length_unit * self._info['boxlen'], dimensions=length)
         # Code time
         registry.add("code_time", base_value=time_unit, dimensions=time)
         # Code density
         registry.add("code_density", base_value=density_unit, dimensions=mass/(length**3))
         # Code mass
-        registry.add("code_mass", base_value=density_unit*(length_unit**3), dimensions=mass)
+        registry.add("code_mass", base_value=mass_unit, dimensions=mass)
         # Code velocity
         registry.add("code_velocity", base_value=velocity_unit, dimensions=length/time)
         # Code pressure

@@ -392,8 +392,8 @@ def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,max
 
             for j in range(0, len(pd.zvars)):
                 code_units = get_code_units(pd.zvars[j],'gas')
-                copy_data = np.copy(hydro_data.zdata[i,:,:,j,:,::2])
-                pd.zdata.append(group.obj.array(copy_data, code_units))
+                mydata = np.array(hydro_data.zdata[i,:,:,j,:,::2])
+                pd.zdata.append(group.obj.array(mydata, code_units))
 
     if not ozy_file is None and save:
         pds_to_save = [histograms[i] for i in range(0,nfilter) if pds_fr[i] == True]
@@ -479,7 +479,9 @@ def write_phasediag(obj,nfilter,ozy_file,hydro,pds):
     f.close()
     return
 
-def plot_single_histogram_hydro(pd,field,name,weightvar='cumulative',logscale=True,redshift=True,stats='none',extra_labels='none',gent=False,powell=False):
+def plot_single_histogram_hydro(pd,field,name,weightvar='cumulative',logscale=True,
+                                redshift=True,stats='none',extra_labels='none',
+                                gent=False,powell=False,as_eps=False):
     """This function uses the information from HydroHistogram following the OZY format and
         plots following the OZY standards."""
     
@@ -542,7 +544,8 @@ def plot_single_histogram_hydro(pd,field,name,weightvar='cumulative',logscale=Tr
     code_units_z = get_code_units(field,'gas')
     z = np.array(pd.zdata[field_index][:,:,weight_index].d,order='F')
     z = pd.obj.array(z,code_units_z)
-    print(field,np.nanmin(z).in_units(plotting_z['units']),np.nanmax(z).in_units(plotting_z['units']))
+    print(field,np.nanmin(z[:,:,0]).in_units(plotting_z['units']),np.nanmax(z[:,:,0]).in_units(plotting_z['units']), np.nanmin(z[:,:,0]),np.nanmax(z[:,:,0]))
+    print('SUM: ',np.sum(z[:,:,0].in_units(plotting_z['units'])))
     sim_z = pd.obj.simulation.redshift
     if logscale:
         if plotting_z['symlog']:
@@ -603,9 +606,13 @@ def plot_single_histogram_hydro(pd,field,name,weightvar='cumulative',logscale=Tr
             print('Cold: %.3f, %.3e'%(100*z_cold/z_tot,z_cold))
             print('Warm: %.3f, %.3e'%(100*z_warm/z_tot,z_warm))
             print('Hot: %.3f, %.3e'%(100*z_hot/z_tot, z_hot))
-            
-    fig.subplots_adjust(top=0.97,bottom=0.1,left=0.1,right=0.95)
-    fig.savefig(name+'.png',format='png',dpi=300)
+
+    if as_eps:
+        fig.subplots_adjust(top=0.97,bottom=0.1,left=0.1,right=0.95)
+        fig.savefig(name+'.eps',format='eps',dpi=300)
+    else:
+        fig.subplots_adjust(top=0.97,bottom=0.1,left=0.1,right=0.95)
+        fig.savefig(name+'.png',format='png',dpi=300)
 
 def plot_compare_histogram_hydro(pds,field,name,weightvar='cumulative',
                                 scaletype='log_even',redshift=True,

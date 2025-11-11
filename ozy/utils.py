@@ -789,7 +789,7 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
         raise TypeError('The format for zmin and zmax should be %s, instead you gave for zmin %s and for zmax %s' %(type(tuple),type(zmin),type(zmax)))
         exit
     reg = geo.region()
-    boxlen = group.obj.simulation.boxsize.to('code_length').d # In code units
+    boxlen = 1 #group.obj.simulation.boxsize.to('code_length').d # In code units
 
     if region_type == 'sphere':
         reg.name = 'sphere'
