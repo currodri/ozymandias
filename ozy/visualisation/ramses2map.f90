@@ -2020,6 +2020,7 @@ module maps
         end subroutine project_particles
     end subroutine projection_parts
 
+#ifdef HAVE_HEALPIX
     subroutine healpix_hydro(repository,cam,use_neigh,proj,nside,lmax,lmin,vardict)
         implicit none
         character(128),intent(in) :: repository
@@ -2434,4 +2435,5 @@ module maps
         end subroutine project_cells_hpix
 
     end subroutine healpix_hydro
+#endif
 end module maps

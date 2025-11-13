@@ -9,6 +9,14 @@ F90      = ifx
 #F90      =  /opt/intel/composer_xe_2015.3.187/bin/intel64/ifort
 PYTHON   = python
 
+# Enable Healpix support by default. To compile without Healpix set USE_HEALPIX=0
+USE_HEALPIX ?= 1
+ifeq ($(USE_HEALPIX),1)
+	HEALPIX_DEFINE = -DHAVE_HEALPIX
+else
+	HEALPIX_DEFINE =
+endif
+
 #=======================================================================
 #                     additional flags
 #=======================================================================
@@ -18,25 +26,37 @@ PYTHON   = python
 
 
 
+
 ifeq ($(F90),gfortran)
 	FPP      = gfortran -E
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
-	HP_FLAGS = -L/Users/currodri/Documents/codes/Healpix_3.83/lib -I/Users/currodri/Documents/codes/Healpix_3.83/include -L/Users/currodri/Documents/codes/cfitsio-4.6.2/lib -I/Users/currodri/Documents/codes/cfitsio-4.6.2/include -lchealpix -lhealpix -lcfitsio
-	F90FLAGS = -Ofast -cpp -fPIC -DIMASS -ffree-line-length-256 ${HP_FLAGS}
+	ifeq ($(USE_HEALPIX),1)
+		HP_FLAGS = -L/Users/currodri/Documents/codes/Healpix_3.83/lib -I/Users/currodri/Documents/codes/Healpix_3.83/include -L/Users/currodri/Documents/codes/cfitsio-4.6.2/lib -I/Users/currodri/Documents/codes/cfitsio-4.6.2/include -lchealpix -lhealpix -lcfitsio
+	else
+		HP_FLAGS =
+	endif
+	F90FLAGS = -Ofast -cpp -fPIC -DIMASS ${HEALPIX_DEFINE} -ffree-line-length-256 ${HP_FLAGS}
 	#F90FLAGS = -O0 -g -fbacktrace -cpp -fPIC -DIMASS -ffree-line-length-256 ${HP_FLAGS}    
 	FCOMP    = gfortran
     LIBS     =
 endif
 
+
 ifeq ($(F90),ifx)
 	FPP      = gfortran -E # gfortran f90wrap temp files only. not compilation
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
-	HP_FLAGS = -L/softs/healpix/3.82-ifx-2024.0/lib -I/softs/healpix/3.82-ifx-2024.0/include -lchealpix -lhealpix -lcfitsio -liomp5
+	ifeq ($(USE_HEALPIX),1)
+		HP_FLAGS = -L/softs/healpix/3.82-ifx-2024.0/lib -I/softs/healpix/3.82-ifx-2024.0/include -lchealpix -lhealpix -lcfitsio -liomp5
+	else
+		HP_FLAGS =
+	endif
 	#F90FLAGS = -O0 -g -traceback -check bounds -cpp -fpscomp logicals -fPIC -DIMASS ${HP_FLAGS} # use 1 and 0 for True and False
-	F90FLAGS = -O3 -cpp -fpscomp logicals -fPIC -DIMASS ${HP_FLAGS} # use 1 and 0 for True and False
+	F90FLAGS = -O3 -cpp -fpscomp logicals -fPIC -DIMASS ${HEALPIX_DEFINE} ${HP_FLAGS} # use 1 and 0 for True and False
 	FCOMP    = intelem # for f2py
     LIBS =
 endif
+
+ 
 
 CFLAGS  = -fPIC #     ==> universal for ifort, gfortran, pgi
 
