@@ -22,6 +22,19 @@ from .visualisation.vis_pkg import io_ramses
 from .part.part2_pkg import filtering as filtering_part
 from .amr.amr2_pkg import filtering as filtering_hydro
 
+
+def ensure_healpix_compiled():
+    """Raise a clear error if the Fortran 'vis' extension was compiled without
+    Healpix support. The Fortran healpix routines are only available when the
+    extension was built with Healpix. In that case the maps module exposes
+    `healpix_hydro`. If not present, tell the user how to recompile.
+    """
+    if not hasattr(maps, 'healpix_hydro'):
+        raise RuntimeError(
+            "Healpix support is not available in the compiled 'vis' extension. "
+            "Recompile the extension with Healpix enabled (e.g. from ozy/visualisation: "
+            "make USE_HEALPIX=1) to enable mollweide/healpix projections.")
+
 cartesian_basis = {'x':np.array([1.,0.,0.]),'y':np.array([0.,0.,1.]),'z':np.array([0.,0.,1.])}
 
 target_header = fits.Header.fromstring("""
@@ -1824,6 +1837,7 @@ def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,
                           filter_conds=['none'],filter_name=['none'],use_neigh=False,myaxis=np.array([1.,0.,0.])):
     """Function which computes a 2D spherical projection of particular object using the HEALPix
         pixelisation scheme."""
+    ensure_healpix_compiled()
     
     if not isinstance(weight,list):
         weight = [weight]
@@ -2024,6 +2038,7 @@ def do_healpix_projection(group,vars,weight=['gas/density','star/age'],nside=32,
 def load_single_galaxy_healpix(proj_FITS,field,filter_name='none'):
     """This function uses the HEALPix projection information in a FITS file following
         the OZY format and returns the map as an array."""
+    ensure_healpix_compiled()
     
     # Make required imports
     import matplotlib
@@ -2082,6 +2097,7 @@ def plot_single_galaxy_healpix(proj_FITS,fields,logscale=True,redshift=False,fig
     """This function uses the HEALPix projection information in a FITS file following
         the OZY format and plots it using the OZY standards."""
 
+    ensure_healpix_compiled()
     # Make required imports
     import matplotlib
     import matplotlib.pyplot as plt
