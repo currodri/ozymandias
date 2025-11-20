@@ -5,7 +5,7 @@ import ozy
 from ozy.utils import init_region, structure_regions, check_need_neighbours,\
                         get_code_units, get_plotting_def, get_part_vartype
 from ozy.utils import init_filter_hydro,init_filter_part,remove_last_suffix_if_numeric
-from variables_settings import geometrical_variables, raw_gas_variables,\
+from .variables_settings import geometrical_variables, raw_gas_variables,\
            raw_part_variables, derived_gas_variables,\
            derived_part_variables, star_variables, gravity_variables,\
            circle_dictionary, basic_conv, hydro_variables_ordering,\
@@ -15,12 +15,12 @@ from unyt import unyt_quantity,unyt_array
 import healpy as hp
 from astropy.io import fits
 from astropy.wcs import WCS
-from vis import obs_instruments
-from vis import maps
-from vis import vectors
-from vis import io_ramses
-from part2 import filtering as filtering_part
-from amr2 import filtering as filtering_hydro
+from .visualisation.vis_pkg import obs_instruments
+from .visualisation.vis_pkg import maps
+from .visualisation.vis_pkg import vectors
+from .visualisation.vis_pkg import io_ramses
+from .part.part2_pkg import filtering as filtering_part
+from .amr.amr2_pkg import filtering as filtering_hydro
 
 cartesian_basis = {'x':np.array([1.,0.,0.]),'y':np.array([0.,0.,1.]),'z':np.array([0.,0.,1.])}
 

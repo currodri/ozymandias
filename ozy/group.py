@@ -1,8 +1,8 @@
 import numpy as np
 from pprint import pprint
-from amr2 import amr_integrator,stats_utils
-from part2 import part_integrator
-from variables_settings import MINIMUM_DM_PER_HALO, MINIMUM_STARS_PER_GALAXY
+from .amr.amr2_pkg import amr_integrator,stats_utils
+from .part.part2_pkg import part_integrator
+from .variables_settings import MINIMUM_DM_PER_HALO, MINIMUM_STARS_PER_GALAXY
 from .utils import init_filter_hydro,init_filter_part
 
 grouptypes = dict(

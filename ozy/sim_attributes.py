@@ -1,5 +1,4 @@
 import numpy as np
-import part2
 
 class SimulationAttributes(object):
     """Class that contains the attributes of the simulation."""

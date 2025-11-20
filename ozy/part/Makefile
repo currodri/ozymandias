@@ -111,14 +111,15 @@ LIBSRC_WRAP_FPP_FILES = $(addsuffix .fpp,${LIBSRC_WRAP_SOURCES})
 
 %.o: %.mod
 
-all: _${PYTHON_MODN}.so _${PYTHON_MODN}_pkg.so
+all: _${PYTHON_MODN}_pkg.so
 
 
 clean:
-	-rm -f ${LIBSRC_OBJECTS} ${LIBSRC_FPP_FILES} libsrc.a _${PYTHON_MODN}*.so \
+	-rm -f ${LIBSRC_OBJECTS} ${LIBSRC_FPP_FILES} libsrc.a \
 	_${PYTHON_MODN}_pkg.so *.mod *.fpp f90wrap*.f90 f90wrap*.o *.o ${PYTHON_MODN}.py
 	-rm -rf ${PYTHON_MODN}_pkg/
 	-rm -rf src.*/ .f2py_f2cmap .libs/ __pycache__/
+	-rm *cpython*.so
 
 
 .f90.o:
@@ -135,11 +136,6 @@ clean:
 
 libsrc.a: ${LIBSRC_OBJECTS}
 	${LIBTOOL} $@ $?
-
-
-_${PYTHON_MODN}.so: libsrc.a ${LIBSRC_FPP_FILES}
-	f90wrap -m ${PYTHON_MODN} ${LIBSRC_WRAP_FPP_FILES} -k ${KIND_MAP}
-	f2py-f90wrap --fcompiler=$(FCOMP) --build-dir . -c -m _${PYTHON_MODN} -L. -lsrc f90wrap*.f90
 
 _${PYTHON_MODN}_pkg.so: libsrc.a ${LIBSRC_FPP_FILES}
 	f90wrap -m ${PYTHON_MODN}_pkg ${LIBSRC_WRAP_FPP_FILES} -k ${KIND_MAP} -P

@@ -381,8 +381,8 @@ class OZY:
         info_printer(self, 'cloud', top)
 
     def _set_variable_ordering(self):
-        from amr2 import dictionary_commons
-        from variables_settings import hydro_variables_ordering, \
+        from .amr.amr2_pkg import dictionary_commons
+        from .variables_settings import hydro_variables_ordering, \
                                         part_variables_ordering, \
                                         part_variables_type
         self.vardict = dictionary_commons.dictf90()

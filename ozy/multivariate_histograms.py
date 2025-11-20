@@ -6,15 +6,15 @@ from unyt import unyt_array,unyt_quantity
 from .utils import init_region,init_filter_hydro,gent_curve_T,\
                     check_need_neighbours, get_code_units, \
                     get_plotting_def
-from variables_settings import geometrical_variables,raw_gas_variables,\
+from .variables_settings import geometrical_variables,raw_gas_variables,\
                                 derived_gas_variables,gravity_variables
 
 # TODO: Allow for parallel computation of phase diagrams.
 from joblib import Parallel, delayed
-from amr2 import vectors
-from amr2 import geometrical_regions as geo
-from amr2 import amr_profiles as amrprofmod
-from amr2 import io_ramses
+from .amr.amr2_pkg import vectors
+from .amr.amr2_pkg import geometrical_regions as geo
+from .amr.amr2_pkg import amr_profiles as amrprofmod
+from .amr.amr2_pkg import io_ramses
 
 blacklist = [
     'zvars','weightvars','xdata','ydata','zdata'

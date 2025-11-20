@@ -77,6 +77,20 @@ module io_ramses
         real(dbl),dimension(:,:,:),allocatable :: x,y,z
     end type data_handler
 
+    type rt_info
+        integer :: nRTvar=0
+        integer :: nIons=0
+        integer :: nGroups=0
+        integer :: iIons=0
+        integer :: rtdp=0
+        real(dbl) :: X=0d0, Y=0d0
+        real(dbl) :: scale_np=0d0, scale_pf=0d0, rt_c_fraction=0d0
+        real(dbl) :: n_star=0d0, T2_star=0d0, g_star=0d0
+        integer,dimension(:),allocatable :: spec2group
+        real(dbl),dimension(:),allocatable :: groupL0,groupL1,group_egy
+        real(dbl),dimension(:,:),allocatable :: group_csn,group_cse
+    end type rt_info
+
     type particle
 #ifndef LONGINT
         integer(irg) :: id,level
@@ -90,8 +104,10 @@ module io_ramses
     ! Define global variables
     type(sim_info) :: sim
     type(amr_info) :: amr
+    type(rt_info)  :: rtinfo
     type(dictf90)  :: varIDs
     type(dictf90)  :: partIDs,partvar_types
+    type(dictf90)  :: rtIDs
     logical :: verbose=.false.
     logical :: fix_neg_temp=.true.
     real(dbl)      :: Tmin,cV
@@ -128,6 +144,95 @@ module io_ramses
         call read_hydrofile_descriptor(repository)
         myvars = varIDs
     end subroutine retrieve_vars
+
+    subroutine retrieve_rtinfo(repository,nchar,myrtinfo)
+        implicit none
+        character(128),intent(in) :: repository
+        character(5), intent(in) :: nchar
+        type(rt_info), intent(inout) :: myrtinfo
+
+        ! Read the info file into module rtinfo, then copy to the passed object
+        call read_rt_info(repository,nchar)
+        myrtinfo = rtinfo
+    end subroutine retrieve_rtinfo
+
+    subroutine retrieve_rtIDs(repository,nchar,myrtids)
+        implicit none
+
+        character(128),intent(in) :: repository
+        character(5), intent(in) :: nchar
+        type(dictf90), intent(inout) :: myrtids
+
+        ! Ensure rt info and rtIDs are populated
+        call read_rt_info(repository,nchar)
+        myrtids = rtIDs
+    end subroutine retrieve_rtIDs
+
+    subroutine print_rtinfo(repository,nchar)
+        implicit none
+        character(128),intent(in) :: repository
+        character(5), intent(in) :: nchar
+        integer :: i,j
+
+        ! Check for the presence of RT files
+        call check_rt_files(repository,nchar)
+
+        if (.not. sim%rt) then
+            write(*,*) 'No RT files detected for repository:', trim(repository)
+            return
+        end if
+
+        ! Read rt info into module rtinfo
+        call read_rt_info(repository,nchar)
+
+        write(*,*) '---- RT info ----'
+        write(*,'("nRTvar      =",I6)') rtinfo%nRTvar
+        write(*,'("nIons       =",I6)') rtinfo%nIons
+        write(*,'("nGroups     =",I6)') rtinfo%nGroups
+        write(*,'("iIons       =",I6)') rtinfo%iIons
+        write(*,'("rtprecision =",I6)') rtinfo%rtdp
+        write(*,'("X_fraction  =",E23.15)') rtinfo%X
+        write(*,'("Y_fraction  =",E23.15)') rtinfo%Y
+        write(*,*)
+        write(*,'("unit_np     =",E23.15)') rtinfo%scale_np
+        write(*,'("unit_pf     =",E23.15)') rtinfo%scale_pf
+        write(*,'("rt_c_frac   =",E23.15)') rtinfo%rt_c_fraction
+        write(*,*)
+        write(*,'("n_star      =",E23.15)') rtinfo%n_star
+        write(*,'("T2_star     =",E23.15)') rtinfo%T2_star
+        write(*,'("g_star      =",E23.15)') rtinfo%g_star
+        write(*,*)
+        if (allocated(rtinfo%groupL0)) then
+            write(*,*) 'groupL0:'
+            write(*,'(20E12.3)') (rtinfo%groupL0(i), i=1,min(size(rtinfo%groupL0),20))
+        end if
+        if (allocated(rtinfo%groupL1)) then
+            write(*,*) 'groupL1:'
+            write(*,'(20E12.3)') (rtinfo%groupL1(i), i=1,min(size(rtinfo%groupL1),20))
+        end if
+        if (allocated(rtinfo%spec2group)) then
+            write(*,*) 'spec2group:'
+            write(*,'(20I6)') (rtinfo%spec2group(i), i=1,size(rtinfo%spec2group))
+        end if
+
+        if (allocated(rtinfo%group_egy)) then
+            write(*,*) 'Per-group properties:'
+            do i=1,rtinfo%nGroups
+                write(*,'("--- Group ",I2)') i
+                write(*,'("  egy =",1PE12.3)') rtinfo%group_egy(i)
+                if (allocated(rtinfo%group_csn)) then
+                    write(*,'("  csn =",20(1PE12.3))') (rtinfo%group_csn(i,j), j=1,min(20,size(rtinfo%group_csn,2)))
+                end if
+                if (allocated(rtinfo%group_cse)) then
+                    write(*,'("  cse =",20(1PE12.3))') (rtinfo%group_cse(i,j), j=1,min(20,size(rtinfo%group_cse,2)))
+                end if
+            end do
+        end if
+
+        write(*,*) '---- end RT info ----'
+
+    end subroutine print_rtinfo
+
 
     !---------------------------------------------------------------
     ! Subroutine: TITLE
@@ -443,6 +548,8 @@ module io_ramses
         character(len=25) :: varname
         character(5) :: nchar
         logical :: found_header
+        integer :: rt_nkeys, idcount
+        character(len=32) :: keyname
 
         if (partIDs%count.ne.0) return
 
@@ -492,6 +599,33 @@ module io_ramses
     
         ! Close the file
         close(iunit)
+        ! Build rtIDs dictionary: entries to access photon density and fluxes
+        if (rtinfo%nGroups > 0) then
+            rt_nkeys = rtinfo%nGroups * (1 + amr%ndim)
+            if (rt_nkeys < 1) rt_nkeys = 1
+            ! Initialize rtIDs dictionary (resize)
+            call rtIDs%init(rt_nkeys)
+
+            idcount = 0
+            do i = 1, rtinfo%nGroups
+                ! base key for this group, e.g. 'rt_g1'
+                write(keyname, '(A,I0)') 'rt_g', i
+                idcount = idcount + 1
+                call rtIDs%add(trim(keyname)//'_n', idcount)  ! photon density
+                if (amr%ndim >= 1) then
+                    idcount = idcount + 1
+                    call rtIDs%add(trim(keyname)//'_fx', idcount)
+                end if
+                if (amr%ndim >= 2) then
+                    idcount = idcount + 1
+                    call rtIDs%add(trim(keyname)//'_fy', idcount)
+                end if
+                if (amr%ndim >= 3) then
+                    idcount = idcount + 1
+                    call rtIDs%add(trim(keyname)//'_fz', idcount)
+                end if
+            end do
+        end if
         
         ! Now loop over the variables assigning them to the particle
         ! variables dictionary
@@ -880,7 +1014,250 @@ module io_ramses
 
         ! Check for the presence of RT files
         call check_rt_files(repository,nchar)
+        if (sim%rt) call read_rt_info(repository,nchar)
     end subroutine init_amr_read
+
+    !---------------------------------------------------------------
+    ! Subroutine: READ RT INFO
+    !
+    ! Read the info_rt_XXXXX.txt file produced by `output_rtInfo`
+    ! and store contents in the global `rtinfo` object.
+    !---------------------------------------------------------------
+    subroutine read_rt_info(repository,nchar)
+        use utils, only: get_word
+        implicit none
+        character(128), intent(in) :: repository
+        character(5), intent(in) :: nchar
+        character(128) :: nomfich
+        integer :: iunit, ios, i, j, k, nTok
+        character(len=512) :: line
+        character(len=80) :: token
+        integer :: pos
+        character(len=512) :: chunk
+        integer :: len_chunk, jend
+        integer, dimension(20) :: tmpi
+        real(dbl), dimension(20) :: tmpr
+
+        nomfich = TRIM(repository)//'/info_rt_'//TRIM(nchar)//'.txt'
+
+        ! Try to open the file
+        iunit = 30
+        open(unit=iunit, file=nomfich, status='old', action='read', iostat=ios)
+        if (ios /= 0) then
+            if (verbose) write(*,*)'info_rt file not found:', TRIM(nomfich)
+            return
+        end if
+
+        ! Initialize/clear any existing rtinfo arrays
+        if (allocated(rtinfo%spec2group)) deallocate(rtinfo%spec2group)
+        if (allocated(rtinfo%groupL0)) deallocate(rtinfo%groupL0)
+        if (allocated(rtinfo%groupL1)) deallocate(rtinfo%groupL1)
+        if (allocated(rtinfo%group_egy)) deallocate(rtinfo%group_egy)
+        if (allocated(rtinfo%group_csn)) deallocate(rtinfo%group_csn)
+        if (allocated(rtinfo%group_cse)) deallocate(rtinfo%group_cse)
+
+        do
+            read(iunit,'(A)',iostat=ios) line
+            if (ios /= 0) exit
+            ! Find and parse known keys
+            if (index(line,'nRTvar') /= 0) then
+                pos = index(line,'=')
+                read(line(pos+1:),*) rtinfo%nRTvar
+            else if (index(line,'nIons') /= 0) then
+                pos = index(line,'=')
+                read(line(pos+1:),*) rtinfo%nIons
+                ! if groups already known, (re)allocate cs arrays to have correct second dim
+                if (rtinfo%nIons > 0 .and. rtinfo%nGroups > 0) then
+                    if (allocated(rtinfo%group_csn)) then
+                        deallocate(rtinfo%group_csn)
+                    end if
+                    if (allocated(rtinfo%group_cse)) then
+                        deallocate(rtinfo%group_cse)
+                    end if
+                    allocate(rtinfo%group_csn(rtinfo%nGroups, rtinfo%nIons))
+                    allocate(rtinfo%group_cse(rtinfo%nGroups, rtinfo%nIons))
+                end if
+                else if (index(line,'nGroups') /= 0) then
+                pos = index(line,'=')
+                read(line(pos+1:),*) rtinfo%nGroups
+                ! allocate group arrays once nGroups known
+                if (rtinfo%nGroups > 0) then
+                    if (.not. allocated(rtinfo%groupL0)) allocate(rtinfo%groupL0(rtinfo%nGroups))
+                    if (.not. allocated(rtinfo%groupL1)) allocate(rtinfo%groupL1(rtinfo%nGroups))
+                    if (.not. allocated(rtinfo%group_egy)) allocate(rtinfo%group_egy(rtinfo%nGroups))
+                    ! allocate cs arrays when nIons is known; for now allocate with 1 col if nIons not yet known
+                    if (rtinfo%nIons > 0) then
+                        if (.not. allocated(rtinfo%group_csn)) allocate(rtinfo%group_csn(rtinfo%nGroups,rtinfo%nIons))
+                        if (.not. allocated(rtinfo%group_cse)) allocate(rtinfo%group_cse(rtinfo%nGroups,rtinfo%nIons))
+                    else
+                        if (.not. allocated(rtinfo%group_csn)) allocate(rtinfo%group_csn(rtinfo%nGroups,1))
+                        if (.not. allocated(rtinfo%group_cse)) allocate(rtinfo%group_cse(rtinfo%nGroups,1))
+                    end if
+                end if
+            else if (index(line,'iIons') /= 0) then
+                pos = index(line,'=')
+                read(line(pos+1:),*) rtinfo%iIons
+            else if (index(line,'rtprecision') /= 0) then
+                pos = index(line,'=')
+                read(line(pos+1:),*) rtinfo%rtdp
+            else if (index(line,'X_fraction') /= 0) then
+                pos = index(line,'=')
+                read(line(pos+1:),*) rtinfo%X
+            else if (index(line,'Y_fraction') /= 0) then
+                pos = index(line,'=')
+                read(line(pos+1:),*) rtinfo%Y
+            else if (index(line,'unit_np') /= 0) then
+                pos = index(line,'=')
+                read(line(pos+1:),*) rtinfo%scale_np
+            else if (index(line,'unit_pf') /= 0) then
+                pos = index(line,'=')
+                read(line(pos+1:),*) rtinfo%scale_pf
+            else if (index(line,'rt_c_frac') /= 0) then
+                pos = index(line,'=')
+                read(line(pos+1:),*) rtinfo%rt_c_fraction
+            else if (index(line,'n_star') /= 0) then
+                pos = index(line,'=')
+                read(line(pos+1:),*) rtinfo%n_star
+            else if (index(line,'T2_star') /= 0) then
+                pos = index(line,'=')
+                read(line(pos+1:),*) rtinfo%T2_star
+            else if (index(line,'g_star') /= 0) then
+                pos = index(line,'=')
+                read(line(pos+1:),*) rtinfo%g_star
+            else if (index(line,'groupL0') /= 0) then
+                pos = index(line,'=')
+                if (rtinfo%nGroups > 0) then
+                    ! writer uses 20F12.3 after the label; parse fixed-width F12.3 fields
+                    k = 0
+                    chunk = line(pos+1:)
+                    len_chunk = len_trim(chunk)
+                    do i = 1, min(20, rtinfo%nGroups)
+                        k = k + 1
+                        j = (k-1)*12 + 1
+                        if (j > len_chunk) exit
+                        jend = min(j+11, len_chunk)
+                        token = adjustl(chunk(j:jend))
+                        read(token, '(F12.3)', iostat=ios) tmpr(k)
+                        if (ios /= 0) then
+                            exit
+                        end if
+                        rtinfo%groupL0(k) = tmpr(k)
+                    end do
+                end if
+            else if (index(line,'groupL1') /= 0) then
+                pos = index(line,'=')
+                if (rtinfo%nGroups > 0) then
+                    k = 0
+                    chunk = line(pos+1:)
+                    len_chunk = len_trim(chunk)
+                    do i = 1, min(20, rtinfo%nGroups)
+                        k = k + 1
+                        j = (k-1)*12 + 1
+                        if (j > len_chunk) exit
+                        jend = min(j+11, len_chunk)
+                        token = adjustl(chunk(j:jend))
+                        read(token, '(F12.3)', iostat=ios) tmpr(k)
+                        if (ios /= 0) then
+                            exit
+                        end if
+                        rtinfo%groupL1(k) = tmpr(k)
+                    end do
+                end if
+            else if (index(line,'spec2group') /= 0) then
+                pos = index(line,'=')
+                ! spec2group is written as 20I12; only first nIons are relevant
+                if (rtinfo%nIons <= 0) then
+                    cycle
+                end if
+                if (.not. allocated(rtinfo%spec2group)) allocate(rtinfo%spec2group(rtinfo%nIons))
+                chunk = line(pos+1:)
+                len_chunk = len_trim(chunk)
+                do j = 1, rtinfo%nIons
+                    k = (j-1)*12 + 1
+                    if (k > len_chunk) then
+                        rtinfo%spec2group(j) = 0
+                    else
+                        jend = min(k+11, len_chunk)
+                        token = adjustl(chunk(k:jend))
+                        read(token, '(I12)', iostat=ios) tmpi(j)
+                        if (ios /= 0) then
+                            rtinfo%spec2group(j) = 0
+                        else
+                            rtinfo%spec2group(j) = tmpi(j)
+                        end if
+                    end if
+                end do
+            else if (index(line,'egy') /= 0 .and. index(line,'group_egy')==0) then
+                ! This line label in write_group_props is 'egy      [eV] ='
+                pos = index(line,'=')
+                ! Skip: per-group energies are read in the group blocks below
+                cycle
+            else if (index(line,'csn') /= 0) then
+                ! group_csn line: multiple lines per group; handle in loop below
+                ! The writer outputs group_csn(ip,:) and group_cse(ip,:) in the loop.
+                ! To capture these we re-read the file from current position storing per-group
+                ! Move file back to current beginning isn't trivial; instead, continue reading
+                ! and when encountering the per-group markers, use a simple state machine.
+                cycle
+            end if
+        end do
+
+        rewind(iunit)
+
+        ! Re-scan file to capture per-group properties (group_egy, group_csn, group_cse)
+        i = 0
+        do
+            read(iunit,'(A)',iostat=ios) line
+            if (ios /= 0) exit
+            if (index(line,'---Group') /= 0) then
+                ! Next lines: group_egy, group_csn, group_cse belong to group ip
+                i = i + 1
+                ! read next non-blank line expecting 'egy' for this group
+                read(iunit,'(A)',iostat=ios) line
+                if (ios /= 0) exit
+                pos = index(line,'=')
+                if (pos > 0) then
+                    read(line(pos+1:),*) rtinfo%group_egy(i)
+                end if
+                ! read csn line (specifically nIons entries)
+                read(iunit,'(A)',iostat=ios) line
+                if (ios /= 0) exit
+                pos = index(line,'=')
+                if (pos > 0) then
+                    do j = 1, max(1, rtinfo%nIons)
+                        k = (j-1)*12 + 1
+                        if (k > len_trim(line(pos+1:))) then
+                            rtinfo%group_csn(i,j) = 0.0d0
+                        else
+                            token = adjustl(line(pos+k:pos+k+11))
+                            read(token, '(1PE12.3)', iostat=ios) rtinfo%group_csn(i,j)
+                            if (ios /= 0) rtinfo%group_csn(i,j) = 0.0d0
+                        end if
+                    end do
+                end if
+                ! read cse line
+                read(iunit,'(A)',iostat=ios) line
+                if (ios /= 0) exit
+                pos = index(line,'=')
+                if (pos > 0) then
+                    do j = 1, max(1, rtinfo%nIons)
+                        k = (j-1)*12 + 1
+                        if (k > len_trim(line(pos+1:))) then
+                            rtinfo%group_cse(i,j) = 0.0d0
+                        else
+                            token = adjustl(line(pos+k:pos+k+11))
+                            read(token, '(1PE12.3)', iostat=ios) rtinfo%group_cse(i,j)
+                            if (ios /= 0) rtinfo%group_cse(i,j) = 0.0d0
+                        end if
+                    end do
+                end if
+                if (i >= rtinfo%nGroups) exit
+            end if
+        end do
+
+        close(iunit)
+        if (verbose) write(*,*)'Read RT info from: ',TRIM(nomfich)
+    end subroutine read_rt_info
 
     !---------------------------------------------------------------
     ! Subroutine: CHECK RT FILES

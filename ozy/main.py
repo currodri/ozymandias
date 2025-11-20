@@ -2,6 +2,10 @@ import numpy as np
 from .sim_attributes import SimulationAttributes
 from .utils import get_mu,get_electron_mu
 from unyt import UnitRegistry,unyt_array,unyt_quantity
+from .amr.amr2_pkg import dictionary_commons
+from .variables_settings import hydro_variables_ordering, \
+                part_variables_ordering, \
+                part_variables_type
 
 class Snapshot(object):
     """Master Snapshot class.
@@ -27,6 +31,7 @@ class Snapshot(object):
         self.simupath = '/'.join(fullpath.split('/')[:-1])
         self._info = self._get_my_info(fullpath)
         self._header = self._get_my_header(fullpath)
+        self._rtinfo = self._get_my_rtinfo(fullpath)
         self.unit_registry = self._get_unit_registry()
         self.simulation  = SimulationAttributes()
         self._set_variable_ordering()
@@ -49,6 +54,13 @@ class Snapshot(object):
         index = int(fullpath[-5:])
         headerfile_path = fullpath + '/header_%05d.txt' % index
         return read_headerfile(headerfile_path)
+
+    def _get_my_rtinfo(self, fullpath):
+        from .utils import read_rtinfo
+        try:
+            return read_rtinfo(fullpath)
+        except Exception:
+            return None
 
     def _get_unit_registry(self):
         from unyt.dimensions import length,mass,time,temperature,dimensionless,magnetic_field_cgs
@@ -122,10 +134,6 @@ class Snapshot(object):
         self.simulation.assign_attributes(self,fullpath)
 
     def _set_variable_ordering(self):
-        from amr2 import dictionary_commons
-        from variables_settings import hydro_variables_ordering, \
-                                        part_variables_ordering, \
-                                        part_variables_type
         self.vardict = dictionary_commons.dictf90()
         self.part_vardict = dictionary_commons.dictf90()
         self.part_vartypes = dictionary_commons.dictf90()

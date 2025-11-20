@@ -6,15 +6,16 @@ from itertools import islice
 import sys
 import os
 import subprocess
+import re
 import matplotlib.text as mtext
 import matplotlib.transforms as mtransforms
 import matplotlib.pyplot as plt
 from unyt import unyt_array,unyt_quantity
-from variables_settings import geometrical_variables, raw_gas_variables,\
-           raw_part_variables, derived_gas_variables,\
-           derived_part_variables, star_variables, gravity_variables,\
-           circle_dictionary, basic_conv, hydro_variables_ordering,\
-           part_variables_ordering, part_variables_type,circle_dictionary
+from .variables_settings import geometrical_variables, raw_gas_variables, \
+           raw_part_variables, derived_gas_variables, \
+           derived_part_variables, star_variables, gravity_variables, \
+           circle_dictionary, basic_conv, hydro_variables_ordering, \
+           part_variables_ordering, part_variables_type
 
 def ends_with_int_suffix(s):
     parts = s.rsplit('_', 1)
@@ -335,6 +336,203 @@ def read_headerfile(filename):
     data['particle_fields'] = particle_fields
     data['num_fields'] = len(particle_fields)
     return data
+
+
+def read_rtinfo(fullpath):
+    """Read RT descriptor file `info_rt_XXXXX.txt` for a snapshot directory.
+
+    Parses the file and returns a Python dictionary with scalar fields and
+    arrays similar in style to `read_infofile`.
+
+    Returns `None` if the file is not present or the snapshot index cannot be
+    determined.
+    """
+    try:
+        index = int(fullpath[-5:])
+    except Exception:
+        return None
+
+    rtfile = os.path.join(fullpath, 'info_rt_%05d.txt' % index)
+    if not os.path.exists(rtfile):
+        return None
+
+    with open(rtfile, 'r') as fh:
+        lines = [ln.rstrip('\n') for ln in fh]
+
+    rt = {}
+    # initialize defaults
+    rt.update(dict(nrtvar=0, nions=0, ngroups=0, iions=0, rtdp=0,
+                   x=0.0, y=0.0, scale_np=0.0, scale_pf=0.0,
+                   rt_c_fraction=0.0, n_star=0.0, t2_star=0.0, g_star=0.0))
+
+    # helper: map various possible headers to keys
+    header_map = {
+        'nrtvar': ('nrtvar', int),
+        'nions': ('nions', int),
+        'ngroups': ('ngroups', int),
+        'iions': ('iions', int),
+        'rtprecision': ('rtdp', int),
+        'rtdp': ('rtdp', int),
+        'x': ('x', float),
+        'y': ('y', float),
+        'unit_np': ('scale_np', float),
+        'scale_np': ('scale_np', float),
+        'unit_pf': ('scale_pf', float),
+        'scale_pf': ('scale_pf', float),
+        'rt_c_frac': ('rt_c_fraction', float),
+        'rt_c_fraction': ('rt_c_fraction', float),
+        'n_star': ('n_star', float),
+        't2_star': ('t2_star', float),
+        'g_star': ('g_star', float)
+    }
+
+    # First pass: read scalars from labelled lines by searching for key anywhere
+    num_re = re.compile(r'[+-]?(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?')
+    int_re = re.compile(r'[+-]?\d+')
+    for ln in lines[:200]:
+        lnl = ln.lower()
+        if len(lnl) < 1:
+            continue
+        for h, (key, caster) in header_map.items():
+            if h in lnl:
+                # try to find first numeric token after '=' or anywhere
+                eqpos = ln.find('=')
+                fragment = ln[eqpos+1:] if eqpos != -1 else ln
+                token = None
+                if caster is int:
+                    m = int_re.search(fragment)
+                    if m:
+                        token = m.group(0)
+                else:
+                    m = num_re.search(fragment)
+                    if m:
+                        token = m.group(0)
+                if token is not None:
+                    try:
+                        rt[key] = caster(token)
+                    except Exception:
+                        pass
+                break
+
+    nIons = int(rt.get('nions', 0))
+    nGroups = int(rt.get('ngroups', 0))
+
+    # helpers to collect numeric tokens across subsequent lines
+    def tokens_from(start_idx):
+        for j in range(start_idx, len(lines)):
+            for tok in lines[j].split():
+                yield tok
+
+    # Find and parse groupl0, groupl1 and spec2group blocks
+    float_re = num_re
+    int_re = re.compile(r'[+-]?\d+')
+    i = 0
+    while i < len(lines):
+        ln = lines[i]
+        lnl = ln.lower()
+        # groupl0 / groupl1: gather floats across possibly multiple lines
+        if 'groupl0' in lnl or 'groupl1' in lnl:
+            keyname = 'groupl0' if 'groupl0' in lnl else 'groupl1'
+            want = nGroups if nGroups > 0 else 0
+            vals = []
+            # start from current line: take substring after '=' if present, else whole line
+            j = i
+            while len(vals) < want and j < len(lines):
+                seg = lines[j]
+                if '=' in seg:
+                    seg = seg.split('=', 1)[1]
+                for m in float_re.finditer(seg):
+                    if len(vals) >= want:
+                        break
+                    try:
+                        vals.append(float(m.group(0)))
+                    except Exception:
+                        vals.append(0.0)
+                j += 1
+            rt[keyname] = vals
+            # continue scanning from where we left
+            i = j
+            continue
+
+        # spec2group: integers mapping species to groups
+        if 'spec2group' in lnl:
+            want = nIons if nIons > 0 else 0
+            vals = []
+            j = i
+            while len(vals) < want and j < len(lines):
+                seg = lines[j]
+                if '=' in seg:
+                    seg = seg.split('=', 1)[1]
+                for m in int_re.finditer(seg):
+                    if len(vals) >= want:
+                        break
+                    try:
+                        vals.append(int(m.group(0)))
+                    except Exception:
+                        vals.append(0)
+                j += 1
+            rt['spec2group'] = vals
+            i = j
+            continue
+
+        i += 1
+
+    # Parse per-group blocks
+    rt['group_egy'] = []
+    rt['group_csn'] = []
+    rt['group_cse'] = []
+
+    i = 0
+    while i < len(lines):
+        ln = lines[i]
+        if ln.strip().lower().startswith('---group'):
+            # begin parsing tokens after this line
+            token_gen = tokens_from(i+1)
+            # group energy: one value
+            egy = 0.0
+            try:
+                t = next(token_gen)
+                egy = float(t)
+            except StopIteration:
+                egy = 0.0
+            except Exception:
+                egy = 0.0
+
+            # collect csn and cse: nIons each
+            csn = []
+            cse = []
+            for _ in range(nIons):
+                try:
+                    t = next(token_gen)
+                    csn.append(float(t))
+                except StopIteration:
+                    csn.append(0.0)
+                except Exception:
+                    csn.append(0.0)
+            for _ in range(nIons):
+                try:
+                    t = next(token_gen)
+                    cse.append(float(t))
+                except StopIteration:
+                    cse.append(0.0)
+                except Exception:
+                    cse.append(0.0)
+
+            rt['group_egy'].append(egy)
+            rt['group_csn'].append(csn)
+            rt['group_cse'].append(cse)
+            # advance i to continue after tokens we consumed: approximate by moving one line
+        i += 1
+
+    # Ensure keys exist
+    if 'spec2group' not in rt:
+        rt['spec2group'] = []
+    if 'groupl0' not in rt:
+        rt['groupl0'] = []
+    if 'groupl1' not in rt:
+        rt['groupl1'] = []
+
+    return rt
 
 def closest_snap_z(simfolder,z,return_index=False):
     """
@@ -780,8 +978,8 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
                 mycentre=([0.5,0.5,0.5],'rvir'), myaxis=np.array([0.,0.,0.]),
                 return_enclosing_sphere=False):
     """Initialise region Fortran derived type with details of group."""
-    from amr2 import vectors
-    from amr2 import geometrical_regions as geo
+    from .amr.amr2_pkg import vectors
+    from .amr.amr2_pkg import geometrical_regions as geo
     if not isinstance(rmin,tuple) or not isinstance(rmax,tuple):
         raise TypeError('The format for rmin and rmax should be %s, instead you gave for rmin %s and for rmax %s' %(type(tuple),type(rmin),type(rmax)))
         exit
@@ -1008,7 +1206,7 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
 
 def init_filter_hydro(cond_strs, name, obj):
     """Initialise filter Fortran derived type with the condition strings provided."""
-    from amr2 import filtering
+    from .amr.amr2_pkg import filtering
     if isinstance(cond_strs, str):
         cond_strs = [cond_strs]
     filt = filtering.filter_hydro()
@@ -1324,7 +1522,7 @@ def sn_data_hdf5(logfiles,have_crs=False,outdir='Groups',filename='sn_catalogue.
 
 def get_equilibrium_temp(cool_file,Z):
     
-    from amr2 import cooling_module
+    from .amr.amr2_pkg import cooling_module
     
     # Read the table
     cooling_module.read_cool(cool_file)
@@ -1352,7 +1550,7 @@ def plot_cooling(cool_file):
     This function allows for an easy inspection of the cooling curves
     saved in the RAMSES outputs and how they are used in post-processing.
     """
-    from amr2 import cooling_module
+    from .amr.amr2_pkg import cooling_module
     import matplotlib.pyplot as plt
     from matplotlib.colors import LogNorm,SymLogNorm
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
