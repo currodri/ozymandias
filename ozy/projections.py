@@ -1,10 +1,10 @@
 import numpy as np
-import h5py
 import os
 import ozy
-from ozy.utils import init_region, structure_regions, check_need_neighbours,\
-                        get_code_units, get_plotting_def, get_part_vartype
-from ozy.utils import init_filter_hydro,init_filter_part,remove_last_suffix_if_numeric
+from .utils import init_region, structure_regions, check_need_neighbours,\
+                        get_code_units, get_plotting_def, get_part_vartype,\
+                        check_need_rt
+from .utils import init_filter_hydro,init_filter_part,remove_last_suffix_if_numeric
 from .variables_settings import geometrical_variables, raw_gas_variables,\
            raw_part_variables, derived_gas_variables,\
            derived_part_variables, star_variables, gravity_variables,\
@@ -432,12 +432,14 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     proj = Projection(group)
     proj.pov = pov
     use_neigh = False
+    use_rt = False
     
     for var in vars:
         var_type = var.split('/')[0]
         var_name = var.split('/')[1]
         if var_type == 'gas':
             use_neigh = check_need_neighbours(var_name,'gas') or use_neigh
+            use_rt = check_need_rt(var_name,'gas') or use_rt
             if var_name in geometrical_variables or var_name in raw_gas_variables \
                 or var_name in derived_gas_variables or var_name in gravity_variables:
                 proj.vars['gas'].append(var_name)
@@ -456,6 +458,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         weight_name = w.split('/')[1]
         if weight_type == 'gas':
             use_neigh = check_need_neighbours(weight_name,'gas') or use_neigh
+            use_rt = check_need_rt(weight_name,'gas') or use_rt
             if weight_name in geometrical_variables or weight_name in raw_gas_variables \
                 or weight_name in derived_gas_variables or weight_name in gravity_variables:
                 proj.weight['gas'].append(weight_name)
@@ -474,6 +477,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
                 raise KeyError('This particle variable is not supported. Please check!: %s', var)
     if use_neigh and verbose:
         print('At least one variable needs neighbours!')
+    if use_rt and verbose:
+        print('At least one variable needs radiative transfer!')
 
     # Setup camera details for the requested POV (Point of View)
     boxlen = 1 #obj.simulation.boxsize.to('code_length').d   
@@ -771,6 +776,8 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         hydro_handler.weightvars.T.view('S128')[i] = proj.weight['gas'][i].ljust(128)
     for i in range(0, nfilter_gas):
         hydro_handler.filters[i] = filts_gas[i]
+    hydro_handler.use_rt = use_rt
+    hydro_handler.use_neigh = use_neigh
     
     # COMPUTE HYDRO PROJECTION
     if verbose:
@@ -778,10 +785,10 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     if len(proj.vars['gas']) != 0:
         if verbose: print('Performing hydro projection for '+str(len(proj.vars['gas']))+' variables')
         if obj.use_vardict:
-            maps.projection_hydro(group.obj.simulation.fullpath,type_projection,cam,use_neigh,
+            maps.projection_hydro(group.obj.simulation.fullpath,type_projection,cam,
                                   hydro_handler,int(lmax),int(lmin),nexp_factor,obj.vardict)
         else:
-            maps.projection_hydro(group.obj.simulation.fullpath,type_projection,cam,use_neigh,
+            maps.projection_hydro(group.obj.simulation.fullpath,type_projection,cam,
                                     hydro_handler,int(lmax),int(lmin),nexp_factor)
         data = np.array(hydro_handler.map,order='F')
         proj.data_maps_gas = data

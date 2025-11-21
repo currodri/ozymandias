@@ -255,6 +255,8 @@ module maps
 
     type hydro_projection_handler
         character(128) :: pov
+        logical :: use_neigh=.false.
+        logical :: use_rt=.false.
         integer :: nvars,nfilter,nwvars
         integer, dimension(1:2) :: n_sample
         character(128),dimension(:),allocatable :: varnames
@@ -621,7 +623,7 @@ module maps
 
     end subroutine upload_projection
 
-    subroutine projection_hydro(repository,type_projection,cam,use_neigh,proj,&
+    subroutine projection_hydro(repository,type_projection,cam,proj,&
                                 &lmax,lmin,nexp_factor,vardict)
         implicit none
 
@@ -629,7 +631,6 @@ module maps
         character(128),intent(in) :: repository
         character(128),intent(in) :: type_projection
         type(camera),intent(inout) :: cam
-        logical,intent(in) :: use_neigh
         type(hydro_projection_handler),intent(inout) :: proj
         integer,intent(in),optional :: lmax,lmin
         real(dbl),intent(in),optional :: nexp_factor
@@ -729,7 +730,7 @@ module maps
         if (cam%nsubs>0.and.verbose)write(*,*)'Excluding substructure: ',cam%nsubs
 
         ! Perform projections
-        if (use_neigh) then
+        if (proj%use_neigh) then
             if (verbose) write(*,*)'Loading neighbours...'
             call project_cells_neigh
         else
@@ -742,7 +743,9 @@ module maps
 
             logical :: ok_cell,ok_filter,ok_sub,read_gravity
             integer :: i,j,k
-            integer :: ipos,icpu,ilevel,ind,idim,iidim,ivar,ifilt,isub,iweight
+            integer :: ipos,icpu,ilevel,ind,idim
+            integer :: iidim,ivar,ifilt,isub,iweight
+            integer :: igroup,igrp
             integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
             integer :: imin,imax,jmin,jmax
             integer :: nvarh
@@ -750,7 +753,8 @@ module maps
             character(5) :: nchar,ncharcpu
             character(128) :: nomfich
             real(dbl) :: distance,dx,ksize
-            type(vector) :: xtemp,vtemp,gtemp
+            type(vector) :: xtemp,vtemp,gtemp,fluxtemp
+            real(dbl),dimension(1:3) :: fluxtmp
             integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
             real(dbl),dimension(1:8,1:3) :: xc
             real(dbl),dimension(1:3,1:3) :: trans_matrix
@@ -759,6 +763,13 @@ module maps
             real(dbl),dimension(:,:,:),allocatable :: var,grav_var
             real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
+#if RTPRE==4
+            real(sgl),dimension(:,:,:),allocatable :: rt_var
+            real(sgl),dimension(:,:),allocatable :: temprt_var
+#elif RTPRE==8
+            real(dbl),dimension(:,:,:),allocatable :: rt_var
+            real(dbl),dimension(:,:),allocatable :: temprt_var
+#endif
             integer,dimension(:,:),allocatable :: son
             integer,dimension(:),allocatable :: tempson
             logical,dimension(:),allocatable :: ref
@@ -870,6 +881,17 @@ module maps
                     read(12) !nlevelmax
                     read(12) !nboundary 
                 endif
+                if (proj%use_rt) then
+                    ! Open RT file and skip header
+                    nomfich=TRIM(repository)//'/rt_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+                    open(unit=13,file=nomfich,status='old',form='unformatted')
+                    read(13) !ncpu
+                    read(13) !nrtvar
+                    read(13) !ndim
+                    read(13) !nlevelmax
+                    read(13) !nboundary
+                    read(13) !gamma
+                end if
 
                 ! Loop over levels
                 levelloop: do ilevel=1,amr%lmax
@@ -896,6 +918,7 @@ module maps
                         allocate(x  (1:ngrida,1:amr%ndim))
                         allocate(ref(1:ngrida))
                         if(read_gravity) allocate(grav_var(1:ngrida,1:amr%twotondim,1:4))
+                        if(proj%use_rt) allocate(rt_var(1:ngrida,1:amr%twotondim,1:rtinfo%nRTvar))
                     endif
                     ! Loop over domains
                     domloop: do j=1,amr%nboundary+amr%ncpu
@@ -976,6 +999,23 @@ module maps
                                 end do
                             end if
                         end if
+
+                        if (proj%use_rt) then
+                            ! Read RT data
+                            read(13)
+                            read(13)
+                            if(ngridfile(j,ilevel)>0)then
+                                do ind=1,amr%twotondim
+                                    rtvarloop: do ivar=1,rtinfo%nRTvar
+                                        if (j.eq.icpu) then
+                                            read(13)rt_var(:,ind,ivar)
+                                        else
+                                            read(13)
+                                        end if
+                                    end do rtvarloop
+                                end do
+                            end if
+                        end if
                     end do domloop
                     !Compute map
                     if (ngrida>0.and.(ilevel.ge.cam%lmin)&
@@ -1042,17 +1082,34 @@ module maps
                                         allocate(tempvar(0:amr%twondim,nvarh))
                                         allocate(tempson(0:amr%twondim))
                                         if (read_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
+                                        if (proj%use_rt) allocate(temprt_var(0:amr%twondim,1:rtinfo%nRTvar))
                                         ! Just add central cell as we do not want neighbours
                                         tempvar(0,:) = var(i,ind,:)
                                         tempson(0)       = son(i,ind)
                                         if (read_gravity) tempgrav_var(0,:) = grav_var(i,ind,:)
                                         tempvar(0,ivx:ivz) = vtemp
                                         if (read_gravity) tempgrav_var(0,2:4) = gtemp
+                                        if (proj%use_rt) then
+                                            do igroup=1,rtinfo%nGroups
+                                                igrp = 1 + (amr%ndim + 1) * (igroup - 1)
+                                                temprt_var(0,igrp) = rt_var(i,ind,igrp)
+                                                fluxtemp = dble(rt_var(i,ind,igrp+1:igrp+amr%ndim))
+                                                call rotate_vector(fluxtemp,trans_matrix)
+                                                fluxtmp = fluxtemp
+                                                temprt_var(0,igrp+1:igrp+amr%ndim) = sngl(fluxtmp)
+                                            end do
+                                        end if
                                         
                                         filterloop: do ifilt=1,proj%nfilter
-                                            if (read_gravity) then
+                                            if (read_gravity.and.proj%use_rt) then
+                                                ok_filter = filter_cell(bbox,proj%filters(ifilt),xtemp,dx,tempvar,&
+                                                                        &tempson,trans_matrix,tempgrav_var,temprt_var)
+                                            else if (read_gravity) then
                                                 ok_filter = filter_cell(bbox,proj%filters(ifilt),xtemp,dx,tempvar,&
                                                                         &tempson,trans_matrix,tempgrav_var)
+                                            else if (proj%use_rt) then
+                                                ok_filter = filter_cell(bbox,proj%filters(ifilt),xtemp,dx,tempvar,&
+                                                                        &tempson,trans_matrix, rt_var=temprt_var)
                                             else
                                                 ok_filter = filter_cell(bbox,proj%filters(ifilt),xtemp,dx,tempvar,&
                                                                         &tempson,trans_matrix)
@@ -1065,22 +1122,34 @@ module maps
                                                         weight = 1D0
                                                     else
                                                         !MAX(rho*dx*weight/(bbox%zmax-bbox%zmin),0D0)
-                                                        if (read_gravity) then
-                                                            weight = proj%wvars(iweight)%myfunction(amr,sim,proj%wvars(iweight),bbox,dx*sim%boxlen,xtemp&
+                                                        if (read_gravity.and.proj%use_rt) then
+                                                            weight = proj%wvars(iweight)%myfunction(amr,sim,rtinfo,proj%wvars(iweight),bbox,dx*sim%boxlen,xtemp&
+                                                                & ,tempvar,tempson,trans_matrix,tempgrav_var,temprt_var)
+                                                        else if (read_gravity) then
+                                                            weight = proj%wvars(iweight)%myfunction(amr,sim,rtinfo,proj%wvars(iweight),bbox,dx*sim%boxlen,xtemp&
                                                                 & ,tempvar,tempson,trans_matrix,tempgrav_var)
+                                                        else if (proj%use_rt) then
+                                                            weight = proj%wvars(iweight)%myfunction(amr,sim,rtinfo,proj%wvars(iweight),bbox,dx*sim%boxlen,xtemp&
+                                                                & ,tempvar,tempson,trans_matrix, rt_var=temprt_var)
                                                         else
-                                                            weight = proj%wvars(iweight)%myfunction(amr,sim,proj%wvars(iweight),bbox,dx*sim%boxlen,xtemp&
-                                                                & ,tempvar,tempson,trans_matrix,tempgrav_var)
+                                                            weight = proj%wvars(iweight)%myfunction(amr,sim,rtinfo,proj%wvars(iweight),bbox,dx*sim%boxlen,xtemp&
+                                                                & ,tempvar,tempson,trans_matrix)
                                                         end if
                                                         ! weight = MAX(weight*dx/(bbox%zmax-bbox%zmin),0D0)
                                                     end if
                                                     grid(ilevel)%map(ifilt,iweight,ix,iy)=grid(ilevel)%map(ifilt,iweight,ix,iy)+weight
                                                     projvarloop: do ivar=1,proj%nvars
-                                                        if (read_gravity) then
-                                                            map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
+                                                        if (read_gravity.and.proj%use_rt) then
+                                                            map = proj%vars(ivar)%myfunction(amr,sim,rtinfo,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
+                                                                & ,tempvar,tempson,trans_matrix,tempgrav_var,temprt_var)
+                                                        else if (read_gravity) then
+                                                            map = proj%vars(ivar)%myfunction(amr,sim,rtinfo,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
                                                                 & ,tempvar,tempson,trans_matrix,tempgrav_var)
+                                                        else if (proj%use_rt) then
+                                                            map = proj%vars(ivar)%myfunction(amr,sim,rtinfo,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
+                                                                & ,tempvar,tempson,trans_matrix, rt_var=temprt_var)
                                                         else
-                                                            map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
+                                                            map = proj%vars(ivar)%myfunction(amr,sim,rtinfo,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
                                                                 & ,tempvar,tempson,trans_matrix)
                                                         end if
                                                         grid(ilevel)%cube(ifilt,ivar,iweight,ix,iy)=grid(ilevel)%cube(ifilt,ivar,iweight,ix,iy)+map*weight
@@ -1091,6 +1160,7 @@ module maps
                                         ncells = ncells + 1
                                         deallocate(tempvar,tempson)
                                         if (read_gravity) deallocate(tempgrav_var)
+                                        if (proj%use_rt) deallocate(temprt_var)
                                     endif
 
                                 endif
@@ -1100,16 +1170,23 @@ module maps
                         if (read_gravity) then
                             deallocate(grav_var)
                         end if
+                        if (proj%use_rt) then
+                            deallocate(rt_var)
+                        end if
                     else if (ngrida>0) then
                         deallocate(xg,son,var,ref,x)
                         if (read_gravity) then
                             deallocate(grav_var)
+                        end if
+                        if (proj%use_rt) then
+                            deallocate(rt_var)
                         end if
                     endif
                 end do levelloop
                 close(10)
                 close(11)
                 if (read_gravity) close(12)
+                if (proj%use_rt) close(13)
             end do cpuloop
             if (verbose) write(*,*)'ncells:',ncells
 
@@ -1133,7 +1210,8 @@ module maps
 
             logical :: ok_cell,read_gravity,ok_filter,ok_cell_each,ok_sub
             integer :: i,j,k
-            integer :: ipos,icpu,ilevel,ind,idim,iidim,ivar,iskip,inbor,ison,isub,iweight
+            integer :: ipos,icpu,ilevel,ind,idim,igroup,igrp
+            integer :: iidim,ivar,iskip,inbor,ison,isub,iweight
             integer :: ix,iy,iz,ngrida,cumngrida,nx_full,ny_full,nz_full
             integer :: imin,imax,jmin,jmax
             integer :: nvarh
@@ -1141,7 +1219,8 @@ module maps
             character(5) :: nchar,ncharcpu
             character(128) :: nomfich
             real(dbl) :: distance,dx
-            type(vector) :: xtemp,vtemp,gtemp
+            type(vector) :: xtemp,vtemp,gtemp,fluxtemp
+            real(dbl),dimension(1:3) :: fluxtmp
             integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
             real(dbl),dimension(:),allocatable :: xxg,son_dens
             real(dbl),dimension(1:8,1:3) :: xc
@@ -1152,6 +1231,13 @@ module maps
             real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
             real(dbl),dimension(:,:),allocatable :: cellpos
+#if RTPRE==4
+            real(sgl),dimension(:,:),allocatable :: rt_var
+            real(sgl),dimension(:,:),allocatable :: temprt_var
+#elif RTPRE==8
+            real(dbl),dimension(:,:),allocatable :: rt_var
+            real(dbl),dimension(:,:),allocatable :: temprt_var
+#endif
             integer,dimension(:,:),allocatable :: nbor
             integer,dimension(:),allocatable :: son,tempson,iig
             integer,dimension(:),allocatable :: ind_cell,ind_cell2
@@ -1284,6 +1370,18 @@ module maps
                     read(12) !nboundary 
                     allocate(grav_var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:4))
                 endif
+                if (proj%use_rt) then
+                    ! Open RT file and skip header
+                    nomfich=TRIM(repository)//'/rt_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+                    open(unit=13,file=nomfich,status='old',form='unformatted')
+                    read(13) !ncpu
+                    read(13) !nrtvar
+                    read(13) !ndim
+                    read(13) !nlevelmax
+                    read(13) !nboundary
+                    read(13) !gamma
+                    allocate(rt_var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:rtinfo%nRTvar))
+                end if
                 ! Loop over levels
                 levelloop1: do ilevel=1,amr%lmax
                     ! Geometry
@@ -1364,6 +1462,19 @@ module maps
                             end do tndimloop
                         endif
 
+                        if (proj%use_rt) then
+                            read(13)
+                            read(13)
+                            if(ngrida>0)then
+                                tndimloop_rt: do ind=1,amr%twotondim
+                                    iskip = amr%ncoarse+(ind-1)*amr%ngridmax
+                                    rtvarloop: do ivar=1,rtinfo%nRTvar
+                                        read(13)rt_var(grid(ilevel)%ind_grid(:)+iskip,ivar)
+                                    end do rtvarloop
+                                end do tndimloop_rt
+                            end if
+                        end if
+
                         if (read_gravity) then
                             ! Read GRAV data
                             read(12)
@@ -1401,6 +1512,9 @@ module maps
                 close(11)
                 if (read_gravity) then
                     close(12)
+                end if
+                if (proj%use_rt) then
+                    close(13)
                 end if
                 ! Loop over levels again now with arrays fully filled
                 levelloop2: do ilevel=cam%lmin,cam%lmax
@@ -1492,22 +1606,44 @@ module maps
                                         allocate(tempvar(0:amr%twondim,nvarh))
                                         allocate(tempson(0:amr%twondim))
                                         if (read_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
+                                        if (proj%use_rt) then
+                                            allocate(temprt_var(0:amr%twondim,1:rtinfo%nRTvar))
+                                        end if
                                         ! Just correct central cell vectors for the region
                                         tempvar(0,:) = var(ind_nbor(1,0),:)
                                         tempson(0)       = son(ind_nbor(1,0))
                                         if (read_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
                                         tempvar(0,ivx:ivz) = vtemp
                                         if (read_gravity) tempgrav_var(0,2:4) = gtemp
+                                        if (proj%use_rt) then
+                                            do igroup=1,rtinfo%nGroups
+                                                igrp = 1 + (amr%ndim + 1) * (igroup - 1)
+                                                temprt_var(0,igrp) = rt_var(ind_nbor(1,0),igrp)
+                                                fluxtemp = dble(rt_var(ind_nbor(1,0),igrp+1:igrp+amr%ndim))
+                                                call rotate_vector(fluxtemp,trans_matrix)
+                                                fluxtmp = fluxtemp
+                                                temprt_var(0,igrp+1:igrp+amr%ndim) = sngl(fluxtmp)
+                                            end do
+                                        end if
                                         
                                         do inbor=1,amr%twondim
                                             tempvar(inbor,:) = var(ind_nbor(1,inbor),:)
                                             tempson(inbor)       = son(ind_nbor(1,inbor))
                                             if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(1,inbor),:)
+                                            if (proj%use_rt) then
+                                                temprt_var(inbor,:) = rt_var(ind_nbor(1,inbor),:)
+                                            end if
                                         end do
                                         filterloop: do ifilt=1,proj%nfilter
-                                            if (read_gravity) then
+                                            if (read_gravity.and.proj%use_rt) then
+                                                ok_filter = filter_cell(bbox,proj%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
+                                                                        &tempson,trans_matrix,tempgrav_var,temprt_var)
+                                            else if (read_gravity) then
                                                 ok_filter = filter_cell(bbox,proj%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
                                                                         &tempson,trans_matrix,tempgrav_var)
+                                            else if (proj%use_rt) then
+                                                ok_filter = filter_cell(bbox,proj%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
+                                                                        &tempson,trans_matrix, rt_var=temprt_var)
                                             else
                                                 ok_filter = filter_cell(bbox,proj%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
                                                                         &tempson,trans_matrix)
@@ -1520,22 +1656,34 @@ module maps
                                                         weight = 1D0
                                                     else
                                                         !MAX(rho*dx*weight/(bbox%zmax-bbox%zmin),0D0)
-                                                        if (read_gravity) then
-                                                            weight = proj%wvars(iweight)%myfunction(amr,sim,proj%wvars(iweight),bbox,dx*sim%boxlen,xtemp&
+                                                        if (read_gravity.and.proj%use_rt) then
+                                                            weight = proj%wvars(iweight)%myfunction(amr,sim,rtinfo,proj%wvars(iweight),bbox,dx*sim%boxlen,xtemp&
+                                                                & ,tempvar,tempson,trans_matrix,tempgrav_var,temprt_var)
+                                                        else if (read_gravity) then
+                                                            weight = proj%wvars(iweight)%myfunction(amr,sim,rtinfo,proj%wvars(iweight),bbox,dx*sim%boxlen,xtemp&
                                                                 & ,tempvar,tempson,trans_matrix,tempgrav_var)
+                                                        else if (proj%use_rt) then
+                                                            weight = proj%wvars(iweight)%myfunction(amr,sim,rtinfo,proj%wvars(iweight),bbox,dx*sim%boxlen,xtemp&
+                                                                & ,tempvar,tempson,trans_matrix, rt_var=temprt_var)
                                                         else
-                                                            weight = proj%wvars(iweight)%myfunction(amr,sim,proj%wvars(iweight),bbox,dx*sim%boxlen,xtemp&
-                                                                & ,tempvar,tempson,trans_matrix,tempgrav_var)
+                                                            weight = proj%wvars(iweight)%myfunction(amr,sim,rtinfo,proj%wvars(iweight),bbox,dx*sim%boxlen,xtemp&
+                                                                & ,tempvar,tempson,trans_matrix)
                                                         end if
                                                         ! weight = MAX(weight*dx/(bbox%zmax-bbox%zmin),0D0)
                                                     end if
                                                     grid(ilevel)%map(ifilt,iweight,ix,iy)=grid(ilevel)%map(ifilt,iweight,ix,iy)+weight
                                                     projvarloop: do ivar=1,proj%nvars
-                                                        if (read_gravity) then
-                                                            map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
+                                                        if (read_gravity.and.proj%use_rt) then
+                                                            map = proj%vars(ivar)%myfunction(amr,sim,rtinfo,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
+                                                                & ,tempvar,tempson,trans_matrix,tempgrav_var,temprt_var)
+                                                        else if (read_gravity) then
+                                                            map = proj%vars(ivar)%myfunction(amr,sim,rtinfo,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
                                                                 & ,tempvar,tempson,trans_matrix,tempgrav_var)
+                                                        else if (proj%use_rt) then
+                                                            map = proj%vars(ivar)%myfunction(amr,sim,rtinfo,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
+                                                                & ,tempvar,tempson,trans_matrix, rt_var=temprt_var)
                                                         else
-                                                            map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
+                                                            map = proj%vars(ivar)%myfunction(amr,sim,rtinfo,proj%vars(ivar),bbox,dx*sim%boxlen,xtemp&
                                                                 & ,tempvar,tempson,trans_matrix)
                                                         end if
                                                         grid(ilevel)%cube(ifilt,ivar,iweight,ix,iy)=grid(ilevel)%cube(ifilt,ivar,iweight,ix,iy)+map*weight
@@ -1548,6 +1696,7 @@ module maps
                                         ncells = ncells + 1
                                         deallocate(tempvar,tempson)
                                         if (read_gravity) deallocate(tempgrav_var)
+                                        if (proj%use_rt) deallocate(temprt_var)
                                     endif
                                 endif
                             end do ngridaloop
@@ -1558,6 +1707,9 @@ module maps
                 deallocate(nbor,son,var,cellpos)
                 if (read_gravity) then
                     deallocate(grav_var)
+                end if
+                if (proj%use_rt) then
+                    deallocate(rt_var)
                 end if
             end do cpuloop
             if (verbose) write(*,*)'ncells: ',ncells
@@ -2113,6 +2265,7 @@ module maps
             integer :: ipos,icpu,ilevel,ind,idim,iidim
             integer :: ivar,iskip,iweight
             integer :: isub,inbor,ifilt
+            integer :: igroup,igrp
             integer :: ix,iy,iz,ngrida,ns,cumngrida
             integer :: imin,imax
             integer :: nvarh
@@ -2120,13 +2273,21 @@ module maps
             character(5) :: nchar,ncharcpu
             character(128) :: nomfich
             real(dbl) :: distance,dx
-            type(vector) :: xtemp,vtemp,los,x_axis
+            type(vector) :: xtemp,vtemp,los,x_axis,fluxtemp
+            real(dbl),dimension(1:3) :: fluxtmp
             integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
             real(dbl),dimension(1:3) :: xvec
             real(dbl),dimension(1:8,1:3) :: xc
             real(dbl),dimension(1:3,1:3) :: trans_matrix
             real(dbl),dimension(:,:),allocatable :: xg,x,xorig
             real(dbl),dimension(:,:,:),allocatable :: var
+#if RTPRE==4
+            real(sgl),dimension(:,:,:),allocatable :: rt_var
+            real(sgl),dimension(:,:),allocatable :: temprt_var
+#elif RTPRE==8
+            real(dbl),dimension(:,:,:),allocatable :: rt_var
+            real(dbl),dimension(:,:),allocatable :: temprt_var
+#endif
             real(dbl),dimension(:,:),allocatable :: tempvar
             integer,dimension(:,:),allocatable :: son
             integer,dimension(:),allocatable :: tempson
@@ -2220,6 +2381,18 @@ module maps
                 read(11)
                 read(11)
 
+                if (proj%use_rt) then
+                    ! Open RT file and skip header
+                    nomfich=TRIM(repository)//'/rt_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+                    open(unit=13,file=nomfich,status='old',form='unformatted')
+                    read(13) !ncpu
+                    read(13) !nrtvar
+                    read(13) !ndim
+                    read(13) !nlevelmax
+                    read(13) !nboundary
+                    read(13) !gamma
+                end if
+
                 ! Loop over levels
                 levelloop: do ilevel=1,amr%lmax
                     ! Geometry
@@ -2239,6 +2412,7 @@ module maps
                         allocate(xg(1:ngrida,1:amr%ndim))
                         allocate(son(1:ngrida,1:amr%twotondim))
                         allocate(var(1:ngrida,1:amr%twotondim,1:nvarh))
+                        if (proj%use_rt) allocate(rt_var(1:ngrida,1:amr%twotondim,1:rtinfo%nRTvar))
                         allocate(x  (1:ngrida,1:amr%ndim))
                         allocate(ref(1:ngrida))
                     endif
@@ -2300,6 +2474,22 @@ module maps
                                 end do varloop
                             end do tndimloop
                         endif
+                        if (proj%use_rt) then
+                            read(13)
+                            read(13)
+                            if(ngridfile(j,ilevel)>0)then
+                                tndimloop_rt: do ind=1,amr%twotondim
+                                    iskip = amr%ncoarse+(ind-1)*amr%ngridmax
+                                    rtvarloop: do ivar=1,rtinfo%nRTvar
+                                        if (j.eq.icpu) then
+                                            read(13) rt_var(:,ind,ivar)
+                                        else
+                                            read(13)
+                                        end if
+                                    end do rtvarloop
+                                end do tndimloop_rt
+                            end if
+                        end if
                     end do domloop
 
                     !Compute map
@@ -2379,30 +2569,55 @@ module maps
                                         tempvar(0,:) = var(i,ind,:)
                                         tempson(0)       = son(i,ind)
                                         tempvar(0,ivx:ivz) = vtemp
+                                        if (proj%use_rt) then
+                                            do igroup=1,rtinfo%nGroups
+                                                igrp = 1 + (amr%ndim + 1) * (igroup - 1)
+                                                temprt_var(0,igrp) = rt_var(i,ind,igrp)
+                                                fluxtemp = dble(rt_var(i,ind,igrp+1:igrp+amr%ndim))
+                                                call rotate_vector(fluxtemp,trans_matrix)
+                                                fluxtmp = fluxtemp
+                                                temprt_var(0,igrp+1:igrp+amr%ndim) = sngl(fluxtmp)
+                                            end do
+                                        end if
 
                                         ! Do loop over filters
                                         filterloop: do ifilt=1,proj%nfilter
-                                            ok_filter = filter_cell(bsphere,proj%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
+                                            if (proj%use_rt) then
+                                                ok_filter = filter_cell(bsphere,proj%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
+                                                                        &tempson,trans_matrix, rt_var=temprt_var)
+                                            else
+                                                ok_filter = filter_cell(bsphere,proj%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
                                                                         &tempson,trans_matrix)
+                                            end if
                                             if (ok_filter) then
 
                                                 ! Get variable values
                                                 do j=1,size(listpix_clean)
                                                     ix = listpix_clean(j)
                                                     projvarloop: do ivar=1,proj%nvars
-                                                        map = proj%vars(ivar)%myfunction(amr,sim,proj%vars(ivar),bsphere,dx*sim%boxlen,xtemp&
-                                                                & ,tempvar,tempson,trans_matrix)
-                                                            do iweight = 1, proj%nwvars
-                                                                ! Get weight
-                                                                if (trim(proj%weightvars(iweight)).eq.'cumulative') then
-                                                                    rho = 1d0
-                                                                else
-                                                                    rho = proj%wvars(iweight)%myfunction(amr,sim,proj%wvars(iweight),bsphere,dx*sim%boxlen,xtemp&
+                                                        if (proj%use_rt) then
+                                                            map = proj%vars(ivar)%myfunction(amr,sim,rtinfo,proj%vars(ivar),bsphere,dx*sim%boxlen,xtemp&
+                                                                    & ,tempvar,tempson,trans_matrix, rt_var=temprt_var)
+                                                        else
+                                                            map = proj%vars(ivar)%myfunction(amr,sim,rtinfo,proj%vars(ivar),bsphere,dx*sim%boxlen,xtemp&
+                                                                    & ,tempvar,tempson,trans_matrix)
+                                                        end if
+                                                        do iweight = 1, proj%nwvars
+                                                            ! Get weight
+                                                            if (trim(proj%weightvars(iweight)).eq.'cumulative') then
+                                                                rho = 1d0
+                                                            else
+                                                                    if (proj%use_rt) then
+                                                                        rho = proj%wvars(iweight)%myfunction(amr,sim,rtinfo,proj%wvars(iweight),bsphere,dx*sim%boxlen,xtemp&
+                                                                            & ,tempvar,tempson,trans_matrix, rt_var=temprt_var)
+                                                                    else
+                                                                        rho = proj%wvars(iweight)%myfunction(amr,sim,rtinfo,proj%wvars(iweight),bsphere,dx*sim%boxlen,xtemp&
                                                                             & ,tempvar,tempson,trans_matrix)
-                                                                end if
-                                                                proj_rho(ifilt,iweight,ix) = proj_rho(ifilt,iweight,ix)+rho*dx*sim%boxlen*weight/(bsphere%rmax-bsphere%rmin)
-                                                                proj%map(ifilt,ivar,iweight,1,ix) = proj%map(ifilt,ivar,iweight,1,ix)+map*rho*dx*weight/(bsphere%rmax-bsphere%rmin)
-                                                            end do
+                                                                    end if
+                                                            end if
+                                                            proj_rho(ifilt,iweight,ix) = proj_rho(ifilt,iweight,ix)+rho*dx*sim%boxlen*weight/(bsphere%rmax-bsphere%rmin)
+                                                            proj%map(ifilt,ivar,iweight,1,ix) = proj%map(ifilt,ivar,iweight,1,ix)+map*rho*dx*weight/(bsphere%rmax-bsphere%rmin)
+                                                        end do
                                                     end do projvarloop
                                                 end do
                                             end if
@@ -2410,14 +2625,21 @@ module maps
                                         
                                         ncells = ncells + 1
                                         deallocate(tempvar,tempson)
+                                        if (proj%use_rt) deallocate(temprt_var)
                                     endif
 
                                 endif
                             end do ngridaloop
                         end do cellloop
                         deallocate(xg,son,var,ref,x)
+                        if (proj%use_rt) then
+                            deallocate(rt_var)
+                        end if
                     endif
-                end do levelloop
+                    end do levelloop
+                close(10)
+                close(11)
+                if (proj%use_rt) close(13)
             end do cpuloop
             if (verbose) write(*,*)'ncells:',ncells
 

@@ -94,24 +94,49 @@ def check_need_neighbours(varname,vartype):
 def check_need_gravity(varname,vartype):
     if vartype == 'gas':
         if varname in geometrical_variables:
-            need = geometrical_variables[varname]['gravity']
+            need = geometrical_variables[varname].get('gravity', False)
         elif varname in raw_gas_variables:
-            need = raw_gas_variables[varname]['gravity']
+            need = raw_gas_variables[varname].get('gravity', False)
         elif varname in derived_gas_variables:
-            need = derived_gas_variables[varname]['gravity']
+            need = derived_gas_variables[varname].get('gravity', False)
         elif varname in gravity_variables:
-            need = gravity_variables[varname]['gravity']
+            need = gravity_variables[varname].get('gravity', False)
         else:
             raise KeyError('Gas variable not found, check: '+str(varname))
     elif vartype == 'part':
         if varname in geometrical_variables:
-            need = geometrical_variables[varname]['gravity']
+            need = geometrical_variables[varname].get('gravity', False)
         elif varname in raw_part_variables:
-            need = raw_part_variables[varname]['gravity']
+            need = raw_part_variables[varname].get('gravity', False)
         elif varname in derived_part_variables:
-            need = derived_part_variables[varname]['gravity']
+            need = derived_part_variables[varname].get('gravity', False)
         elif varname in star_variables:
-            need = star_variables[varname]['gravity']
+            need = star_variables[varname].get('gravity', False)
+        else:
+            raise KeyError('Part variable not found, check: '+str(varname))
+    return need
+
+def check_need_rt(varname,vartype):
+    if vartype == 'gas':
+        if varname in geometrical_variables:
+            need = geometrical_variables[varname].get('rt', False)
+        elif varname in raw_gas_variables:
+            need = raw_gas_variables[varname].get('rt', False)
+        elif varname in derived_gas_variables:
+            need = derived_gas_variables[varname].get('rt', False)
+        elif varname in gravity_variables:
+            need = gravity_variables[varname].get('rt', False)
+        else:
+            raise KeyError('Gas variable not found, check: '+str(varname))
+    elif vartype == 'part':
+        if varname in geometrical_variables:
+            need = geometrical_variables[varname].get('rt', False)
+        elif varname in raw_part_variables:
+            need = raw_part_variables[varname].get('rt', False)
+        elif varname in derived_part_variables:
+            need = derived_part_variables[varname].get('rt', False)
+        elif varname in star_variables:
+            need = star_variables[varname].get('rt', False)
         else:
             raise KeyError('Part variable not found, check: '+str(varname))
     return need

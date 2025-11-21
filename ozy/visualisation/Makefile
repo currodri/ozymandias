@@ -17,6 +17,9 @@ else
 	HEALPIX_DEFINE =
 endif
 
+# Add a flag for the RTPRE
+RTPRE = 4
+
 #=======================================================================
 #                     additional flags
 #=======================================================================
@@ -35,7 +38,7 @@ ifeq ($(F90),gfortran)
 	else
 		HP_FLAGS =
 	endif
-	F90FLAGS = -Ofast -cpp -fPIC -DIMASS ${HEALPIX_DEFINE} -ffree-line-length-256 ${HP_FLAGS}
+	F90FLAGS = -Ofast -cpp -fPIC -DIMASS -DRTPRE=${RTPRE} ${HEALPIX_DEFINE} -ffree-line-length-256 ${HP_FLAGS}
 	#F90FLAGS = -O0 -g -fbacktrace -cpp -fPIC -DIMASS -ffree-line-length-256 ${HP_FLAGS}    
 	FCOMP    = gfortran
     LIBS     =
@@ -51,7 +54,7 @@ ifeq ($(F90),ifx)
 		HP_FLAGS =
 	endif
 	#F90FLAGS = -O0 -g -traceback -check bounds -cpp -fpscomp logicals -fPIC -DIMASS ${HP_FLAGS} # use 1 and 0 for True and False
-	F90FLAGS = -O3 -cpp -fpscomp logicals -fPIC -DIMASS ${HEALPIX_DEFINE} ${HP_FLAGS} # use 1 and 0 for True and False
+	F90FLAGS = -O3 -cpp -fpscomp logicals -fPIC -DIMASS -DRTPRE=${RTPRE} ${HEALPIX_DEFINE} ${HP_FLAGS} # use 1 and 0 for True and False
 	FCOMP    = intelem # for f2py
     LIBS =
 endif

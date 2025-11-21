@@ -196,7 +196,7 @@ module stats_utils
                             & ibin,value,trans_matrix,&
                             & scaletype,nbins,bins,linthresh,&
                             & zero_index,xvar,&
-                            & gvars)
+                            & gvars,rtvars)
         use vectors
         use geometrical_regions
         implicit none
@@ -216,12 +216,21 @@ module stats_utils
         real(dbl),dimension(0:nbins),intent(in) :: bins
         type(hydro_var),intent(in) :: xvar
         real(dbl),dimension(0:amr%twondim,1:4),optional,intent(in) :: gvars
+#if RTPRE==4
+        real(sgl),dimension(0:amr%twondim,1:rtinfo%nRTvar),optional,intent(in) :: rtvars
+#elif RTPRE==8
+        real(dbl),dimension(0:amr%twondim,1:rtinfo%nRTvar),optional,intent(in) :: rtvars
+#endif
 
         ! Get variable value
-        if (present(gvars)) then
-            value = xvar%myfunction(amr,sim,xvar,reg,csize,x,cvars,csons,trans_matrix,gvars)
+        if (present(gvars) .and. present(rtvars)) then
+            value = xvar%myfunction(amr,sim,rtinfo,xvar,reg,csize,x,cvars,csons,trans_matrix,gvars,rtvars)
+        else if (present(gvars)) then
+            value = xvar%myfunction(amr,sim,rtinfo,xvar,reg,csize,x,cvars,csons,trans_matrix,gvars)
+        else if (present(rtvars)) then
+            value = xvar%myfunction(amr,sim,rtinfo,xvar,reg,csize,x,cvars,csons,trans_matrix,rt_var=rtvars)
         else
-            value = xvar%myfunction(amr,sim,xvar,reg,csize,x,cvars,csons,trans_matrix)
+            value = xvar%myfunction(amr,sim,rtinfo,xvar,reg,csize,x,cvars,csons,trans_matrix)
         end if
         origvalue = value
 

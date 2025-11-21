@@ -31,6 +31,7 @@ module amr_profiles
     type profile_handler
         character(128) :: scaletype
         logical :: cr_st=.false.,cr_heat=.false.
+        logical :: use_neigh=.false., use_rt=.false., use_gravity=.false.
         integer :: profdim,nfilter=1,zero_index
         type(hydro_var) :: xvar
         integer :: nyvar
@@ -52,6 +53,7 @@ module amr_profiles
     type profile_handler_twod
         character(128),dimension(1:2) :: scaletype
         logical :: cr_st=.false.,cr_heat=.false.
+        logical :: use_neigh=.false., use_rt=.false., use_gravity=.false.
         integer :: profdim,nfilter=1
         integer,dimension(1:2) :: zero_index
         type(hydro_var) :: xvar
@@ -110,7 +112,7 @@ module amr_profiles
         if (.not.allocated(prof%filters)) allocate(prof%filters(1:prof%nfilter))
     end subroutine allocate_profile_handler_twod
 
-    subroutine bindata(reg,pos,cellvars,cellsons,cellsize,prof,ibin,ifilt,trans_matrix,grav_var)
+    subroutine bindata(reg,pos,cellvars,cellsons,cellsize,prof,ibin,ifilt,trans_matrix,grav_var,rt_var)
         use vectors
         implicit none
         type(region),intent(in) :: reg
@@ -122,6 +124,11 @@ module amr_profiles
         integer,intent(in) :: ibin,ifilt
         real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
         real(dbl),dimension(0:amr%twondim,1:4),optional,intent(in) :: grav_var
+#if RTPRE==4
+        real(sgl),dimension(0:amr%twondim,1:rtinfo%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:amr%twondim,1:rtinfo%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         ! Local variables
         integer :: i,j,ipdf
@@ -132,16 +139,26 @@ module amr_profiles
         yvarloop: do i=1,prof%ydata(ibin)%nvars
             if (prof%ydata(ibin)%do_binning(i)) then
                 ! Get variable
-                if (present(grav_var)) then
+                if (present(grav_var) .and. present(rt_var)) then
                     call findbinpos(reg,x,cellvars,cellsons,cellsize,ipdf,ytemp,trans_matrix,&
                                     & prof%ydata(ibin)%scaletype(i),prof%ydata(ibin)%nbins,&
                                     & prof%ydata(ibin)%bins(:,i),prof%ydata(ibin)%linthresh(i),&
-                                    & prof%ydata(ibin)%zero_index(i),prof%yvars(i),grav_var)
+                                    & prof%ydata(ibin)%zero_index(i),prof%yvars(i),grav_var,rt_var)
+                else if (present(grav_var)) then
+                        call findbinpos(reg,x,cellvars,cellsons,cellsize,ipdf,ytemp,trans_matrix,&
+                                        & prof%ydata(ibin)%scaletype(i),prof%ydata(ibin)%nbins,&
+                                        & prof%ydata(ibin)%bins(:,i),prof%ydata(ibin)%linthresh(i),&
+                                        & prof%ydata(ibin)%zero_index(i),prof%yvars(i),grav_var)
+                else if (present(rt_var)) then
+                        call findbinpos(reg,x,cellvars,cellsons,cellsize,ipdf,ytemp,trans_matrix,&
+                                        & prof%ydata(ibin)%scaletype(i),prof%ydata(ibin)%nbins,&
+                                        & prof%ydata(ibin)%bins(:,i),prof%ydata(ibin)%linthresh(i),&
+                                        & prof%ydata(ibin)%zero_index(i),prof%yvars(i),rtvars=rt_var)
                 else
-                    call findbinpos(reg,x,cellvars,cellsons,cellsize,ipdf,ytemp,trans_matrix,&
-                                    & prof%ydata(ibin)%scaletype(i),prof%ydata(ibin)%nbins,&
-                                    & prof%ydata(ibin)%bins(:,i),prof%ydata(ibin)%linthresh(i),&
-                                    & prof%ydata(ibin)%zero_index(i),prof%yvars(i))
+                        call findbinpos(reg,x,cellvars,cellsons,cellsize,ipdf,ytemp,trans_matrix,&
+                                        & prof%ydata(ibin)%scaletype(i),prof%ydata(ibin)%nbins,&
+                                        & prof%ydata(ibin)%bins(:,i),prof%ydata(ibin)%linthresh(i),&
+                                        & prof%ydata(ibin)%zero_index(i),prof%yvars(i))
                 end if
                 if (ytemp.eq.0d0) cycle
                 ! Get min and max
@@ -162,12 +179,18 @@ module amr_profiles
                         else if (trim(prof%ydata(ibin)%wvarnames(j))=='cumulative') then
                             wtemp = ytemp2
                         else
-                            if (present(grav_var)) then
-                                wtemp = prof%wvars(j)%myfunction(amr,sim,prof%wvars(j),reg,cellsize,x,&
-                                                    cellvars,cellsons,trans_matrix,grav_var)
+                            if (present(grav_var) .and. present(rt_var)) then
+                                wtemp = prof%wvars(j)%myfunction(amr,sim,rtinfo,prof%wvars(j),reg,cellsize,x,&
+                                                        cellvars,cellsons,trans_matrix,grav_var,rt_var)
+                            else if (present(grav_var)) then
+                                wtemp = prof%wvars(j)%myfunction(amr,sim,rtinfo,prof%wvars(j),reg,cellsize,x,&
+                                                        cellvars,cellsons,trans_matrix,grav_var)
+                            else if (present(rt_var)) then
+                                wtemp = prof%wvars(j)%myfunction(amr,sim,rtinfo,prof%wvars(j),reg,cellsize,x,&
+                                                        cellvars,cellsons,trans_matrix,rt_var=rt_var)
                             else
-                                wtemp = prof%wvars(j)%myfunction(amr,sim,prof%wvars(j),reg,cellsize,x,&
-                                                    cellvars,cellsons,trans_matrix)
+                                wtemp = prof%wvars(j)%myfunction(amr,sim,rtinfo,prof%wvars(j),reg,cellsize,x,&
+                                                        cellvars,cellsons,trans_matrix)
                             endif
                         endif
 
@@ -193,13 +216,20 @@ module amr_profiles
                 end if
             else
                 ! Get variable
-                if (present(grav_var)) then
-                    ytemp = prof%yvars(i)%myfunction(amr,sim,prof%yvars(i),reg,cellsize,x,&
+                if (present(grav_var) .and. present(rt_var)) then
+                    ytemp = prof%yvars(i)%myfunction(amr,sim,rtinfo,prof%yvars(i),reg,cellsize,x,& 
+                                                cellvars,cellsons,trans_matrix,grav_var,rt_var)
+                else if (present(grav_var)) then
+                    ytemp = prof%yvars(i)%myfunction(amr,sim,rtinfo,prof%yvars(i),reg,cellsize,x,&
                                                 cellvars,cellsons,trans_matrix,grav_var)
+                else if (present(rt_var)) then
+                    ytemp = prof%yvars(i)%myfunction(amr,sim,rtinfo,prof%yvars(i),reg,cellsize,x,&
+                                                cellvars,cellsons,trans_matrix,rt_var=rt_var)
                 else
-                    ytemp = prof%yvars(i)%myfunction(amr,sim,prof%yvars(i),reg,cellsize,x,&
+                    ytemp = prof%yvars(i)%myfunction(amr,sim,rtinfo,prof%yvars(i),reg,cellsize,x,&
                                                 cellvars,cellsons,trans_matrix)
                 end if
+
                 ! Get min and max
                 if (prof%ydata(ibin)%minv(i,ifilt).eq.0D0) then
                     prof%ydata(ibin)%minv(i,ifilt) = ytemp ! Just to make sure that the initial min is not zero
@@ -218,11 +248,17 @@ module amr_profiles
                     else if (trim(prof%ydata(ibin)%wvarnames(j))=='cumulative') then
                         wtemp = 1D0
                     else
-                        if (present(grav_var)) then
-                            wtemp = prof%wvars(j)%myfunction(amr,sim,prof%wvars(j),reg,cellsize,x,&
+                        if (present(grav_var) .and. present(rt_var)) then
+                            wtemp = prof%wvars(j)%myfunction(amr,sim,rtinfo,prof%wvars(j),reg,cellsize,x,&
+                                                    cellvars,cellsons,trans_matrix,grav_var,rt_var)
+                        else if (present(grav_var)) then
+                            wtemp = prof%wvars(j)%myfunction(amr,sim,rtinfo,prof%wvars(j),reg,cellsize,x,&
                                                     cellvars,cellsons,trans_matrix,grav_var)
+                        else if (present(rt_var)) then
+                            wtemp = prof%wvars(j)%myfunction(amr,sim,rtinfo,prof%wvars(j),reg,cellsize,x,&
+                                                    cellvars,cellsons,trans_matrix,rt_var=rt_var)
                         else
-                            wtemp = prof%wvars(j)%myfunction(amr,sim,prof%wvars(j),reg,cellsize,x,&
+                            wtemp = prof%wvars(j)%myfunction(amr,sim,rtinfo,prof%wvars(j),reg,cellsize,x,&
                                                     cellvars,cellsons,trans_matrix)
                         endif
                     endif
@@ -236,7 +272,7 @@ module amr_profiles
 
     end subroutine bindata
 
-    subroutine bindata_twod(reg,pos,cellvars,cellsons,cellsize,prof,ibinx,ibiny,ifilt,trans_matrix,grav_var)
+    subroutine bindata_twod(reg,pos,cellvars,cellsons,cellsize,prof,ibinx,ibiny,ifilt,trans_matrix,grav_var,rt_var)
         use vectors
         implicit none
         type(region),intent(in) :: reg
@@ -248,23 +284,35 @@ module amr_profiles
         integer,intent(in) :: ibinx,ibiny,ifilt
         real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
         real(dbl),dimension(0:amr%twondim,1:4),optional,intent(in) :: grav_var
+#if RTPRE==4
+        real(sgl),dimension(0:amr%twondim,1:rtinfo%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:amr%twondim,1:rtinfo%nRTvar),optional,intent(in) :: rt_var
+#endif
         integer :: i,j
         real(dbl) :: ytemp,wtemp,bigwtemp,bigatemp
         type(vector) :: x
         x = pos
         zvarloop: do i=1,prof%nzvar
-            if (present(grav_var)) then
-                ytemp = prof%zvars(i)%myfunction(amr,sim,prof%zvars(i),reg,cellsize,x,&
+            
+            if (present(grav_var) .and. present(rt_var)) then
+                ytemp = prof%zvars(i)%myfunction(amr,sim,rtinfo,prof%zvars(i),reg,cellsize,x,&
+                                                cellvars,cellsons,trans_matrix,grav_var,rt_var)
+            else if (present(grav_var)) then
+                ytemp = prof%zvars(i)%myfunction(amr,sim,rtinfo,prof%zvars(i),reg,cellsize,x,&
                                                 cellvars,cellsons,trans_matrix,grav_var)
+            else if (present(rt_var)) then
+                ytemp = prof%zvars(i)%myfunction(amr,sim,rtinfo,prof%zvars(i),reg,cellsize,x,&
+                                                cellvars,cellsons,trans_matrix,rt_var=rt_var)
             else
-                ytemp = prof%zvars(i)%myfunction(amr,sim,prof%zvars(i),reg,cellsize,x,&
+                ytemp = prof%zvars(i)%myfunction(amr,sim,rtinfo,prof%zvars(i),reg,cellsize,x,&
                                                 cellvars,cellsons,trans_matrix)
             end if
             wvarloop: do j=1,prof%nwvar
                 if (prof%wvarnames(j)=='counts'.or.prof%wvarnames(j)=='cumulative') then
                     wtemp = 1D0
                 else
-                    wtemp = prof%wvars(j)%myfunction(amr,sim,prof%wvars(j),reg,cellsize,x,&
+                    wtemp = prof%wvars(j)%myfunction(amr,sim,rtinfo,prof%wvars(j),reg,cellsize,x,&
                                                     cellvars,cellsons,trans_matrix)
                 endif
                 ! Unbiased STD method. See: https://en.wikipedia.org/wiki/Reduced_chi-squared_statistic
@@ -345,14 +393,13 @@ module amr_profiles
         if (trim(prof_data%scaletype(2)).eq.'log_even') prof_data%ydata = 10**prof_data%ydata
     end subroutine renormalise_bins_twod
 
-    subroutine onedprofile(repository,reg,prof_data,lmax,use_neigh,read_gravity,vardict)
+    subroutine onedprofile(repository,reg,prof_data,lmax,vardict)
         use geometrical_regions
         implicit none
         character(128),intent(in) :: repository
         type(region),intent(inout) :: reg
         type(profile_handler),intent(inout) :: prof_data
         integer,intent(in) :: lmax
-        logical, intent(in) :: use_neigh,read_gravity
         type(dictf90),intent(in),optional :: vardict
 
         integer :: ivx,ivy,ivz
@@ -404,7 +451,7 @@ module amr_profiles
         end if
 
         ! Choose type of onedprofile
-        if (use_neigh) then
+        if (prof_data%use_neigh) then
             if (verbose) write(*,*)'Loading neighbours...'
             call get_cells_onedprofile_neigh
         else
@@ -424,6 +471,7 @@ module amr_profiles
             ! logical :: filter_cell
             integer :: i,j,k
             integer :: ipos,icpu,ilevel,ind,idim,ivar,iskip,inbor,ison,isub
+            integer :: igroup,igrp
             integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
             integer :: tot_pos,tot_ref,tot_insubs,tot_sel
             integer,dimension(:),allocatable :: total_ncell
@@ -432,7 +480,8 @@ module amr_profiles
             character(5) :: nchar,ncharcpu
             character(128) :: nomfich
             real(dbl) :: distance,dx,ytemp
-            type(vector) :: xtemp,vtemp,gtemp
+            type(vector) :: xtemp,vtemp,gtemp,fluxtemp
+            real(dbl),dimension(1:3) :: fluxtmp
             integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
             real(dbl),dimension(:),allocatable :: xxg,son_dens
             real(dbl),dimension(1:8,1:3) :: xc
@@ -442,6 +491,13 @@ module amr_profiles
             real(dbl),dimension(:,:),allocatable :: grav_var
             real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
+#if RTPRE==4
+            real(sgl),dimension(:,:),allocatable :: rt_var
+            real(sgl),dimension(:,:),allocatable :: temprt_var
+#elif RTPRE==8
+            real(dbl),dimension(:,:),allocatable :: rt_var
+            real(dbl),dimension(:,:),allocatable :: temprt_var
+#endif
             real(dbl),dimension(:,:),allocatable :: cellpos
             integer,dimension(:,:),allocatable :: nbor
             integer,dimension(:),allocatable :: son,tempson,iig
@@ -525,7 +581,7 @@ module amr_profiles
                 cellpos = 0d0
                 var = 0d0
                 
-                if (read_gravity) then
+                if (prof_data%use_gravity) then
                     ! Open GRAV file and skip header
                     nomfich=TRIM(repository)//'/grav_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
                     open(unit=12,file=nomfich,status='old',form='unformatted')
@@ -535,6 +591,18 @@ module amr_profiles
                     read(12) !nboundary 
                     allocate(grav_var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:4))
                 endif
+                if (prof_data%use_rt) then
+                    ! Open RT file and skip header
+                    nomfich=TRIM(repository)//'/rt_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+                    open(unit=13,file=nomfich,status='old',form='unformatted')
+                    read(13) !ncpu
+                    read(13) !nrtvar
+                    read(13) !ndim
+                    read(13) !nlevelmax
+                    read(13) !nboundary
+                    read(13) !gamma
+                    allocate(rt_var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:rtinfo%nRTvar))
+                end if
 
                 ! Loop over levels
                 levelloop1: do ilevel=1,amr%lmax
@@ -621,7 +689,7 @@ module amr_profiles
                             end do tndimloop
                         endif
 
-                        if (read_gravity) then
+                        if (prof_data%use_gravity) then
                             ! Read GRAV data
                             read(12)
                             read(12)
@@ -642,6 +710,19 @@ module amr_profiles
                             end if
                         end if
 
+                        if (prof_data%use_rt) then
+                            read(13)
+                            read(13)
+                            if(ngrida>0)then
+                                tndimloop_rt: do ind=1,amr%twotondim
+                                    iskip = amr%ncoarse+(ind-1)*amr%ngridmax
+                                    rtvarloop: do ivar=1,rtinfo%nRTvar
+                                        read(13)rt_var(grid(ilevel)%ind_grid(:)+iskip,ivar)
+                                    end do rtvarloop
+                                end do tndimloop_rt
+                            end if
+                        end if
+
                         !Compute positions
                         if(ngrida>0)then
                             do ind=1,amr%twotondim
@@ -659,8 +740,11 @@ module amr_profiles
                 end do levelloop1
                 close(10)
                 close(11)
-                if (read_gravity) then
+                if (prof_data%use_gravity) then
                     close(12)
+                end if
+                if (prof_data%use_rt) then
+                    close(13)
                 end if
                 ! Loop over levels again now with arrays fully filled
                 levelloop2: do ilevel=1,amr%lmax
@@ -726,7 +810,7 @@ module amr_profiles
                                     call rotate_vector(vtemp,trans_matrix)
 
                                     ! Gravitational acc --> ONLY FOR CENTRAL CELL
-                                    if (read_gravity) then
+                                    if (prof_data%use_gravity) then
                                         gtemp = grav_var(ind_cell(i),2:4)
                                         call rotate_vector(gtemp,trans_matrix)
                                     endif
@@ -738,31 +822,59 @@ module amr_profiles
                                     deallocate(ind_cell2)
                                     allocate(tempvar(0:amr%twondim,nvarh))
                                     allocate(tempson(0:amr%twondim))
-                                    if (read_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
+                                    if (prof_data%use_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
+                                    if (prof_data%use_rt) allocate(temprt_var(0:amr%twondim,1:rtinfo%nRTvar))
                                     ! Just correct central cell vectors for the region
                                     tempvar(0,:) = var(ind_nbor(1,0),:)
                                     tempson(0)       = son(ind_nbor(1,0))
-                                    if (read_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
+                                    if (prof_data%use_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
                                     tempvar(0,ivx:ivz) = vtemp
-                                    if (read_gravity) tempgrav_var(0,2:4) = gtemp
+                                    if (prof_data%use_gravity) tempgrav_var(0,2:4) = gtemp
+                                    if (prof_data%use_rt) then
+                                        do igroup=1,rtinfo%nGroups
+                                            igrp = 1 + (amr%ndim + 1) * (igroup - 1)
+                                            temprt_var(0,igrp) = rt_var(ind_nbor(1,0),igrp)
+                                            fluxtemp = dble(rt_var(ind_nbor(1,0),igrp+1:igrp+amr%ndim))
+                                            call rotate_vector(fluxtemp,trans_matrix)
+                                            fluxtmp = fluxtemp
+                                            temprt_var(0,igrp+1:igrp+amr%ndim) = sngl(fluxtmp)
+                                        end do
+                                    end if
 
                                     do inbor=1,amr%twondim
                                         tempvar(inbor,:) = var(ind_nbor(1,inbor),:)
                                         tempson(inbor)       = son(ind_nbor(1,inbor))
-                                        if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(1,inbor),:)
+                                        if (prof_data%use_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(1,inbor),:)
+                                        if (prof_data%use_rt) then
+                                            temprt_var(inbor,:) = rt_var(ind_nbor(1,inbor),:)
+                                        end if
                                     end do
                                     tot_sel = tot_sel + 1
                                     do ifilt=1,prof_data%nfilter
-                                        if (read_gravity) then
+                                        if (prof_data%use_gravity .and. prof_data%use_rt) then
+                                            ok_filter = filter_cell(reg,prof_data%filters(ifilt),xtemp,dx,tempvar,tempson,&
+                                                                    &trans_matrix,tempgrav_var,temprt_var)
+                                        else if (prof_data%use_gravity) then
                                             ok_filter = filter_cell(reg,prof_data%filters(ifilt),xtemp,dx,tempvar,tempson,&
                                                                     &trans_matrix,tempgrav_var)
+                                        else if (prof_data%use_rt) then
+                                            ok_filter = filter_cell(reg,prof_data%filters(ifilt),xtemp,dx,tempvar,tempson,&
+                                                                    &trans_matrix,rt_var=temprt_var)
                                         else
                                             ok_filter = filter_cell(reg,prof_data%filters(ifilt),xtemp,dx,tempvar,tempson,&
                                                                     &trans_matrix)
                                         end if
                                         if (ok_filter) then
                                             binpos = 0
-                                            if (read_gravity) then
+                                            if (prof_data%use_gravity .and. prof_data%use_rt) then
+                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                                & dx,binpos,ytemp,trans_matrix,&
+                                                                & prof_data%scaletype,prof_data%nbins,&
+                                                                & prof_data%xdata,prof_data%linthresh,&
+                                                                & prof_data%zero_index,prof_data%xvar,&
+                                                                & tempgrav_var,temprt_var)
+                                                if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix,tempgrav_var,temprt_var)
+                                            else if (prof_data%use_gravity) then
                                                 call findbinpos(reg,xtemp,tempvar,tempson,&
                                                                 & dx,binpos,ytemp,trans_matrix,&
                                                                 & prof_data%scaletype,prof_data%nbins,&
@@ -770,6 +882,14 @@ module amr_profiles
                                                                 & prof_data%zero_index,prof_data%xvar,&
                                                                 & tempgrav_var)
                                                 if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix,tempgrav_var)
+                                            else if (prof_data%use_rt) then
+                                                 call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                                & dx,binpos,ytemp,trans_matrix,&
+                                                                & prof_data%scaletype,prof_data%nbins,&
+                                                                & prof_data%xdata,prof_data%linthresh,&
+                                                                & prof_data%zero_index,prof_data%xvar,&
+                                                                & rtvars=temprt_var)
+                                                if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix,rt_var=temprt_var)
                                             else
                                                 call findbinpos(reg,xtemp,tempvar,tempson,&
                                                                 & dx,binpos,ytemp,trans_matrix,&
@@ -782,7 +902,8 @@ module amr_profiles
                                         end if
                                     end do
                                     deallocate(tempvar,tempson)
-                                    if (read_gravity) deallocate(tempgrav_var)
+                                    if (prof_data%use_gravity) deallocate(tempgrav_var)
+                                    if (prof_data%use_rt) deallocate(temprt_var)
                                 end if
                             end do ngridaloop
                         end do cellloop
@@ -791,8 +912,11 @@ module amr_profiles
                 end do levelloop2
                 deallocate(nbor,son,var,cellpos)
 
-                if (read_gravity) then
+                if (prof_data%use_gravity) then
                     deallocate(grav_var)
+                end if
+                if (prof_data%use_rt) then
+                    deallocate(rt_var)
                 end if
             end do cpuloop
             if (verbose) then
@@ -812,6 +936,7 @@ module amr_profiles
             ! Specific variables for this subroutine
             integer :: i,j,k,binpos
             integer :: ipos,icpu,ilevel,ind,idim,ivar,ifilt,isub
+            integer :: igroup,igrp
             integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
             integer :: tot_pos,tot_ref,tot_insubs,tot_sel
             integer,dimension(:),allocatable :: total_ncell
@@ -820,8 +945,9 @@ module amr_profiles
             character(5) :: nchar,ncharcpu
             character(128) :: nomfich
             real(dbl) :: distance,dx,ytemp
-            type(vector) :: xtemp,vtemp,gtemp
-            logical :: ok_cell,ok_filter,ok_cell_each,ok_sub,read_gravity
+            type(vector) :: xtemp,vtemp,gtemp,fluxtemp
+            real(dbl),dimension(1:3) :: fluxtmp
+            logical :: ok_cell,ok_filter,ok_cell_each,ok_sub
             integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
             real(dbl),dimension(1:8,1:3) :: xc
             real(dbl),dimension(3,3) :: trans_matrix
@@ -829,6 +955,13 @@ module amr_profiles
             real(dbl),dimension(:,:,:),allocatable :: var,grav_var
             real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
+#if RTPRE==4
+            real(sgl),dimension(:,:,:),allocatable :: rt_var
+            real(sgl),dimension(:,:),allocatable :: temprt_var
+#elif RTPRE==8
+            real(dbl),dimension(:,:,:),allocatable :: rt_var
+            real(dbl),dimension(:,:),allocatable :: temprt_var
+#endif
             integer,dimension(:,:),allocatable :: son
             integer,dimension(:),allocatable :: tempson
             logical,dimension(:),allocatable :: ref
@@ -839,16 +972,6 @@ module amr_profiles
             tot_ref = 0
             tot_insubs = 0
             tot_sel = 0
-            ! Check whether we need to read the gravity files
-            read_gravity = .false.
-            do ivar=1,prof_data%nyvar
-                if (prof_data%yvarnames(ivar)(1:4) .eq. 'grav' .or.&
-                & trim(prof_data%yvarnames(ivar)) .eq. 'neighbour_accuracy') then
-                    read_gravity = .true.
-                    if (verbose) write(*,*)'Reading gravity files...'
-                    exit
-                endif
-            end do
 
             ! Allocate grids
             allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
@@ -914,7 +1037,7 @@ module amr_profiles
                 read(11)
                 read(11)
 
-                if (read_gravity) then
+                if (prof_data%use_gravity) then
                     ! Open GRAV file and skip header
                     nomfich=TRIM(repository)//'/grav_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
                     open(unit=12,file=nomfich,status='old',form='unformatted')
@@ -923,6 +1046,18 @@ module amr_profiles
                     read(12) !nlevelmax
                     read(12) !nboundary 
                 endif
+
+                if (prof_data%use_rt) then
+                    ! Open RT file and skip header
+                    nomfich=TRIM(repository)//'/rt_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+                    open(unit=13,file=nomfich,status='old',form='unformatted')
+                    read(13) !ncpu
+                    read(13) !nrtvar
+                    read(13) !ndim
+                    read(13) !nlevelmax
+                    read(13) !nboundary
+                    read(13) !gamma
+                end if
 
                 ! Loop over levels
                 levelloop: do ilevel=1,amr%lmax
@@ -949,7 +1084,8 @@ module amr_profiles
                         allocate(x  (1:ngrida,1:amr%ndim))
                         allocate(xorig(1:ngrida,1:amr%ndim))
                         allocate(ref(1:ngrida))
-                        if (read_gravity)allocate(grav_var(1:ngrida,1:amr%twotondim,1:4))
+                        if (prof_data%use_gravity)allocate(grav_var(1:ngrida,1:amr%twotondim,1:4))
+                        if (prof_data%use_rt)allocate(rt_var(1:ngrida,1:amr%twotondim,1:rtinfo%nRTvar))
                     endif
 
                     ! Loop over domains
@@ -1011,7 +1147,7 @@ module amr_profiles
                             end do tndimloop
                         endif
 
-                        if (read_gravity) then
+                        if (prof_data%use_gravity) then
                             ! Read GRAV data
                             read(12)
                             read(12)
@@ -1029,6 +1165,23 @@ module amr_profiles
                                             read(12)
                                         end if
                                     end do
+                                end do
+                            end if
+                        end if
+
+                        if (prof_data%use_rt) then
+                            ! Read RT data
+                            read(13)
+                            read(13)
+                            if(ngridfile(j,ilevel)>0)then
+                                do ind=1,amr%twotondim
+                                    rtvarloop: do ivar=1,rtinfo%nRTvar
+                                        if (j.eq.icpu) then
+                                            read(13)rt_var(:,ind,ivar)
+                                        else
+                                            read(13)
+                                        end if
+                                    end do rtvarloop
                                 end do
                             end if
                         end if
@@ -1083,22 +1236,39 @@ module amr_profiles
                                     call rotate_vector(vtemp,trans_matrix)
 
                                     ! Gravitational acc
-                                    if (read_gravity) then
+                                    if (prof_data%use_gravity) then
                                         gtemp = grav_var(i,ind,2:4)
                                         call rotate_vector(gtemp,trans_matrix)
                                     endif
                                     allocate(tempvar(0:amr%twondim,nvarh))
                                     allocate(tempson(0:amr%twondim))
-                                    if (read_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
+                                    if (prof_data%use_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
+                                    if (prof_data%use_rt) allocate(temprt_var(0:amr%twondim,1:rtinfo%nRTvar))
                                     ! Just add central cell as we do not want neighbours
                                     tempvar(0,:) = var(i,ind,:)
                                     tempson(0)       = son(i,ind)
-                                    if (read_gravity) tempgrav_var(0,:) = grav_var(i,ind,:)
+                                    if (prof_data%use_gravity) tempgrav_var(0,:) = grav_var(i,ind,:)
                                     tempvar(0,ivx:ivz) = vtemp
-                                    if (read_gravity) tempgrav_var(0,2:4) = gtemp
+                                    if (prof_data%use_gravity) tempgrav_var(0,2:4) = gtemp
+                                    if (prof_data%use_rt) then
+                                        do igroup=1,rtinfo%nGroups
+                                            igrp = 1 + (amr%ndim + 1) * (igroup - 1)
+                                            temprt_var(0,igrp) = rt_var(i,ind,igrp)
+                                            fluxtemp = dble(rt_var(i,ind,igrp+1:igrp+amr%ndim))
+                                            call rotate_vector(fluxtemp,trans_matrix)
+                                            fluxtmp = fluxtemp
+                                            temprt_var(0,igrp+1:igrp+amr%ndim) = sngl(fluxtmp)
+                                        end do
+                                    end if
                                     tot_sel = tot_sel + 1
                                     do ifilt=1,prof_data%nfilter
-                                        if (read_gravity) then
+                                        if (prof_data%use_gravity .and. prof_data%use_rt) then
+                                            ok_filter = filter_cell(reg,prof_data%filters(ifilt),xtemp,dx,tempvar,tempson,&
+                                                                    &trans_matrix,tempgrav_var,temprt_var)
+                                        else if (prof_data%use_rt) then
+                                            ok_filter = filter_cell(reg,prof_data%filters(ifilt),xtemp,dx,tempvar,tempson,&
+                                                                    &trans_matrix,rt_var=temprt_var)
+                                        else if (prof_data%use_gravity) then
                                             ok_filter = filter_cell(reg,prof_data%filters(ifilt),xtemp,dx,tempvar,tempson,&
                                                                     &trans_matrix,tempgrav_var)
                                         else
@@ -1107,7 +1277,23 @@ module amr_profiles
                                         end if
                                         if (ok_filter) then
                                             binpos = 0
-                                            if (read_gravity) then
+                                            if (prof_data%use_gravity .and. prof_data%use_rt) then
+                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                                & dx,binpos,ytemp,trans_matrix,&
+                                                                & prof_data%scaletype,prof_data%nbins,&
+                                                                & prof_data%xdata,prof_data%linthresh,&
+                                                                & prof_data%zero_index,prof_data%xvar,&
+                                                                & tempgrav_var,temprt_var)
+                                                if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix,tempgrav_var,temprt_var)
+                                            else if (prof_data%use_rt) then
+                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                                & dx,binpos,ytemp,trans_matrix,&
+                                                                & prof_data%scaletype,prof_data%nbins,&
+                                                                & prof_data%xdata,prof_data%linthresh,&
+                                                                & prof_data%zero_index,prof_data%xvar,&
+                                                                & tempgrav_var,rtvars=temprt_var)
+                                                if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix,rt_var=temprt_var)
+                                            else if (prof_data%use_gravity) then
                                                 call findbinpos(reg,xtemp,tempvar,tempson,&
                                                                 & dx,binpos,ytemp,trans_matrix,&
                                                                 & prof_data%scaletype,prof_data%nbins,&
@@ -1127,18 +1313,28 @@ module amr_profiles
                                         end if
                                     end do
                                     deallocate(tempvar,tempson)
-                                    if (read_gravity) deallocate(tempgrav_var)
+                                    if (prof_data%use_gravity) deallocate(tempgrav_var)
+                                    if (prof_data%use_rt) deallocate(temprt_var)
                                 end if
                             end do ngridaloop
                         end do cellloop
                         deallocate(xg,son,var,ref,x,xorig)
-                        if (read_gravity) then
+                        if (prof_data%use_gravity) then
                             deallocate(grav_var)
+                        end if
+                        if (prof_data%use_rt) then
+                            deallocate(rt_var)
                         end if
                     endif
                 end do levelloop
                 close(10)
                 close(11)
+                if (prof_data%use_gravity) then
+                    close(12)
+                end if
+                if (prof_data%use_rt) then
+                    close(13)
+                end if
             end do cpuloop
         if (verbose) then
             write(*,*)'Total number of cells used (per filter): ', total_ncell
@@ -1233,9 +1429,10 @@ module amr_profiles
             use geometrical_regions
             implicit none
             integer :: xbinpos,ybinpos
-            logical :: ok_cell,ok_filter,read_gravity,ok_sub
+            logical :: ok_cell,ok_filter,ok_sub
             integer :: i,j,k
             integer :: ipos,icpu,ilevel,ind,idim,ivar,iskip,inbor,ison,isub
+            integer :: igroup,igrp
             integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
             integer,dimension(:),allocatable :: total_ncell
             integer :: nvarh
@@ -1243,7 +1440,8 @@ module amr_profiles
             character(5) :: nchar,ncharcpu
             character(128) :: nomfich
             real(dbl) :: distance,dx,vartemp
-            type(vector) :: xtemp,vtemp,gtemp
+            type(vector) :: xtemp,vtemp,gtemp,fluxtemp
+            real(dbl),dimension(1:3) :: fluxtmp
             integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
             real(dbl),dimension(:),allocatable :: xxg,son_dens
             real(dbl),dimension(1:8,1:3) :: xc
@@ -1254,6 +1452,13 @@ module amr_profiles
             real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
             real(dbl),dimension(:,:),allocatable :: cellpos
+#if RTPRE==4
+            real(sgl),dimension(:,:),allocatable :: rt_var
+            real(sgl),dimension(:,:),allocatable :: temprt_var
+#elif RTPRE==8
+            real(dbl),dimension(:,:),allocatable :: rt_var
+            real(dbl),dimension(:,:),allocatable :: temprt_var
+#endif
             integer,dimension(:,:),allocatable :: nbor
             integer,dimension(:),allocatable :: son,tempson,iig
             integer,dimension(:),allocatable :: ind_cell,ind_cell2
@@ -1263,17 +1468,6 @@ module amr_profiles
 
             allocate(total_ncell(1:prof_data%nfilter))
             total_ncell = 0
-            
-            ! Check whether we need to read the gravity files
-            read_gravity = .false.
-            do ivar=1,prof_data%nzvar
-                if (prof_data%zvarnames(ivar)(1:4) .eq. 'grav' .or.&
-                & trim(prof_data%zvarnames(ivar)) .eq. 'neighbour_accuracy') then
-                    read_gravity = .true.
-                    if (verbose) write(*,*)'Reading gravity files...'
-                    exit
-                endif
-            end do
 
             allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
             allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
@@ -1345,7 +1539,7 @@ module amr_profiles
                 allocate(cellpos(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:3))
                 cellpos = 0d0
                 var = 0d0
-                if (read_gravity) then
+                if (prof_data%use_gravity) then
                     ! Open GRAV file and skip header
                     nomfich=TRIM(repository)//'/grav_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
                     open(unit=12,file=nomfich,status='old',form='unformatted')
@@ -1355,6 +1549,18 @@ module amr_profiles
                     read(12) !nboundary 
                     allocate(grav_var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:4))
                 endif
+                if (prof_data%use_rt) then
+                    ! Open RT file and skip header
+                    nomfich=TRIM(repository)//'/rt_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+                    open(unit=13,file=nomfich,status='old',form='unformatted')
+                    read(13) !ncpu
+                    read(13) !nrtvar
+                    read(13) !ndim
+                    read(13) !nlevelmax
+                    read(13) !nboundary
+                    read(13) !gamma
+                    allocate(rt_var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:rtinfo%nRTvar))
+                end if
                 ! Loop over levels
                 levelloop1: do ilevel=1,amr%lmax
                     ! Geometry
@@ -1435,7 +1641,7 @@ module amr_profiles
                             end do tndimloop
                         endif
 
-                        if (read_gravity) then
+                        if (prof_data%use_gravity) then
                             ! Read GRAV data
                             read(12)
                             read(12)
@@ -1451,6 +1657,20 @@ module amr_profiles
                                 end do
                             end if
                         end if
+
+                        if (prof_data%use_rt) then
+                            read(13)
+                            read(13)
+                            if(ngrida>0)then
+                                tndimloop_rt: do ind=1,amr%twotondim
+                                    iskip = amr%ncoarse+(ind-1)*amr%ngridmax
+                                    rtvarloop: do ivar=1,rtinfo%nRTvar
+                                        read(13)rt_var(grid(ilevel)%ind_grid(:)+iskip,ivar)
+                                    end do rtvarloop
+                                end do tndimloop_rt
+                            end if
+                        end if
+
                         !Compute positions
                         if(ngrida>0)then
                             do ind=1,amr%twotondim
@@ -1467,8 +1687,11 @@ module amr_profiles
                 end do levelloop1
                 close(10)
                 close(11)
-                if (read_gravity) then
+                if (prof_data%use_gravity) then
                     close(12)
+                end if
+                if (prof_data%use_rt) then
+                    close(13)
                 end if
                 ! Loop over levels again now with arrays fully filled
                 levelloop2: do ilevel=1,amr%lmax
@@ -1517,7 +1740,7 @@ module amr_profiles
                                 call rotate_vector(vtemp,trans_matrix)
 
                                 ! Gravitational acc --> ONLY FOR CENTRAL CELL
-                                if (read_gravity) then
+                                if (prof_data%use_gravity) then
                                     gtemp = grav_var(ind_cell(i),2:4)
                                     call rotate_vector(gtemp,trans_matrix)
                                 endif
@@ -1528,17 +1751,31 @@ module amr_profiles
                                 deallocate(ind_cell2)
                                 allocate(tempvar(0:amr%twondim,nvarh))
                                 allocate(tempson(0:amr%twondim))
-                                if (read_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
+                                if (prof_data%use_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
+                                if (prof_data%use_rt) allocate(temprt_var(0:amr%twondim,1:rtinfo%nRTvar))
                                 ! Just correct central cell vectors for the region
                                 tempvar(0,:) = var(ind_nbor(1,0),:)
                                 tempson(0)       = son(ind_nbor(1,0))
-                                if (read_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
+                                if (prof_data%use_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
                                 tempvar(0,ivx:ivz) = vtemp
-                                if (read_gravity) tempgrav_var(0,2:4) = gtemp
+                                if (prof_data%use_gravity) tempgrav_var(0,2:4) = gtemp
+                                if (prof_data%use_rt) then
+                                    do igroup=1,rtinfo%nGroups
+                                        igrp = 1 + (amr%ndim + 1) * (igroup - 1)
+                                        temprt_var(0,igrp) = rt_var(ind_nbor(1,0),igrp)
+                                        fluxtemp = dble(rt_var(ind_nbor(1,0),igrp+1:igrp+amr%ndim))
+                                        call rotate_vector(fluxtemp,trans_matrix)
+                                        fluxtmp = fluxtemp
+                                        temprt_var(0,igrp+1:igrp+amr%ndim) = sngl(fluxtmp)
+                                    end do
+                                end if
                                 do inbor=1,amr%twondim
                                     tempvar(inbor,:) = var(ind_nbor(1,inbor),:)
                                     tempson(inbor)       = son(ind_nbor(1,inbor))
-                                    if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(1,inbor),:)
+                                    if (prof_data%use_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(1,inbor),:)
+                                    if (prof_data%use_rt) then
+                                        temprt_var(inbor,:) = rt_var(ind_nbor(1,inbor),:)
+                                    end if
                                 end do
                                 
                                 ! If we are avoiding substructure, check whether we are safe
@@ -1551,7 +1788,13 @@ module amr_profiles
                                 end if
                                 if (ok_cell) then
                                     do ifilt=1,prof_data%nfilter
-                                        if (read_gravity) then
+                                        if (prof_data%use_gravity .and. prof_data%use_rt) then
+                                            ok_filter = filter_cell(reg,prof_data%filters(ifilt),xtemp,dx,tempvar,tempson,&
+                                                                    &trans_matrix,tempgrav_var,temprt_var)
+                                        else if (prof_data%use_rt) then
+                                            ok_filter = filter_cell(reg,prof_data%filters(ifilt),xtemp,dx,tempvar,tempson,&
+                                                                    &trans_matrix,rt_var=temprt_var)
+                                        else if (prof_data%use_gravity) then
                                             ok_filter = filter_cell(reg,prof_data%filters(ifilt),xtemp,dx,tempvar,tempson,&
                                                                     &trans_matrix,tempgrav_var)
                                         else
@@ -1561,7 +1804,41 @@ module amr_profiles
                                         if (ok_filter) then
                                             xbinpos = 0; ybinpos=0
                                             total_ncell(ifilt) = total_ncell(ifilt) + 1
-                                            if (read_gravity) then
+                                            if (prof_data%use_gravity .and. prof_data%use_rt) then
+                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                                &dx,xbinpos,vartemp,trans_matrix,&
+                                                                &prof_data%scaletype(1),&
+                                                                &prof_data%nbins(1),prof_data%xdata,&
+                                                                &prof_data%linthresh(1),prof_data%zero_index(1),&
+                                                                &prof_data%xvar,tempgrav_var,temprt_var)
+                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                                &dx,ybinpos,vartemp,trans_matrix,&
+                                                                &prof_data%scaletype(2),&
+                                                                &prof_data%nbins(2),prof_data%ydata,&
+                                                                &prof_data%linthresh(2),prof_data%zero_index(2),&
+                                                                &prof_data%yvar,tempgrav_var,temprt_var)
+                                                if (xbinpos.ne.0.and.ybinpos.ne.0) call bindata_twod(reg,x(i,:),&
+                                                                                        &tempvar,tempson,dx,prof_data,&
+                                                                                        &xbinpos,ybinpos,ifilt,&
+                                                                                        &trans_matrix,tempgrav_var,temprt_var)
+                                            else if (prof_data%use_rt) then
+                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                                &dx,xbinpos,vartemp,trans_matrix,&
+                                                                &prof_data%scaletype(1),&
+                                                                &prof_data%nbins(1),prof_data%xdata,&
+                                                                &prof_data%linthresh(1),prof_data%zero_index(1),&
+                                                                &prof_data%xvar,rtvars=temprt_var)
+                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                                &dx,ybinpos,vartemp,trans_matrix,&
+                                                                &prof_data%scaletype(2),&
+                                                                &prof_data%nbins(2),prof_data%ydata,&
+                                                                &prof_data%linthresh(2),prof_data%zero_index(2),&
+                                                                &prof_data%yvar,rtvars=temprt_var)
+                                                if (xbinpos.ne.0.and.ybinpos.ne.0) call bindata_twod(reg,x(i,:),&
+                                                                                        &tempvar,tempson,dx,prof_data,&
+                                                                                        &xbinpos,ybinpos,ifilt,&
+                                                                                        &trans_matrix,rt_var=temprt_var)
+                                            else if (prof_data%use_gravity) then
                                                 call findbinpos(reg,xtemp,tempvar,tempson,&
                                                                 &dx,xbinpos,vartemp,trans_matrix,&
                                                                 &prof_data%scaletype(1),&
@@ -1600,13 +1877,16 @@ module amr_profiles
                                     end do
                                 end if
                                 deallocate(tempvar,tempson)
-                                if (read_gravity) deallocate(tempgrav_var)
+                                if (prof_data%use_gravity) deallocate(tempgrav_var)
+                                if (prof_data%use_rt) deallocate(temprt_var)
                             end do ngridaloop
                         end do cellloop
                         deallocate(ref,x,ind_cell)
                     endif
                 end do levelloop2
                 deallocate(nbor,son,var,cellpos)
+                if (prof_data%use_gravity) deallocate(grav_var)
+                if (prof_data%use_rt) deallocate(rt_var)
             end do cpuloop
             if (verbose) write(*,*)'Total number of cells used: ', total_ncell
         end subroutine get_cells_twodprofile

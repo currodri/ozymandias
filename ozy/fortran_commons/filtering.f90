@@ -138,7 +138,7 @@ module filtering
     end subroutine get_filter_part_tools
 
     logical function filter_cell(reg,filt,cell_x,cell_dx,cell_var,cell_son,&
-                                &trans_matrix,grav_var)
+                                &trans_matrix,grav_var,rt_var)
         use vectors
         use geometrical_regions
         type(region), intent(in) :: reg
@@ -149,6 +149,11 @@ module filtering
         integer,dimension(0:amr%twondim),intent(in) :: cell_son
         real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
         real(dbl),dimension(0:amr%twondim,1:4),intent(in),optional :: grav_var
+#if RTPRE==4
+        real(sgl),dimension(0:amr%twondim,1:rtinfo%nRTvar),intent(in),optional :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:amr%twondim,1:rtinfo%nRTvar),intent(in),optional :: rt_var
+#endif
         integer :: i
         real(dbl) :: value,filt_value
 
@@ -157,21 +162,35 @@ module filtering
         if (filt%ncond == 0) return
 
         do i=1,filt%ncond
-            if (present(grav_var)) then
-                value = filt%cond_vars(i)%myfunction(amr,sim,filt%cond_vars(i),reg,cell_dx,&
+            if (present(grav_var).and.present(rt_var)) then
+                value = filt%cond_vars(i)%myfunction(amr,sim,rtinfo,filt%cond_vars(i),reg,cell_dx,&
+                                                    cell_x,cell_var,cell_son,trans_matrix,&
+                                                    grav_var,rt_var)
+            elseif (present(grav_var)) then
+                value = filt%cond_vars(i)%myfunction(amr,sim,rtinfo,filt%cond_vars(i),reg,cell_dx,&
                                                     cell_x,cell_var,cell_son,trans_matrix,&
                                                     grav_var)
+            elseif (present(rt_var)) then
+                value = filt%cond_vars(i)%myfunction(amr,sim,rtinfo,filt%cond_vars(i),reg,cell_dx,&
+                                                    cell_x,cell_var,cell_son,trans_matrix, rt_var=rt_var)
             else
-                value = filt%cond_vars(i)%myfunction(amr,sim,filt%cond_vars(i),reg,cell_dx,&
+                value = filt%cond_vars(i)%myfunction(amr,sim,rtinfo,filt%cond_vars(i),reg,cell_dx,&
                                                     cell_x,cell_var,cell_son,trans_matrix)
             end if
             if (filt%use_var(i)) then
-                if (present(grav_var)) then
-                    filt_value = filt%cond_vars_comp(i)%myfunction(amr,sim,filt%cond_vars_comp(i),reg,cell_dx,&
+                if (present(grav_var).and.present(rt_var)) then
+                    filt_value = filt%cond_vars_comp(i)%myfunction(amr,sim,rtinfo,filt%cond_vars_comp(i),reg,cell_dx,&
+                                                            cell_x,cell_var,cell_son,trans_matrix,&
+                                                            grav_var,rt_var)
+                elseif (present(grav_var)) then
+                    filt_value = filt%cond_vars_comp(i)%myfunction(amr,sim,rtinfo,filt%cond_vars_comp(i),reg,cell_dx,&
                                                             cell_x,cell_var,cell_son,trans_matrix,&
                                                             grav_var)
+                elseif (present(rt_var)) then
+                    filt_value = filt%cond_vars_comp(i)%myfunction(amr,sim,rtinfo,filt%cond_vars_comp(i),reg,cell_dx,&
+                                                            cell_x,cell_var,cell_son,trans_matrix, rt_var=rt_var)
                 else
-                    filt_value = filt%cond_vars_comp(i)%myfunction(amr,sim,filt%cond_vars_comp(i),reg,cell_dx,&
+                    filt_value = filt%cond_vars_comp(i)%myfunction(amr,sim,rtinfo,filt%cond_vars_comp(i),reg,cell_dx,&
                                                             cell_x,cell_var,cell_son,trans_matrix)
                 end if
                 filt_value = filt%cond_vals(i) * filt_value

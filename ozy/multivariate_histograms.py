@@ -4,8 +4,8 @@ import os
 import ozy
 from unyt import unyt_array,unyt_quantity
 from .utils import init_region,init_filter_hydro,gent_curve_T,\
-                    check_need_neighbours, get_code_units, \
-                    get_plotting_def
+                    get_code_units, get_plotting_def,\
+                    check_need_gravity,check_need_rt
 from .variables_settings import geometrical_variables,raw_gas_variables,\
                                 derived_gas_variables,gravity_variables
 
@@ -131,12 +131,16 @@ def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,max
         histograms.append(pd)
 
     # 5. Loop over hydro variables and the weights
+    use_gravity = False
+    use_rt = False
     for var in zvars:
         var_type = var.split('/')[0]
         var_name = var.split('/')[1]
         if var_type != 'gas':
             raise KeyError('The variable type needs to be gas for compute_histogram_hydro. Please check!')
         else:
+            use_gravity = check_need_gravity(var_name,'gas') or use_gravity
+            use_rt = check_need_rt(var_name,'gas') or use_rt
             if var_name in geometrical_variables or var_name in raw_gas_variables \
                 or var_name in derived_gas_variables or var_name in gravity_variables:
                 for i in range(0, nfilter):
@@ -149,6 +153,9 @@ def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,max
         if weight_type != 'gas':
              raise KeyError('The weight type needs to be gas for compute_histogram_hydro. Please check!')
         else:
+            if weight_name != 'cumulative' and weight_name != 'count':
+                use_gravity = check_need_gravity(weight_name,'gas') or use_gravity
+                use_rt = check_need_rt(weight_name,'gas') or use_rt
             if weight_name in geometrical_variables or weight_name in raw_gas_variables \
                 or weight_name in derived_gas_variables or weight_name in gravity_variables:
                 for i in range(0, nfilter):
@@ -335,6 +342,8 @@ def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,max
     if remove_subs and nsubs>0:
         for i in range(0,nsubs):
             hydro_data.subs[i] = subs[i]
+    hydro_data.use_gravity = use_gravity
+    hydro_data.use_rt = use_rt
     
     # Add the scaletype for the xaxis and the preo-computed bin edges
     bin_edges, stype, zero_index, linthresh = get_code_bins(group.obj,'gas',xvar,nbins=nbins[0],logscale=scaletype[0],
@@ -362,6 +371,8 @@ def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,max
             hydro_data.filters[i] = filts[i]
             
     # And now, compute hydro data phase diagrams!
+    if verbose:
+        io_ramses.activate_verbose()
     if hydro_data.nzvar > 0 and hydro_data.nwvar > 0:
         if obj.use_vardict:
             amrprofmod.twodprofile(obj.simulation.fullpath,selected_reg,hydro_data,lmax,obj.vardict)

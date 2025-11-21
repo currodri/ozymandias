@@ -24,7 +24,7 @@ module hydro_commons
     use basis_representations
     use coordinate_systems
     use geometrical_regions
-    use io_ramses, only: amr_info, sim_info, Tmin, cV, lambda_crGH08
+    use io_ramses, only: amr_info, sim_info, rt_info, Tmin, cV, lambda_crGH08
     use cooling_module
 
     type hydro_var
@@ -36,10 +36,11 @@ module hydro_commons
     contains
 
     ! RAW VARIABLES
-    function raw_hydro(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function raw_hydro(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -48,14 +49,18 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
         real(dbl) :: raw_hydro
         raw_hydro = var(0,hvar%ids(1))
     end function raw_hydro
 
     ! GEOMETRICAL VARIABLES
 
-    function myinterface(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function myinterface(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -67,12 +72,18 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: myinterface
         myinterface = magnitude(x)
     end function myinterface
 
-    function d_euclid_wrap(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function d_euclid_wrap(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -84,6 +95,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: d_euclid_wrap
 
@@ -91,7 +108,7 @@ module hydro_commons
         d_euclid_wrap = magnitude(x)
     end function d_euclid_wrap
 
-    function x_coord_wrap(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function x_coord_wrap(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -103,6 +120,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: x_coord_wrap
 
@@ -110,7 +133,7 @@ module hydro_commons
         x_coord_wrap = x%x
     end function x_coord_wrap
 
-    function y_coord_wrap(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function y_coord_wrap(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -122,6 +145,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: y_coord_wrap
 
@@ -129,7 +158,7 @@ module hydro_commons
         y_coord_wrap = x%y
     end function y_coord_wrap
 
-    function z_coord_wrap(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function z_coord_wrap(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -141,6 +170,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: z_coord_wrap
 
@@ -148,7 +183,7 @@ module hydro_commons
         z_coord_wrap = x%z
     end function z_coord_wrap
 
-    function r_sphere_wrap(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function r_sphere_wrap(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -160,6 +195,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: r_sphere_wrap
 
@@ -167,7 +208,7 @@ module hydro_commons
         r_sphere_wrap = r_sphere(x)
     end function r_sphere_wrap
 
-    function theta_sphere_wrap(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function theta_sphere_wrap(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -179,6 +220,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: theta_sphere_wrap
 
@@ -186,7 +233,7 @@ module hydro_commons
         theta_sphere_wrap = theta_sphere(x)
     end function theta_sphere_wrap
 
-    function phi_sphere_wrap(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function phi_sphere_wrap(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -198,6 +245,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: phi_sphere_wrap
 
@@ -206,7 +259,7 @@ module hydro_commons
         phi_sphere_wrap = phi_sphere(x)
     end function phi_sphere_wrap
 
-    function r_cyl_wrap(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function r_cyl_wrap(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -218,6 +271,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: r_cyl_wrap
 
@@ -225,7 +284,7 @@ module hydro_commons
         r_cyl_wrap = r_cyl(x)
     end function r_cyl_wrap
 
-    function phi_cyl_wrap(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function phi_cyl_wrap(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -237,6 +296,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: phi_cyl_wrap
 
@@ -309,7 +374,7 @@ module hydro_commons
 
     ! GRAVITATIONAL VARIABLES
 
-    function grav_potential(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grav_potential(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -321,6 +386,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grav_potential
 
@@ -328,7 +399,7 @@ module hydro_commons
         grav_potential = grav_var(0,1)
     end function grav_potential
 
-    function grav_gx(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grav_gx(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -340,6 +411,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grav_gx
 
@@ -347,7 +424,7 @@ module hydro_commons
         grav_gx = grav_var(0,2)
     end function grav_gx
 
-    function grav_gy(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grav_gy(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -359,6 +436,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grav_gy
 
@@ -366,7 +449,7 @@ module hydro_commons
         grav_gy = grav_var(0,3)
     end function grav_gy
 
-    function grav_gz(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grav_gz(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -378,6 +461,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grav_gz
 
@@ -422,7 +511,7 @@ module hydro_commons
 
     ! DERIVED VARIABLES
 
-    function cell_volume(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function cell_volume(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -434,13 +523,19 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: cell_volume
 
         cell_volume = (dx * dx) * dx
     end function cell_volume
 
-    function cell_mass(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function cell_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -452,13 +547,19 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: cell_mass
 
         cell_mass = (var(0,hvar%ids(1)) * (dx * dx)) * dx
     end function cell_mass
 
-    function v_sphere_r(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function v_sphere_r(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -470,6 +571,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: v_sphere_r
         type(vector) :: v
@@ -483,7 +590,7 @@ module hydro_commons
         v_sphere_r = v.DOT.temp_basis%u(1)
     end function v_sphere_r
 
-    function v_sphere_phi(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function v_sphere_phi(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -495,6 +602,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: v_sphere_phi
         type(vector) :: v
@@ -508,7 +621,7 @@ module hydro_commons
         v_sphere_phi = v .DOT. temp_basis%u(3)
     end function v_sphere_phi
 
-    function v_sphere_theta(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function v_sphere_theta(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -520,6 +633,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: v_sphere_theta
         type(vector) :: v
@@ -533,7 +652,7 @@ module hydro_commons
         v_sphere_theta = v .DOT. temp_basis%u(2)
     end function v_sphere_theta
 
-    function v_cyl_r(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function v_cyl_r(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -545,6 +664,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: v_cyl_r
         type(vector) :: v
@@ -558,7 +683,7 @@ module hydro_commons
         v_cyl_r = v .DOT. temp_basis%u(1)
     end function v_cyl_r
 
-    function v_cyl_z(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function v_cyl_z(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -570,6 +695,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: v_cyl_z
         type(vector) :: v
@@ -583,7 +714,7 @@ module hydro_commons
         v_cyl_z = v .DOT. temp_basis%u(3)
     end function v_cyl_z
 
-    function v_cyl_phi(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function v_cyl_phi(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -595,6 +726,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: v_cyl_phi
         type(vector) :: v
@@ -608,7 +745,7 @@ module hydro_commons
         v_cyl_phi = v .DOT. temp_basis%u(2)
     end function v_cyl_phi
 
-    function v_magnitude(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function v_magnitude(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -620,6 +757,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: v_magnitude
         type(vector) :: v
@@ -630,7 +773,7 @@ module hydro_commons
         v_magnitude = magnitude(v)
     end function v_magnitude
 
-    function v_squared(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function v_squared(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -642,6 +785,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: v_squared
         type(vector) :: v
@@ -652,7 +801,7 @@ module hydro_commons
         v_squared = v.DOT.v
     end function v_squared
 
-    function momentum_x(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function momentum_x(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -664,6 +813,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: momentum_x
         type(vector) :: v
@@ -673,7 +828,7 @@ module hydro_commons
         momentum_x = ((var(0,hvar%ids(1)) * (dx*dx)) * dx) * var(0,hvar%ids(2))
     end function momentum_x
 
-    function momentum_y(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function momentum_y(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -685,6 +840,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: momentum_y
         type(vector) :: v
@@ -694,7 +855,7 @@ module hydro_commons
         momentum_y = ((var(0,hvar%ids(1)) * (dx*dx)) * dx) * var(0,hvar%ids(2))
     end function momentum_y
 
-    function momentum_z(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function momentum_z(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -706,6 +867,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: momentum_z
         type(vector) :: v
@@ -715,7 +882,7 @@ module hydro_commons
         momentum_z = ((var(0,hvar%ids(1)) * (dx*dx)) * dx) * var(0,hvar%ids(2))
     end function momentum_z
 
-    function momentum(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function momentum(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -727,6 +894,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: momentum
         type(vector) :: v
@@ -738,7 +911,7 @@ module hydro_commons
                     & magnitude(v)
     end function momentum
 
-    function momentum_sphere_r(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function momentum_sphere_r(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -750,6 +923,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: momentum_sphere_r
         type(vector) :: v
@@ -764,7 +943,7 @@ module hydro_commons
         momentum_sphere_r = (var(0,hvar%ids(1)) * (dx*dx)) * dx * (v .DOT. temp_basis%u(1))
     end function momentum_sphere_r
 
-    function momentum_cyl_z(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function momentum_cyl_z(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -776,6 +955,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: momentum_cyl_z
         type(vector) :: v
@@ -790,7 +975,7 @@ module hydro_commons
         momentum_cyl_z = (var(0,hvar%ids(1)) * (dx*dx)) * dx * (v .DOT. temp_basis%u(3))
     end function momentum_cyl_z
 
-    function ang_momentum_x(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function ang_momentum_x(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -802,6 +987,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: ang_momentum_x
         type(vector) :: v
@@ -813,7 +1004,7 @@ module hydro_commons
                             &- v%y * x%z)
     end function ang_momentum_x
 
-    function ang_momentum_y(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function ang_momentum_y(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -825,6 +1016,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: ang_momentum_y
         type(vector) :: v
@@ -836,7 +1033,7 @@ module hydro_commons
                             &- v%z*x%x)
     end function ang_momentum_y
 
-    function ang_momentum_z(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function ang_momentum_z(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -848,6 +1045,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: ang_momentum_z
         type(vector) :: v
@@ -859,7 +1062,7 @@ module hydro_commons
                         &- v%x*x%y)
     end function ang_momentum_z
 
-    function ang_momentum(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function ang_momentum(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -871,6 +1074,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: ang_momentum
         type(vector) :: v,L
@@ -882,7 +1091,7 @@ module hydro_commons
         ang_momentum = ((var(0,hvar%ids(1)) * (dx*dx)) * dx) * magnitude(L)
     end function ang_momentum
 
-    function massflow_rate_sphere_r(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function massflow_rate_sphere_r(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -894,6 +1103,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: massflow_rate_sphere_r
         type(vector) :: v
@@ -906,7 +1121,7 @@ module hydro_commons
         massflow_rate_sphere_r = (var(0,hvar%ids(1)) * (dx*dx)) * (v .DOT. temp_basis%u(1))    
     end function massflow_rate_sphere_r
 
-    function massflux_rate_sphere_r(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function massflux_rate_sphere_r(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -918,6 +1133,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: massflux_rate_sphere_r
         type(vector) :: v
@@ -930,7 +1151,7 @@ module hydro_commons
         massflux_rate_sphere_r = var(0,hvar%ids(1)) * (v .DOT. temp_basis%u(1))  
     end function massflux_rate_sphere_r
 
-    function kinetic_energy(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function kinetic_energy(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -942,6 +1163,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: kinetic_energy
 
@@ -952,7 +1179,7 @@ module hydro_commons
                                  & + var(0,hvar%ids(4))**2)
     end function kinetic_energy
 
-    function sigma(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function sigma(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -964,6 +1191,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: sigma,value
         type(vector) :: v
@@ -984,7 +1217,7 @@ module hydro_commons
         sigma = value
     end function sigma
 
-    function temperature(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function temperature(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -996,6 +1229,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: temperature
 
@@ -1006,7 +1245,7 @@ module hydro_commons
         endif
     end function temperature
 
-    function thermal_energy(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function thermal_energy(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1018,6 +1257,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: thermal_energy
 
@@ -1026,7 +1271,7 @@ module hydro_commons
                 & / (gamma_gas - 1d0)) * (dx * dx)) * dx
     end function thermal_energy
 
-    function thermal_energy_specific(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function thermal_energy_specific(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1038,6 +1283,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: thermal_energy_specific
 
@@ -1046,7 +1297,7 @@ module hydro_commons
                                     & / (gamma_gas - 1d0)) / var(0,hvar%ids(1))
     end function thermal_energy_specific
 
-    function thermal_energy_density(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function thermal_energy_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1058,6 +1309,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: thermal_energy_density
 
@@ -1066,7 +1323,7 @@ module hydro_commons
                                     & / (gamma_gas - 1d0))
     end function thermal_energy_density
 
-    function entropy_specific(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function entropy_specific(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1078,6 +1335,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: entropy_specific
 
@@ -1089,7 +1352,7 @@ module hydro_commons
         entropy_specific = log(T) - (gamma_gas-1d0) * log(rho)
     end function entropy_specific
 
-    function sound_speed(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function sound_speed(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1101,6 +1364,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: sound_speed
 
@@ -1109,7 +1378,7 @@ module hydro_commons
                             & / var(0,hvar%ids(1))))
     end function sound_speed
 
-    function grad_thermalpressure(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grad_thermalpressure(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1121,6 +1390,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grad_thermalpressure
 
@@ -1146,7 +1421,7 @@ module hydro_commons
         grad_thermalpressure = magnitude(v)
     end function grad_thermalpressure
 
-    function grad_therprsphere(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grad_therprsphere(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1158,6 +1433,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grad_therprsphere
 
@@ -1186,7 +1467,7 @@ module hydro_commons
         grad_therprsphere = v.DOT.temp_basis%u(1)
     end function grad_therprsphere
 
-    function grad_therpz(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grad_therpz(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1198,6 +1479,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grad_therpz
 
@@ -1224,7 +1511,7 @@ module hydro_commons
         grad_therpz = v%z
     end function grad_therpz
 
-    function magnetic_energy(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function magnetic_energy(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1236,6 +1523,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: magnetic_energy
 
@@ -1248,7 +1541,7 @@ module hydro_commons
         magnetic_energy = (0.5 * (B.DOT.B) * (dx*dx)) * dx
     end function magnetic_energy
 
-    function magnetic_magnitude(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function magnetic_magnitude(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1260,6 +1553,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: magnetic_magnitude
 
@@ -1272,7 +1571,7 @@ module hydro_commons
         magnetic_magnitude = magnitude(B)
     end function magnetic_magnitude
 
-    function magnetic_energy_specific(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function magnetic_energy_specific(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1284,6 +1583,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: magnetic_energy_specific
 
@@ -1296,7 +1601,7 @@ module hydro_commons
         magnetic_energy_specific = (0.5 * (B.DOT.B)) / var(0,hvar%ids(7))
     end function magnetic_energy_specific
 
-    function magnetic_energy_density(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function magnetic_energy_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1308,6 +1613,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: magnetic_energy_density
 
@@ -1320,7 +1631,7 @@ module hydro_commons
         magnetic_energy_density = 0.5 * (B.DOT.B)
     end function magnetic_energy_density
 
-    function alfven_speed(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function alfven_speed(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1332,6 +1643,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: alfven_speed
 
@@ -1344,7 +1661,7 @@ module hydro_commons
         alfven_speed = magnitude(B) / sqrt(var(0,hvar%ids(7)))
     end function alfven_speed
 
-    function grav_magpfrsphere(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grav_magpfrsphere(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1356,6 +1673,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grav_magpfrsphere
 
@@ -1392,7 +1715,7 @@ module hydro_commons
         grav_magpfrsphere = -(v.DOT.temp_basis%u(1)) / (var(0,hvar%ids(7)) * (B .DOT. temp_basis%u(1)))
     end function grav_magpfrsphere
 
-    function grav_magpfrspherepos(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grav_magpfrspherepos(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1404,6 +1727,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grav_magpfrspherepos
 
@@ -1441,7 +1770,7 @@ module hydro_commons
         if (grav_magpfrspherepos < 0) grav_magpfrspherepos = 0d0
     end function grav_magpfrspherepos
 
-    function grav_magpfrsphereneg(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grav_magpfrsphereneg(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1453,6 +1782,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grav_magpfrsphereneg
 
@@ -1490,7 +1825,7 @@ module hydro_commons
         if (grav_magpfrsphereneg > 0) grav_magpfrsphereneg = 0d0
     end function grav_magpfrsphereneg
 
-    function cr_energy(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function cr_energy(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1502,6 +1837,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: cr_energy
 
@@ -1509,7 +1850,7 @@ module hydro_commons
         cr_energy = ((var(0,hvar%ids(1)) / (gamma_cr - 1d0)) * (dx*dx)) * dx
     end function cr_energy
 
-    function cr_energy_density(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function cr_energy_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1521,6 +1862,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: cr_energy_density
 
@@ -1528,7 +1875,7 @@ module hydro_commons
         cr_energy_density = var(0,hvar%ids(1)) / (gamma_cr - 1d0)
     end function cr_energy_density
 
-    function cr_energy_specific(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function cr_energy_specific(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1540,6 +1887,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: cr_energy_specific
 
@@ -1547,7 +1900,7 @@ module hydro_commons
         cr_energy_specific = (var(0,hvar%ids(1)) / (gamma_cr - 1d0)) / var(0,hvar%ids(2))
     end function cr_energy_specific
 
-    function cr_temperature_eff(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function cr_temperature_eff(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1559,6 +1912,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: cr_temperature_eff
 
@@ -1566,7 +1925,7 @@ module hydro_commons
         cr_temperature_eff = var(0,hvar%ids(1)) / var(0,hvar%ids(2))
     end function cr_temperature_eff
 
-    function cr_GH08heat(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function cr_GH08heat(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1578,6 +1937,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: cr_GH08heat
 
@@ -1592,7 +1957,7 @@ module hydro_commons
         cr_GH08heat = lambda_crGH08 * ne * ecr
     end function cr_GH08heat
 
-    function grad_crp(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grad_crp(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1604,6 +1969,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grad_crp
         type(vector) :: v
@@ -1625,7 +1996,7 @@ module hydro_commons
         grad_crp = magnitude(v)
     end function grad_crp
 
-    function grad_crpx(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grad_crpx(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1637,6 +2008,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grad_crpx
         type(vector) :: v
@@ -1659,7 +2036,7 @@ module hydro_commons
         grad_crpx = v%x
     end function grad_crpx
 
-    function grad_crpy(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grad_crpy(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1671,6 +2048,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grad_crpy
         type(vector) :: v
@@ -1693,7 +2076,7 @@ module hydro_commons
         grad_crpy = v%y
     end function grad_crpy
 
-    function grad_crpz(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grad_crpz(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1705,6 +2088,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grad_crpz
         type(vector) :: v
@@ -1727,7 +2116,7 @@ module hydro_commons
         grad_crpz = v%z
     end function grad_crpz
 
-    function grad_crprsphere(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grad_crprsphere(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1739,6 +2128,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grad_crprsphere
         type(vector) :: v
@@ -1763,7 +2158,7 @@ module hydro_commons
         grad_crprsphere = (v.DOT.temp_basis%u(1))
     end function grad_crprsphere
 
-    function gradscale_crprsphere(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function gradscale_crprsphere(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1775,6 +2170,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: gradscale_crprsphere
         type(vector) :: v
@@ -1800,7 +2201,7 @@ module hydro_commons
         gradscale_crprsphere = abs(var(0,hvar%ids(1))/(v.DOT.temp_basis%u(1)))
     end function gradscale_crprsphere
 
-    function gradscale_crp(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function gradscale_crp(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1812,6 +2213,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: gradscale_crp
         type(vector) :: v
@@ -1837,7 +2244,7 @@ module hydro_commons
         gradscale_crp = abs(var(0,hvar%ids(1))/(magnitude(v)))
     end function gradscale_crp
 
-    function diffusion_speed(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function diffusion_speed(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1849,6 +2256,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: diffusion_speed
         type(vector) :: v
@@ -1876,7 +2289,7 @@ module hydro_commons
         diffusion_speed = my_sim%Dcr / abs(var(0,hvar%ids(1))/magnitude(v))
     end function diffusion_speed
 
-    function alfvendiff_ratio(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function alfvendiff_ratio(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1888,6 +2301,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: alfvendiff_ratio
         type(vector) :: v,B
@@ -1917,7 +2336,7 @@ module hydro_commons
         alfvendiff_ratio = (5d0/3d0) * vA / (vdiff + (5d0/3d0) * vA)
     end function alfvendiff_ratio
 
-    function streaming_heating(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function streaming_heating(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1929,6 +2348,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: streaming_heating
         type(vector) :: v,B,vA
@@ -1955,7 +2380,7 @@ module hydro_commons
         streaming_heating = abs(vA .DOT. v)
     end function streaming_heating
 
-    function net_cooling(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function net_cooling(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1967,6 +2392,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
     
         real(dbl) :: net_cooling
         real(dbl) :: T,nH,Z,lambda,lambda_prime
@@ -1980,7 +2411,7 @@ module hydro_commons
         net_cooling = ((lambda * nH) * nH) * ((my_sim%unit_t**3)/(my_sim%unit_d*(my_sim%unit_l**2)))
     end function net_cooling
 
-    function stheatcooling_ratio(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function stheatcooling_ratio(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -1992,6 +2423,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: stheatcooling_ratio
         type(vector) :: v,B,vA
@@ -2028,7 +2465,7 @@ module hydro_commons
         stheatcooling_ratio = abs(lambda_st / lambda)
     end function stheatcooling_ratio
 
-    function total_coolingtime(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function total_coolingtime(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2040,6 +2477,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: total_coolingtime
         type(vector) :: v,B,vA
@@ -2102,7 +2545,7 @@ module hydro_commons
         total_coolingtime = total_coolingtime / (lambda - lambda_st - lambda_cr)
     end function total_coolingtime
 
-    function grav_frsphere(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grav_frsphere(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2114,6 +2557,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grav_frsphere
         type(vector) :: B
@@ -2124,7 +2573,7 @@ module hydro_commons
         grav_frsphere = var(0,hvar%ids(1)) * (B .DOT. temp_basis%u(1))
     end function grav_frsphere
 
-    function escape_velocity(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function escape_velocity(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2136,13 +2585,19 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: escape_velocity
 
         escape_velocity = sqrt(2d0*grav_var(0,1))
     end function escape_velocity
 
-    function grav_crpf(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grav_crpf(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2154,6 +2609,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grav_crpf
         type(vector) :: v,g
@@ -2177,7 +2638,7 @@ module hydro_commons
         grav_crpf = magnitude(v) / (var(0,hvar%ids(2)) * magnitude(g))
     end function grav_crpf
 
-    function grav_crpfz(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grav_crpfz(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2189,6 +2650,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grav_crpfz
         type(vector) :: v,g
@@ -2212,7 +2679,7 @@ module hydro_commons
         grav_crpfz = -v%z / (var(0,hvar%ids(2)) * magnitude(g))
     end function grav_crpfz
 
-    function grav_therpfz(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grav_therpfz(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2224,6 +2691,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grav_therpfz
         type(vector) :: v,g
@@ -2248,7 +2721,7 @@ module hydro_commons
         grav_therpfz = -v%z / (var(0,hvar%ids(2)) * magnitude(g))
     end function grav_therpfz
 
-    function grav_therpfrsphere(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grav_therpfrsphere(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2260,6 +2733,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grav_therpfrsphere
         type(vector) :: v,g
@@ -2286,7 +2765,7 @@ module hydro_commons
         grav_therpfrsphere = -(v .DOT. temp_basis%u(1)) / (var(0,hvar%ids(2)) * (g.DOT.temp_basis%u(1)))
     end function grav_therpfrsphere
 
-    function grav_therpfrspherepos(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grav_therpfrspherepos(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2298,6 +2777,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grav_therpfrspherepos
         type(vector) :: v,g
@@ -2325,7 +2810,7 @@ module hydro_commons
         if (grav_therpfrspherepos < 0d0) grav_therpfrspherepos = 0d0
     end function grav_therpfrspherepos
 
-    function grav_therpfrsphereneg(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grav_therpfrsphereneg(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2337,6 +2822,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grav_therpfrsphereneg
         type(vector) :: v,g
@@ -2369,7 +2860,7 @@ module hydro_commons
         end if
     end function grav_therpfrsphereneg
 
-    function grav_crpfrsphere(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grav_crpfrsphere(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2381,6 +2872,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grav_crpfrsphere
         type(vector) :: v,g
@@ -2407,7 +2904,7 @@ module hydro_commons
         grav_crpfrsphere = -(v .DOT. temp_basis%u(1)) / (var(0,hvar%ids(2)) * (g.DOT.temp_basis%u(1)))
     end function grav_crpfrsphere
 
-    function grav_crpfrspherepos(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grav_crpfrspherepos(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2419,6 +2916,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grav_crpfrspherepos
         type(vector) :: v,g
@@ -2447,7 +2950,7 @@ module hydro_commons
         if (grav_crpfrspherepos < 0d0) grav_crpfrspherepos = 0d0
     end function grav_crpfrspherepos
 
-    function grav_crpfrsphereneg(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grav_crpfrsphereneg(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2459,6 +2962,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: grav_crpfrsphereneg
         type(vector) :: v,g
@@ -2491,7 +3000,7 @@ module hydro_commons
         end if
     end function grav_crpfrsphereneg
 
-    function grav_totpfrsphere(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grav_totpfrsphere(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2503,6 +3012,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         integer :: i
         real(dbl) :: grav_totpfrsphere
@@ -2543,7 +3058,7 @@ module hydro_commons
         grav_totpfrsphere = -(v .DOT. temp_basis%u(1)) / (var(0,hvar%ids(8)) * (g.DOT.temp_basis%u(1)))
     end function grav_totpfrsphere
 
-    function grav_totpfrspherepos(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grav_totpfrspherepos(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2555,6 +3070,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         integer :: i
         real(dbl) :: grav_totpfrspherepos
@@ -2596,7 +3117,7 @@ module hydro_commons
         if (grav_totpfrspherepos < 0d0) grav_totpfrspherepos = 0d0
     end function grav_totpfrspherepos
 
-    function grav_totpfrsphereneg(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function grav_totpfrsphereneg(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2608,6 +3129,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         integer :: i
         real(dbl) :: grav_totpfrsphereneg
@@ -2653,7 +3180,7 @@ module hydro_commons
         end if
     end function grav_totpfrsphereneg
 
-    function eff_FKmag(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function eff_FKmag(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2665,6 +3192,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: eff_FKmag
         real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar):: tempvar
@@ -2681,7 +3214,7 @@ module hydro_commons
 
     end function eff_FKmag
 
-    function eff_FKmagnocr(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function eff_FKmagnocr(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2693,6 +3226,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: eff_FKmagnocr
         real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar):: tempvar
@@ -2709,7 +3248,7 @@ module hydro_commons
 
     end function eff_FKmagnocr
 
-    function eff_FK2(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function eff_FK2(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2721,6 +3260,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: eff_FK2
         real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar):: tempvar
@@ -2738,7 +3283,7 @@ module hydro_commons
     end function eff_FK2
 
     ! DUST VARIABLES
-    function PAHSmall_density(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function PAHSmall_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2750,13 +3295,19 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: PAHSmall_density
 
         PAHSmall_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
     end function PAHSmall_density
 
-    function PAHLarge_density(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function PAHLarge_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2768,13 +3319,19 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: PAHLarge_density
 
         PAHLarge_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
     end function PAHLarge_density
 
-    function CSmall_density(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function CSmall_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2786,13 +3343,19 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: CSmall_density
 
         CSmall_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
     end function CSmall_density
 
-    function CLarge_density(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function CLarge_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2804,13 +3367,19 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: CLarge_density
 
         CLarge_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
     end function CLarge_density
 
-    function SilSmall_density(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function SilSmall_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2822,13 +3391,19 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: SilSmall_density
 
         SilSmall_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
     end function SilSmall_density
 
-    function SilLarge_density(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function SilLarge_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2840,13 +3415,19 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: SilLarge_density
 
         SilLarge_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
     end function SilLarge_density
 
-    function CO_density(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function CO_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2858,13 +3439,19 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: CO_density
 
         CO_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
     end function CO_density
 
-    function PAHSmall_mass(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function PAHSmall_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2876,13 +3463,19 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: PAHSmall_mass
 
         PAHSmall_mass = ((var(0,hvar%ids(1)) * var(0,hvar%ids(2)) * dx) * dx) * dx
     end function PAHSmall_mass
 
-    function PAHLarge_mass(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function PAHLarge_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2894,13 +3487,19 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: PAHLarge_mass
 
         PAHLarge_mass = ((var(0,hvar%ids(1)) * var(0,hvar%ids(2)) * dx) * dx) * dx
     end function PAHLarge_mass
 
-    function CSmall_mass(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function CSmall_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2912,13 +3511,19 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: CSmall_mass
 
         CSmall_mass = ((var(0,hvar%ids(1)) * var(0,hvar%ids(2)) * dx) * dx) * dx
     end function CSmall_mass
 
-    function CLarge_mass(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function CLarge_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2930,13 +3535,19 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: CLarge_mass
 
         CLarge_mass = ((var(0,hvar%ids(1)) * var(0,hvar%ids(2)) * dx) * dx) * dx
     end function CLarge_mass
 
-    function SilSmall_mass(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function SilSmall_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2948,13 +3559,19 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: SilSmall_mass
 
         SilSmall_mass = ((var(0,hvar%ids(1)) * var(0,hvar%ids(2)) * dx) * dx) * dx
     end function SilSmall_mass
 
-    function SilLarge_mass(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function SilLarge_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2966,13 +3583,19 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: SilLarge_mass
 
         SilLarge_mass = ((var(0,hvar%ids(1)) * var(0,hvar%ids(2)) * dx) * dx) * dx
     end function SilLarge_mass
 
-    function CO_mass(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function CO_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -2984,13 +3607,19 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: CO_mass
 
         CO_mass = ((var(0,hvar%ids(1)) * var(0,hvar%ids(2)) * dx) * dx) * dx
     end function CO_mass
 
-    function DTM(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function DTM(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -3002,6 +3631,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: DTM
         real(dbl) :: total_dust_mass, total_metal_mass
@@ -3026,7 +3661,7 @@ module hydro_commons
         ! print*,'density: ', var(0,1)
     end function DTM
 
-    function DTG(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function DTG(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -3038,13 +3673,19 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: DTG
 
         DTG = var(0,hvar%ids(1)) + var(0,hvar%ids(2)) + var(0,hvar%ids(3)) + var(0,hvar%ids(4))
     end function DTG
 
-    function STL(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function STL(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -3056,6 +3697,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: STL
         real(dbl) :: total_small_grains, total_large_grains
@@ -3065,7 +3712,7 @@ module hydro_commons
         STL = total_small_grains / total_large_grains
     end function STL
 
-    function CSR(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function CSR(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -3077,6 +3724,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: CSR
         real(dbl) :: total_carbon, total_silicon
@@ -3086,7 +3739,7 @@ module hydro_commons
         CSR = total_carbon / total_silicon
     end function CSR
 
-    function qPAH(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function qPAH(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -3098,6 +3751,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: qPAH
         real(dbl) :: total_dust, total_pah
@@ -3108,7 +3767,7 @@ module hydro_commons
         qPAH = total_pah / total_dust
     end function qPAH
 
-    function fionPAH(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function fionPAH(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -3120,6 +3779,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: fionPAH
         real(dbl) :: total_ion, total_pah
@@ -3130,7 +3795,7 @@ module hydro_commons
         fionPAH = total_ion / total_pah
     end function fionPAH
 
-    function STL_PAH(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function STL_PAH(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -3142,13 +3807,19 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: STL_PAH
 
         STL_PAH = var(0,hvar%ids(1)) / var(0,hvar%ids(2))
     end function STL_PAH
 
-    function CSmall_Stokes(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function CSmall_Stokes(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -3160,6 +3831,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: CSmall_Stokes
         real(dbl) :: c_s,t_s,t_turb,sdust,adust
@@ -3193,7 +3870,7 @@ module hydro_commons
         CSmall_Stokes = t_s / t_turb
     end function CSmall_Stokes
 
-    function CLarge_Stokes(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function CLarge_Stokes(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -3205,6 +3882,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: CLarge_Stokes
         real(dbl) :: c_s,t_s,t_turb,sdust,adust
@@ -3238,7 +3921,7 @@ module hydro_commons
         CLarge_Stokes = t_s / t_turb
     end function CLarge_Stokes
 
-    function SilSmall_Stokes(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function SilSmall_Stokes(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -3250,6 +3933,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: SilSmall_Stokes
         real(dbl) :: c_s,t_s,t_turb,sdust,adust
@@ -3283,7 +3972,7 @@ module hydro_commons
         SilSmall_Stokes = t_s / t_turb
     end function SilSmall_Stokes
 
-    function SilLarge_Stokes(my_amr,my_sim,hvar,reg,dx,x,var,son,trans_matrix,grav_var)
+    function SilLarge_Stokes(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -3295,6 +3984,12 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
 
         real(dbl) :: SilLarge_Stokes
         real(dbl) :: c_s,t_s,t_turb,sdust,adust
@@ -3327,6 +4022,47 @@ module hydro_commons
         ! 4. Compute the Stokes number
         SilLarge_Stokes = t_s / t_turb
     end function SilLarge_Stokes
+
+    ! RT VARIABLES
+    function G0(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+
+        integer :: igroup,igrp
+        real(dbl) :: G0
+        real(dbl) :: energy_density
+
+        ! Compute the energy density in the Habing band (6eV-13.6eV)
+        energy_density = 0d0
+        do igroup = 1, my_rt%nGroups
+            igrp = 1 + (my_amr%ndim + 1) * (igroup - 1)
+            if (my_rt%group_egy(igroup) > 5.4 .and. my_rt%group_egy(igroup) < 13.6) then
+                energy_density = energy_density + rt_var(0,igrp) * my_rt%group_egy(igroup)
+            end if
+        end do
+        
+        ! Convert from code units to cgs units [erg/cm2/s]
+        energy_density = energy_density * my_rt%rt_c_fraction * clight * my_rt%scale_np * eV2erg
+
+        ! Convert to G0 units (Habing field)
+        ! 1 Habing = 1.6d-3 erg/cm2/s
+        G0 = energy_density / 1.6d-3
+    end function G0
 
     subroutine check_dervar(vardict,varname,hvar,ok)
         implicit none
@@ -4380,6 +5116,11 @@ module hydro_commons
             hvar%ids(4) = vardict%get('velocity_y')
             hvar%ids(5) = vardict%get('velocity_z')
             hvar%myfunction => SilLarge_Stokes
+        case ('G0')
+            ! Interstellar radiation field strength in Habing units
+            hvar%type = 'derived'
+            hvar%name = 'G0'
+            hvar%myfunction => G0
         case default
             ok = .false.
         end select
