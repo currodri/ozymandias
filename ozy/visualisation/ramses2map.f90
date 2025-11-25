@@ -578,10 +578,10 @@ module maps
         ! Upload to maximum level (lmax)
         nx_full = 2**cam%lmax
         ny_full = 2**cam%lmax
-        imin = 1
-        imax = int((bbox%xmax-bbox%xmin)*dble(nx_full))
-        jmin = 1
-        jmax = int((bbox%ymax-bbox%ymin)*dble(ny_full))
+        imin = int((bbox%xmin+bbox%centre%x)*dble(nx_full)) + 1
+        imax = int((bbox%xmax+bbox%centre%x)*dble(nx_full))
+        jmin = int((bbox%ymin+bbox%centre%y)*dble(ny_full)) + 1
+        jmax = int((bbox%ymax+bbox%centre%y)*dble(ny_full))
         filtlooplmax: do ifilt=1,proj%nfilter
             xloop: do ix = imin,imax
                 xmin = ((ix-0.5)/2**cam%lmax)
@@ -773,7 +773,7 @@ module maps
             integer,dimension(:,:),allocatable :: son
             integer,dimension(:),allocatable :: tempson
             logical,dimension(:),allocatable :: ref
-            real(dbl) :: rho,map,weight
+            real(dbl) :: rho,map,weight,geo_weight
             real(dbl) :: xmin,ymin
             integer :: ndom
             integer,dimension(1:2) :: ii_map
@@ -798,11 +798,10 @@ module maps
             do ilevel=1,amr%lmax
                 nx_full = 2**ilevel
                 ny_full = 2**ilevel
-                ! Test this imin whether it should be +1 or not
-                imin = int(0D0*dble(nx_full))+1
-                imax = int((bbox%xmax-bbox%xmin)*dble(nx_full))+1
-                jmin = int(0D0*dble(ny_full))+1
-                jmax = int((bbox%ymax-bbox%ymin)*dble(ny_full))+1
+                imin = int((bbox%xmin+bbox%centre%x)*dble(nx_full))+1
+                imax = int((bbox%xmax+bbox%centre%x)*dble(nx_full))+1
+                jmin = int((bbox%ymin+bbox%centre%y)*dble(ny_full))+1
+                jmax = int((bbox%ymax+bbox%centre%y)*dble(ny_full))+1
                 allocate(grid(ilevel)%cube(1:proj%nfilter,1:proj%nvars,1:proj%nwvars,imin:imax,jmin:jmax))
                 allocate(grid(ilevel)%map(1:proj%nfilter,1:proj%nwvars,imin:imax,jmin:jmax))
                 grid(ilevel)%cube(:,:,:,:,:) = 0D0
@@ -1057,10 +1056,10 @@ module maps
                                     ok_cell = ok_cell .and. ok_sub
                                 end if
                                 if (ok_cell) then
-                                    ix = int((x(i,1)+0.5*(bbox%xmax-bbox%xmin))*dble(nx_full)) + 1
-                                    iy = int((x(i,2)+0.5*(bbox%ymax-bbox%ymin))*dble(ny_full)) + 1
-                                    !weight = (min(x(i,3)+dx/2.,bbox%zmax)-max(x(i,3)-dx/2.,bbox%zmin))/dx
-                                    !weight = min(1.0d0,max(weight,0.0d0))
+                                    ix = int((x(i,1)+bbox%centre%x)*dble(nx_full)) + 1
+                                    iy = int((x(i,2)+bbox%centre%y)*dble(ny_full)) + 1
+                                    geo_weight = (min(x(i,3)+dx/2.,bbox%zmax)-max(x(i,3)-dx/2.,bbox%zmin))/dx
+                                    geo_weight = min(1.0d0,max(geo_weight,0.0d0))
                                     if( ix>=grid(ilevel)%imin.and.&
                                         & iy>=grid(ilevel)%jmin.and.&
                                         & ix<=grid(ilevel)%imax.and.&
@@ -1135,8 +1134,8 @@ module maps
                                                             weight = proj%wvars(iweight)%myfunction(amr,sim,rtinfo,proj%wvars(iweight),bbox,dx*sim%boxlen,xtemp&
                                                                 & ,tempvar,tempson,trans_matrix)
                                                         end if
-                                                        ! weight = MAX(weight*dx/(bbox%zmax-bbox%zmin),0D0)
                                                     end if
+                                                    weight = MAX(weight*geo_weight*dx/(bbox%zmax-bbox%zmin),0D0)
                                                     grid(ilevel)%map(ifilt,iweight,ix,iy)=grid(ilevel)%map(ifilt,iweight,ix,iy)+weight
                                                     projvarloop: do ivar=1,proj%nvars
                                                         if (read_gravity.and.proj%use_rt) then
@@ -1273,10 +1272,10 @@ module maps
             do ilevel=1,amr%lmax
                 nx_full = 2**ilevel
                 ny_full = 2**ilevel
-                imin = int(0D0*dble(nx_full))+1
-                imax = int((bbox%xmax-bbox%xmin)*dble(nx_full))+1
-                jmin = int(0D0*dble(ny_full))+1
-                jmax = int((bbox%ymax-bbox%ymin)*dble(ny_full))+1
+                imin = int((bbox%xmin+bbox%centre%x)*dble(nx_full))+1
+                imax = int((bbox%xmax+bbox%centre%x)*dble(nx_full))+1
+                jmin = int((bbox%ymin+bbox%centre%y)*dble(ny_full))+1
+                jmax = int((bbox%ymax+bbox%centre%y)*dble(ny_full))+1
                 allocate(grid(ilevel)%cube(1:proj%nfilter,1:proj%nvars,1:proj%nwvars,imin:imax,jmin:jmax))
                 allocate(grid(ilevel)%map(1:proj%nfilter,1:proj%nwvars,imin:imax,jmin:jmax))
                 grid(ilevel)%cube(:,:,:,:,:) = 0D0
@@ -1574,10 +1573,10 @@ module maps
                                     ok_cell = ok_cell .and. ok_sub
                                 end if
                                 if (ok_cell) then
-                                    ix = int((x(i,1)+0.5*(bbox%xmax-bbox%xmin))*dble(nx_full)) + 1
-                                    iy = int((x(i,2)+0.5*(bbox%ymax-bbox%ymin))*dble(ny_full)) + 1
-                                    weight = (min(x(i,3)+dx/2.,bbox%zmax)-max(x(i,3)-dx/2.,bbox%zmin))/dx
-                                    weight = min(1.0d0,max(weight,0.0d0))
+                                    ix = int((x(i,1)+bbox%centre%x)*dble(nx_full)) + 1
+                                    iy = int((x(i,2)+bbox%centre%y)*dble(ny_full)) + 1
+                                    geo_weight = (min(x(i,3)+dx/2.,bbox%zmax)-max(x(i,3)-dx/2.,bbox%zmin))/dx
+                                    geo_weight = min(1.0d0,max(geo_weight,0.0d0))
                                     if( ix>=grid(ilevel)%imin.and.&
                                         & iy>=grid(ilevel)%jmin.and.&
                                         & ix<=grid(ilevel)%imax.and.&
@@ -1655,7 +1654,6 @@ module maps
                                                     if (trim(proj%weightvars(iweight)) == 'counts') then
                                                         weight = 1D0
                                                     else
-                                                        !MAX(rho*dx*weight/(bbox%zmax-bbox%zmin),0D0)
                                                         if (read_gravity.and.proj%use_rt) then
                                                             weight = proj%wvars(iweight)%myfunction(amr,sim,rtinfo,proj%wvars(iweight),bbox,dx*sim%boxlen,xtemp&
                                                                 & ,tempvar,tempson,trans_matrix,tempgrav_var,temprt_var)
@@ -1669,8 +1667,8 @@ module maps
                                                             weight = proj%wvars(iweight)%myfunction(amr,sim,rtinfo,proj%wvars(iweight),bbox,dx*sim%boxlen,xtemp&
                                                                 & ,tempvar,tempson,trans_matrix)
                                                         end if
-                                                        ! weight = MAX(weight*dx/(bbox%zmax-bbox%zmin),0D0)
                                                     end if
+                                                    weight = MAX(weight*geo_weight*dx/(bbox%zmax-bbox%zmin),0D0)
                                                     grid(ilevel)%map(ifilt,iweight,ix,iy)=grid(ilevel)%map(ifilt,iweight,ix,iy)+weight
                                                     projvarloop: do ivar=1,proj%nvars
                                                         if (read_gravity.and.proj%use_rt) then

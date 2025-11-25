@@ -122,6 +122,7 @@ class Projection(object):
                             hdu.header["btype"] = field
                         hdu.header["bunit"] = re.sub('()', '', units)
                         hdu.header["redshift"] = self.group.obj.simulation.redshift
+                        hdu.header["time_Myr"] = float(self.group.obj.simulation.current_time.to('Myr').d)
                         hdu.header["dtype"] = 'gas'
                         hdu.header["los_x"] = self.los_axis[0]
                         hdu.header["los_y"] = self.los_axis[1]
@@ -171,6 +172,7 @@ class Projection(object):
                             hdu.header["btype"] = field
                         hdu.header["bunit"] = re.sub('()', '', units)
                         hdu.header["redshift"] = self.group.obj.simulation.redshift
+                        hdu.header["time_Myr"] = float(self.group.obj.simulation.current_time.to('Myr').d)
                         hdu.header["dtype"] = 'part'
                         hdu.header["los_x"] = self.los_axis[0]
                         hdu.header["los_y"] = self.los_axis[1]
@@ -275,6 +277,7 @@ class Projection(object):
         tbhdu.header["NSIDE"] = (self.nside, "Resolution parameter of HEALPIX")
         tbhdu.header["COORDSYS"] = ('C',"Ecliptic, Galactic or Celestial (equatorial)")
         tbhdu.header["REDSHIFT"] = (self.group.obj.simulation.redshift, "Snapshot redshift")
+        tbhdu.header["TIME_MYR"] = (float(self.group.obj.simulation.current_time.to('Myr').d), "Snapshot time in Myr")
         tbhdu.header["los_x"] = self.los_axis[0]
         tbhdu.header["los_y"] = self.los_axis[1]
         tbhdu.header["los_z"] = self.los_axis[2]

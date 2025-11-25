@@ -202,6 +202,11 @@ def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,max
                                                                             rmax=rmax,zmin=zmin,zmax=zmax,
                                                                             mycentre=mycentre,myaxis=myaxis,
                                                                             return_enclosing_sphere=True)
+        elif not np.array_equal(mycentre,group.position) and np.array_equal(myaxis,group.angular_mom['total']):
+            selected_reg,enclosing_sphere_p,enclosing_sphere_r = init_region(group,region_type,rmin=rmin,
+                                                                            rmax=rmax,zmin=zmin,zmax=zmax,
+                                                                            mycentre=mycentre,myaxis=myaxis,
+                                                                            return_enclosing_sphere=True)
         elif not np.array_equal(mycentre,group.position):
             selected_reg,enclosing_sphere_p,enclosing_sphere_r = init_region(group,region_type,rmin=rmin,
                                                                             rmax=rmax,zmin=zmin,zmax=zmax,
@@ -392,7 +397,7 @@ def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,max
 
                 for j in range(0, len(pd.zvars)):
                     code_units = get_code_units(pd.zvars[j],'gas')
-                    copy_data = np.copy(hydro_data.zdata[counter,:,:,j,:,::2])
+                    copy_data = np.copy(hydro_data.zdata[counter,:,:,j,:,::2],order='F')
                     pd.zdata.append(group.obj.array(copy_data, code_units))
                 counter += 1
     else:
@@ -403,7 +408,7 @@ def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,max
 
             for j in range(0, len(pd.zvars)):
                 code_units = get_code_units(pd.zvars[j],'gas')
-                mydata = np.array(hydro_data.zdata[i,:,:,j,:,::2])
+                mydata = np.array(hydro_data.zdata[i,:,:,j,:,::2],order='F')
                 pd.zdata.append(group.obj.array(mydata, code_units))
 
     if not ozy_file is None and save:

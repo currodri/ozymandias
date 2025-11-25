@@ -3282,6 +3282,147 @@ module hydro_commons
 
     end function eff_FK2
 
+    ! ELEMENT VARIABLES
+    function hydrogen_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+
+        real(dbl) :: hydrogen_density
+        real(dbl) :: metal_mass,dust_mass
+        integer :: i
+
+        ! 1. Add up the metal mass
+        metal_mass = 0d0
+        do i = 2, 10
+            metal_mass = metal_mass + var(0,hvar%ids(i))
+        end do
+
+        ! 2. Add up the dust mass
+        dust_mass = 0d0
+        do i = 11, 16
+            dust_mass = dust_mass + var(0,hvar%ids(i))
+        end do
+
+        hydrogen_density = var(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass)
+    end function hydrogen_density
+
+    function H2_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+
+        real(dbl) :: H2_density
+        real(dbl) :: metal_mass,dust_mass,xH2
+        integer :: i
+
+        ! 1. Add up the metal mass
+        metal_mass = 0d0
+        do i = 2, 10
+            metal_mass = metal_mass + var(0,hvar%ids(i))
+        end do
+
+        ! 2. Add up the dust mass
+        dust_mass = 0d0
+        do i = 11, 16
+            dust_mass = dust_mass + var(0,hvar%ids(i))
+        end do
+
+        ! 3. Compute the xH2
+        xH2 = (1.d0 - var(0,hvar%ids(17)) - var(0,hvar%ids(18))) / 2d0
+
+        H2_density = var(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass) * xH2
+    end function H2_density
+
+    function xH2(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+
+        real(dbl) :: xH2
+
+        ! 1. Compute the xH2
+        xH2 = (1.d0 - var(0,hvar%ids(1)) - var(0,hvar%ids(2))) / 2d0
+    end function xH2
+
+    function xCO(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+
+        real(dbl) :: xCO
+        real(dbl) :: mCO,mPAH,mCgrains
+
+        ! 1. Compute the C mass in CO_fraction
+        mCO = var(0,hvar%ids(2)) * CO_to_Cmass
+
+        ! 2. Compute the C mass in PAHs
+        mPAH = var(0,hvar%ids(3)) + var(0,hvar%ids(4))
+
+        ! 3. Compute the C mass in Cgrains
+        mCgrains = var(0,hvar%ids(5)) + var(0,hvar%ids(6))
+
+        ! 4. Compute xCO
+        xCO = mCO / (var(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
+    end function xCO
+
+
     ! DUST VARIABLES
     function PAHSmall_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
@@ -3307,6 +3448,42 @@ module hydro_commons
         PAHSmall_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
     end function PAHSmall_density
 
+    function xC_PAHSmall(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+
+        real(dbl) :: xC_PAHSmall
+        real(dbl) :: mCO,mPAH,mCgrains
+
+        ! 1. Compute the C mass in CO_fraction
+        mCO = var(0,hvar%ids(2)) * CO_to_Cmass
+
+        ! 2. Compute the C mass in PAHs
+        mPAH = var(0,hvar%ids(3)) + var(0,hvar%ids(4))
+
+        ! 3. Compute the C mass in Cgrains
+        mCgrains = var(0,hvar%ids(5)) + var(0,hvar%ids(6))
+
+        ! 4. Compute xC_PAHSmall
+        xC_PAHSmall = var(0,hvar%ids(3)) / (var(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
+        
+    end function xC_PAHSmall
+
     function PAHLarge_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
@@ -3330,6 +3507,42 @@ module hydro_commons
 
         PAHLarge_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
     end function PAHLarge_density
+
+    function xC_PAHLarge(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+
+        real(dbl) :: xC_PAHLarge
+        real(dbl) :: mCO,mPAH,mCgrains
+
+        ! 1. Compute the C mass in CO_fraction
+        mCO = var(0,hvar%ids(2)) * CO_to_Cmass
+
+        ! 2. Compute the C mass in PAHs
+        mPAH = var(0,hvar%ids(3)) + var(0,hvar%ids(4))
+
+        ! 3. Compute the C mass in Cgrains
+        mCgrains = var(0,hvar%ids(5)) + var(0,hvar%ids(6))
+
+        ! 4. Compute xC_PAHLarge
+        xC_PAHLarge = var(0,hvar%ids(4)) / (var(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
+        
+    end function xC_PAHLarge
 
     function CSmall_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
@@ -3355,6 +3568,42 @@ module hydro_commons
         CSmall_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
     end function CSmall_density
 
+    function xC_CSmall(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+
+        real(dbl) :: xC_CSmall
+        real(dbl) :: mCO,mPAH,mCgrains
+
+        ! 1. Compute the C mass in CO_fraction
+        mCO = var(0,hvar%ids(2)) * CO_to_Cmass
+
+        ! 2. Compute the C mass in PAHs
+        mPAH = var(0,hvar%ids(3)) + var(0,hvar%ids(4))
+
+        ! 3. Compute the C mass in Cgrains
+        mCgrains = var(0,hvar%ids(5)) + var(0,hvar%ids(6))
+
+        ! 4. Compute xC_CSmall
+        xC_CSmall = var(0,hvar%ids(5)) / (var(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
+        
+    end function xC_CSmall
+
     function CLarge_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
@@ -3378,6 +3627,42 @@ module hydro_commons
 
         CLarge_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
     end function CLarge_density
+
+    function xC_CLarge(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+
+        real(dbl) :: xC_CLarge
+        real(dbl) :: mCO,mPAH,mCgrains
+
+        ! 1. Compute the C mass in CO_fraction
+        mCO = var(0,hvar%ids(2)) * CO_to_Cmass
+
+        ! 2. Compute the C mass in PAHs
+        mPAH = var(0,hvar%ids(3)) + var(0,hvar%ids(4))
+
+        ! 3. Compute the C mass in Cgrains
+        mCgrains = var(0,hvar%ids(5)) + var(0,hvar%ids(6))
+
+        ! 4. Compute xC_CLarge
+        xC_CLarge = var(0,hvar%ids(6)) / (var(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
+        
+    end function xC_CLarge
 
     function SilSmall_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
@@ -4875,6 +5160,72 @@ module hydro_commons
             hvar%ids(11) = vardict%get('thermal_pressure')
             hvar%ids(12) = vardict%get('cr_pressure')
             hvar%myfunction => eff_FK2
+        case ('hydrogen_density')
+            ! Density of the hydrogen gas
+            hvar%type = 'derived'
+            hvar%name = 'hydrogen_density'
+            allocate(hvar%ids(16))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('iron_fraction')
+            hvar%ids(3) = vardict%get('oxygen_fraction')
+            hvar%ids(4) = vardict%get('carbon_fraction')
+            hvar%ids(5) = vardict%get('silicon_fraction')
+            hvar%ids(6) = vardict%get('magnesium_fraction')
+            hvar%ids(7) = vardict%get('sulfur_fraction')
+            hvar%ids(8) = vardict%get('nitrogen_fraction')
+            hvar%ids(9) = vardict%get('calcium_fraction')
+            hvar%ids(10) = vardict%get('neon_fraction')
+            hvar%ids(11) = vardict%get('PAHSmall_fraction')
+            hvar%ids(12) = vardict%get('PAHLarge_fraction')
+            hvar%ids(13) = vardict%get('CSmall_fraction')
+            hvar%ids(14) = vardict%get('CLarge_fraction')
+            hvar%ids(15) = vardict%get('SilSmall_fraction')
+            hvar%ids(16) = vardict%get('SilLarge_fraction')
+            hvar%myfunction => hydrogen_density
+        case ('H2_density')
+            ! Density of the molecular hydrogen gas
+            hvar%type = 'derived'
+            hvar%name = 'H2_density'
+            allocate(hvar%ids(18))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('iron_fraction')
+            hvar%ids(3) = vardict%get('oxygen_fraction')
+            hvar%ids(4) = vardict%get('carbon_fraction')
+            hvar%ids(5) = vardict%get('silicon_fraction')
+            hvar%ids(6) = vardict%get('magnesium_fraction')
+            hvar%ids(7) = vardict%get('sulfur_fraction')
+            hvar%ids(8) = vardict%get('nitrogen_fraction')
+            hvar%ids(9) = vardict%get('calcium_fraction')
+            hvar%ids(10) = vardict%get('neon_fraction')
+            hvar%ids(11) = vardict%get('PAHSmall_fraction')
+            hvar%ids(12) = vardict%get('PAHLarge_fraction')
+            hvar%ids(13) = vardict%get('CSmall_fraction')
+            hvar%ids(14) = vardict%get('CLarge_fraction')
+            hvar%ids(15) = vardict%get('SilSmall_fraction')
+            hvar%ids(16) = vardict%get('SilLarge_fraction')
+            hvar%ids(17) = vardict%get('xHI')
+            hvar%ids(18) = vardict%get('xHII')
+            hvar%myfunction => H2_density
+        case ('xH2')
+            ! Fraction of hydrogen in molecular form
+            hvar%type = 'derived'
+            hvar%name = 'xH2'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('xHI')
+            hvar%ids(2) = vardict%get('xHII')
+            hvar%myfunction => xH2
+        case ('xCO')
+            ! Fraction of carbon in CO
+            hvar%type = 'derived'
+            hvar%name = 'xCO'
+            allocate(hvar%ids(6))
+            hvar%ids(1) = vardict%get('carbon_fraction')
+            hvar%ids(2) = vardict%get('CO_fraction')
+            hvar%ids(3) = vardict%get('PAHSmall_fraction')
+            hvar%ids(4) = vardict%get('PAHLarge_fraction')
+            hvar%ids(5) = vardict%get('CSmall_fraction')
+            hvar%ids(6) = vardict%get('CLarge_fraction')
+            hvar%myfunction => xCO
         case ('PAHSmall_density')
             ! Density of the small PAHs
             hvar%type = 'derived'
@@ -4883,6 +5234,18 @@ module hydro_commons
             hvar%ids(1) = vardict%get('density')
             hvar%ids(2) = vardict%get('PAHSmall_fraction')
             hvar%myfunction => PAHSmall_density
+        case ('xC_PAHSmall')
+            ! Fraction of carbon in PAHSmall
+            hvar%type = 'derived'
+            hvar%name = 'xC_PAHSmall'
+            allocate(hvar%ids(6))
+            hvar%ids(1) = vardict%get('carbon_fraction')
+            hvar%ids(2) = vardict%get('CO_fraction')
+            hvar%ids(3) = vardict%get('PAHSmall_fraction')
+            hvar%ids(4) = vardict%get('PAHLarge_fraction')
+            hvar%ids(5) = vardict%get('CSmall_fraction')
+            hvar%ids(6) = vardict%get('CLarge_fraction')
+            hvar%myfunction => xC_PAHSmall
         case ('PAHLarge_density')
             ! Density of the large PAHs
             hvar%type = 'derived'
@@ -4891,6 +5254,18 @@ module hydro_commons
             hvar%ids(1) = vardict%get('density')
             hvar%ids(2) = vardict%get('PAHLarge_fraction')
             hvar%myfunction => PAHLarge_density
+        case ('xC_PAHLarge')
+            ! Fraction of carbon in PAHLarge
+            hvar%type = 'derived'
+            hvar%name = 'xC_PAHLarge'
+            allocate(hvar%ids(6))
+            hvar%ids(1) = vardict%get('carbon_fraction')
+            hvar%ids(2) = vardict%get('CO_fraction')
+            hvar%ids(3) = vardict%get('PAHSmall_fraction')
+            hvar%ids(4) = vardict%get('PAHLarge_fraction')
+            hvar%ids(5) = vardict%get('CSmall_fraction')
+            hvar%ids(6) = vardict%get('CLarge_fraction')
+            hvar%myfunction => xC_PAHLarge
         case ('CSmall_density')
             ! Density of the small C grains
             hvar%type = 'derived'
@@ -4899,6 +5274,18 @@ module hydro_commons
             hvar%ids(1) = vardict%get('density')
             hvar%ids(2) = vardict%get('CSmall_fraction')
             hvar%myfunction => CSmall_density
+        case ('xC_CSmall')
+            ! Fraction of carbon in CSmall
+            hvar%type = 'derived'
+            hvar%name = 'xC_CSmall'
+            allocate(hvar%ids(6))
+            hvar%ids(1) = vardict%get('carbon_fraction')
+            hvar%ids(2) = vardict%get('CO_fraction')
+            hvar%ids(3) = vardict%get('PAHSmall_fraction')
+            hvar%ids(4) = vardict%get('PAHLarge_fraction')
+            hvar%ids(5) = vardict%get('CSmall_fraction')
+            hvar%ids(6) = vardict%get('CLarge_fraction')
+            hvar%myfunction => xC_CSmall
         case ('CLarge_density')
             ! Density of the large PAHs
             hvar%type = 'derived'
@@ -4907,6 +5294,18 @@ module hydro_commons
             hvar%ids(1) = vardict%get('density')
             hvar%ids(2) = vardict%get('CLarge_fraction')
             hvar%myfunction => CLarge_density
+        case ('xC_CLarge')
+            ! Fraction of carbon in CLarge
+            hvar%type = 'derived'
+            hvar%name = 'xC_CLarge'
+            allocate(hvar%ids(6))
+            hvar%ids(1) = vardict%get('carbon_fraction')
+            hvar%ids(2) = vardict%get('CO_fraction')
+            hvar%ids(3) = vardict%get('PAHSmall_fraction')
+            hvar%ids(4) = vardict%get('PAHLarge_fraction')
+            hvar%ids(5) = vardict%get('CSmall_fraction')
+            hvar%ids(6) = vardict%get('CLarge_fraction')
+            hvar%myfunction => xC_CLarge
         case ('SilSmall_density')
             ! Density of the small PAHs
             hvar%type = 'derived'

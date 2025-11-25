@@ -88,6 +88,17 @@ module constants
   real(dbl),parameter :: mu=0.5882352941176471 ! Primordial, fully ionised mean molecular weight
   real(dbl),parameter :: gamma_gas=1.6666667   ! Always assuming monatomic adiabatic gas
   real(dbl),parameter :: gamma_cr=1.3333333   ! Cosmic rays assumed always relativistic
+  ! Elemental constants
+  real(dbl),parameter :: amu2g = 1.66054d-24       ! Atomic mass units in grams
+  real(dbl),parameter :: mH_amu = 1.007825d0       ! Hydrogen molecular weight [amu]
+  real(dbl),parameter :: mHe_amu = 4.002602d0      ! Helium molecular weight [amu]
+  real(dbl),parameter :: mO_amu = 15.9994d0        ! Oxygen molecular weight [amu]
+  real(dbl),parameter :: mC_amu = 12.0107d0        ! Carbon molecular weight [amu]
+  real(dbl),parameter :: mMg_amu = 24.305d0        ! Magnesium molecular weight [amu]
+  real(dbl),parameter :: mSi_amu = 28.0855d0       ! Silicon molecular weight [amu]
+  real(dbl),parameter :: mFe_amu = 55.854d0        ! Iron molecular weight [amu]
+  ! Molecular constants
+  real(dbl),parameter :: CO_to_Cmass = 0.4288      ! CO to C mass [dimensionless]
   ! Cosmology
   real(dbl),parameter :: rhoc=1.8800000d-29   ! Critical density of the Universe (g cm-3)
   ! Milky Way constants

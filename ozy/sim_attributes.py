@@ -1,4 +1,5 @@
 import numpy as np
+from astropy.cosmology import FlatLambdaCDM
 
 class SimulationAttributes(object):
     """Class that contains the attributes of the simulation."""
@@ -53,6 +54,13 @@ class SimulationAttributes(object):
         self.Densities = np.array([200 * self.critical_density.to('Msun / kpc**3').d,
                                    500 * self.critical_density.to('Msun / kpc**3').d,
                                    2500 * self.critical_density.to('Msun / kpc**3').d])
+        
+        if self.scale_factor != 1.0:
+            cosmo = FlatLambdaCDM(H0=self.hubble_constant, Om0=self.omega_matter, 
+                                        Ob0=self.omega_baryon,Tcmb0=2.73)
+            self.current_time = cosmo.age(self.redshift).to('Gyr')
+        else:
+            self.current_time = obj.quantity(self.time*obj._info['unit_t'],'s')
 
         # Determine the type of physics included in this simulation
         self.physics = {'hydro':False,
