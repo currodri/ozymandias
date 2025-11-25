@@ -1415,15 +1415,475 @@ module amr_profiles
             ivz = varIDs%get('velocity_z')
         end if
 
-        ! And now compute profiles
-        call get_cells_twodprofile
+        ! Choose type if twodprofile
+        if (prof_data%use_neigh) then
+            call get_cells_twodprofile_neigh
+        else
+            call get_cells_twodprofile_fast
+        end if
         
         ! Renormalise bins before returning results
         call renormalise_bins_twod(prof_data)
 
         contains
 
-        subroutine get_cells_twodprofile
+        subroutine get_cells_twodprofile_fast
+            use vectors
+            use coordinate_systems
+            use geometrical_regions
+            implicit none
+
+            ! Specific variables for this subroutine
+            integer :: i,j,k
+            integer :: xbinpos,ybinpos
+            integer :: ipos,icpu,ilevel,ind,idim,ivar,ifilt,isub
+            integer :: igroup,igrp
+            integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
+            integer :: tot_pos,tot_ref,tot_insubs,tot_sel
+            integer,dimension(:),allocatable :: total_ncell
+            integer :: nvarh
+            integer :: roterr
+            character(5) :: nchar,ncharcpu
+            character(128) :: nomfich
+            real(dbl) :: distance,dx,vartemp
+            type(vector) :: xtemp,vtemp,gtemp,fluxtemp
+            real(dbl),dimension(1:3) :: fluxtmp
+            logical :: ok_cell,ok_filter,ok_cell_each,ok_sub
+            integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
+            real(dbl),dimension(1:8,1:3) :: xc
+            real(dbl),dimension(3,3) :: trans_matrix
+            real(dbl),dimension(:,:),allocatable :: xg,x,xorig
+            real(dbl),dimension(:,:,:),allocatable :: var,grav_var
+            real(dbl),dimension(:,:),allocatable :: tempvar
+            real(dbl),dimension(:,:),allocatable :: tempgrav_var
+#if RTPRE==4
+            real(sgl),dimension(:,:,:),allocatable :: rt_var
+            real(sgl),dimension(:,:),allocatable :: temprt_var
+#elif RTPRE==8
+            real(dbl),dimension(:,:,:),allocatable :: rt_var
+            real(dbl),dimension(:,:),allocatable :: temprt_var
+#endif
+            integer,dimension(:,:),allocatable :: son
+            integer,dimension(:),allocatable :: tempson
+            logical,dimension(:),allocatable :: ref
+
+            allocate(total_ncell(1:prof_data%nfilter))
+            total_ncell = 0
+            tot_pos = 0
+            tot_ref = 0
+            tot_insubs = 0
+            tot_sel = 0
+
+            ! Allocate grids
+            allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
+            allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
+            if(amr%nboundary>0)allocate(ngridbound(1:amr%nboundary,1:amr%nlevelmax))
+
+            ! Compute linear transformation
+            trans_matrix = 0D0
+            call new_z_coordinates(reg%axis,trans_matrix,roterr)
+            if (roterr.eq.1) then
+                write(*,*) 'Incorrect CS transformation!'
+                stop
+            endif
+
+            ipos=INDEX(repository,'output_')
+            nchar=repository(ipos+7:ipos+13)
+
+            ! Loop over processor files
+            cpuloop: do k=1,amr%ncpu_read
+                icpu = amr%cpu_list(k)
+                call title(icpu,ncharcpu)
+
+                ! Open AMR file and skip header
+                nomfich = TRIM(repository)//'/amr_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+                open(unit=10,file=nomfich,status='old',form='unformatted')
+                do i=1,21
+                    read(10) ! Skip header
+                end do
+                ! Read grid numbers
+                read(10)ngridlevel
+                ngridfile(1:amr%ncpu,1:amr%nlevelmax) = ngridlevel
+                read(10) ! Skip
+                if(amr%nboundary>0) then
+                    do i=1,2
+                        read(10)
+                    end do
+                    read(10)ngridbound
+                    ngridfile(amr%ncpu+1:amr%ncpu+amr%nboundary,1:amr%nlevelmax) = ngridbound
+                endif
+                read(10) ! Skip
+                ! R. Teyssier: comment the single following line for old stuff
+                read(10)
+                if(TRIM(amr%ordering).eq.'bisection')then
+                    do i=1,5
+                        read(10)
+                    end do
+                else
+                    read(10)
+                endif
+                read(10)
+                read(10)
+                read(10)
+
+                ! Make sure that we are not trying to access to far in the refinement map…
+                call check_lmax(ngridfile)
+                ! Open HYDRO file and skip header
+                nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+                open(unit=11,file=nomfich,status='old',form='unformatted')
+                read(11)
+                read(11)nvarh
+                read(11)
+                read(11)
+                read(11)
+                read(11)
+
+                if (prof_data%use_gravity) then
+                    ! Open GRAV file and skip header
+                    nomfich=TRIM(repository)//'/grav_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+                    open(unit=12,file=nomfich,status='old',form='unformatted')
+                    read(12) !ncpu
+                    read(12) !ndim
+                    read(12) !nlevelmax
+                    read(12) !nboundary 
+                endif
+
+                if (prof_data%use_rt) then
+                    ! Open RT file and skip header
+                    nomfich=TRIM(repository)//'/rt_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+                    open(unit=13,file=nomfich,status='old',form='unformatted')
+                    read(13) !ncpu
+                    read(13) !nrtvar
+                    read(13) !ndim
+                    read(13) !nlevelmax
+                    read(13) !nboundary
+                    read(13) !gamma
+                end if
+
+                ! Loop over levels
+                levelloop: do ilevel=1,amr%lmax
+                    ! Geometry
+                    dx = 0.5**ilevel
+                    nx_full = 2**ilevel
+                    ny_full = 2**ilevel
+                    nz_full = 2**ilevel
+                    do ind=1,amr%twotondim
+                        iz=(ind-1)/4
+                        iy=(ind-1-4*iz)/2
+                        ix=(ind-1-2*iy-4*iz)
+                        xc(ind,1)=(dble(ix)-0.5D0)*dx
+                        xc(ind,2)=(dble(iy)-0.5D0)*dx
+                        xc(ind,3)=(dble(iz)-0.5D0)*dx
+                    end do
+                    
+                    ! Allocate work arrays
+                    ngrida = ngridfile(icpu,ilevel)
+                    if(ngrida>0) then
+                        allocate(xg (1:ngrida,1:amr%ndim))
+                        allocate(son(1:ngrida,1:amr%twotondim))
+                        allocate(var(1:ngrida,1:amr%twotondim,1:nvarh))
+                        allocate(x  (1:ngrida,1:amr%ndim))
+                        allocate(xorig(1:ngrida,1:amr%ndim))
+                        allocate(ref(1:ngrida))
+                        if (prof_data%use_gravity)allocate(grav_var(1:ngrida,1:amr%twotondim,1:4))
+                        if (prof_data%use_rt)allocate(rt_var(1:ngrida,1:amr%twotondim,1:rtinfo%nRTvar))
+                    endif
+
+                    ! Loop over domains
+                    domloop: do j=1,amr%nboundary+amr%ncpu
+                        
+                        ! Read AMR data
+                        if (ngridfile(j,ilevel)>0) then
+                            read(10) ! Skip grid index
+                            read(10) ! Skip next index
+                            read(10) ! Skip prev index
+
+                            ! Read grid center
+                            do idim=1,amr%ndim
+                                if(j.eq.icpu)then
+                                    read(10)xg(:,idim)
+                                else
+                                    read(10)
+                                endif
+                            end do
+
+                            read(10) ! Skip father index
+                            do ind=1,2*amr%ndim
+                                read(10) ! Skip nbor index
+                            end do
+
+                            ! Read son index
+                            do ind=1,amr%twotondim
+                                if(j.eq.icpu)then
+                                    read(10)son(:,ind)
+                                else
+                                    read(10)
+                                end if
+                            end do
+
+                            ! Skip cpu map
+                            do ind=1,amr%twotondim
+                                read(10)
+                            end do
+
+                            ! Skip refinement map
+                            do ind=1,amr%twotondim
+                                read(10)
+                            end do
+                        endif
+
+                        ! Read HYDRO data
+                        read(11)
+                        read(11)
+                        if(ngridfile(j,ilevel)>0)then
+                            ! Read hydro variables
+                            tndimloop: do ind=1,amr%twotondim
+                                varloop: do ivar=1,nvarh
+                                    if (j.eq.icpu) then
+                                        read(11)var(:,ind,ivar)
+                                    else
+                                        read(11)
+                                    endif
+                                end do varloop
+                            end do tndimloop
+                        endif
+
+                        if (prof_data%use_gravity) then
+                            ! Read GRAV data
+                            read(12)
+                            read(12)
+                            if(ngridfile(j,ilevel)>0)then
+                                do ind=1,amr%twotondim
+                                    if (j.eq.icpu) then
+                                        read(12)grav_var(:,ind,1)
+                                    else
+                                        read(12)
+                                    end if
+                                    do ivar=1,amr%ndim
+                                        if (j.eq.icpu) then
+                                            read(12)grav_var(:,ind,ivar+1)
+                                        else
+                                            read(12)
+                                        end if
+                                    end do
+                                end do
+                            end if
+                        end if
+
+                        if (prof_data%use_rt) then
+                            ! Read RT data
+                            read(13)
+                            read(13)
+                            if(ngridfile(j,ilevel)>0)then
+                                do ind=1,amr%twotondim
+                                    rtvarloop: do ivar=1,rtinfo%nRTvar
+                                        if (j.eq.icpu) then
+                                            read(13)rt_var(:,ind,ivar)
+                                        else
+                                            read(13)
+                                        end if
+                                    end do rtvarloop
+                                end do
+                            end if
+                        end if
+                    end do domloop
+
+                    ! Finally, get to every cell
+                    if (ngrida>0) then
+                        ! Loop over cells
+                        cellloop: do ind=1,amr%twotondim
+
+                            ! Compute cell center
+                            do i=1,ngrida
+                                x(i,1)=(xg(i,1)+xc(ind,1)-amr%xbound(1))
+                                x(i,2)=(xg(i,2)+xc(ind,2)-amr%xbound(2))
+                                x(i,3)=(xg(i,3)+xc(ind,3)-amr%xbound(3))
+                            end do
+
+                            ! Check if cell is refined
+                            do i=1,ngrida
+                                ref(i) = son(i,ind)>0.and.ilevel<amr%lmax
+                            end do
+                            xorig  = x
+                            ngridaloop: do i=1,ngrida
+                                ! Check if cell is inside the desired region
+                                distance = 0D0
+                                xtemp = x(i,:)
+                                xtemp = xtemp - reg%centre
+                                call rotate_vector(xtemp,trans_matrix)
+                                x(i,:) = xtemp
+                                call checkifinside(x(i,:),reg,ok_cell,distance)
+                                if(ok_cell) tot_pos = tot_pos + 1
+                                if(.not.ref(i)) tot_ref = tot_ref + 1
+
+                                ! If we are avoiding substructure, check whether we are safe
+                                if (prof_data%nsubs>0) then
+                                    ok_sub = .true.
+                                    do isub=1,prof_data%nsubs
+                                        ok_sub = ok_sub .and. filter_sub(prof_data%subs(isub),xorig(i,:))
+                                    end do
+                                    if (.not.ok_sub) tot_insubs = tot_insubs + 1
+                                    ok_cell = ok_cell .and. ok_sub
+                                end if
+                                ok_cell = ok_cell.and.(.not.ref(i))
+                                if (ok_cell) then
+                                    ! Transform position to galaxy frame
+                                    xtemp = xorig(i,:)
+                                    xtemp = xtemp - reg%centre
+                                    call rotate_vector(xtemp,trans_matrix)
+                                    ! Velocity transformed
+                                    vtemp = var(i,ind,ivx:ivz)
+                                    vtemp = vtemp - reg%bulk_velocity
+                                    call rotate_vector(vtemp,trans_matrix)
+
+                                    ! Gravitational acc
+                                    if (prof_data%use_gravity) then
+                                        gtemp = grav_var(i,ind,2:4)
+                                        call rotate_vector(gtemp,trans_matrix)
+                                    endif
+                                    allocate(tempvar(0:amr%twondim,nvarh))
+                                    allocate(tempson(0:amr%twondim))
+                                    if (prof_data%use_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
+                                    if (prof_data%use_rt) allocate(temprt_var(0:amr%twondim,1:rtinfo%nRTvar))
+                                    ! Just add central cell as we do not want neighbours
+                                    tempvar(0,:) = var(i,ind,:)
+                                    tempson(0)       = son(i,ind)
+                                    if (prof_data%use_gravity) tempgrav_var(0,:) = grav_var(i,ind,:)
+                                    tempvar(0,ivx:ivz) = vtemp
+                                    if (prof_data%use_gravity) tempgrav_var(0,2:4) = gtemp
+                                    if (prof_data%use_rt) then
+                                        do igroup=1,rtinfo%nGroups
+                                            igrp = 1 + (amr%ndim + 1) * (igroup - 1)
+                                            temprt_var(0,igrp) = rt_var(i,ind,igrp)
+                                            fluxtemp = dble(rt_var(i,ind,igrp+1:igrp+amr%ndim))
+                                            call rotate_vector(fluxtemp,trans_matrix)
+                                            fluxtmp = fluxtemp
+                                            temprt_var(0,igrp+1:igrp+amr%ndim) = sngl(fluxtmp)
+                                        end do
+                                    end if
+                                    tot_sel = tot_sel + 1
+                                    do ifilt=1,prof_data%nfilter
+                                        if (prof_data%use_gravity .and. prof_data%use_rt) then
+                                            ok_filter = filter_cell(reg,prof_data%filters(ifilt),xtemp,dx,tempvar,tempson,&
+                                                                    &trans_matrix,tempgrav_var,temprt_var)
+                                        else if (prof_data%use_rt) then
+                                            ok_filter = filter_cell(reg,prof_data%filters(ifilt),xtemp,dx,tempvar,tempson,&
+                                                                    &trans_matrix,rt_var=temprt_var)
+                                        else if (prof_data%use_gravity) then
+                                            ok_filter = filter_cell(reg,prof_data%filters(ifilt),xtemp,dx,tempvar,tempson,&
+                                                                    &trans_matrix,tempgrav_var)
+                                        else
+                                            ok_filter = filter_cell(reg,prof_data%filters(ifilt),xtemp,dx,tempvar,tempson,&
+                                                                    &trans_matrix)
+                                        end if
+                                        if (ok_filter) then
+                                            xbinpos = 0; ybinpos=0
+                                            total_ncell(ifilt) = total_ncell(ifilt) + 1
+                                            if (prof_data%use_gravity .and. prof_data%use_rt) then
+                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                                &dx,xbinpos,vartemp,trans_matrix,&
+                                                                &prof_data%scaletype(1),&
+                                                                &prof_data%nbins(1),prof_data%xdata,&
+                                                                &prof_data%linthresh(1),prof_data%zero_index(1),&
+                                                                &prof_data%xvar,tempgrav_var,temprt_var)
+                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                                &dx,ybinpos,vartemp,trans_matrix,&
+                                                                &prof_data%scaletype(2),&
+                                                                &prof_data%nbins(2),prof_data%ydata,&
+                                                                &prof_data%linthresh(2),prof_data%zero_index(2),&
+                                                                &prof_data%yvar,tempgrav_var,temprt_var)
+                                                if (xbinpos.ne.0.and.ybinpos.ne.0) call bindata_twod(reg,x(i,:),&
+                                                                                        &tempvar,tempson,dx,prof_data,&
+                                                                                        &xbinpos,ybinpos,ifilt,&
+                                                                                        &trans_matrix,tempgrav_var,temprt_var)
+                                            else if (prof_data%use_rt) then
+                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                                &dx,xbinpos,vartemp,trans_matrix,&
+                                                                &prof_data%scaletype(1),&
+                                                                &prof_data%nbins(1),prof_data%xdata,&
+                                                                &prof_data%linthresh(1),prof_data%zero_index(1),&
+                                                                &prof_data%xvar,rtvars=temprt_var)
+                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                                &dx,ybinpos,vartemp,trans_matrix,&
+                                                                &prof_data%scaletype(2),&
+                                                                &prof_data%nbins(2),prof_data%ydata,&
+                                                                &prof_data%linthresh(2),prof_data%zero_index(2),&
+                                                                &prof_data%yvar,rtvars=temprt_var)
+                                                if (xbinpos.ne.0.and.ybinpos.ne.0) call bindata_twod(reg,x(i,:),&
+                                                                                        &tempvar,tempson,dx,prof_data,&
+                                                                                        &xbinpos,ybinpos,ifilt,&
+                                                                                        &trans_matrix,rt_var=temprt_var)
+                                            else if (prof_data%use_gravity) then
+                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                                &dx,xbinpos,vartemp,trans_matrix,&
+                                                                &prof_data%scaletype(1),&
+                                                                &prof_data%nbins(1),prof_data%xdata,&
+                                                                &prof_data%linthresh(1),prof_data%zero_index(1),&
+                                                                &prof_data%xvar,tempgrav_var)
+                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                                &dx,ybinpos,vartemp,trans_matrix,&
+                                                                &prof_data%scaletype(2),&
+                                                                &prof_data%nbins(2),prof_data%ydata,&
+                                                                &prof_data%linthresh(2),prof_data%zero_index(2),&
+                                                                &prof_data%yvar,tempgrav_var)
+                                                if (xbinpos.ne.0.and.ybinpos.ne.0) call bindata_twod(reg,x(i,:),&
+                                                                                        &tempvar,tempson,dx,prof_data,&
+                                                                                        &xbinpos,ybinpos,ifilt,&
+                                                                                        &trans_matrix,tempgrav_var)
+                                            else
+                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                                &dx,xbinpos,vartemp,trans_matrix,&
+                                                                &prof_data%scaletype(1),&
+                                                                &prof_data%nbins(1),prof_data%xdata,&
+                                                                &prof_data%linthresh(1),prof_data%zero_index(1),&
+                                                                &prof_data%xvar)
+                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                                &dx,ybinpos,vartemp,trans_matrix,&
+                                                                &prof_data%scaletype(2),&
+                                                                &prof_data%nbins(2),prof_data%ydata,&
+                                                                &prof_data%linthresh(2),prof_data%zero_index(2),&
+                                                                &prof_data%yvar)
+                                                if (xbinpos.ne.0.and.ybinpos.ne.0) call bindata_twod(reg,x(i,:),&
+                                                                                        &tempvar,tempson,dx,prof_data,&
+                                                                                        &xbinpos,ybinpos,ifilt,&
+                                                                                        &trans_matrix)
+                                            end if
+                                        end if
+                                    end do
+                                    deallocate(tempvar,tempson)
+                                    if (prof_data%use_gravity) deallocate(tempgrav_var)
+                                    if (prof_data%use_rt) deallocate(temprt_var)
+                                end if
+                            end do ngridaloop
+                        end do cellloop
+                        deallocate(xg,son,var,ref,x,xorig)
+                        if (prof_data%use_gravity) then
+                            deallocate(grav_var)
+                        end if
+                        if (prof_data%use_rt) then
+                            deallocate(rt_var)
+                        end if
+                    endif
+                end do levelloop
+                close(10)
+                close(11)
+                if (prof_data%use_gravity) then
+                    close(12)
+                end if
+                if (prof_data%use_rt) then
+                    close(13)
+                end if
+            end do cpuloop
+        if (verbose) then
+            write(*,*)'Total number of cells used (per filter): ', total_ncell
+            write(*,*)'Total number of cells in region and refined: ', tot_sel
+            write(*,*)'Total number of cells refined: ', tot_ref
+            write(*,*)'Total number of cells in region: ', tot_pos
+            write(*,*)'Total number of cells in substructures: ', tot_insubs
+        end if
+        end subroutine get_cells_twodprofile_fast
+
+        subroutine get_cells_twodprofile_neigh
             use vectors
             use coordinate_systems
             use geometrical_regions
@@ -1434,6 +1894,7 @@ module amr_profiles
             integer :: ipos,icpu,ilevel,ind,idim,ivar,iskip,inbor,ison,isub
             integer :: igroup,igrp
             integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
+            integer :: tot_pos,tot_ref,tot_insubs,tot_sel
             integer,dimension(:),allocatable :: total_ncell
             integer :: nvarh
             integer :: roterr
@@ -1468,6 +1929,10 @@ module amr_profiles
 
             allocate(total_ncell(1:prof_data%nfilter))
             total_ncell = 0
+            tot_pos = 0
+            tot_ref = 0
+            tot_insubs = 0
+            tot_sel = 0
 
             allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
             allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
@@ -1641,6 +2106,19 @@ module amr_profiles
                             end do tndimloop
                         endif
 
+                        if (prof_data%use_rt) then
+                            read(13)
+                            read(13)
+                            if(ngrida>0)then
+                                tndimloop_rt: do ind=1,amr%twotondim
+                                    iskip = amr%ncoarse+(ind-1)*amr%ngridmax
+                                    rtvarloop: do ivar=1,rtinfo%nRTvar
+                                        read(13)rt_var(grid(ilevel)%ind_grid(:)+iskip,ivar)
+                                    end do rtvarloop
+                                end do tndimloop_rt
+                            end if
+                        end if
+
                         if (prof_data%use_gravity) then
                             ! Read GRAV data
                             read(12)
@@ -1655,19 +2133,6 @@ module amr_profiles
                                         grav_var(grid(ilevel)%ind_grid(:)+iskip,ivar+1) = xxg(:)
                                     end do
                                 end do
-                            end if
-                        end if
-
-                        if (prof_data%use_rt) then
-                            read(13)
-                            read(13)
-                            if(ngrida>0)then
-                                tndimloop_rt: do ind=1,amr%twotondim
-                                    iskip = amr%ncoarse+(ind-1)*amr%ngridmax
-                                    rtvarloop: do ivar=1,rtinfo%nRTvar
-                                        read(13)rt_var(grid(ilevel)%ind_grid(:)+iskip,ivar)
-                                    end do rtvarloop
-                                end do tndimloop_rt
                             end if
                         end if
 
@@ -1733,60 +2198,64 @@ module amr_profiles
                                 call rotate_vector(xtemp,trans_matrix)
                                 x(i,:) = xtemp
                                 call checkifinside(x(i,:),reg,ok_cell,distance)
+                                if(ok_cell) tot_pos = tot_pos + 1
+                                if(.not.ref(i)) tot_ref = tot_ref + 1
 
-                                ! Velocity transformed --> ONLY FOR CENTRAL CELL
-                                vtemp = var(ind_cell(i),ivx:ivz)
-                                vtemp = vtemp - reg%bulk_velocity
-                                call rotate_vector(vtemp,trans_matrix)
-
-                                ! Gravitational acc --> ONLY FOR CENTRAL CELL
-                                if (prof_data%use_gravity) then
-                                    gtemp = grav_var(ind_cell(i),2:4)
-                                    call rotate_vector(gtemp,trans_matrix)
-                                endif
-                                ! Get neighbours
-                                allocate(ind_cell2(1))
-                                ind_cell2(1) = ind_cell(i)
-                                call getnbor(son,nbor,ind_cell2,ind_nbor,1)
-                                deallocate(ind_cell2)
-                                allocate(tempvar(0:amr%twondim,nvarh))
-                                allocate(tempson(0:amr%twondim))
-                                if (prof_data%use_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
-                                if (prof_data%use_rt) allocate(temprt_var(0:amr%twondim,1:rtinfo%nRTvar))
-                                ! Just correct central cell vectors for the region
-                                tempvar(0,:) = var(ind_nbor(1,0),:)
-                                tempson(0)       = son(ind_nbor(1,0))
-                                if (prof_data%use_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
-                                tempvar(0,ivx:ivz) = vtemp
-                                if (prof_data%use_gravity) tempgrav_var(0,2:4) = gtemp
-                                if (prof_data%use_rt) then
-                                    do igroup=1,rtinfo%nGroups
-                                        igrp = 1 + (amr%ndim + 1) * (igroup - 1)
-                                        temprt_var(0,igrp) = rt_var(ind_nbor(1,0),igrp)
-                                        fluxtemp = dble(rt_var(ind_nbor(1,0),igrp+1:igrp+amr%ndim))
-                                        call rotate_vector(fluxtemp,trans_matrix)
-                                        fluxtmp = fluxtemp
-                                        temprt_var(0,igrp+1:igrp+amr%ndim) = sngl(fluxtmp)
-                                    end do
-                                end if
-                                do inbor=1,amr%twondim
-                                    tempvar(inbor,:) = var(ind_nbor(1,inbor),:)
-                                    tempson(inbor)       = son(ind_nbor(1,inbor))
-                                    if (prof_data%use_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(1,inbor),:)
-                                    if (prof_data%use_rt) then
-                                        temprt_var(inbor,:) = rt_var(ind_nbor(1,inbor),:)
-                                    end if
-                                end do
-                                
                                 ! If we are avoiding substructure, check whether we are safe
                                 if (prof_data%nsubs>0) then
                                     ok_sub = .true.
                                     do isub=1,prof_data%nsubs
                                         ok_sub = ok_sub .and. filter_sub(prof_data%subs(isub),xorig(i,:))
                                     end do
-                                    ok_cell = ok_cell .and. ok_sub .and. (.not.ref(i))
+                                    if (.not.ok_sub) tot_insubs = tot_insubs + 1
+                                    ok_cell = ok_cell .and. ok_sub
                                 end if
+                                ok_cell = ok_cell.and.(.not.ref(i))
                                 if (ok_cell) then
+                                    ! Velocity transformed --> ONLY FOR CENTRAL CELL
+                                    vtemp = var(ind_cell(i),ivx:ivz)
+                                    vtemp = vtemp - reg%bulk_velocity
+                                    call rotate_vector(vtemp,trans_matrix)
+
+                                    ! Gravitational acc --> ONLY FOR CENTRAL CELL
+                                    if (prof_data%use_gravity) then
+                                        gtemp = grav_var(ind_cell(i),2:4)
+                                        call rotate_vector(gtemp,trans_matrix)
+                                    endif
+                                    ! Get neighbours
+                                    allocate(ind_cell2(1))
+                                    ind_cell2(1) = ind_cell(i)
+                                    call getnbor(son,nbor,ind_cell2,ind_nbor,1)
+                                    deallocate(ind_cell2)
+                                    allocate(tempvar(0:amr%twondim,nvarh))
+                                    allocate(tempson(0:amr%twondim))
+                                    if (prof_data%use_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
+                                    if (prof_data%use_rt) allocate(temprt_var(0:amr%twondim,1:rtinfo%nRTvar))
+                                    ! Just correct central cell vectors for the region
+                                    tempvar(0,:) = var(ind_nbor(1,0),:)
+                                    tempson(0)       = son(ind_nbor(1,0))
+                                    if (prof_data%use_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
+                                    tempvar(0,ivx:ivz) = vtemp
+                                    if (prof_data%use_gravity) tempgrav_var(0,2:4) = gtemp
+                                    if (prof_data%use_rt) then
+                                        do igroup=1,rtinfo%nGroups
+                                            igrp = 1 + (amr%ndim + 1) * (igroup - 1)
+                                            temprt_var(0,igrp) = rt_var(ind_nbor(1,0),igrp)
+                                            fluxtemp = dble(rt_var(ind_nbor(1,0),igrp+1:igrp+amr%ndim))
+                                            call rotate_vector(fluxtemp,trans_matrix)
+                                            fluxtmp = fluxtemp
+                                            temprt_var(0,igrp+1:igrp+amr%ndim) = sngl(fluxtmp)
+                                        end do
+                                    end if
+                                    do inbor=1,amr%twondim
+                                        tempvar(inbor,:) = var(ind_nbor(1,inbor),:)
+                                        tempson(inbor)       = son(ind_nbor(1,inbor))
+                                        if (prof_data%use_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(1,inbor),:)
+                                        if (prof_data%use_rt) then
+                                            temprt_var(inbor,:) = rt_var(ind_nbor(1,inbor),:)
+                                        end if
+                                    end do
+                                    tot_sel = tot_sel + 1
                                     do ifilt=1,prof_data%nfilter
                                         if (prof_data%use_gravity .and. prof_data%use_rt) then
                                             ok_filter = filter_cell(reg,prof_data%filters(ifilt),xtemp,dx,tempvar,tempson,&
@@ -1876,7 +2345,8 @@ module amr_profiles
                                         endif
                                     end do
                                 end if
-                                deallocate(tempvar,tempson)
+                                if (allocated(tempvar)) deallocate(tempvar)
+                                if (allocated(tempson)) deallocate(tempson)
                                 if (prof_data%use_gravity) deallocate(tempgrav_var)
                                 if (prof_data%use_rt) deallocate(temprt_var)
                             end do ngridaloop
@@ -1888,7 +2358,13 @@ module amr_profiles
                 if (prof_data%use_gravity) deallocate(grav_var)
                 if (prof_data%use_rt) deallocate(rt_var)
             end do cpuloop
-            if (verbose) write(*,*)'Total number of cells used: ', total_ncell
-        end subroutine get_cells_twodprofile
+            if (verbose) then
+                write(*,*)'Total number of cells used (per filter): ', total_ncell
+                write(*,*)'Total number of cells in region and refined: ', tot_sel
+                write(*,*)'Total number of cells refined: ', tot_ref
+                write(*,*)'Total number of cells in region: ', tot_pos
+                write(*,*)'Total number of cells in substructures: ', tot_insubs
+            end if
+        end subroutine get_cells_twodprofile_neigh
     end subroutine twodprofile
 end module amr_profiles

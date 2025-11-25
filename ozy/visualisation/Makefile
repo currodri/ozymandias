@@ -53,7 +53,7 @@ ifeq ($(F90),ifx)
 	else
 		HP_FLAGS =
 	endif
-	#F90FLAGS = -O0 -g -traceback -check bounds -cpp -fpscomp logicals -fPIC -DIMASS ${HP_FLAGS} # use 1 and 0 for True and False
+	#F90FLAGS = -O0 -g -traceback -check bounds -cpp -fpscomp logicals -fPIC -DIMASS -DRTPRE=${RTPRE} ${HEALPIX_DEFINE} ${HP_FLAGS} # use 1 and 0 for True and False
 	F90FLAGS = -O3 -cpp -fpscomp logicals -fPIC -DIMASS -DRTPRE=${RTPRE} ${HEALPIX_DEFINE} ${HP_FLAGS} # use 1 and 0 for True and False
 	FCOMP    = intelem # for f2py
     LIBS =

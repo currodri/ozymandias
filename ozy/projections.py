@@ -780,7 +780,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     for i in range(0, nfilter_gas):
         hydro_handler.filters[i] = filts_gas[i]
     hydro_handler.use_rt = use_rt
-    hydro_handler.use_neigh = use_neigh
+    hydro_handler.use_neigh = True #use_neigh
     
     # COMPUTE HYDRO PROJECTION
     if verbose:

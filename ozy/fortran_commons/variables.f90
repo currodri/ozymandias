@@ -3422,6 +3422,76 @@ module hydro_commons
         xCO = mCO / (var(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
     end function xCO
 
+    function xCI(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+
+        real(dbl) :: xCI
+        real(dbl) :: mCO,mPAH,mCgrains
+
+        ! 1. Compute the C mass in CO_fraction
+        mCO = var(0,hvar%ids(2)) * CO_to_Cmass
+
+        ! 2. Compute the C mass in PAHs
+        mPAH = var(0,hvar%ids(3)) + var(0,hvar%ids(4))
+
+        ! 3. Compute the C mass in Cgrains
+        mCgrains = var(0,hvar%ids(5)) + var(0,hvar%ids(6))
+
+        ! 4. Compute xCI
+        xCI = (var(0,hvar%ids(1))*var(0,hvar%ids(7))) / (var(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
+    end function xCI
+
+    function xCII(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        type(rt_info),intent(in) :: my_rt
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+
+        real(dbl) :: xCII
+        real(dbl) :: mCO,mPAH,mCgrains
+
+        ! 1. Compute the C mass in CO_fraction
+        mCO = var(0,hvar%ids(2)) * CO_to_Cmass
+
+        ! 2. Compute the C mass in PAHs
+        mPAH = var(0,hvar%ids(3)) + var(0,hvar%ids(4))
+
+        ! 3. Compute the C mass in Cgrains
+        mCgrains = var(0,hvar%ids(5)) + var(0,hvar%ids(6))
+
+        ! 4. Compute xCII
+        xCII = (var(0,hvar%ids(1))*var(0,hvar%ids(7))) / (var(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
+    end function xCII
+
 
     ! DUST VARIABLES
     function PAHSmall_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -5226,6 +5296,32 @@ module hydro_commons
             hvar%ids(5) = vardict%get('CSmall_fraction')
             hvar%ids(6) = vardict%get('CLarge_fraction')
             hvar%myfunction => xCO
+        case ('xCI')
+            ! Fraction of carbon in CI
+            hvar%type = 'derived'
+            hvar%name = 'xCI'
+            allocate(hvar%ids(7))
+            hvar%ids(1) = vardict%get('carbon_fraction')
+            hvar%ids(2) = vardict%get('CO_fraction')
+            hvar%ids(3) = vardict%get('PAHSmall_fraction')
+            hvar%ids(4) = vardict%get('PAHLarge_fraction')
+            hvar%ids(5) = vardict%get('CSmall_fraction')
+            hvar%ids(6) = vardict%get('CLarge_fraction')
+            hvar%ids(7) = vardict%get('carbon_01')
+            hvar%myfunction => xCI
+        case ('xCII')
+            ! Fraction of carbon in CII
+            hvar%type = 'derived'
+            hvar%name = 'xCII'
+            allocate(hvar%ids(7))
+            hvar%ids(1) = vardict%get('carbon_fraction')
+            hvar%ids(2) = vardict%get('CO_fraction')
+            hvar%ids(3) = vardict%get('PAHSmall_fraction')
+            hvar%ids(4) = vardict%get('PAHLarge_fraction')
+            hvar%ids(5) = vardict%get('CSmall_fraction')
+            hvar%ids(6) = vardict%get('CLarge_fraction')
+            hvar%ids(7) = vardict%get('carbon_02')
+            hvar%myfunction => xCII
         case ('PAHSmall_density')
             ! Density of the small PAHs
             hvar%type = 'derived'

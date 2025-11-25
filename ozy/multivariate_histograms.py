@@ -5,7 +5,8 @@ import ozy
 from unyt import unyt_array,unyt_quantity
 from .utils import init_region,init_filter_hydro,gent_curve_T,\
                     get_code_units, get_plotting_def,\
-                    check_need_gravity,check_need_rt
+                    check_need_gravity,check_need_rt,\
+                    check_need_neighbours
 from .variables_settings import geometrical_variables,raw_gas_variables,\
                                 derived_gas_variables,gravity_variables
 
@@ -133,6 +134,7 @@ def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,max
     # 5. Loop over hydro variables and the weights
     use_gravity = False
     use_rt = False
+    use_neigh = False
     for var in zvars:
         var_type = var.split('/')[0]
         var_name = var.split('/')[1]
@@ -141,6 +143,7 @@ def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,max
         else:
             use_gravity = check_need_gravity(var_name,'gas') or use_gravity
             use_rt = check_need_rt(var_name,'gas') or use_rt
+            use_neigh = check_need_neighbours(var_name,'gas') or use_neigh
             if var_name in geometrical_variables or var_name in raw_gas_variables \
                 or var_name in derived_gas_variables or var_name in gravity_variables:
                 for i in range(0, nfilter):
@@ -156,6 +159,7 @@ def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,max
             if weight_name != 'cumulative' and weight_name != 'count':
                 use_gravity = check_need_gravity(weight_name,'gas') or use_gravity
                 use_rt = check_need_rt(weight_name,'gas') or use_rt
+                use_neigh = check_need_neighbours(weight_name,'gas') or use_neigh
             if weight_name in geometrical_variables or weight_name in raw_gas_variables \
                 or weight_name in derived_gas_variables or weight_name in gravity_variables:
                 for i in range(0, nfilter):
@@ -349,6 +353,7 @@ def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,max
             hydro_data.subs[i] = subs[i]
     hydro_data.use_gravity = use_gravity
     hydro_data.use_rt = use_rt
+    hydro_data.use_neigh = use_neigh
     
     # Add the scaletype for the xaxis and the preo-computed bin edges
     bin_edges, stype, zero_index, linthresh = get_code_bins(group.obj,'gas',xvar,nbins=nbins[0],logscale=scaletype[0],

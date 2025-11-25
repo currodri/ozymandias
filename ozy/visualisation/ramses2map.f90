@@ -1242,7 +1242,7 @@ module maps
             integer,dimension(:),allocatable :: ind_cell,ind_cell2
             integer ,dimension(1,0:amr%twondim) :: ind_nbor
             logical,dimension(:),allocatable :: ref
-            real(dbl) :: rho,map,weight
+            real(dbl) :: rho,map,weight,geo_weight
             real(dbl) :: xmin,ymin
             integer :: ndom
             integer,dimension(1:2) :: n_sample

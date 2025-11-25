@@ -28,7 +28,7 @@ ifeq ($(F90),ifx)
 	FPP      	 = gfortran -E # gfortran f90wrap temp files only. not compilation
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
 	F90FLAGS 	 = -O3 -cpp -fp-model source -fPIC -DIMASS -DRTPRE=$(RTPRE) # use 1 and 0 for True and False
-	#F90FLAGS 	 = -O0 -check bounds -g -traceback -cpp -fpscomp logicals -fPIC -DIMASS # use 1 and 0 for True and False
+	#F90FLAGS 	 = -O0 -check bounds -g -traceback -cpp -fpscomp logicals -fPIC -DIMASS -DRTPRE=$(RTPRE) # use 1 and 0 for True and False
     FCOMP    	 = intelem # for f2py
     LIBS =
 endif
