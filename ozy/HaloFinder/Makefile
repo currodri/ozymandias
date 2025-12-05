@@ -104,7 +104,7 @@ MAKEFLAGS += -r
 %.o: %.mod
 
 
-all: _${PYTHON_MODN}.so _${PYTHON_MODN}_pkg.so
+all: _${PYTHON_MODN}_pkg.so
 
 
 clean:
@@ -128,11 +128,6 @@ clean:
 
 libsrc.a: ${LIBSRC_OBJECTS}
 	${LIBTOOL} $@ $?
-
-
-_${PYTHON_MODN}.so: libsrc.a ${LIBSRC_FPP_FILES}
-	f90wrap -m ${PYTHON_MODN} ${LIBSRC_WRAP_FPP_FILES} -k ${KIND_MAP}
-	f2py-f90wrap --fcompiler=$(FCOMP) --build-dir . -c -m _${PYTHON_MODN} -L. -lsrc f90wrap*.f90
 
 _${PYTHON_MODN}_pkg.so: libsrc.a ${LIBSRC_FPP_FILES}
 	f90wrap -m ${PYTHON_MODN}_pkg ${LIBSRC_WRAP_FPP_FILES} -k ${KIND_MAP} -P

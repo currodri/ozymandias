@@ -58,7 +58,7 @@ class SimulationAttributes(object):
         if self.scale_factor != 1.0:
             cosmo = FlatLambdaCDM(H0=self.hubble_constant, Om0=self.omega_matter, 
                                         Ob0=self.omega_baryon,Tcmb0=2.73)
-            self.current_time = cosmo.age(self.redshift).to('Gyr')
+            self.current_time = obj.quantity(cosmo.age(self.redshift).to('Gyr'),'Gyr')
         else:
             self.current_time = obj.quantity(self.time*obj._info['unit_t'],'s')
 

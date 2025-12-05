@@ -71,14 +71,15 @@ module export_amr
         real(dbl) :: xmin,ymin,zmin
         real(dbl) :: ddx,ddy,ddz,dex,dey,dez,xx,yy,zz
         real(dbl),dimension(1:3) :: newx 
-        type(vector) :: xtemp,vtemp
+        type(vector) :: xtemp,vtemp,fluxtemp
         logical :: ok_cell,ok_filter,ok_cell_each
         integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
+        real(dbl),dimension(1:3) :: vtmp,fluxtmp
         real(dbl),dimension(1:8,1:3) :: xc
         real(dbl),dimension(3,3) :: trans_matrix
         real(dbl),dimension(:,:),allocatable :: xg,x
-        real(dbl),dimension(:,:),allocatable :: var
-        real(dbl),dimension(:,:),allocatable :: tempvar
+        real(hydro_real_kind),dimension(:,:),allocatable :: var
+        real(hydro_real_kind),dimension(:,:),allocatable :: tempvar
         integer,dimension(:,:),allocatable :: nbor
         integer,dimension(:),allocatable :: son,tempson
         integer,dimension(:),allocatable :: ind_grid,ind_cell,ind_cell2
@@ -341,7 +342,11 @@ module export_amr
                             call checkifinside(newx,reg,ok_cell,distance)
 
                             ! Velocity transformed --> ONLY FOR CENTRAL CELL
+#if UPRE==4
+                            vtemp = dble(var(ind_cell(i),ivx:ivz))
+#else
                             vtemp = var(ind_cell(i),ivx:ivz)
+#endif
                             vtemp = vtemp - reg%bulk_velocity
                             call rotate_vector(vtemp,trans_matrix)
                             var(ind_cell(i),ivx:ivz) = vtemp

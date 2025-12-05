@@ -13,10 +13,7 @@ _EXT_MODULES = {
     "_vis_pkg": "ozy.visualisation._vis_pkg",
     # Additional compiled wrapper modules used elsewhere in the package
     "_tutils_pkg": "ozy.TreeMaker._tutils_pkg",
-    "_hutils_pkg": "ozy.HaloFinder._hutils_pkg",
-    # Some wrappers are built without the '_pkg' suffix (f2py/f90wrap variations)
-    "_tutils": "ozy.TreeMaker._tutils",
-    "_hutils": "ozy.HaloFinder._hutils",
+    "_hutils_pkg": "ozy.HaloFinder._hutils_pkg"
 }
 
 # Import compiled extensions and alias top-level names to prevent duplicates

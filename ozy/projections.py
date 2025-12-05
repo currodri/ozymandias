@@ -122,7 +122,7 @@ class Projection(object):
                             hdu.header["btype"] = field
                         hdu.header["bunit"] = re.sub('()', '', units)
                         hdu.header["redshift"] = self.group.obj.simulation.redshift
-                        hdu.header["time_Myr"] = float(self.group.obj.simulation.current_time.to('Myr').d)
+                        hdu.header["time_Myr"] = float(self.group.obj.simulation.current_time.to('Myr').value)
                         hdu.header["dtype"] = 'gas'
                         hdu.header["los_x"] = self.los_axis[0]
                         hdu.header["los_y"] = self.los_axis[1]
@@ -172,7 +172,7 @@ class Projection(object):
                             hdu.header["btype"] = field
                         hdu.header["bunit"] = re.sub('()', '', units)
                         hdu.header["redshift"] = self.group.obj.simulation.redshift
-                        hdu.header["time_Myr"] = float(self.group.obj.simulation.current_time.to('Myr').d)
+                        hdu.header["time_Myr"] = float(self.group.obj.simulation.current_time.to('Myr').value)
                         hdu.header["dtype"] = 'part'
                         hdu.header["los_x"] = self.los_axis[0]
                         hdu.header["los_y"] = self.los_axis[1]
@@ -780,7 +780,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     for i in range(0, nfilter_gas):
         hydro_handler.filters[i] = filts_gas[i]
     hydro_handler.use_rt = use_rt
-    hydro_handler.use_neigh = True #use_neigh
+    hydro_handler.use_neigh = use_neigh
     
     # COMPUTE HYDRO PROJECTION
     if verbose:
@@ -793,7 +793,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         else:
             maps.projection_hydro(group.obj.simulation.fullpath,type_projection,cam,
                                     hydro_handler,int(lmax),int(lmin),nexp_factor)
-        data = np.array(hydro_handler.map,order='F')
+        data = np.array(hydro_handler.map)
         proj.data_maps_gas = data
 
     # Now setup the filters for particles, making sure
@@ -857,7 +857,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
             maps.projection_parts(obj.simulation.fullpath,cam,parts_handler,tag_file=tag_file,inverse_tag=inverse_tag)
         else:
             maps.projection_parts(obj.simulation.fullpath,cam,parts_handler)
-        data_part = np.array(parts_handler.map,order='F')
+        data_part = np.array(parts_handler.map)
         proj.data_maps_part = data_part
 
     return proj

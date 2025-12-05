@@ -25,7 +25,7 @@ module local
 
 implicit none
 private
-public :: sgl,dbl,ish,irg,ilg
+public :: sgl,dbl,ish,irg,ilg,rt_real_kind,hydro_real_kind
 
 ! Define the "kind" parameters for single and double precision reals, 
 !> single precision real kind parameter
@@ -40,6 +40,32 @@ public :: sgl,dbl,ish,irg,ilg
   integer,parameter                     :: irg = SELECTED_INT_KIND(9)
 !> long integer kind parameter  
   integer,parameter                     :: ilg = SELECTED_INT_KIND(12)
+
+! Define the real kind used for radiation transfer arrays (rt_var).
+! Use the preprocessor macro RTPRE (set in the build) to pick single or
+! double precision for RT variables. Defining this alias here keeps
+! conditional preprocessing out of individual routine argument lists,
+! which helps tools like f90wrap/f2py parse consistent signatures.
+#if RTPRE==4
+  integer,parameter :: rt_real_kind = sgl
+#elif RTPRE==8
+  integer,parameter :: rt_real_kind = dbl
+#else
+  integer,parameter :: rt_real_kind = dbl
+#endif
+
+! Define the real kind used for hydro arrays (hydro_var).
+! Use the preprocessor macro UPRE (set in the build) to pick single or
+! double precision for hydro variables. Defining this alias here keeps
+! conditional preprocessing out of individual routine argument lists,
+! which helps tools like f90wrap/f2py parse consistent signatures.
+#if UPRE==4
+  integer,parameter :: hydro_real_kind = sgl
+#elif UPRE==8
+  integer,parameter :: hydro_real_kind = dbl
+#else
+  integer,parameter :: hydro_real_kind = dbl
+#endif
 
 end module local
 

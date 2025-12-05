@@ -754,22 +754,18 @@ module maps
             character(128) :: nomfich
             real(dbl) :: distance,dx,ksize
             type(vector) :: xtemp,vtemp,gtemp,fluxtemp
-            real(dbl),dimension(1:3) :: fluxtmp
+            real(dbl),dimension(1:3) :: fluxtmp,vtmp
             integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
             real(dbl),dimension(1:8,1:3) :: xc
             real(dbl),dimension(1:3,1:3) :: trans_matrix
             real(dbl),dimension(1:proj%nvars) :: hvalues
             real(dbl),dimension(:,:),allocatable :: xg,x,xorig
-            real(dbl),dimension(:,:,:),allocatable :: var,grav_var
-            real(dbl),dimension(:,:),allocatable :: tempvar
+            real(hydro_real_kind),dimension(:,:,:),allocatable :: var
+            real(dbl),dimension(:,:,:),allocatable :: grav_var
+            real(hydro_real_kind),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
-#if RTPRE==4
-            real(sgl),dimension(:,:,:),allocatable :: rt_var
-            real(sgl),dimension(:,:),allocatable :: temprt_var
-#elif RTPRE==8
-            real(dbl),dimension(:,:,:),allocatable :: rt_var
-            real(dbl),dimension(:,:),allocatable :: temprt_var
-#endif
+            real(rt_real_kind),dimension(:,:,:),allocatable :: rt_var
+            real(rt_real_kind),dimension(:,:),allocatable :: temprt_var
             integer,dimension(:,:),allocatable :: son
             integer,dimension(:),allocatable :: tempson
             logical,dimension(:),allocatable :: ref
@@ -1069,7 +1065,11 @@ module maps
                                         xtemp = xtemp - bbox%centre
                                         call rotate_vector(xtemp,trans_matrix)
                                         ! Velocity transformed
+#if UPRE==4
+                                        vtemp = dble(var(i,ind,ivx:ivz))
+#else
                                         vtemp = var(i,ind,ivx:ivz)
+#endif
                                         vtemp = vtemp - bbox%bulk_velocity
                                         call rotate_vector(vtemp,trans_matrix)
 
@@ -1086,7 +1086,12 @@ module maps
                                         tempvar(0,:) = var(i,ind,:)
                                         tempson(0)       = son(i,ind)
                                         if (read_gravity) tempgrav_var(0,:) = grav_var(i,ind,:)
-                                        tempvar(0,ivx:ivz) = vtemp
+                                        vtmp = vtemp
+#if UPRE==4
+                                        tempvar(0,ivx:ivz) = sngl(vtmp)
+#else
+                                        tempvar(0,ivx:ivz) = vtmp
+#endif
                                         if (read_gravity) tempgrav_var(0,2:4) = gtemp
                                         if (proj%use_rt) then
                                             do igroup=1,rtinfo%nGroups
@@ -1219,24 +1224,19 @@ module maps
             character(128) :: nomfich
             real(dbl) :: distance,dx
             type(vector) :: xtemp,vtemp,gtemp,fluxtemp
-            real(dbl),dimension(1:3) :: fluxtmp
+            real(dbl),dimension(1:3) :: fluxtmp,vtmp
             integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
             real(dbl),dimension(:),allocatable :: xxg,son_dens
             real(dbl),dimension(1:8,1:3) :: xc
             real(dbl),dimension(1:3,1:3) :: trans_matrix
             real(dbl),dimension(:,:),allocatable :: x,xorig
-            real(dbl),dimension(:,:),allocatable :: var
+            real(hydro_real_kind),dimension(:,:),allocatable :: var
             real(dbl),dimension(:,:),allocatable :: grav_var
-            real(dbl),dimension(:,:),allocatable :: tempvar
+            real(hydro_real_kind),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
             real(dbl),dimension(:,:),allocatable :: cellpos
-#if RTPRE==4
-            real(sgl),dimension(:,:),allocatable :: rt_var
-            real(sgl),dimension(:,:),allocatable :: temprt_var
-#elif RTPRE==8
-            real(dbl),dimension(:,:),allocatable :: rt_var
-            real(dbl),dimension(:,:),allocatable :: temprt_var
-#endif
+            real(rt_real_kind),dimension(:,:),allocatable :: rt_var
+            real(rt_real_kind),dimension(:,:),allocatable :: temprt_var
             integer,dimension(:,:),allocatable :: nbor
             integer,dimension(:),allocatable :: son,tempson,iig
             integer,dimension(:),allocatable :: ind_cell,ind_cell2
@@ -1455,8 +1455,7 @@ module maps
                             tndimloop: do ind=1,amr%twotondim
                                 iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                                 varloop: do ivar=1,nvarh
-                                    read(11)xxg
-                                    var(grid(ilevel)%ind_grid(:)+iskip,ivar) = xxg(:)
+                                    read(11)var(grid(ilevel)%ind_grid(:)+iskip,ivar)
                                 end do varloop
                             end do tndimloop
                         endif
@@ -1587,7 +1586,11 @@ module maps
                                         call rotate_vector(xtemp,trans_matrix)
 
                                         ! Velocity transformed --> ONLY FOR CENTRAL CELL
+#if UPRE==4
+                                        vtemp = dble(var(ind_cell(i),ivx:ivz))
+#else
                                         vtemp = var(ind_cell(i),ivx:ivz)
+#endif
                                         vtemp = vtemp - bbox%bulk_velocity
                                         call rotate_vector(vtemp,trans_matrix)
 
@@ -1612,7 +1615,12 @@ module maps
                                         tempvar(0,:) = var(ind_nbor(1,0),:)
                                         tempson(0)       = son(ind_nbor(1,0))
                                         if (read_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
-                                        tempvar(0,ivx:ivz) = vtemp
+                                        vtmp = vtemp
+#if UPRE==4
+                                        tempvar(0,ivx:ivz) = sngl(vtmp)
+#else
+                                        tempvar(0,ivx:ivz) = vtmp
+#endif
                                         if (read_gravity) tempgrav_var(0,2:4) = gtemp
                                         if (proj%use_rt) then
                                             do igroup=1,rtinfo%nGroups
@@ -2272,21 +2280,16 @@ module maps
             character(128) :: nomfich
             real(dbl) :: distance,dx
             type(vector) :: xtemp,vtemp,los,x_axis,fluxtemp
-            real(dbl),dimension(1:3) :: fluxtmp
+            real(dbl),dimension(1:3) :: fluxtmp,vtmp
             integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
             real(dbl),dimension(1:3) :: xvec
             real(dbl),dimension(1:8,1:3) :: xc
             real(dbl),dimension(1:3,1:3) :: trans_matrix
             real(dbl),dimension(:,:),allocatable :: xg,x,xorig
-            real(dbl),dimension(:,:,:),allocatable :: var
-#if RTPRE==4
-            real(sgl),dimension(:,:,:),allocatable :: rt_var
-            real(sgl),dimension(:,:),allocatable :: temprt_var
-#elif RTPRE==8
-            real(dbl),dimension(:,:,:),allocatable :: rt_var
-            real(dbl),dimension(:,:),allocatable :: temprt_var
-#endif
-            real(dbl),dimension(:,:),allocatable :: tempvar
+            real(hydro_real_kind),dimension(:,:,:),allocatable :: var
+            real(rt_real_kind),dimension(:,:,:),allocatable :: rt_var
+            real(rt_real_kind),dimension(:,:),allocatable :: temprt_var
+            real(hydro_real_kind),dimension(:,:),allocatable :: tempvar
             integer,dimension(:,:),allocatable :: son
             integer,dimension(:),allocatable :: tempson
             logical,dimension(:),allocatable :: ref
@@ -2555,10 +2558,13 @@ module maps
                                     ! If the cell contributes to at least one pixel, project
                                     if(nlist>0) then
                                         ! Rotate velocity with respect to galaxy frame
+#if UPRE==4
+                                        vtemp = dble(var(i,ind,ivx:ivz))
+#else
                                         vtemp = var(i,ind,ivx:ivz)
+#endif
                                         vtemp = vtemp - bsphere%bulk_velocity
                                         call rotate_vector(vtemp,trans_matrix)
-                                        var(i,ind,ivx:ivz) = vtemp
 
                                         ! Get neighbours
                                         allocate(tempvar(0:amr%twondim,nvarh))
@@ -2566,7 +2572,12 @@ module maps
                                         ! Just add central cell as we do not want neighbours
                                         tempvar(0,:) = var(i,ind,:)
                                         tempson(0)       = son(i,ind)
-                                        tempvar(0,ivx:ivz) = vtemp
+                                        vtmp = vtemp
+#if UPRE==4
+                                        tempvar(0,ivx:ivz) = sngl(vtmp)
+#else
+                                        tempvar(0,ivx:ivz) = vtmp
+#endif
                                         if (proj%use_rt) then
                                             do igroup=1,rtinfo%nGroups
                                                 igrp = 1 + (amr%ndim + 1) * (igroup - 1)

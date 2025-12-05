@@ -1,8 +1,9 @@
 import os
 import numpy as np
-from __init__ import OZYPATH
 from hutils import py_halo_utils as phu
 from ozy.group import create_new_group, grouptypes
+
+OZYPATH = os.path.dirname(os.path.abspath(__file__))
 
 class hmCatalogue(object):
 
