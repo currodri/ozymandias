@@ -84,7 +84,7 @@ class HydroHistogram(object):
 
 def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,maxval,linthresh=None,
                             lmax=0,nbins=[100,100],region_type='sphere',
-                            filter_conds=['none'],filter_name=['none'],scaletype=['log_even','log_even'],
+                            filter_conds=['none'],filter_name=['none'],scaletype=[True,True],
                             recompute=False,save=False,
                             rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(0.0,'rvir'), zmax=(0.2,'rvir'),
                             mycentre=([0.5,0.5,0.5],'code_length'), myaxis=np.array([1.,0.,0.]),
@@ -179,6 +179,8 @@ def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,max
         raise ValueError(f"It seems the dimensions of your bins min ({minval[0].units}) and max \
                           ({maxval[0].units}) values do not agree with the dimensions of the \
                             chosen xvar ({xvar},{get_code_units(xvar,'gas')})")
+    use_rt = check_need_rt(xvar,'gas') or use_rt
+
     # 7. Check that the yaxis min and max quantities have the units expected for that variable
     try:
         minval[1] = minval[1].to(get_code_units(yvar,'gas'))
@@ -188,6 +190,7 @@ def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,max
         raise ValueError(f"It seems the dimensions of your bins min ({minval[1].units}) and max \
                          ({maxval[1].units}) values do not agree with the dimensions of the \
                             chosen yvar ({yvar},{get_code_units(yvar,'gas')})")
+    use_rt = check_need_rt(yvar,'gas') or use_rt
 
     # 8. Now create region
     if use_snapshot:
