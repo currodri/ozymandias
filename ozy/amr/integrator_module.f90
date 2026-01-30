@@ -337,7 +337,6 @@ module amr_integrator
             integer :: igroup,igrp
             integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
             integer :: tot_pos,tot_ref,tot_insubs
-            integer :: nvarh
             integer :: roterr
             character(5) :: nchar,ncharcpu
             character(128) :: nomfich
@@ -428,7 +427,7 @@ module amr_integrator
                 nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
                 open(unit=11,file=nomfich,status='old',form='unformatted')
                 read(11)
-                read(11)nvarh
+                read(11)sim%nvar
                 read(11)
                 read(11)
                 read(11)
@@ -477,7 +476,7 @@ module amr_integrator
                     if(ngrida>0) then
                         allocate(xg (1:ngrida,1:amr%ndim))
                         allocate(son(1:ngrida,1:amr%twotondim))
-                        allocate(var(1:ngrida,1:amr%twotondim,1:nvarh))
+                        allocate(var(1:ngrida,1:amr%twotondim,1:sim%nvar))
                         allocate(x  (1:ngrida,1:amr%ndim))
                         allocate(xorig(1:ngrida,1:amr%ndim))
                         allocate(ref(1:ngrida))
@@ -534,7 +533,7 @@ module amr_integrator
                         if(ngridfile(j,ilevel)>0)then
                             ! Read hydro variables
                             tndimloop: do ind=1,amr%twotondim
-                                varloop: do ivar=1,nvarh
+                                varloop: do ivar=1,sim%nvar
                                     if (j.eq.icpu) then
                                         read(11)var(:,ind,ivar)
                                     else
@@ -638,7 +637,7 @@ module amr_integrator
                                             gtemp = grav_var(i,ind,2:4)
                                             call rotate_vector(gtemp,trans_matrix)
                                         endif
-                                        allocate(tempvar(0:amr%twondim,nvarh))
+                                        allocate(tempvar(0:amr%twondim,sim%nvar))
                                         allocate(tempson(0:amr%twondim))
                                         if (attrs%use_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
                                         if (attrs%use_rt) allocate(temprt_var(0:amr%twondim,1:rtinfo%nRTvar))
@@ -734,7 +733,6 @@ module amr_integrator
             integer :: igroup,igrp
             integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
             integer :: tot_pos,tot_ref,tot_insubs
-            integer :: nvarh
             integer :: roterr
             character(5) :: nchar,ncharcpu
             character(128) :: nomfich
@@ -839,12 +837,12 @@ module amr_integrator
                 nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
                 open(unit=11,file=nomfich,status='old',form='unformatted')
                 read(11)
-                read(11)nvarh
+                read(11)sim%nvar
                 read(11)
                 read(11)
                 read(11)
                 read(11)
-                allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:nvarh))
+                allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:sim%nvar))
                 allocate(cellpos(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:3))
                 cellpos = 0d0; var = 0d0
                 
@@ -945,7 +943,7 @@ module amr_integrator
                             ! Read hydro variables
                             tndimloop: do ind=1,amr%twotondim
                                 iskip = amr%ncoarse+(ind-1)*amr%ngridmax
-                                varloop: do ivar=1,nvarh
+                                varloop: do ivar=1,sim%nvar
                                     read(11)xxg
                                     var(grid(ilevel)%ind_grid(:)+iskip,ivar) = xxg(:)
                                 end do varloop
@@ -1083,7 +1081,7 @@ module amr_integrator
                                     ind_cell2(1) = ind_cell(i)
                                     call getnbor(son,nbor,ind_cell2,ind_nbor,1)
                                     deallocate(ind_cell2)
-                                    allocate(tempvar(0:amr%twondim,nvarh))
+                                    allocate(tempvar(0:amr%twondim,sim%nvar))
                                     allocate(tempson(0:amr%twondim))
                                     if (attrs%use_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
                                     if (attrs%use_rt) allocate(temprt_var(0:amr%twondim,1:rtinfo%nRTvar))

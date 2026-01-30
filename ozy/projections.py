@@ -69,6 +69,7 @@ class Projection(object):
         self.resolution = np.array([1024,1024],'i')
         self.vars = dict(gas = [], part = [])
         self.weight = dict(gas = [], part = [])
+        self.is_column_weight = dict(gas = [], part = [])
         self.data_maps_gas = []
         self.data_maps_part = []
         self.filters_gas = []
@@ -105,9 +106,17 @@ class Projection(object):
                         fields.append('gas/'+f)
                     for i,field in enumerate(fields):
                         code_units = get_code_units(field.split('/')[1],'gas')
+                        # If using column weighting, the data has units of (original unit) * code_length
+                        is_column = len(self.is_column_weight['gas']) > 0 and any(self.is_column_weight['gas'])
+                        if is_column:
+                            code_units = code_units + '*code_length'
                         field_str = field.split('/')[1]
                         plotting_def = get_plotting_def(field_str,'gas')
-                        units = plotting_def['units']                            
+                        units = plotting_def['units']
+                        # Adjust physical units for column weighting
+                        if is_column:
+                            # Convert to physical column density units
+                            units = units.replace('**-3', '**-2') if '**-3' in units else units + '*kpc'
                         temp_map = self.group.obj.array(imap[i],code_units)
                         if first:
                             hdu = fits.PrimaryHDU(np.array(temp_map.in_units(units)))
@@ -124,6 +133,7 @@ class Projection(object):
                         hdu.header["redshift"] = self.group.obj.simulation.redshift
                         hdu.header["time_Myr"] = float(self.group.obj.simulation.current_time.to('Myr').d)
                         hdu.header["dtype"] = 'gas'
+                        hdu.header["col_wght"] = is_column  # Flag for column weighting
                         hdu.header["los_x"] = self.los_axis[0]
                         hdu.header["los_y"] = self.los_axis[1]
                         hdu.header["los_z"] = self.los_axis[2]
@@ -155,8 +165,16 @@ class Projection(object):
                         correct_str = field.split('/')[1]
                         nonum_str = remove_last_suffix_if_numeric(correct_str)
                         code_units = get_code_units(nonum_str,'part')
+                        # If using column weighting, the data has units of (original unit) * code_length
+                        is_column = len(self.is_column_weight['part']) > 0 and any(self.is_column_weight['part'])
+                        if is_column:
+                            code_units = code_units + '*code_length'
                         plotting_def = get_plotting_def(nonum_str,'part')
                         units = plotting_def['units']
+                        # Adjust physical units for column weighting
+                        if is_column:
+                            # Convert to physical column density units
+                            units = units.replace('**-3', '**-2') if '**-3' in units else units + '*kpc'
                         temp_map = self.group.obj.array(imap[i],code_units)
                         
                         if first:
@@ -174,6 +192,7 @@ class Projection(object):
                         hdu.header["redshift"] = self.group.obj.simulation.redshift
                         hdu.header["time_Myr"] = float(self.group.obj.simulation.current_time.to('Myr').d)
                         hdu.header["dtype"] = 'part'
+                        hdu.header["col_wght"] = is_column  # Flag for column weighting
                         hdu.header["los_x"] = self.los_axis[0]
                         hdu.header["los_y"] = self.los_axis[1]
                         hdu.header["los_z"] = self.los_axis[2]
@@ -237,6 +256,10 @@ class Projection(object):
                             code_units = get_code_units(sfrstr)
                         else:
                             code_units = get_code_units(field.split('/')[1])
+                        # If using column weighting, the data has units of (original unit) * code_length
+                        is_column = len(self.is_column_weight[datatype]) > 0 and any(self.is_column_weight[datatype])
+                        if is_column:
+                            code_units = code_units + '*code_length'
                         temp_map = self.group.obj.array(imap[i][0],code_units)
                         make_div = False
                         first_unit = True
@@ -465,8 +488,10 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
             if weight_name in geometrical_variables or weight_name in raw_gas_variables \
                 or weight_name in derived_gas_variables or weight_name in gravity_variables:
                 proj.weight['gas'].append(weight_name)
-            elif weight_name in 'cumulative':
-                proj.weight['gas'].append('cumulative')
+                proj.is_column_weight['gas'].append(False)
+            elif weight_name in ['cumulative', 'column']:
+                proj.weight['gas'].append(weight_name)
+                proj.is_column_weight['gas'].append(weight_name == 'column')
             else:
                 raise KeyError('This gas variable is not supported. Please check!: %s', var)
         elif weight_type == 'part':
@@ -474,8 +499,10 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
             if weight_name_temp in geometrical_variables or weight_name_temp in raw_part_variables \
                 or weight_name_temp in derived_part_variables or weight_name_temp in star_variables:
                 proj.weight['part'].append(weight_name)
-            elif weight_name in 'cumulative':
-                proj.weight['part'].append('cumulative')
+                proj.is_column_weight['part'].append(False)
+            elif weight_name in ['cumulative', 'column']:
+                proj.weight['part'].append(weight_name)
+                proj.is_column_weight['part'].append(weight_name == 'column')
             else:
                 raise KeyError('This particle variable is not supported. Please check!: %s', var)
     if use_neigh and verbose:
@@ -780,7 +807,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     for i in range(0, nfilter_gas):
         hydro_handler.filters[i] = filts_gas[i]
     hydro_handler.use_rt = use_rt
-    hydro_handler.use_neigh = True #use_neigh
+    hydro_handler.use_neigh = use_neigh
     
     # COMPUTE HYDRO PROJECTION
     if verbose:

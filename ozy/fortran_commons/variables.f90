@@ -64,6 +64,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -72,7 +73,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -87,6 +87,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -95,7 +96,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -112,6 +112,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -120,7 +121,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -137,6 +137,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -145,7 +146,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -162,6 +162,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -170,7 +171,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -187,6 +187,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -195,7 +196,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -212,6 +212,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -220,7 +221,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -237,6 +237,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -245,7 +246,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -263,6 +263,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -271,7 +272,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -288,6 +288,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -296,7 +297,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -378,6 +378,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -386,7 +387,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -403,6 +403,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -411,7 +412,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -428,6 +428,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -436,7 +437,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -453,6 +453,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -461,7 +462,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -515,6 +515,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -523,7 +524,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -539,6 +539,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -547,7 +548,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -563,6 +563,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -571,7 +572,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -594,6 +594,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -602,7 +603,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -625,6 +625,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -633,7 +634,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -656,6 +656,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -664,7 +665,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -687,6 +687,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -695,7 +696,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -718,6 +718,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -726,7 +727,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -749,6 +749,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -757,7 +758,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -777,6 +777,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -785,7 +786,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -805,6 +805,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -813,7 +814,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -832,6 +832,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -840,7 +841,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -859,6 +859,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -867,7 +868,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -886,6 +886,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -894,7 +895,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -915,6 +915,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -923,7 +924,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -947,6 +947,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -955,7 +956,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -979,6 +979,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -987,7 +988,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1008,6 +1008,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1016,7 +1017,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1037,6 +1037,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1045,7 +1046,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1066,6 +1066,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1074,7 +1075,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1095,6 +1095,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1103,7 +1104,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1125,6 +1125,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1133,7 +1134,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1155,6 +1155,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1163,7 +1164,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1183,6 +1183,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1191,14 +1192,13 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #endif
 
-        real(dbl) :: sigma,value
+        real(dbl) :: sigma
         type(vector) :: v
         real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: tempvar
 
@@ -1206,21 +1206,21 @@ module hydro_commons
         ! Go back to box coordinates for the central cell, which is transformed usually
         ! before sent to read_amr
         ! Converging flow check
-        tempvar(:,:) = var(:,:)
+        tempvar = var
         v = (/tempvar(0,hvar%ids(2)),tempvar(0,hvar%ids(3)),tempvar(0,hvar%ids(4))/)
         call rotate_vector(v,transpose(trans_matrix))
         v = v + reg%bulk_velocity
         tempvar(0,hvar%ids(2)) = v%x
         tempvar(0,hvar%ids(3)) = v%y
         tempvar(0,hvar%ids(4)) = v%z
-        call cmp_sigma_turb(my_amr,my_sim,hvar,tempvar,value)
-        sigma = value
+        call cmp_sigma_turb(my_amr,my_sim,hvar,tempvar,sigma)
     end function sigma
 
     function temperature(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1229,7 +1229,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1249,6 +1248,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1257,7 +1257,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1275,6 +1274,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1283,7 +1283,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1301,6 +1300,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1309,7 +1309,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1327,6 +1326,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1335,7 +1335,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1356,6 +1355,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1364,7 +1364,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1382,6 +1381,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1390,7 +1390,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1425,6 +1424,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1433,7 +1433,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1471,6 +1470,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1479,7 +1479,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1515,6 +1514,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1523,7 +1523,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1545,6 +1544,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1553,7 +1553,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1575,6 +1574,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1583,7 +1583,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1605,6 +1604,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1613,7 +1613,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1635,6 +1634,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1643,7 +1643,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1665,6 +1664,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1673,7 +1673,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1719,6 +1718,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1727,7 +1727,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1774,6 +1773,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1782,7 +1782,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1829,6 +1828,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1837,7 +1837,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1854,6 +1853,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1862,7 +1862,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1879,6 +1878,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1887,7 +1887,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1904,6 +1903,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1912,7 +1912,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1929,6 +1928,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1937,7 +1937,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -1961,6 +1960,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -1969,7 +1969,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2000,6 +1999,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2008,7 +2008,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2040,6 +2039,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2048,7 +2048,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2080,6 +2079,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2088,7 +2088,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2120,6 +2119,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2128,7 +2128,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2162,6 +2161,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2170,7 +2170,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2205,6 +2204,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2213,7 +2213,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2248,6 +2247,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2256,7 +2256,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2293,6 +2292,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2301,7 +2301,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2340,6 +2339,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2348,7 +2348,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2384,6 +2383,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2392,7 +2392,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2415,6 +2414,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2423,7 +2423,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2469,6 +2468,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2477,7 +2477,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2549,6 +2548,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2557,7 +2557,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2577,6 +2576,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2585,7 +2585,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2601,6 +2600,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2609,7 +2609,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2642,6 +2641,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2650,7 +2650,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2683,6 +2682,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2691,7 +2691,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2725,6 +2724,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2733,7 +2733,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2769,6 +2768,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2777,7 +2777,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2814,6 +2813,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2822,7 +2822,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2864,6 +2863,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2872,7 +2872,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2908,6 +2907,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2916,7 +2916,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -2954,6 +2953,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -2962,7 +2962,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3004,6 +3003,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3012,7 +3012,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3062,6 +3061,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3070,7 +3070,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3121,6 +3120,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3129,7 +3129,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3184,6 +3183,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3192,7 +3192,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3218,6 +3217,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3226,7 +3226,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3252,6 +3251,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3260,7 +3260,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3287,6 +3286,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3295,7 +3295,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3321,10 +3320,11 @@ module hydro_commons
         hydrogen_density = var(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass)
     end function hydrogen_density
 
-    function H2_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+    function HI_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3333,7 +3333,86 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+
+        real(dbl) :: HI_density
+        real(dbl) :: metal_mass,dust_mass,xHI
+        integer :: i
+
+        ! 1. Add up the metal mass
+        metal_mass = 0d0
+        do i = 2, 10
+            metal_mass = metal_mass + var(0,hvar%ids(i))
+        end do
+
+        ! 2. Add up the dust mass
+        dust_mass = 0d0
+        do i = 11, 16
+            dust_mass = dust_mass + var(0,hvar%ids(i))
+        end do
+
+        ! 3. Compute the HI density
+        xHI = var(0,hvar%ids(17))
+        HI_density = var(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass) * xHI
+    end function HI_density
+
+function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
         type(rt_info),intent(in) :: my_rt
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+
+        real(dbl) :: HII_density
+        real(dbl) :: metal_mass,dust_mass,xHII
+        integer :: i
+
+        ! 1. Add up the metal mass
+        metal_mass = 0d0
+        do i = 2, 10
+            metal_mass = metal_mass + var(0,hvar%ids(i))
+        end do
+
+        ! 2. Add up the dust mass
+        dust_mass = 0d0
+        do i = 11, 16
+            dust_mass = dust_mass + var(0,hvar%ids(i))
+        end do
+
+        ! 3. Compute the HI density
+        xHII = var(0,hvar%ids(17))
+        HII_density = var(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass) * xHII
+    end function HII_density
+
+    function H2_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3366,6 +3445,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3374,7 +3454,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3391,6 +3470,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3399,7 +3479,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3426,6 +3505,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3434,7 +3514,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3461,6 +3540,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3469,7 +3549,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3498,6 +3577,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3506,7 +3586,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3522,6 +3601,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3530,7 +3610,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3558,6 +3637,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3566,7 +3646,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3582,6 +3661,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3590,7 +3670,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3618,6 +3697,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3626,7 +3706,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3642,6 +3721,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3650,7 +3730,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3678,6 +3757,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3686,7 +3766,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3702,6 +3781,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3710,7 +3790,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3738,6 +3817,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3746,7 +3826,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3762,6 +3841,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3770,7 +3850,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3782,10 +3861,11 @@ module hydro_commons
         SilLarge_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
     end function SilLarge_density
 
-    function CO_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+    function CI_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3794,7 +3874,54 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+
+        real(dbl) :: CI_density
+
+        CI_density = (var(0,hvar%ids(1)) * var(0,hvar%ids(2))) * var(0,hvar%ids(3))
+    end function CI_density
+
+    function CII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
         type(rt_info),intent(in) :: my_rt
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+
+        real(dbl) :: CII_density
+
+        CII_density = (var(0,hvar%ids(1)) * var(0,hvar%ids(2))) * var(0,hvar%ids(3))
+    end function CII_density
+
+    function CO_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3810,6 +3937,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3818,7 +3946,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3834,6 +3961,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3842,7 +3970,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3858,6 +3985,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3866,7 +3994,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3882,6 +4009,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3890,7 +4018,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3906,6 +4033,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3914,7 +4042,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3930,6 +4057,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3938,7 +4066,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3954,6 +4081,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3962,7 +4090,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -3978,6 +4105,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -3986,7 +4114,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -4009,17 +4136,13 @@ module hydro_commons
             total_metal_mass = var(0,hvar%ids(7))
         end if
         DTM = total_dust_mass / (total_dust_mass + total_metal_mass)
-        ! print*,'DTM calculation: dust mass = ', total_dust_mass, ' metal mass = ', total_metal_mass, ' DTM = ', DTM
-        ! print*,'hvar ids: ', hvar%ids(:)
-        ! print*,'dust: ', var(0,hvar%ids(5):hvar%ids(4))
-        ! print*,'metal: ',var(0,hvar%ids(8):size(hvar%ids(:)))
-        ! print*,'density: ', var(0,1)
     end function DTM
 
     function DTG(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -4028,7 +4151,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -4044,6 +4166,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -4052,7 +4175,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -4071,6 +4193,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -4079,7 +4202,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -4098,6 +4220,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -4106,7 +4229,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -4126,6 +4248,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -4134,7 +4257,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -4154,6 +4276,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -4162,7 +4285,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -4178,6 +4300,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -4186,7 +4309,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -4229,6 +4351,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -4237,7 +4360,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -4280,6 +4402,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -4288,7 +4411,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -4331,6 +4453,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -4339,7 +4462,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -4383,6 +4505,7 @@ module hydro_commons
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
         type(hydro_var), intent(in) :: hvar
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
@@ -4391,7 +4514,6 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
 #if RTPRE==4
         real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 #elif RTPRE==8
@@ -4412,13 +4534,202 @@ module hydro_commons
         end do
         
         ! Convert from code units to cgs units [erg/cm2/s]
-        energy_density = energy_density * my_rt%rt_c_fraction * clight * my_rt%scale_np * eV2erg
+        energy_density = energy_density * my_sim%unit_v * my_rt%scale_np * eV2erg
 
         ! Convert to G0 units (Habing field)
         ! 1 Habing = 1.6d-3 erg/cm2/s
         G0 = energy_density / 1.6d-3
     end function G0
 
+    function charging_gamma(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+        real(dbl) :: charging_gamma
+        real(dbl) :: metal_mass,dust_mass,hydrogen_density
+        real(dbl) :: nH,nHe,ne,T,local_mu
+        integer :: igroup,igrp,i
+        real(dbl) :: G0
+        real(dbl) :: energy_density
+
+        ! 1. Add up the metal mass
+        metal_mass = 0d0
+        do i = 2, 10
+            metal_mass = metal_mass + var(0,hvar%ids(i))
+        end do
+
+        ! 2. Add up the dust mass
+        dust_mass = 0d0
+        do i = 11, 16
+            dust_mass = dust_mass + var(0,hvar%ids(i))
+        end do
+
+        ! 3. Compute nH and nHe
+        hydrogen_density = var(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass) * XH
+        nH = hydrogen_density / mHydrogen * my_sim%unit_d
+        nHe = 0.25d0 * nH * YHe / XH
+
+        ! 4. Compute ne (TODO: This should also use the metals)
+        ne = nH * var(0,hvar%ids(17)) + nHe * (var(0,hvar%ids(18)) + 2d0 * var(0,hvar%ids(19)))
+
+        ! 5. Compute T in K
+        local_mu = 1d0 / (XH * (1d0+var(0,hvar%ids(17))) + &
+                    & 0.25d0 * YHe * (1d0 + var(0,hvar%ids(18)) + 2d0 * var(0,hvar%ids(19))))
+        T = var(0,hvar%ids(20))/var(0,hvar%ids(1)) * my_sim%T2 * local_mu
+
+        ! 6. Compute the energy density in the Habing band (6eV-13.6eV)
+        energy_density = 0d0
+        do igroup = 1, my_rt%nGroups
+            igrp = 1 + (my_amr%ndim + 1) * (igroup - 1)
+            if (my_rt%group_egy(igroup) > 5.4 .and. my_rt%group_egy(igroup) < 13.6) then
+                energy_density = energy_density + rt_var(0,igrp) * my_rt%group_egy(igroup)
+            end if
+        end do
+        
+        ! 7. Convert from code units to cgs units [erg/cm2/s]
+        energy_density = energy_density * my_sim%unit_v * my_rt%scale_np * eV2erg
+
+        ! 8. Convert to G0 units (Habing field)
+        ! 1 Habing = 1.6d-3 erg/cm2/s
+        G0 = energy_density / 1.6d-3
+
+        ! 9. Compute the charging gamma
+        charging_gamma = G0 * sqrt(T) / ne
+
+    end function charging_gamma
+
+    function heatingfrac_peh(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+        real(dbl) :: heatingfrac_peh
+
+        heatingfrac_peh = var(0,hvar%ids(2)) / var(0,hvar%ids(1))
+
+    end function heatingfrac_peh
+
+    function heatingfrac_h2(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+        real(dbl) :: heatingfrac_h2
+
+        heatingfrac_h2 = var(0,hvar%ids(2)) / var(0,hvar%ids(1))
+
+    end function heatingfrac_h2
+
+    function coolingfrac_dustrecomb(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+        real(dbl) :: coolingfrac_dustrecomb
+
+        coolingfrac_dustrecomb = var(0,hvar%ids(2)) / var(0,hvar%ids(1))
+        
+    end function coolingfrac_dustrecomb
+
+    function coolingfrac_dustcoll(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+        real(dbl) :: coolingfrac_dustcoll
+
+        coolingfrac_dustcoll = var(0,hvar%ids(2)) / var(0,hvar%ids(1))
+        
+    end function coolingfrac_dustcoll
+
+    function coolingfrac_CO(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+        real(dbl) :: coolingfrac_CO
+        coolingfrac_CO = var(0,hvar%ids(2)) / var(0,hvar%ids(1))
+        
+    end function coolingfrac_CO
     subroutine check_dervar(vardict,varname,hvar,ok)
         implicit none
 
@@ -5252,6 +5563,52 @@ module hydro_commons
             hvar%ids(15) = vardict%get('SilSmall_fraction')
             hvar%ids(16) = vardict%get('SilLarge_fraction')
             hvar%myfunction => hydrogen_density
+        case ('HI_density')
+            ! Density of the neutral hydrogen gas
+            hvar%type = 'derived'
+            hvar%name = 'HI_density'
+            allocate(hvar%ids(17))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('iron_fraction')
+            hvar%ids(3) = vardict%get('oxygen_fraction')
+            hvar%ids(4) = vardict%get('carbon_fraction')
+            hvar%ids(5) = vardict%get('silicon_fraction')
+            hvar%ids(6) = vardict%get('magnesium_fraction')
+            hvar%ids(7) = vardict%get('sulfur_fraction')
+            hvar%ids(8) = vardict%get('nitrogen_fraction')
+            hvar%ids(9) = vardict%get('calcium_fraction')
+            hvar%ids(10) = vardict%get('neon_fraction')
+            hvar%ids(11) = vardict%get('PAHSmall_fraction')
+            hvar%ids(12) = vardict%get('PAHLarge_fraction')
+            hvar%ids(13) = vardict%get('CSmall_fraction')
+            hvar%ids(14) = vardict%get('CLarge_fraction')
+            hvar%ids(15) = vardict%get('SilSmall_fraction')
+            hvar%ids(16) = vardict%get('SilLarge_fraction')
+            hvar%ids(17) = vardict%get('xHI')
+            hvar%myfunction => HI_density
+        case ('HII_density')
+            ! Density of the ionised hydrogen gas
+            hvar%type = 'derived'
+            hvar%name = 'HII_density'
+            allocate(hvar%ids(17))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('iron_fraction')
+            hvar%ids(3) = vardict%get('oxygen_fraction')
+            hvar%ids(4) = vardict%get('carbon_fraction')
+            hvar%ids(5) = vardict%get('silicon_fraction')
+            hvar%ids(6) = vardict%get('magnesium_fraction')
+            hvar%ids(7) = vardict%get('sulfur_fraction')
+            hvar%ids(8) = vardict%get('nitrogen_fraction')
+            hvar%ids(9) = vardict%get('calcium_fraction')
+            hvar%ids(10) = vardict%get('neon_fraction')
+            hvar%ids(11) = vardict%get('PAHSmall_fraction')
+            hvar%ids(12) = vardict%get('PAHLarge_fraction')
+            hvar%ids(13) = vardict%get('CSmall_fraction')
+            hvar%ids(14) = vardict%get('CLarge_fraction')
+            hvar%ids(15) = vardict%get('SilSmall_fraction')
+            hvar%ids(16) = vardict%get('SilLarge_fraction')
+            hvar%ids(17) = vardict%get('xHII')
+            hvar%myfunction => HII_density
         case ('H2_density')
             ! Density of the molecular hydrogen gas
             hvar%type = 'derived'
@@ -5322,6 +5679,24 @@ module hydro_commons
             hvar%ids(6) = vardict%get('CLarge_fraction')
             hvar%ids(7) = vardict%get('carbon_02')
             hvar%myfunction => xCII
+        case ('CI_density')
+            ! Density of the neutral carbon
+            hvar%type = 'derived'
+            hvar%name = 'CI_density'
+            allocate(hvar%ids(3))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('carbon_fraction')
+            hvar%ids(3) = vardict%get('carbon_01')
+            hvar%myfunction => CI_density
+        case ('CII_density')
+            ! Density of the ionised carbon
+            hvar%type = 'derived'
+            hvar%name = 'CII_density'
+            allocate(hvar%ids(3))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('carbon_fraction')
+            hvar%ids(3) = vardict%get('carbon_02')
+            hvar%myfunction => CII_density
         case ('PAHSmall_density')
             ! Density of the small PAHs
             hvar%type = 'derived'
@@ -5616,6 +5991,72 @@ module hydro_commons
             hvar%type = 'derived'
             hvar%name = 'G0'
             hvar%myfunction => G0
+        case ('charging_gamma')
+            ! Charging gamma parameter G0 sqrt(T)/n_e
+            hvar%type = 'derived'
+            hvar%name = 'charging_gamma'
+            allocate(hvar%ids(20))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('iron_fraction')
+            hvar%ids(3) = vardict%get('oxygen_fraction')
+            hvar%ids(4) = vardict%get('carbon_fraction')
+            hvar%ids(5) = vardict%get('silicon_fraction')
+            hvar%ids(6) = vardict%get('magnesium_fraction')
+            hvar%ids(7) = vardict%get('sulfur_fraction')
+            hvar%ids(8) = vardict%get('nitrogen_fraction')
+            hvar%ids(9) = vardict%get('calcium_fraction')
+            hvar%ids(10) = vardict%get('neon_fraction')
+            hvar%ids(11) = vardict%get('PAHSmall_fraction')
+            hvar%ids(12) = vardict%get('PAHLarge_fraction')
+            hvar%ids(13) = vardict%get('CSmall_fraction')
+            hvar%ids(14) = vardict%get('CLarge_fraction')
+            hvar%ids(15) = vardict%get('SilSmall_fraction')
+            hvar%ids(16) = vardict%get('SilLarge_fraction')
+            hvar%ids(17) = vardict%get('xHII')
+            hvar%ids(18) = vardict%get('xHeII')
+            hvar%ids(19) = vardict%get('xHeIII')
+            hvar%ids(20) = vardict%get('thermal_pressure')
+            hvar%myfunction => charging_gamma
+        case ('heatingfrac_peh')
+            ! Fraction of total heating contributed by PEH
+            hvar%type = 'derived'
+            hvar%name = 'heatingfrac_peh'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('heating_rate')
+            hvar%ids(2) = vardict%get('heating_pe')
+            hvar%myfunction => heatingfrac_peh
+        case ('heatingfrac_h2')
+            ! Fraction of total heating contributed by H2
+            hvar%type = 'derived'
+            hvar%name = 'heatingfrac_h2'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('heating_rate')
+            hvar%ids(2) = vardict%get('heating_h2')
+            hvar%myfunction => heatingfrac_h2
+        case ('coolingfrac_dustrecomb')
+            ! Fraction of total cooling contributed by dust recombination
+            hvar%type = 'derived'
+            hvar%name = 'coolingfrac_dustrecomb'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('cooling_rate')
+            hvar%ids(2) = vardict%get('cooling_dust_rec')
+            hvar%myfunction => coolingfrac_dustrecomb
+        case ('coolingfrac_dustcoll')
+            ! Fraction of total cooling contributed by dust collisional cooling
+            hvar%type = 'derived'
+            hvar%name = 'coolingfrac_dustcoll'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('cooling_rate')
+            hvar%ids(2) = vardict%get('cooling_dust')
+            hvar%myfunction => coolingfrac_dustcoll
+        case ('coolingfrac_CO')
+            ! Fraction of total cooling contributed by CO cooling
+            hvar%type = 'derived'
+            hvar%name = 'coolingfrac_CO'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('cooling_rate')
+            hvar%ids(2) = vardict%get('cooling_CO')
+            hvar%myfunction => coolingfrac_CO
         case default
             ok = .false.
         end select
@@ -5647,6 +6088,18 @@ module hydro_commons
             else if (trim(reqvars(i)) == 'cumulative') then
                 ! Cumulative variable
                 cleaned_vars(i)%type = 'cumulative'
+                cleaned_vars(i)%name = reqvars(i)
+                allocate(cleaned_vars(i)%ids(1))
+                cleaned_vars(i)%ids(1) = 0
+            else if (trim(reqvars(i)) == 'column') then
+                ! Column density weighting (special weight type)
+                cleaned_vars(i)%type = 'column'
+                cleaned_vars(i)%name = reqvars(i)
+                allocate(cleaned_vars(i)%ids(1))
+                cleaned_vars(i)%ids(1) = 0
+            else if (trim(reqvars(i)) == 'counts') then
+                ! Counts weighting (special weight type)
+                cleaned_vars(i)%type = 'counts'
                 cleaned_vars(i)%name = reqvars(i)
                 allocate(cleaned_vars(i)%ids(1))
                 cleaned_vars(i)%ids(1) = 0
@@ -5696,6 +6149,16 @@ module hydro_commons
         else if (trim(hvar%name) == 'cumulative') then
             ! Cumulative variable
             hvar%type = 'cumulative'
+            allocate(hvar%ids(1))
+            hvar%ids(1) = 0
+        else if (trim(hvar%name) == 'column') then
+            ! Column density weighting (special weight type)
+            hvar%type = 'column'
+            allocate(hvar%ids(1))
+            hvar%ids(1) = 0
+        else if (trim(hvar%name) == 'counts') then
+            ! Counts weighting (special weight type)
+            hvar%type = 'counts'
             allocate(hvar%ids(1))
             hvar%ids(1) = 0
         else

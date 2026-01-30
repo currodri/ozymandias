@@ -68,7 +68,9 @@ def get_part_vartype(varname):
     
 def check_need_neighbours(varname,vartype):
     if vartype == 'gas':
-        if varname in geometrical_variables:
+        if varname in ['cumulative', 'counts', 'column']:
+            need = False
+        elif varname in geometrical_variables:
             need = geometrical_variables[varname]['neighbour']
         elif varname in raw_gas_variables:
             need = raw_gas_variables[varname]['neighbour']
@@ -79,7 +81,9 @@ def check_need_neighbours(varname,vartype):
         else:
             raise KeyError('Gas variable not found, check: '+str(varname))
     elif vartype == 'part':
-        if varname in geometrical_variables:
+        if varname in ['cumulative', 'counts', 'column']:
+            need = False
+        elif varname in geometrical_variables:
             need = geometrical_variables[varname]['neighbour']
         elif varname in raw_part_variables:
             need = raw_part_variables[varname]['neighbour']
@@ -93,7 +97,9 @@ def check_need_neighbours(varname,vartype):
 
 def check_need_gravity(varname,vartype):
     if vartype == 'gas':
-        if varname in geometrical_variables:
+        if varname in ['cumulative', 'counts', 'column']:
+            need = False
+        elif varname in geometrical_variables:
             need = geometrical_variables[varname].get('gravity', False)
         elif varname in raw_gas_variables:
             need = raw_gas_variables[varname].get('gravity', False)
@@ -104,7 +110,9 @@ def check_need_gravity(varname,vartype):
         else:
             raise KeyError('Gas variable not found, check: '+str(varname))
     elif vartype == 'part':
-        if varname in geometrical_variables:
+        if varname in ['cumulative', 'counts', 'column']:
+            need = False
+        elif varname in geometrical_variables:
             need = geometrical_variables[varname].get('gravity', False)
         elif varname in raw_part_variables:
             need = raw_part_variables[varname].get('gravity', False)
@@ -118,7 +126,9 @@ def check_need_gravity(varname,vartype):
 
 def check_need_rt(varname,vartype):
     if vartype == 'gas':
-        if varname in geometrical_variables:
+        if varname in ['cumulative', 'counts', 'column']:
+            need = False
+        elif varname in geometrical_variables:
             need = geometrical_variables[varname].get('rt', False)
         elif varname in raw_gas_variables:
             need = raw_gas_variables[varname].get('rt', False)
@@ -129,7 +139,9 @@ def check_need_rt(varname,vartype):
         else:
             raise KeyError('Gas variable not found, check: '+str(varname))
     elif vartype == 'part':
-        if varname in geometrical_variables:
+        if varname in ['cumulative', 'counts', 'column']:
+            need = False
+        elif varname in geometrical_variables:
             need = geometrical_variables[varname].get('rt', False)
         elif varname in raw_part_variables:
             need = raw_part_variables[varname].get('rt', False)
@@ -232,13 +244,17 @@ def most_contrast_rgba(rgba):
 
 
 def invert_tick_colours(ax,var,vartype,type_scale,vmin=None,vmax=None,
-                        linthresh=None,linscale=None,orientation='horizontal'):
+                        linthresh=None,linscale=None,orientation='horizontal',
+                        logscale=True,colormap=None):
     from matplotlib.colors import LogNorm,SymLogNorm
     from matplotlib import colormaps
 
     fig = plt.gcf()
     plotting_def = get_plotting_def(var,vartype)
-    cmap = colormaps.get_cmap(plotting_def['cmap'])
+    if colormap == None:
+        cmap = colormaps.get_cmap(plotting_def['cmap'])
+    else:
+        cmap = colormaps.get_cmap(colormap)
     if vmin == None:
         vmin = plotting_def['vmin'+type_scale]
     if vmax == None:
@@ -253,23 +269,30 @@ def invert_tick_colours(ax,var,vartype,type_scale,vmin=None,vmax=None,
     else:
         ticks_pos = ax.get_yticks()
         ticks_labels = ax.get_yticklabels()
-    if not plotting_def['symlog']:
-        norm = LogNorm(vmin=vmin,
-                         vmax=vmax,
-                         clip=True)
-        for tp,tl in zip(ticks_pos,ticks_labels):
-            rgba = cmap(norm(10**tp))
-            new_rgba = most_contrast_rgba(rgba)
-            tl.set_color(new_rgba)
-        fig.canvas.draw()
+    if logscale:
+        if not plotting_def['symlog']:
+            norm = LogNorm(vmin=vmin,
+                            vmax=vmax,
+                            clip=True)
+            for tp,tl in zip(ticks_pos,ticks_labels):
+                rgba = cmap(norm(10**tp))
+                new_rgba = most_contrast_rgba(rgba)
+                tl.set_color(new_rgba)
+            fig.canvas.draw()
+        else:
+            norm = SymLogNorm(vmin=vmin,
+                            vmax=vmax,
+                            linthresh=linthresh,
+                            linscale=linscale,
+                            clip=True)
+            for tp,tl in zip(ticks_pos,ticks_labels):
+                rgba = cmap(norm(tp))
+                new_rgba = most_contrast_rgba(rgba)
+                tl.set_color(new_rgba)
+            fig.canvas.draw()
     else:
-        norm = SymLogNorm(vmin=vmin,
-                         vmax=vmax,
-                         linthresh=linthresh,
-                         linscale=linscale,
-                         clip=True)
         for tp,tl in zip(ticks_pos,ticks_labels):
-            rgba = cmap(norm(tp))
+            rgba = cmap((tp - vmin)/(vmax - vmin))
             new_rgba = most_contrast_rgba(rgba)
             tl.set_color(new_rgba)
         fig.canvas.draw()
@@ -1802,7 +1825,7 @@ def pdf_handler_to_stats(obj,vartype,pdf_obj,ivar,ifilt,verbose=False):
     code_units = get_code_units(clean_name,vartype)
     for i in range(0, nwvar):
         wvarname = str(pdf_obj.wvarnames.T.view('S128')[i][0].decode()).rstrip()
-        if wvarname != 'cumulative' and wvarname != 'counts':
+        if wvarname != 'cumulative' and wvarname != 'counts' and wvarname != 'column':
             PDF = np.nan_to_num(pdf_obj.heights[ivar,ifilt,i,:],nan=0.0)
             x = 0.5*(pdf_obj.bins[1:,ivar]+pdf_obj.bins[:-1,ivar])
             if all(PDF==0.0):
@@ -1883,7 +1906,7 @@ def symlog_bins(min_val, max_val, n_bins, zero_eps=0.1, padding=0):
     result = neg_bin_edges + zero_bin_edges + pos_bin_edges
     return np.asarray(result),neg_n_bin_edges
 
-def get_code_bins(obj,var_type,var_name,nbins=100,logscale=True,
+def get_code_bins(obj,var_type,var_name,nbins=100,logscale='log_even',
                   minval=None,maxval=None,linthresh=None):
     """This function provides bins for RAMSES variables in 
         code units, taking into account issues with variables
@@ -1926,7 +1949,7 @@ def get_code_bins(obj,var_type,var_name,nbins=100,logscale=True,
     min_val = min_val.to(code_units).d
     max_val = max_val.to(code_units).d
     zero_index = 0
-    if logscale:
+    if logscale=='log_even' or logscale=='symlog':
         if not plotting_def['symlog']:
             bin_edges = np.linspace(np.log10(min_val),np.log10(max_val),nbins+1)
             scaletype = 'log_even'

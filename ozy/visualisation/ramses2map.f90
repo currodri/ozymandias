@@ -261,6 +261,7 @@ module maps
         integer, dimension(1:2) :: n_sample
         character(128),dimension(:),allocatable :: varnames
         character(128),dimension(:),allocatable :: weightvars
+        logical,dimension(:),allocatable :: is_column_weight
         real(dbl),dimension(:,:,:,:,:),allocatable :: map
         real(dbl),dimension(:,:,:,:),allocatable :: weights
         type(hydro_var),dimension(:),allocatable :: vars
@@ -274,6 +275,7 @@ module maps
         integer, dimension(1:2) :: n_sample
         character(128),dimension(:),allocatable :: varnames
         character(128),dimension(:),allocatable :: weightvars
+        logical,dimension(:),allocatable :: is_column_weight
         real(dbl),dimension(:,:,:,:,:),allocatable :: map
         real(dbl),dimension(:,:,:,:),allocatable :: weights
         type(part_var),dimension(:),allocatable :: vars
@@ -298,6 +300,7 @@ module maps
 
         if (.not.allocated(proj%varnames)) allocate(proj%varnames(1:proj%nvars))
         if (.not.allocated(proj%weightvars)) allocate(proj%weightvars(1:proj%nwvars))
+        if (.not.allocated(proj%is_column_weight)) allocate(proj%is_column_weight(1:proj%nwvars))
         if (.not.allocated(proj%vars)) allocate(proj%vars(1:proj%nvars))
         if (.not.allocated(proj%wvars)) allocate(proj%wvars(1:proj%nwvars))
         if (.not.allocated(proj%filters)) allocate(proj%filters(1:proj%nfilter))
@@ -309,6 +312,7 @@ module maps
 
         if (.not.allocated(proj%varnames)) allocate(proj%varnames(1:proj%nvars))
         if (.not.allocated(proj%weightvars)) allocate(proj%weightvars(1:proj%nwvars))
+        if (.not.allocated(proj%is_column_weight)) allocate(proj%is_column_weight(1:proj%nwvars))
         if (.not.allocated(proj%vars)) allocate(proj%vars(1:proj%nvars))
         if (.not.allocated(proj%wvars)) allocate(proj%wvars(1:proj%nwvars))
         if (.not.allocated(proj%filters)) allocate(proj%filters(1:proj%nfilter))
@@ -475,11 +479,13 @@ module maps
             end if
         end do
 
-        ! Finally, normalise using the saved weights
+        ! Finally, normalise using the saved weights (skip for column density weights)
         filtloopmap: do ifilt=1,proj%nfilter
             projvarloopmap: do ivar=1,proj%nvars
                 weightvarloop: do iweight=1,proj%nwvars
-                    proj%map(ifilt,ivar,iweight,:,:) = proj%map(ifilt,ivar,iweight,:,:)/proj%weights(ifilt,iweight,:,:)
+                    if (.not.proj%is_column_weight(iweight)) then
+                        proj%map(ifilt,ivar,iweight,:,:) = proj%map(ifilt,ivar,iweight,:,:)/proj%weights(ifilt,iweight,:,:)
+                    end if
                 end do weightvarloop
             end do projvarloopmap
         end do filtloopmap
@@ -543,11 +549,13 @@ module maps
             end do
         end do
 
-        ! Finally, normalise using the saved weights
+        ! Finally, normalise using the saved weights (skip for column density weights)
         filtloopmap: do ifilt=1,proj%nfilter
             projvarloopmap: do ivar=1,proj%nvars
                 weightvarloop: do iweight=1,proj%nwvars
-                    proj%map(ifilt,ivar,iweight,:,:)=proj%map(ifilt,ivar,iweight,:,:)/proj%weights(ifilt,iweight,:,:)
+                    if (.not.proj%is_column_weight(iweight)) then
+                        proj%map(ifilt,ivar,iweight,:,:)=proj%map(ifilt,ivar,iweight,:,:)/proj%weights(ifilt,iweight,:,:)
+                    end if
                 end do weightvarloop
             end do projvarloopmap
         end do filtloopmap
@@ -611,12 +619,17 @@ module maps
                 iy = int(dble(j)/dble(proj%n_sample(2))*dble(jmax-jmin+1))+jmin
                 iy = min(iy,jmax)
                 filtloopmap: do ifilt=1,proj%nfilter
-                    weightvarloopmap: do iweight=1,proj%nwvars
-                        proj%weights(ifilt,iweight,i,j)=grid(cam%lmax)%map(ifilt,iweight,ix,iy)
-                        projvarloopmap: do ivar=1,proj%nvars
-                            proj%map(ifilt,ivar,iweight,i,j)=grid(cam%lmax)%cube(ifilt,ivar,iweight,ix,iy)/grid(cam%lmax)%map(ifilt,iweight,ix,iy)
-                        end do projvarloopmap
-                    end do weightvarloopmap
+                    projvarloopmap: do ivar=1,proj%nvars
+                        weightvarloopmap: do iweight=1,proj%nwvars
+                            proj%weights(ifilt,iweight,i,j)=grid(cam%lmax)%map(ifilt,iweight,ix,iy)
+                            ! Skip normalization for column density weights
+                            if (.not.proj%is_column_weight(iweight)) then
+                                proj%map(ifilt,ivar,iweight,i,j)=grid(cam%lmax)%cube(ifilt,ivar,iweight,ix,iy)/grid(cam%lmax)%map(ifilt,iweight,ix,iy)
+                            else
+                                proj%map(ifilt,ivar,iweight,i,j)=grid(cam%lmax)%cube(ifilt,ivar,iweight,ix,iy)
+                            end if
+                        end do weightvarloopmap
+                    end do projvarloopmap
                 end do filtloopmap
             end do
         end do 
@@ -697,7 +710,7 @@ module maps
                     write(*,*) 'Variable ',ii,' : ',trim(proj%varnames(ii)),' at index ',vardict%get(proj%varnames(ii))
                 end do
                 do ii = 1, proj%nwvars
-                    write(*,*) 'Weight variable ',ii,' : ',trim(proj%weightvars(ii)),' at index ',vardict%get(proj%weightvars(ii))
+                    write(*,*) 'Weight variable ',ii,' : ',trim(proj%weightvars(ii))
                 end do
             end if
 
@@ -727,6 +740,15 @@ module maps
             ivz = varIDs%get('velocity_z')
         end if
 
+        ! Identify which weight variables are column densities
+        if (.not.allocated(proj%is_column_weight)) allocate(proj%is_column_weight(proj%nwvars))
+        proj%is_column_weight = .false.
+        do ii = 1, proj%nwvars
+            if (trim(proj%weightvars(ii)) == 'column') then
+                proj%is_column_weight(ii) = .true.
+            end if
+        end do
+
         if (cam%nsubs>0.and.verbose)write(*,*)'Excluding substructure: ',cam%nsubs
 
         ! Perform projections
@@ -748,7 +770,6 @@ module maps
             integer :: igroup,igrp
             integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
             integer :: imin,imax,jmin,jmax
-            integer :: nvarh
             integer :: roterr
             character(5) :: nchar,ncharcpu
             character(128) :: nomfich
@@ -866,7 +887,7 @@ module maps
                 nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
                 open(unit=11,file=nomfich,status='old',form='unformatted')
                 read(11)
-                read(11)nvarh
+                read(11)sim%nvar
                 read(11)
                 read(11)
                 read(11)
@@ -913,7 +934,7 @@ module maps
                     if(ngrida>0)then
                         allocate(xg(1:ngrida,1:amr%ndim))
                         allocate(son(1:ngrida,1:amr%twotondim))
-                        allocate(var(1:ngrida,1:amr%twotondim,1:nvarh))
+                        allocate(var(1:ngrida,1:amr%twotondim,1:sim%nvar))
                         allocate(x  (1:ngrida,1:amr%ndim))
                         allocate(ref(1:ngrida))
                         if(read_gravity) allocate(grav_var(1:ngrida,1:amr%twotondim,1:4))
@@ -967,7 +988,7 @@ module maps
                         if(ngridfile(j,ilevel)>0)then
                             ! Read hydro variables
                             tndimloop: do ind=1,amr%twotondim
-                                varloop: do ivar=1,nvarh
+                                varloop: do ivar=1,sim%nvar
                                     if (j.eq.icpu) then
                                         read(11)var(:,ind,ivar)
                                     else
@@ -1078,7 +1099,7 @@ module maps
                                             gtemp = grav_var(i,ind,2:4)
                                             call rotate_vector(gtemp,trans_matrix)
                                         endif
-                                        allocate(tempvar(0:amr%twondim,nvarh))
+                                        allocate(tempvar(0:amr%twondim,sim%nvar))
                                         allocate(tempson(0:amr%twondim))
                                         if (read_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
                                         if (proj%use_rt) allocate(temprt_var(0:amr%twondim,1:rtinfo%nRTvar))
@@ -1119,6 +1140,10 @@ module maps
                                                 weightvarloop: do iweight=1,proj%nwvars
                                                     if (trim(proj%weightvars(iweight)) == 'counts') then
                                                         weight = 1D0
+                                                    else if (trim(proj%weightvars(iweight)) == 'column') then
+                                                        ! For column densities, weight is just the cell width dx (in code units)
+                                                        ! This will accumulate surface density directly without need for normalization
+                                                        weight = dx
                                                     else
                                                         !MAX(rho*dx*weight/(bbox%zmax-bbox%zmin),0D0)
                                                         if (read_gravity.and.proj%use_rt) then
@@ -1135,7 +1160,13 @@ module maps
                                                                 & ,tempvar,tempson,trans_matrix)
                                                         end if
                                                     end if
-                                                    weight = MAX(weight*geo_weight*dx/(bbox%zmax-bbox%zmin),0D0)
+                                                    ! For column weights, the weight is already the cell width (no additional scaling)
+                                                    ! For other weights, scale by geometry and depth
+                                                    if (proj%is_column_weight(iweight)) then
+                                                        weight = MAX(weight*geo_weight,0D0)
+                                                    else
+                                                        weight = MAX(weight*geo_weight*dx/(bbox%zmax-bbox%zmin),0D0)
+                                                    end if
                                                     grid(ilevel)%map(ifilt,iweight,ix,iy)=grid(ilevel)%map(ifilt,iweight,ix,iy)+weight
                                                     projvarloop: do ivar=1,proj%nvars
                                                         if (read_gravity.and.proj%use_rt) then
@@ -1213,7 +1244,6 @@ module maps
             integer :: iidim,ivar,iskip,inbor,ison,isub,iweight
             integer :: ix,iy,iz,ngrida,cumngrida,nx_full,ny_full,nz_full
             integer :: imin,imax,jmin,jmax
-            integer :: nvarh
             integer :: roterr
             character(5) :: nchar,ncharcpu
             character(128) :: nomfich
@@ -1349,12 +1379,12 @@ module maps
                 nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
                 open(unit=11,file=nomfich,status='old',form='unformatted')
                 read(11)
-                read(11)nvarh
+                read(11)sim%nvar
                 read(11)
                 read(11)
                 read(11)
                 read(11)
-                allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:nvarh))
+                allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:sim%nvar))
                 allocate(cellpos(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:3))
                 cellpos = 0d0
                 var = 0d0
@@ -1454,7 +1484,7 @@ module maps
                             ! Read hydro variables
                             tndimloop: do ind=1,amr%twotondim
                                 iskip = amr%ncoarse+(ind-1)*amr%ngridmax
-                                varloop: do ivar=1,nvarh
+                                varloop: do ivar=1,sim%nvar
                                     read(11)xxg
                                     var(grid(ilevel)%ind_grid(:)+iskip,ivar) = xxg(:)
                                 end do varloop
@@ -1602,7 +1632,7 @@ module maps
                                         ind_cell2(1) = ind_cell(i)
                                         call getnbor(son,nbor,ind_cell2,ind_nbor,1)
                                         deallocate(ind_cell2)
-                                        allocate(tempvar(0:amr%twondim,nvarh))
+                                        allocate(tempvar(0:amr%twondim,sim%nvar))
                                         allocate(tempson(0:amr%twondim))
                                         if (read_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
                                         if (proj%use_rt) then
@@ -1653,6 +1683,10 @@ module maps
                                                 weightvarloop: do iweight=1,proj%nwvars
                                                     if (trim(proj%weightvars(iweight)) == 'counts') then
                                                         weight = 1D0
+                                                    else if (trim(proj%weightvars(iweight)) == 'column') then
+                                                        ! For column densities, weight is just the cell width dx (in code units)
+                                                        ! This will accumulate surface density directly without need for normalization
+                                                        weight = dx
                                                     else
                                                         if (read_gravity.and.proj%use_rt) then
                                                             weight = proj%wvars(iweight)%myfunction(amr,sim,rtinfo,proj%wvars(iweight),bbox,dx*sim%boxlen,xtemp&
@@ -1668,7 +1702,13 @@ module maps
                                                                 & ,tempvar,tempson,trans_matrix)
                                                         end if
                                                     end if
-                                                    weight = MAX(weight*geo_weight*dx/(bbox%zmax-bbox%zmin),0D0)
+                                                    ! For column weights, the weight is already the cell width (no additional scaling)
+                                                    ! For other weights, scale by geometry and depth
+                                                    if (proj%is_column_weight(iweight)) then
+                                                        weight = MAX(weight*geo_weight,0D0)
+                                                    else
+                                                        weight = MAX(weight*geo_weight*dx/(bbox%zmax-bbox%zmin),0D0)
+                                                    end if
                                                     grid(ilevel)%map(ifilt,iweight,ix,iy)=grid(ilevel)%map(ifilt,iweight,ix,iy)+weight
                                                     projvarloop: do ivar=1,proj%nvars
                                                         if (read_gravity.and.proj%use_rt) then
@@ -2266,7 +2306,6 @@ module maps
             integer :: igroup,igrp
             integer :: ix,iy,iz,ngrida,ns,cumngrida
             integer :: imin,imax
-            integer :: nvarh
             integer :: roterr
             character(5) :: nchar,ncharcpu
             character(128) :: nomfich
@@ -2373,7 +2412,7 @@ module maps
                 nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
                 open(unit=11,file=nomfich,status='old',form='unformatted')
                 read(11)
-                read(11)nvarh
+                read(11)sim%nvar
                 read(11)
                 read(11)
                 read(11)
@@ -2409,7 +2448,7 @@ module maps
                     if(ngrida>0)then
                         allocate(xg(1:ngrida,1:amr%ndim))
                         allocate(son(1:ngrida,1:amr%twotondim))
-                        allocate(var(1:ngrida,1:amr%twotondim,1:nvarh))
+                        allocate(var(1:ngrida,1:amr%twotondim,1:sim%nvar))
                         if (proj%use_rt) allocate(rt_var(1:ngrida,1:amr%twotondim,1:rtinfo%nRTvar))
                         allocate(x  (1:ngrida,1:amr%ndim))
                         allocate(ref(1:ngrida))
@@ -2463,7 +2502,7 @@ module maps
                         if(ngridfile(j,ilevel)>0)then
                             ! Read hydro variables
                             tndimloop: do ind=1,amr%twotondim
-                                varloop: do ivar=1,nvarh
+                                varloop: do ivar=1,sim%nvar
                                     if (j.eq.icpu) then
                                         read(11)var(:,ind,ivar)
                                     else
@@ -2561,7 +2600,7 @@ module maps
                                         var(i,ind,ivx:ivz) = vtemp
 
                                         ! Get neighbours
-                                        allocate(tempvar(0:amr%twondim,nvarh))
+                                        allocate(tempvar(0:amr%twondim,sim%nvar))
                                         allocate(tempson(0:amr%twondim))
                                         ! Just add central cell as we do not want neighbours
                                         tempvar(0,:) = var(i,ind,:)

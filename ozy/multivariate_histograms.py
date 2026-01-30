@@ -174,6 +174,7 @@ def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,max
     try:
         minval[0] = minval[0].to(get_code_units(xvar,'gas'))
         maxval[0] = maxval[0].to(get_code_units(xvar,'gas'))
+        use_rt = check_need_rt(xvar,'gas') or use_rt
     except:
         raise ValueError(f"It seems the dimensions of your bins min ({minval[0].units}) and max \
                           ({maxval[0].units}) values do not agree with the dimensions of the \
@@ -182,6 +183,7 @@ def compute_histogram_hydro(group,ozy_file,xvar,yvar,zvars,weightvars,minval,max
     try:
         minval[1] = minval[1].to(get_code_units(yvar,'gas'))
         maxval[1] = maxval[1].to(get_code_units(yvar,'gas'))
+        use_rt = check_need_rt(yvar,'gas') or use_rt
     except:
         raise ValueError(f"It seems the dimensions of your bins min ({minval[1].units}) and max \
                          ({maxval[1].units}) values do not agree with the dimensions of the \

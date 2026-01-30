@@ -62,7 +62,6 @@ module export_amr
         integer :: ix,iy,iz,ixp1,iyp1,izp1,cumngrida
         integer :: ngrida,nx_full,ny_full,nz_full,ndom
         integer :: imin,imax,jmin,jmax,kmin,kmax
-        integer :: nvarh
         integer :: roterr
         integer :: ivx,ivy,ivz
         character(5) :: nchar,ncharcpu
@@ -209,13 +208,13 @@ module export_amr
             nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
             open(unit=11,file=nomfich,status='old',form='unformatted')
             read(11)
-            read(11)nvarh
+            read(11)sim%nvar
             read(11)
             read(11)
             read(11)
             read(11)
 
-            allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:nvarh))
+            allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:sim%nvar))
             ! Loop over levels
             levelloop: do ilevel=1,amr%lmax
                 ! Geometry
@@ -299,7 +298,7 @@ module export_amr
                         ! Read hydro variables
                         tndimloop: do ind=1,amr%twotondim
                             iskip = amr%ncoarse+(ind-1)*amr%ngridmax
-                            varloop: do ivar=1,nvarh
+                            varloop: do ivar=1,sim%nvar
                                 if (j.eq.icpu) then
                                     read(11)var(ind_grid+iskip,ivar)
                                 else
@@ -352,7 +351,7 @@ module export_amr
                             ind_cell2(1) = ind_cell(i)
                             call getnbor(son,nbor,ind_cell2,ind_nbor,1)
                             deallocate(ind_cell2)
-                            allocate(tempvar(0:amr%twondim,nvarh))
+                            allocate(tempvar(0:amr%twondim,sim%nvar))
                             allocate(tempson(0:amr%twondim))
                             do inbor=0,amr%twondim
                                 tempvar(inbor,:) = var(ind_nbor(inbor),:)
@@ -500,7 +499,6 @@ module export_amr
         integer :: ipos,icpu,ilevel,ind,idim,ivar,ifilt,iskip,inbor
         integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full,cumngrida
         integer :: tot_pos,tot_ref,total_ncell,cpu_ncell
-        integer :: nvarh
         integer :: roterr
         integer :: ivx,ivy,ivz
         character(5) :: nchar,ncharcpu
@@ -656,12 +654,12 @@ module export_amr
             nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
             open(unit=11,file=nomfich,status='old',form='unformatted')
             read(11)
-            read(11)nvarh
+            read(11)sim%nvar
             read(11)
             read(11)
             read(11)
             read(11)
-            allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:nvarh))
+            allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:sim%nvar))
             
             if (read_gravity) then
                 ! Open GRAV file and skip header
@@ -759,7 +757,7 @@ module export_amr
                         ! Read hydro variables
                         tndimloop: do ind=1,amr%twotondim
                             iskip = amr%ncoarse+(ind-1)*amr%ngridmax
-                            varloop: do ivar=1,nvarh
+                            varloop: do ivar=1,sim%nvar
                                 if (j.eq.icpu) then
                                     read(11)var(ind_grid+iskip,ivar)
                                 else
@@ -840,7 +838,7 @@ module export_amr
                             allocate(ind_nbor(0:amr%twondim))
                             call getnbor(son,nbor,ind_cell2,ind_nbor,1)
                             deallocate(ind_cell2)
-                            allocate(tempvar(0:amr%twondim,nvarh))
+                            allocate(tempvar(0:amr%twondim,sim%nvar))
                             allocate(tempson(0:amr%twondim))
                             if (read_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
                             do inbor=0,amr%twondim

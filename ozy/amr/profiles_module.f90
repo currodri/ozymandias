@@ -35,10 +35,12 @@ module amr_profiles
         integer :: profdim,nfilter=1,zero_index
         type(hydro_var) :: xvar
         integer :: nyvar
+        character(128) :: xvarname
         character(128),dimension(:),allocatable :: yvarnames
         integer :: nbins
         integer :: nwvar
         integer :: nsubs=0
+        integer :: ncells_used=0
         character(128),dimension(:),allocatable :: wvarnames
         real(dbl) :: Dcr = 3D28
         real(dbl) :: linthresh
@@ -213,6 +215,34 @@ module amr_profiles
                     end do wvarloop1
                 else
                     prof%ydata(ibin)%nout(i,ifilt) = prof%ydata(ibin)%nout(i,ifilt) + 1
+                    wvarloop1b: do j=1,prof%ydata(ibin)%nwvars
+                        ! Get weights
+                        ytemp2 = ytemp
+                        if (trim(prof%ydata(ibin)%wvarnames(j))=='counts') then
+                            wtemp =  1D0
+                            ytemp2 = 1D0
+                        else if (trim(prof%ydata(ibin)%wvarnames(j))=='cumulative') then
+                            wtemp = 1D0
+                        else
+                            if (present(grav_var) .and. present(rt_var)) then
+                                wtemp = prof%wvars(j)%myfunction(amr,sim,rtinfo,prof%wvars(j),reg,cellsize,x,&
+                                                        cellvars,cellsons,trans_matrix,grav_var,rt_var)
+                            else if (present(grav_var)) then
+                                wtemp = prof%wvars(j)%myfunction(amr,sim,rtinfo,prof%wvars(j),reg,cellsize,x,&
+                                                        cellvars,cellsons,trans_matrix,grav_var)
+                            else if (present(rt_var)) then
+                                wtemp = prof%wvars(j)%myfunction(amr,sim,rtinfo,prof%wvars(j),reg,cellsize,x,&
+                                                        cellvars,cellsons,trans_matrix,rt_var=rt_var)
+                            else
+                                wtemp = prof%wvars(j)%myfunction(amr,sim,rtinfo,prof%wvars(j),reg,cellsize,x,&
+                                                        cellvars,cellsons,trans_matrix)
+                            endif
+                        endif
+                        
+                        ! Save to attrs
+                        prof%ydata(ibin)%total(i,ifilt,j,1) = prof%ydata(ibin)%total(i,ifilt,j,1) + ytemp2*wtemp ! Value (weighted or not)
+                        prof%ydata(ibin)%total(i,ifilt,j,2) = prof%ydata(ibin)%total(i,ifilt,j,2) + wtemp       ! Weight
+                    end do wvarloop1b
                 end if
             else
                 ! Get variable
@@ -421,6 +451,7 @@ module amr_profiles
             ! hydro descriptor file (RAMSES)
             call get_var_tools(vardict,prof_data%nyvar,prof_data%yvarnames,prof_data%yvars)
             call get_var_tools(vardict,prof_data%nwvar,prof_data%wvarnames,prof_data%wvars)
+            prof_data%xvar%name = prof_data%xvarname
             call set_hydro_var(vardict,prof_data%xvar)
             
             ! We also do it for the filter variables
@@ -475,7 +506,6 @@ module amr_profiles
             integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
             integer :: tot_pos,tot_ref,tot_insubs,tot_sel
             integer,dimension(:),allocatable :: total_ncell
-            integer :: nvarh
             integer :: roterr
             character(5) :: nchar,ncharcpu
             character(128) :: nomfich
@@ -570,13 +600,13 @@ module amr_profiles
                 nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
                 open(unit=11,file=nomfich,status='old',form='unformatted')
                 read(11)
-                read(11)nvarh
+                read(11)sim%nvar
                 read(11)
                 read(11)
                 read(11)
                 read(11)
 
-                allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:nvarh))
+                allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:sim%nvar))
                 allocate(cellpos(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:3))
                 cellpos = 0d0
                 var = 0d0
@@ -680,7 +710,7 @@ module amr_profiles
                             ! Read hydro variables
                             tndimloop: do ind=1,amr%twotondim
                                 iskip = amr%ncoarse+(ind-1)*amr%ngridmax
-                                varloop: do ivar=1,nvarh
+                                varloop: do ivar=1,sim%nvar
                                     read(11)xxg
                                     do i=1,ngrida
                                         var(grid(ilevel)%ind_grid(i)+iskip,ivar) = xxg(i)
@@ -820,7 +850,7 @@ module amr_profiles
                                     ind_cell2(1) = ind_cell(i)
                                     call getnbor(son,nbor,ind_cell2,ind_nbor,1)
                                     deallocate(ind_cell2)
-                                    allocate(tempvar(0:amr%twondim,nvarh))
+                                    allocate(tempvar(0:amr%twondim,sim%nvar))
                                     allocate(tempson(0:amr%twondim))
                                     if (prof_data%use_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
                                     if (prof_data%use_rt) allocate(temprt_var(0:amr%twondim,1:rtinfo%nRTvar))
@@ -940,7 +970,6 @@ module amr_profiles
             integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
             integer :: tot_pos,tot_ref,tot_insubs,tot_sel
             integer,dimension(:),allocatable :: total_ncell
-            integer :: nvarh
             integer :: roterr
             character(5) :: nchar,ncharcpu
             character(128) :: nomfich
@@ -1031,7 +1060,7 @@ module amr_profiles
                 nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
                 open(unit=11,file=nomfich,status='old',form='unformatted')
                 read(11)
-                read(11)nvarh
+                read(11)sim%nvar
                 read(11)
                 read(11)
                 read(11)
@@ -1080,7 +1109,7 @@ module amr_profiles
                     if(ngrida>0) then
                         allocate(xg (1:ngrida,1:amr%ndim))
                         allocate(son(1:ngrida,1:amr%twotondim))
-                        allocate(var(1:ngrida,1:amr%twotondim,1:nvarh))
+                        allocate(var(1:ngrida,1:amr%twotondim,1:sim%nvar))
                         allocate(x  (1:ngrida,1:amr%ndim))
                         allocate(xorig(1:ngrida,1:amr%ndim))
                         allocate(ref(1:ngrida))
@@ -1137,7 +1166,7 @@ module amr_profiles
                         if(ngridfile(j,ilevel)>0)then
                             ! Read hydro variables
                             tndimloop: do ind=1,amr%twotondim
-                                varloop: do ivar=1,nvarh
+                                varloop: do ivar=1,sim%nvar
                                     if (j.eq.icpu) then
                                         read(11)var(:,ind,ivar)
                                     else
@@ -1240,7 +1269,7 @@ module amr_profiles
                                         gtemp = grav_var(i,ind,2:4)
                                         call rotate_vector(gtemp,trans_matrix)
                                     endif
-                                    allocate(tempvar(0:amr%twondim,nvarh))
+                                    allocate(tempvar(0:amr%twondim,sim%nvar))
                                     allocate(tempson(0:amr%twondim))
                                     if (prof_data%use_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
                                     if (prof_data%use_rt) allocate(temprt_var(0:amr%twondim,1:rtinfo%nRTvar))
@@ -1356,7 +1385,7 @@ module amr_profiles
         type(dictf90),intent(in),optional :: vardict
 
         integer :: ivx,ivy,ivz
-        integer :: ifilt
+        integer :: ifilt,ii
 
         ! Obtain details of the hydro variables stored
         if (.not.present(vardict)) call read_hydrofile_descriptor(repository)
@@ -1386,10 +1415,23 @@ module amr_profiles
             call set_hydro_var(vardict,prof_data%yvar)
             
             ! We also do it for the filter variables
-            if (verbose) write(*,*)'Setting up filter variables'
+            if (verbose.and.prof_data%nfilter>0) write(*,*)'Setting up filter variables'
             do ifilt=1,prof_data%nfilter
                 call get_filter_var_tools(vardict,prof_data%filters(ifilt))
             end do
+
+            if (verbose) then
+                write(*,*) 'Using variable dicionary from user!'
+                write(*,*) 'Number of variables: ',prof_data%nzvar
+                write(*,*) 'Number of weight variables: ',prof_data%nwvar
+                write(*,*) 'Number of filters: ',prof_data%nfilter
+                do ii = 1, prof_data%nzvar
+                    write(*,*) 'Variable ',ii,' : ',trim(prof_data%zvarnames(ii)),' at index ',vardict%get(prof_data%zvarnames(ii))
+                end do
+                do ii = 1, prof_data%nwvar
+                    write(*,*) 'Weight variable ',ii,' : ',trim(prof_data%wvarnames(ii)),' at index ',vardict%get(prof_data%wvarnames(ii))
+                end do
+            end if
 
             ! We always need the indexes of the velocities
             ! to perform rotations of gas velocities
@@ -1417,8 +1459,10 @@ module amr_profiles
 
         ! Choose type if twodprofile
         if (prof_data%use_neigh) then
+            if (verbose) write(*,*)'Using neighbour cells for 2D profile'
             call get_cells_twodprofile_neigh
         else
+            if (verbose) write(*,*)'Using fast method for 2D profile'
             call get_cells_twodprofile_fast
         end if
         
@@ -1441,7 +1485,6 @@ module amr_profiles
             integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
             integer :: tot_pos,tot_ref,tot_insubs,tot_sel
             integer,dimension(:),allocatable :: total_ncell
-            integer :: nvarh
             integer :: roterr
             character(5) :: nchar,ncharcpu
             character(128) :: nomfich
@@ -1532,7 +1575,7 @@ module amr_profiles
                 nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
                 open(unit=11,file=nomfich,status='old',form='unformatted')
                 read(11)
-                read(11)nvarh
+                read(11)sim%nvar
                 read(11)
                 read(11)
                 read(11)
@@ -1581,7 +1624,7 @@ module amr_profiles
                     if(ngrida>0) then
                         allocate(xg (1:ngrida,1:amr%ndim))
                         allocate(son(1:ngrida,1:amr%twotondim))
-                        allocate(var(1:ngrida,1:amr%twotondim,1:nvarh))
+                        allocate(var(1:ngrida,1:amr%twotondim,1:sim%nvar))
                         allocate(x  (1:ngrida,1:amr%ndim))
                         allocate(xorig(1:ngrida,1:amr%ndim))
                         allocate(ref(1:ngrida))
@@ -1638,7 +1681,7 @@ module amr_profiles
                         if(ngridfile(j,ilevel)>0)then
                             ! Read hydro variables
                             tndimloop: do ind=1,amr%twotondim
-                                varloop: do ivar=1,nvarh
+                                varloop: do ivar=1,sim%nvar
                                     if (j.eq.icpu) then
                                         read(11)var(:,ind,ivar)
                                     else
@@ -1741,7 +1784,7 @@ module amr_profiles
                                         gtemp = grav_var(i,ind,2:4)
                                         call rotate_vector(gtemp,trans_matrix)
                                     endif
-                                    allocate(tempvar(0:amr%twondim,nvarh))
+                                    allocate(tempvar(0:amr%twondim,sim%nvar))
                                     allocate(tempson(0:amr%twondim))
                                     if (prof_data%use_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
                                     if (prof_data%use_rt) allocate(temprt_var(0:amr%twondim,1:rtinfo%nRTvar))
@@ -1762,6 +1805,7 @@ module amr_profiles
                                         end do
                                     end if
                                     tot_sel = tot_sel + 1
+
                                     do ifilt=1,prof_data%nfilter
                                         if (prof_data%use_gravity .and. prof_data%use_rt) then
                                             ok_filter = filter_cell(reg,prof_data%filters(ifilt),xtemp,dx,tempvar,tempson,&
@@ -1896,7 +1940,6 @@ module amr_profiles
             integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
             integer :: tot_pos,tot_ref,tot_insubs,tot_sel
             integer,dimension(:),allocatable :: total_ncell
-            integer :: nvarh
             integer :: roterr
             character(5) :: nchar,ncharcpu
             character(128) :: nomfich
@@ -1994,13 +2037,13 @@ module amr_profiles
                 nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
                 open(unit=11,file=nomfich,status='old',form='unformatted')
                 read(11)
-                read(11)nvarh
+                read(11)sim%nvar
                 read(11)
                 read(11)
                 read(11)
                 read(11)
 
-                allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:nvarh))
+                allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:sim%nvar))
                 allocate(cellpos(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:3))
                 cellpos = 0d0
                 var = 0d0
@@ -2099,7 +2142,7 @@ module amr_profiles
                             ! Read hydro variables
                             tndimloop: do ind=1,amr%twotondim
                                 iskip = amr%ncoarse+(ind-1)*amr%ngridmax
-                                varloop: do ivar=1,nvarh
+                                varloop: do ivar=1,sim%nvar
                                     read(11)xxg
                                     var(grid(ilevel)%ind_grid(:)+iskip,ivar) = xxg(:)
                                 end do varloop
@@ -2227,7 +2270,7 @@ module amr_profiles
                                     ind_cell2(1) = ind_cell(i)
                                     call getnbor(son,nbor,ind_cell2,ind_nbor,1)
                                     deallocate(ind_cell2)
-                                    allocate(tempvar(0:amr%twondim,nvarh))
+                                    allocate(tempvar(0:amr%twondim,sim%nvar))
                                     allocate(tempson(0:amr%twondim))
                                     if (prof_data%use_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
                                     if (prof_data%use_rt) allocate(temprt_var(0:amr%twondim,1:rtinfo%nRTvar))

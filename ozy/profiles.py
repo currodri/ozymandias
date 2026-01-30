@@ -1,18 +1,24 @@
-import os
-import sys
-
-import h5py
 import numpy as np
-from unyt import unyt_array,unyt_quantity
-# TODO: Allow for parallel computation of profiles.
+import h5py
+import os
 import ozy
-from ozy.utils import init_region,init_filter,pdf_handler_to_stats
-from ozy.dict_variables import (common_variables, get_code_units,
-                                grid_variables, particle_variables)
-from amr2 import amr_profiles as amrprofmod
-from amr2 import stats_utils
-from amr2 import geometrical_regions as geo
-from part2 import part_profiles as partprofmod
+from unyt import unyt_array,unyt_quantity
+from .utils import init_region,init_filter_hydro,\
+                    get_code_units, get_plotting_def,\
+                    check_need_gravity,check_need_rt,\
+                    check_need_neighbours,pdf_handler_to_stats
+from .variables_settings import geometrical_variables,raw_gas_variables,\
+                                derived_gas_variables,gravity_variables,\
+                                raw_part_variables,derived_part_variables,\
+                                star_variables
+
+from .amr.amr2_pkg import amr_profiles as amrprofmod
+from .amr.amr2_pkg import stats_utils
+from .amr.amr2_pkg import geometrical_regions as geo
+from .amr.amr2_pkg import io_ramses
+from .part.part2_pkg import part_profiles as partprofmod
+from .part.part2_pkg import filtering as filtering_part
+from .amr.amr2_pkg import filtering as filtering_hydro
 
 blacklist = [
     'yvars','weightvars','data','xdata','ydata'
@@ -27,10 +33,10 @@ class Profile(object):
         self.region = None
         self.filter = None
         self.lmax = 0
-        self.yvars = {}
-        self.weightvars = {}
+        self.yvars = []
+        self.weightvars = []
         self.xdata = None
-        self.ydata = {}
+        self.ydata = []
         self.rm_subs = False
     
     def _serialise(self, hdd):
@@ -62,47 +68,74 @@ class Profile(object):
         self.region['axis'] = self.obj.array([reg.axis.x, reg.axis.y, reg.axis.z], 'dimensionless')
         self.region['rmin'] = self.obj.quantity(reg.rmin, 'code_length')
         self.region['rmax'] = self.obj.quantity(reg.rmax, 'code_length')
+        self.region['zmin'] = self.obj.quantity(reg.zmin, 'code_length')
+        self.region['zmax'] = self.obj.quantity(reg.zmax, 'code_length')
     
     def _get_python_filter(self,filt):
-        """Save the Fortran derived type as a dictionary inside the Profile class (only the necessary info)."""
-        self.filter = {}
-        self.filter['name'] = filt.name.decode().split(' ')[0]
-        self.filter['conditions'] = []
-        if self.filter['name'] != 'none':
-            for i in range(0, filt.ncond):
-                if filt.use_var[i] == 1:
-                    cond_var = filt.cond_vars.T.view('S128')[i][0].decode().split(' ')[0]
+        """Save the Fortran derived type as a dictionary inside the PhaseDiagram class (only the necessary info)."""
+        if isinstance(filt,filtering_hydro.filter_hydro):
+            self.filter = dict()
+            self.filter['name'] = filt.name.decode().split(' ')[0]
+            self.filter['conditions'] = []
+            if self.filter['name'] != 'none':
+                for i in range(0, filt.ncond):
+                    cond_var = filt.cond_vars_name.T.view('S128')[i][0].decode().split(' ')[0]
                     cond_op = filt.cond_ops.T.view('S2')[i][0].decode().split(' ')[0]
-                    cond_vars_comp = filt.cond_vars_comp.T.view('S128')[i][0].decode().split(' ')[0]
-                    cond_vars_factor = filt.cond_vals[i]
-                    cond_str = cond_var+'/'+cond_op+'/'+cond_vars_comp+'/'+str(cond_vars_factor)
+                    cond_units = get_code_units(cond_var,'gas')
+                    cond_value = self.obj.quantity(filt.cond_vals[i], str(cond_units))
+                    cond_str = cond_var+'/'+cond_op+'/'+str(cond_value.d)+'/'+cond_units
                     self.filter['conditions'].append(cond_str)
-                else:
-                    cond_var = filt.cond_vars.T.view('S128')[i][0].decode().split(' ')[0]
+        elif isinstance(filt,filtering_part.filter_part):
+            self.filter = dict()
+            self.filter['name'] = filt.name.decode().split(' ')[0]
+            self.filter['conditions'] = []
+            if self.filter['name'] != 'none':
+                for i in range(0, filt.ncond):
+                    cond_var = filt.cond_vars_name.T.view('S128')[i][0].decode().split(' ')[0]
                     cond_op = filt.cond_ops.T.view('S2')[i][0].decode().split(' ')[0]
-                    cond_units = get_code_units(cond_var)
-                    cond_value = self.group.obj.quantity(filt.cond_vals[i], str(cond_units))
+                    cond_units = get_code_units(cond_var,'part')
+                    if get_part_vartype(cond_var) == 1:
+                        value = filt.cond_vals_d[i]
+                    elif get_part_vartype(cond_var) == 2:
+                        value = filt.cond_vals_i[i]
+                    elif get_part_vartype(cond_var) == 3:
+                        value = filt.cond_vals_b[i]
+                    cond_value = self.obj.quantity(value, str(cond_units))
                     cond_str = cond_var+'/'+cond_op+'/'+str(cond_value.d)+'/'+cond_units
                     self.filter['conditions'].append(cond_str)
 
 
 
-def compute_profile(group,ozy_file,xvar,yvars,weightvars,minval,maxval,linthresh=None,lmax=0,nbins=100,
+def compute_profile_hydro(group,ozy_file,xvar,yvars,weightvars,minval,maxval,linthresh=None,lmax=0,nbins=100,
                     region_type='sphere',filter_conds=['none'],
-                    filter_name=['none'],recompute=False,save=False,logscale=False,
+                    filter_name=['none'],recompute=False,save=False,scaletype='log_even',
                     pdf_bins=100,regime_type='',
                     rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), zmin=(0.0,'rvir'), zmax=(0.2,'rvir'),
                     mycentre=([0.5,0.5,0.5],'rvir'), myaxis=np.array([1.,0.,0.]),
                     remove_subs=False,cr_st=False,cr_heat=False,Dcr=0.0,
-                    verbose=False,force_neigh=False,force_read_gravity=False,
-                    do_binning=True):
+                    verbose=False,do_binning=True):
     """Function which computes a 1D profile for a given group object."""
-    from ozy.plot_settings import plotting_dictionary
-    from ozy.utils import structure_regions,get_code_bins
-    from ozy.dict_variables import check_need_neighbours
+    from .utils import structure_regions,get_code_bins
+    # 1. Determine if we are handling a snapshot or a catalogue OZY object
+    if isinstance(group,ozy.Snapshot):
+        from ozy.group import Group
+        obj = group
+        group = Group(obj)
+        use_snapshot = True
+    else:
+        obj = group.obj
+        use_snapshot = False
+
+    # 2. Activate the Fortran90 tools verbose options
+    if verbose:
+        io_ramses.activate_verbose()
+
+    # 3. Check for initial compliance
     if not isinstance(xvar, str):
         if verbose: print('Single x variable 1D profile supported!')
         exit
+
+    # 4. Setup the Profile object for each requested filter
     nfilter = len(filter_name)
     profs = []
     for i in range(0, nfilter):
@@ -115,78 +148,71 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,minval,maxval,linthresh
         use_neigh=False
         prof.rm_subs = remove_subs
         prof.xvar = xvar
-        prof.yvars = dict(hydro = [],star = [], dm = [])
-        prof.weightvars = dict(hydro = [],star = [], dm = [])
+        prof.yvars = []
+        prof.weightvars = []
         profs.append(prof)
     
-    # Begin by checking the combination of variables is correct
-    # Variables should be given in the form "type"/"variables":
-    # e.g. gas/density, or star/ang_momentum_x
+    # 5. Loop over the yvars and weightvars to fill the Profile objects
+    use_gravity = False
+    use_rt = False
+    use_neigh = False
     for var in yvars:
         var_type = var.split('/')[0]
         var_name = var.split('/')[1]
+        
         if var_type == 'gas':
-            use_neigh = check_need_neighbours(var_name) or use_neigh
-            if var_name in common_variables or var_name in grid_variables:
+            use_gravity = check_need_gravity(var_name,var_type) or use_gravity
+            use_rt = check_need_rt(var_name,var_type) or use_rt
+            use_neigh = check_need_neighbours(var_name,var_type) or use_neigh
+            if var_name in geometrical_variables or var_name in raw_gas_variables \
+                or var_name in derived_gas_variables or var_name in gravity_variables:
                 for i in range(0, nfilter):
-                    profs[i].yvars['hydro'].append(var_name)
+                    profs[i].yvars.append(var_name)
             else:
                 raise KeyError('This gas variable is not supported. Please check!',var_name)
-        elif var_type == 'star':
-            if var_name in common_variables or var_name in particle_variables:
-                for i in range(0, nfilter):
-                    profs[i].yvars['star'].append(var_name)
-            else:
-                raise KeyError('This star variable is not supported. Please check!',var_name)
-        elif var_type == 'dm':
-            if var_name in common_variables or var_name in particle_variables:
-                for i in range(0, nfilter):
-                    profs[i].yvars['dm'].append(var_name)
-            else:
-                raise KeyError('This DM variable is not supported. Please check!',var_name)
+        elif var_type == 'part':
+            raise KeyError('Particle variables are not supported in hydro profiles. Please check!',var_name)
     for var in weightvars:
         var_type = var.split('/')[0]
         var_name = var.split('/')[1]
         if var_type == 'gas':
-            use_neigh = check_need_neighbours(var_name) or use_neigh
-            if var_name in common_variables or var_name in grid_variables:
+            if var_name != 'cumulative' and var_name != 'count':
+                use_gravity = check_need_gravity(var_name,var_type) or use_gravity
+                use_rt = check_need_rt(var_name,var_type) or use_rt
+                use_neigh = check_need_neighbours(var_name,var_type) or use_neigh
+            if var_name in geometrical_variables or var_name in raw_gas_variables \
+                or var_name in derived_gas_variables or var_name in gravity_variables:
                 for i in range(0, nfilter):
-                    profs[i].weightvars['hydro'].append(var_name)
-            else:
-                raise KeyError('This gas variable is not supported. Please check!',var_name)
-        elif var_type == 'star':
-            if var_name in common_variables or var_name in particle_variables:
+                    profs[i].weightvars.append(var_name)
+            elif var_name == 'cumulative' or var_name == 'count':
                 for i in range(0, nfilter):
-                    profs[i].weightvars['star'].append(var_name)
+                    profs[i].weightvars.append(var_name)
             else:
-                raise KeyError('This star variable is not supported. Please check!',var_name)
-        elif var_type == 'dm':
-            if var_name in common_variables or var_name in particle_variables:
-                for i in range(0, nfilter):
-                    profs[i].weightvars['dm'].append(var_name)
-            else:
-                raise KeyError('This DM variable is not supported. Please check!',var_name)
+                raise KeyError('This gas weight variable is not supported. Please check!',var_name)
+        elif var_type == 'part':
+            raise KeyError('Particle weight variables are not supported in hydro profiles. Please check!',var_name)
     
-    # Check if the xvar needs neighbours
-    use_neigh = check_need_neighbours(xvar) or use_neigh or force_neigh
+    # 6. Check if the xvar needs gravity,rt,neighbours
+    use_gravity = check_need_gravity(xvar,'gas') or use_gravity
+    use_neigh = check_need_neighbours(xvar,'gas') or use_neigh
+    use_rt = check_need_rt(xvar,'gas') or use_rt
     
-    if use_neigh:
-        if verbose: print('At least one variable needs neighbours!')
-    
-    # Check that we do not have any inconsistency...
-    if xvar in grid_variables and len(profs[0].yvars['star'])>0 or xvar in grid_variables and len(profs[0].yvars['dm'])>0:
-        raise KeyError("Having grid vs particle 1D profiles is not well-defined.")
-    elif xvar in particle_variables and len(profs[0].yvars['hydro'])>0:
-        raise KeyError("Having particle vs grid 1D profiles is not well-defined.")
-    
-    # Check that the xaxis min and max quantities have the units expected for that variable
+    # 7. Check that the xaxis min and max quantities have the units expected for that variable
     try:
-        minval = minval.to(get_code_units(xvar))
-        maxval = maxval.to(get_code_units(xvar))
+        minval = minval.to(get_code_units(xvar,'gas'))
+        maxval = maxval.to(get_code_units(xvar,'gas'))
     except:
-        raise ValueError(f"It seems the dimensions of your bins min ({minval.units}) and max ({minval.units}) values do not agree with the dimensions of the chosen xvar ({xvar},{get_code_units(xvar)})")
+        raise ValueError(f"It seems the dimensions of your bins min \
+                            ({minval.units}) and max ({minval.units}) \
+                            values do not agree with the dimensions of \
+                            the chosen xvar ({xvar},{get_code_units(xvar,'gas')})")
     
-    # Now create region
+    # 8. Now create region
+    if use_snapshot:
+        # This is for the case of not including an OZY catalogue
+        group.position = obj.array(mycentre[0],mycentre[1])
+        group.angular_mom['total'] = np.array([0.,0.,1.])
+        group.velocity = obj.array([0.,0.,0.],'code_velocity')
     
     if isinstance(region_type, geo.region):
         selected_reg = region_type
@@ -197,79 +223,97 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,minval,maxval,linthresh
     else:
         if not np.array_equal(mycentre, group.position) and not np.array_equal(myaxis,group.angular_mom['total']):
             selected_reg,enclosing_sphere_p,enclosing_sphere_r = init_region(group,region_type,rmin=rmin,
-                                                                         rmax=rmax,zmin=zmin,zmax=zmax,
-                                                                         mycentre=mycentre,myaxis=myaxis,
-                                                                         return_enclosing_sphere=True)
+                                                                            rmax=rmax,zmin=zmin,zmax=zmax,
+                                                                            mycentre=mycentre,myaxis=myaxis,
+                                                                            return_enclosing_sphere=True)
+        elif not np.array_equal(mycentre,group.position) and np.array_equal(myaxis,group.angular_mom['total']):
+            selected_reg,enclosing_sphere_p,enclosing_sphere_r = init_region(group,region_type,rmin=rmin,
+                                                                            rmax=rmax,zmin=zmin,zmax=zmax,
+                                                                            mycentre=mycentre,myaxis=myaxis,
+                                                                            return_enclosing_sphere=True)
         elif not np.array_equal(mycentre,group.position):
             selected_reg,enclosing_sphere_p,enclosing_sphere_r = init_region(group,region_type,rmin=rmin,
-                                                                         rmax=rmax,zmin=zmin,zmax=zmax,
-                                                                         mycentre=mycentre,
-                                                                         return_enclosing_sphere=True)
+                                                                            rmax=rmax,zmin=zmin,zmax=zmax,
+                                                                            mycentre=mycentre,
+                                                                            return_enclosing_sphere=True)
         elif not np.array_equal(myaxis,group.angular_mom['total']):
             selected_reg,enclosing_sphere_p,enclosing_sphere_r = init_region(group,region_type,rmin=rmin,
-                                                                         rmax=rmax,zmin=zmin,zmax=zmax,
-                                                                         myaxis=myaxis,
-                                                                         return_enclosing_sphere=True)
+                                                                            rmax=rmax,zmin=zmin,zmax=zmax,
+                                                                            myaxis=myaxis,
+                                                                            return_enclosing_sphere=True)
         else:
             selected_reg,enclosing_sphere_p,enclosing_sphere_r = init_region(group,region_type,rmin=rmin,
-                                                                         rmax=rmax,zmin=zmin,zmax=zmax,
-                                                                         return_enclosing_sphere=True)
-        
-    
-    
-    # Now create filters and regions for each profile
+                                                                            rmax=rmax,zmin=zmin,zmax=zmax,
+                                                                            return_enclosing_sphere=True)
+
+    # 9. Now create filters and regions for each profile
     filts = []
     for i in range(0,nfilter):
-        filt = init_filter(filter_conds[i], filter_name[i], group)
-        filts.append(filt)
+        if isinstance(filter_conds[i],list):
+            cond_var = filter_conds[i][0].split('/')[0]
+        else:
+            cond_var = filter_conds[i].split('/')[0]
+        if cond_var in geometrical_variables or cond_var in raw_gas_variables \
+            or cond_var in derived_gas_variables or cond_var in gravity_variables:
+            f = init_filter_hydro(filter_conds[i],filter_name[i],obj)
+            print('Initialized hydro filter %s with conditions %s'%(filter_name[i],filter_conds[i]))
+        else:
+            # When a filter asks for a variable not existent in the common_variables
+            # or the grid_variables dictionaries just ignore it and set it to blank
+            f = init_filter_hydro('none','none',obj)
+        filts.append(f)
         # Save region details to profile object
         prof = profs[i]
         prof._get_python_region(selected_reg)
         # And save to profile object
-        prof._get_python_filter(filt)
+        prof._get_python_filter(f)
 
-    # Check if profile data is already present and if it coincides with the new one
-    f = h5py.File(ozy_file, 'r+')
-    profs_fr = []
-    for i in range(0,nfilter):
-        prof  = profs[i]
-        prof_present,prof_key = check_if_same_profile(f, prof)
-        if prof_present and recompute:
-            if remove_subs:
-                del f[str(prof.group.type)+'_data/profiles_nosubs/'+str(group._index)+'/'+str(prof_key)]
+    # 10. Check if profile data is already present and if it coincides with the new one
+    if not ozy_file is None:
+        f = h5py.File(ozy_file, 'r+')
+        profs_fr = []
+        for i in range(0,nfilter):
+            prof  = profs[i]
+            prof_present,prof_key = check_if_same_profile(f, prof)
+            if prof_present and recompute:
+                if remove_subs:
+                    del f[str(prof.group.type)+'_data/profiles_nosubs/'+str(group._index)+'/'+str(prof_key)]
+                else:
+                    del f[str(prof.group.type)+'_data/profiles/'+str(group._index)+'/'+str(prof_key)]
+                profs_fr.append(True)
+                if verbose: print('Overwriting profile data in %s_data'%group.type)
+            elif prof_present and not recompute:
+                if verbose: print('Profile data with same details already present for galaxy %s. No overwritting!'%group._index)
+                group._init_profiles()
+                if remove_subs:
+                    if verbose: print('Removing substructure!')
+                    for j,p in enumerate(group.profiles_nosubs):
+                        if p.key == prof_key:
+                            selected_prof = j
+                            break
+                    profs_fr.append(group.profiles_nosubs[selected_prof])
+                else:
+                    for j,p in enumerate(group.profiles):
+                        if p.key == prof_key:
+                            selected_prof = j
+                            break
+                    profs_fr.append(group.profiles[selected_prof])
+            elif save:
+                profs_fr.append(True)
+                if verbose: print('Writing profile data in %s_data'%group.type)
+        f.close()
+            
+        nfilter_real = profs_fr.count(True)
+        if nfilter_real == 0:
+            if nfilter > 1:
+                return profs_fr
             else:
-                del f[str(prof.group.type)+'_data/profiles/'+str(group._index)+'/'+str(prof_key)]
-            profs_fr.append(True)
-            if verbose: print('Overwriting profile data in %s_data'%group.type)
-        elif prof_present and not recompute:
-            if verbose: print('Profile data with same details already present for galaxy %s. No overwritting!'%group._index)
-            group._init_profiles()
-            if remove_subs:
-                if verbose: print('Removing substructure!')
-                for j,p in enumerate(group.profiles_nosubs):
-                    if p.key == prof_key:
-                        selected_prof = j
-                        break
-                profs_fr.append(group.profiles_nosubs[selected_prof])
-            else:
-                for j,p in enumerate(group.profiles):
-                    if p.key == prof_key:
-                        selected_prof = j
-                        break
-                profs_fr.append(group.profiles[selected_prof])
-        elif save:
-            profs_fr.append(True)
-            if verbose: print('Writing profile data in %s_data'%group.type)
-    f.close()
+                return profs_fr[0]
+    else:
+        nfilter_real = nfilter
+        profs_fr = [True]*nfilter
     
-    nfilter_real = profs_fr.count(True)
-    if nfilter_real == 0:
-        if nfilter > 1:
-            return profs_fr
-        else:
-            return profs_fr[0]
-    
-    # If substructre is removed, obtain regions
+    # 11. If substructre is removed, obtain regions
     remove_all = False
     if remove_subs == 'all':
         remove_all = True
@@ -290,280 +334,97 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,minval,maxval,linthresh
     if regime_type != '':
         regime_type = '_'+regime_type
     
-    # Initialise hydro profile data object
-    if len(profs[0].yvars['hydro'])>0 and len(profs[0].weightvars['hydro'])>0:
-        hydro_data = amrprofmod.profile_handler()
-        hydro_data.profdim = 1
-        hydro_data.xvarname = xvar
-        hydro_data.nfilter = nfilter_real
-        hydro_data.nyvar = len(profs[0].yvars['hydro'])
-        hydro_data.nwvar = len(profs[0].weightvars['hydro'])
-        hydro_data.nbins = nbins
-        hydro_data.nsubs = nsubs
-        hydro_data.cr_st = cr_st
-        hydro_data.cr_heat = cr_heat
-        hydro_data.Dcr = Dcr
+    # 12. Initialise hydro profile data object
+    hydro_data = amrprofmod.profile_handler()
+    hydro_data.profdim = 1
+    hydro_data.xvarname = xvar
+    hydro_data.nfilter = nfilter_real
+    hydro_data.nyvar = len(profs[0].yvars)
+    hydro_data.nwvar = len(profs[0].weightvars)
+    hydro_data.nbins = nbins
+    hydro_data.nsubs = nsubs
+    hydro_data.cr_st = cr_st
+    hydro_data.cr_heat = cr_heat
+    hydro_data.Dcr = Dcr
 
-        amrprofmod.allocate_profile_handler(hydro_data)
-        for i in range(0, len(profs[0].yvars['hydro'])):
-            hydro_data.yvarnames.T.view('S128')[i] = profs[0].yvars['hydro'][i].ljust(128)
-        for i in range(0, len(profs[0].weightvars['hydro'])):
-            hydro_data.wvarnames.T.view('S128')[i] = profs[0].weightvars['hydro'][i].ljust(128)
-        
-        # Add the scaletype for the xaxis and the pre-computed bin edges
-        bin_edges, stype, zero_index, lint = get_code_bins(group.obj,'gas/'+xvar,nbins=nbins,logscale=logscale,
-                                                    minval=minval,maxval=maxval,linthresh=linthresh)
-        hydro_data.xdata = bin_edges
-        hydro_data.scaletype = stype.ljust(128)
-        hydro_data.linthresh = lint
-        hydro_data.zero_index = zero_index
-        
-        if remove_subs and nsubs>0:
-            for i in range(0,nsubs):
-                hydro_data.subs[i] = subs[i]
-        
-        counter = 0
-        for i in range(0,nfilter):
-            if profs_fr[i] == True:
-                hydro_data.filters[counter] = filts[i]
-                counter += 1
-
-        # Now add the PDF handler for each quantity and each xbin
-        mybins = []
-        for i in range(0, len(profs[0].yvars['hydro'])):
-            plot_def = plotting_dictionary[profs[0].yvars['hydro'][i]]
-            minv = group.obj.quantity(plot_def['vmin'+regime_type],plot_def['units'])
-            maxv = group.obj.quantity(plot_def['vmax'+regime_type],plot_def['units'])
-            mybins.append(get_code_bins(group.obj,'gas/'+profs[0].yvars['hydro'][i],pdf_bins,
-                                        minval=minv,maxval=maxv))
-            
-        for j in range(0,nbins):
-            hydro_data.ydata[j].nbins = pdf_bins
-            hydro_data.ydata[j].nfilter = nfilter_real
-            hydro_data.ydata[j].nvars = len(profs[0].yvars['hydro'])
-            hydro_data.ydata[j].nwvars = len(profs[0].weightvars['hydro'])
-            stats_utils.allocate_pdf(hydro_data.ydata[j])
-            for k in range(0, len(profs[0].yvars['hydro'])):
-                hydro_data.ydata[j].varname.T.view('S128')[k] = profs[0].yvars['hydro'][k].ljust(128)
-                hydro_data.ydata[j].scaletype.T.view('S128')[k] = mybins[k][1].ljust(128)
-                hydro_data.ydata[j].bins[:,k] = mybins[k][0]
-                hydro_data.ydata[j].do_binning[k] = do_binning
-                hydro_data.ydata[j].zero_index[k] = mybins[k][2]
-                hydro_data.ydata[j].linthresh[k] = mybins[k][3]
-            for k in range(0, len(profs[0].weightvars['hydro'])):
-                hydro_data.ydata[j].wvarnames.T.view('S128')[k] = profs[0].weightvars['hydro'][k].ljust(128)
-            
-        # And now, compute hydro data profiles!
-        read_gravity = force_read_gravity
-        if hydro_data.nyvar > 0 and hydro_data.nwvar > 0:
-            amrprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,hydro_data,lmax,use_neigh,read_gravity)
-    else:
-        hydro_data = None
+    amrprofmod.allocate_profile_handler(hydro_data)
+    for i in range(0, len(profs[0].yvars)):
+        hydro_data.yvarnames.T.view('S128')[i] = profs[0].yvars[i].ljust(128)
+    for i in range(0, len(profs[0].weightvars)):
+        hydro_data.wvarnames.T.view('S128')[i] = profs[0].weightvars[i].ljust(128)
     
-    # Initialise particles profile data object
-    if len(profs[0].yvars['star'])>0 and len(profs[0].weightvars['star']):
-        star_data = partprofmod.profile_handler()
-        star_data.profdim = 1
-        star_data.xvarname = 'star/'+xvar
-        star_data.nfilter = nfilter_real
-        star_data.nyvar = len(profs[0].yvars['star'])
-        star_data.nwvar = len(profs[0].weightvars['star'])
-        star_data.nbins = nbins
-        star_data.nsubs = nsubs
-
-        partprofmod.allocate_profile_handler(star_data)
-        for i in range(0, len(profs[0].yvars['star'])):
-            tempstr = 'star/'+profs[0].yvars['star'][i]
-            star_data.yvarnames.T.view('S128')[i] = tempstr.ljust(128)
-        for i in range(0, len(profs[0].weightvars['star'])):
-            tempstr = 'star/'+profs[0].weightvars['star'][i]
-            star_data.wvarnames.T.view('S128')[i] = tempstr.ljust(128)
-            
-        # Add the scaletype for the xaxis and the pre-computed bin edges
-        bin_edges, stype, zero_index, lint = get_code_bins(group.obj,'star/'+xvar,nbins=nbins,logscale=logscale,
-                                         minval=minval,maxval=maxval,linthresh=linthresh)
-        star_data.xdata = bin_edges
-        star_data.scaletype = stype.ljust(128)
-        star_data.linthresh = lint
-        star_data.zero_index = zero_index
-        
-        if remove_subs and nsubs>0:
-            for i in range(0,nsubs):
-                star_data.subs[i] = subs[i]
-        
-        counter = 0
-        for i in range(0,nfilter):
-            if profs_fr[i] == True:
-                star_data.filters[counter] = filts[i]
-                counter += 1
-        
-        # Now add the PDF handler for each quantity and each xbin
-        mybins = []
-        for i in range(0, len(profs[0].yvars['star'])):
-            tempstr = 'star_'+profs[0].yvars['star'][i]
-            plot_def = plotting_dictionary[tempstr]
-            minv = group.obj.quantity(plot_def['vmin'+regime_type],plot_def['units'])
-            maxv = group.obj.quantity(plot_def['vmax'+regime_type],plot_def['units'])
-            mybins.append(get_code_bins(group.obj,'star/'+profs[0].yvars['star'][i],pdf_bins,
-                                        minval=minv,maxval=maxv))
-            
-        for j in range(0,nbins):
-            star_data.ydata[j].nbins = pdf_bins
-            star_data.ydata[j].nfilter = nfilter_real
-            star_data.ydata[j].nvars = len(profs[0].yvars['star'])
-            star_data.ydata[j].nwvars = len(profs[0].weightvars['star'])
-            stats_utils.allocate_pdf(star_data.ydata[j])
-            for k in range(0, len(profs[0].yvars['star'])):
-                tempstr = 'star/'+profs[0].yvars['star'][k]
-                star_data.ydata[j].varname.T.view('S128')[k] = tempstr.ljust(128)
-                star_data.ydata[j].scaletype.T.view('S128')[k] = mybins[k][1].ljust(128)
-                star_data.ydata[j].bins[:,k] = mybins[k][0]
-                star_data.ydata[j].do_binning[k] = do_binning
-                star_data.ydata[j].zero_index[k] = mybins[k][2]
-                star_data.ydata[j].linthresh[k] = mybins[k][3]
-            for k in range(0, len(profs[0].weightvars['star'])):
-                tempstr = 'star/'+profs[0].weightvars['star'][k]
-                star_data.ydata[j].wvarnames.T.view('S128')[k] = tempstr.ljust(128)
-        
-        # And now, compute star data profiles!
-        if star_data.nyvar > 0 and star_data.nwvar > 0:
-            partprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,star_data,lmax)
-    else:
-        star_data = None
-
+    # 13. Add the scaletype for the xaxis and the pre-computed bin edges
+    bin_edges, stype, zero_index, lint = get_code_bins(group.obj,'gas',xvar,nbins=nbins,logscale=scaletype,
+                                                minval=minval,maxval=maxval,linthresh=linthresh)
+    hydro_data.xdata = bin_edges
+    hydro_data.scaletype = stype.ljust(128)
+    hydro_data.linthresh = lint
+    hydro_data.zero_index = zero_index
     
-    # And the same for dm particles
-    if len(profs[0].yvars['dm'])>0 and len(profs[0].yvars['dm'])>0:
-        dm_data = partprofmod.profile_handler()
-        dm_data.profdim = 1
-        dm_data.xvarname = 'dm/'+xvar
-        dm_data.nfilter = nfilter_real
-        dm_data.nyvar = len(profs[0].yvars['dm'])
-        dm_data.nwvar = len(profs[0].yvars['dm'])
-        dm_data.nbins = nbins
-        dm_data.nsubs = nsubs
-
-        partprofmod.allocate_profile_handler(dm_data)
-        for i in range(0, len(profs[0].yvars['dm'])):
-            tempstr = 'dm/'+profs[0].yvars['dm'][i]
-            dm_data.yvarnames.T.view('S128')[i] = tempstr.ljust(128)
-        for i in range(0, len(profs[0].weightvars['dm'])):
-            tempstr = 'dm/'+profs[0].weightvars['dm'][i]
-            dm_data.wvarnames.T.view('S128')[i] = tempstr.ljust(128)
-            
-        # Add the scaletype for the xaxis and the preo-computed bin edges
-        bin_edges, stype, zero_index, lint = get_code_bins(group.obj,'dm/'+xvar,nbins=nbins,logscale=logscale,
-                                         minval=minval,maxval=maxval,linthresh=linthresh)
-        dm_data.xdata = bin_edges
-        dm_data.scaletype = stype.ljust(128)
-        dm_data.linthresh = lint
-        dm_data.zero_index = zero_index
-        
-        if remove_subs and nsubs>0:
-            for i in range(0,nsubs):
-                dm_data.subs[i] = subs[i]
-        
-        counter = 0
-        for i in range(0,nfilter):
-            if profs_fr[i] == True:
-                dm_data.filters[counter] = filts[i]
-                counter += 1
-                
-        # Now add the PDF handler for each quantity and each xbin
-        mybins = []
-        for i in range(0, len(profs[0].yvars['dm'])):
-            tempstr = 'dm_'+profs[0].yvars['dm'][i]
-            plot_def = plotting_dictionary[tempstr]
-            minv = group.obj.quantity(plot_def['vmin'+regime_type],plot_def['units'])
-            maxv = group.obj.quantity(plot_def['vmax'+regime_type],plot_def['units'])
-            mybins.append(get_code_bins(group.obj,'dm/'+profs[0].yvars['dm'][i],pdf_bins,
-                                        minval=minv,maxval=maxv))
-            
-        for j in range(0,nbins):
-            dm_data.ydata[j].nbins = pdf_bins
-            dm_data.ydata[j].nfilter = nfilter_real
-            dm_data.ydata[j].nvars = len(profs[0].yvars['dm'])
-            dm_data.ydata[j].nwvars = len(profs[0].weightvars['dm'])
-            stats_utils.allocate_pdf(dm_data.ydata[j])
-            for k in range(0, len(profs[0].yvars['dm'])):
-                tempstr = 'dm/'+profs[0].yvars['dm'][k]
-                dm_data.ydata[j].varname.T.view('S128')[k] = tempstr.ljust(128)
-                dm_data.ydata[j].scaletype.T.view('S128')[k] = mybins[k][1].ljust(128)
-                dm_data.ydata[j].bins[:,k] = mybins[k][0]
-                dm_data.ydata[j].do_binning[k] = do_binning
-                dm_data.ydata[j].zero_index[k] = mybins[k][2]
-                dm_data.ydata[j].linthresh[k] = mybins[k][3]
-            for k in range(0, len(profs[0].weightvars['dm'])):
-                tempstr = 'dm/'+profs[0].weightvars['dm'][k]
-                dm_data.ydata[j].wvarnames.T.view('S128')[k] = tempstr.ljust(128)
-
-        # And now, compute dm data profiles!
-        if dm_data.nyvar > 0 and dm_data.nwvar > 0:
-            partprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,dm_data,lmax)
-    else:
-        dm_data = None
+    if remove_subs and nsubs>0:
+        for i in range(0,nsubs):
+            hydro_data.subs[i] = subs[i]
+    hydro_data.use_gravity = use_gravity
+    hydro_data.use_rt = use_rt
+    hydro_data.use_neigh = use_neigh
     
-    # Organise everything in the Profile object
-    xdata = np.zeros((3,profs[0].nbins+1))
-    if hydro_data != None:
-        xdata[0,:] = hydro_data.xdata
-    if star_data != None:
-        xdata[1,:] = star_data.xdata
-    if dm_data != None:
-        xdata[2,:] = dm_data.xdata
+    counter = 0
     for i in range(0,nfilter):
-        profs[i].xdata = group.obj.array(xdata, get_code_units(profs[i].xvar))
-    # Save hydro y data
-    if hydro_data != None:
-        counter = 0
-        for i in range(0,nfilter):
-            if profs_fr[i] == True:
-                prof = profs[i]
-                prof.ydata['hydro'] = []
-                for v,var in enumerate(prof.yvars['hydro']):
-                    mydata = np.zeros((nbins,len(prof.weightvars['hydro']),7))
-                    for j in range(0,nbins):
-                        if hydro_data.ydata[j].do_binning[v]:
-                            mydata[j,:,:] = pdf_handler_to_stats(group.obj,hydro_data.ydata[j],v,counter,verbose=True)
-                        else:
-                            mydata[j,:,:] = np.full((len(prof.weightvars['hydro']),7),hydro_data.ydata[j].total[v,counter,:,0])
-                    prof.ydata['hydro'].append(group.obj.array(mydata, get_code_units(prof.yvars['hydro'][v])))
-                counter += 1
-    # Save star y data
-    if star_data != None:
-        counter = 0
-        for i in range(0,nfilter):
-            if profs_fr[i] == True:
-                prof = profs[i]
-                prof.ydata['star'] = []
-                for v,var in enumerate(prof.yvars['star']):
-                    mydata = np.zeros((nbins,len(prof.weightvars['star']),7))
-                    for j in range(0,nbins):
-                        if star_data.ydata[j].do_binning[v]:
-                            mydata[j,:,:] = pdf_handler_to_stats(group.obj,star_data.ydata[j],v,counter,verbose=True)
-                        else:
-                            mydata[j,:,:] = np.full((len(prof.weightvars['star']),7),star_data.ydata[j].total[v,counter,:,0])
-                    prof.ydata['star'].append(group.obj.array(mydata, get_code_units(prof.yvars['star'][v])))
-                counter += 1
-    # Save dm y data
-    if dm_data != None:
-        counter = 0
-        for i in range(0,nfilter):
-            if profs_fr[i] == True:
-                prof = profs[i]
-                prof.ydata['dm'] = []
-                for v,var in enumerate(prof.yvars['dm']):
-                    mydata = np.zeros((nbins,len(prof.weightvars['dm']),7))
-                    for j in range(0,nbins):
-                        if dm_data.ydata[j].do_binning[v]:
-                            mydata[j,:,:] = pdf_handler_to_stats(group.obj,dm_data.ydata[j],v,counter,verbose=True)
-                        else:
-                            mydata[j,:,:] = np.full((len(prof.weightvars['dm']),7),dm_data.ydata[j].total[v,counter,:,0])
-                    prof.ydata['dm'].append(group.obj.array(mydata, get_code_units(prof.yvars['dm'][v])))
-                counter += 1
+        if profs_fr[i] == True:
+            hydro_data.filters[counter] = filts[i]
+            counter += 1
+
+    # 14. Now add the PDF handler for each quantity and each xbin
+    mybins = []
+    for i in range(0, len(profs[0].yvars)):
+        plot_def = get_plotting_def(profs[0].yvars[i],'gas')
+        minv = group.obj.quantity(plot_def['bin_min'+regime_type],plot_def['units'])
+        maxv = group.obj.quantity(plot_def['bin_max'+regime_type],plot_def['units'])
+        mybins.append(get_code_bins(group.obj,'gas',profs[0].yvars[i],pdf_bins,
+                                    minval=minv,maxval=maxv))
+        
+    for j in range(0,nbins):
+        hydro_data.ydata[j].nbins = pdf_bins
+        hydro_data.ydata[j].nfilter = nfilter_real
+        hydro_data.ydata[j].nvars = len(profs[0].yvars)
+        hydro_data.ydata[j].nwvars = len(profs[0].weightvars)
+        stats_utils.allocate_pdf(hydro_data.ydata[j])
+        for k in range(0, len(profs[0].yvars)):
+            hydro_data.ydata[j].varname.T.view('S128')[k] = profs[0].yvars[k].ljust(128)
+            hydro_data.ydata[j].scaletype.T.view('S128')[k] = mybins[k][1].ljust(128)
+            hydro_data.ydata[j].bins[:,k] = mybins[k][0]
+            hydro_data.ydata[j].do_binning[k] = do_binning
+            hydro_data.ydata[j].zero_index[k] = mybins[k][2]
+            hydro_data.ydata[j].linthresh[k] = mybins[k][3]
+        for k in range(0, len(profs[0].weightvars)):
+            hydro_data.ydata[j].wvarnames.T.view('S128')[k] = profs[0].weightvars[k].ljust(128)
+        
+    # 15. And now, compute hydro data profiles!
+    if hydro_data.nyvar > 0 and hydro_data.nwvar > 0:
+        if obj.use_vardict:
+            amrprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,hydro_data,lmax,obj.vardict)
+        else:
+            amrprofmod.onedprofile(group.obj.simulation.fullpath,selected_reg,hydro_data,lmax)
+    
+    # 16. Organise everything in the Profile object
+    counter = 0
+    for i in range(0,nfilter):
+        profs[i].xdata = group.obj.array(hydro_data.xdata, get_code_units(profs[i].xvar,'gas'))
+        if profs_fr[i] == True:
+            prof = profs[i]
+            prof.ydata = []
+            for v,var in enumerate(prof.yvars):
+                mydata = np.zeros((nbins,len(prof.weightvars),7))
+                for j in range(0,nbins):
+                    if hydro_data.ydata[j].do_binning[v]:
+                        mydata[j,:,:] = pdf_handler_to_stats(group.obj,'gas',hydro_data.ydata[j],v,counter,verbose=True)
+                    else:
+                        mydata[j,:,:] = np.full((len(prof.weightvars),7),hydro_data.ydata[j].total[v,counter,:,0])
+                prof.ydata.append(group.obj.array(mydata, get_code_units(prof.yvars[v],'gas')))
+            counter += 1
     if save:
         profs_to_save = [profs[i] for i in range(0,nfilter) if profs_fr[i] == True]
-        write_profiles(group.obj, nfilter_real, ozy_file, hydro_data, star_data, dm_data, profs_to_save)
+        write_profiles(group.obj, nfilter_real, ozy_file, hydro_data, profs_to_save)
     
     for index, porig in enumerate(profs_fr):
         if porig != True:
