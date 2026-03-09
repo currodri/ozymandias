@@ -41,28 +41,30 @@ def get_code_units(varname,vartype):
         else:
             raise KeyError('Gas variable not found, check: '+str(varname))
     elif vartype == 'part':
-        if varname in geometrical_variables:
-            unit = geometrical_variables[varname]['code_units']
-        elif varname in raw_part_variables:
-            unit = raw_part_variables[varname]['code_units']
-        elif varname in derived_part_variables:
-            unit = derived_part_variables[varname]['code_units']
-        elif varname in star_variables:
-            unit = star_variables[varname]['code_units']
+        clean_name = remove_last_suffix_if_numeric(varname)
+        if clean_name in geometrical_variables:
+            unit = geometrical_variables[clean_name]['code_units']
+        elif clean_name in raw_part_variables:
+            unit = raw_part_variables[clean_name]['code_units']
+        elif clean_name in derived_part_variables:
+            unit = derived_part_variables[clean_name]['code_units']
+        elif clean_name in star_variables:
+            unit = star_variables[clean_name]['code_units']
         else:
             raise KeyError('Part variable not found, check: '+str(varname))
     return unit
 
 def get_part_vartype(varname):
-    if varname in part_variables_type:
-        varttype = part_variables_type[varname]
-    elif varname in geometrical_variables or \
-        varname in raw_part_variables or \
-        varname in derived_part_variables or \
-        varname in star_variables:
+    clean_name = remove_last_suffix_if_numeric(varname)
+    if clean_name in part_variables_type:
+        varttype = part_variables_type[clean_name]
+    elif clean_name in geometrical_variables or \
+        clean_name in raw_part_variables or \
+        clean_name in derived_part_variables or \
+        clean_name in star_variables:
         varttype = 1
     else:
-        raise KeyError('Variable not found, check: '+str(varname))
+        raise KeyError('Variable not found, check: '+str(clean_name))
     return varttype
 
     
@@ -81,18 +83,19 @@ def check_need_neighbours(varname,vartype):
         else:
             raise KeyError('Gas variable not found, check: '+str(varname))
     elif vartype == 'part':
-        if varname in ['cumulative', 'counts', 'column']:
+        clean_name = remove_last_suffix_if_numeric(varname)
+        if clean_name in ['cumulative', 'counts', 'column']:
             need = False
-        elif varname in geometrical_variables:
-            need = geometrical_variables[varname]['neighbour']
-        elif varname in raw_part_variables:
-            need = raw_part_variables[varname]['neighbour']
-        elif varname in derived_part_variables:
-            need = derived_part_variables[varname]['neighbour']
-        elif varname in star_variables:
-            need = star_variables[varname]['neighbour']
+        elif clean_name in geometrical_variables:
+            need = geometrical_variables[clean_name]['neighbour']
+        elif clean_name in raw_part_variables:
+            need = raw_part_variables[clean_name]['neighbour']
+        elif clean_name in derived_part_variables:
+            need = derived_part_variables[clean_name]['neighbour']
+        elif clean_name in star_variables:
+            need = star_variables[clean_name]['neighbour']
         else:
-            raise KeyError('Part variable not found, check: '+str(varname))
+            raise KeyError('Part variable not found, check: '+str(clean_name))
     return need
 
 def check_need_gravity(varname,vartype):
@@ -110,18 +113,19 @@ def check_need_gravity(varname,vartype):
         else:
             raise KeyError('Gas variable not found, check: '+str(varname))
     elif vartype == 'part':
-        if varname in ['cumulative', 'counts', 'column']:
+        clean_name = remove_last_suffix_if_numeric(varname)
+        if clean_name in ['cumulative', 'counts', 'column']:
             need = False
-        elif varname in geometrical_variables:
-            need = geometrical_variables[varname].get('gravity', False)
-        elif varname in raw_part_variables:
-            need = raw_part_variables[varname].get('gravity', False)
-        elif varname in derived_part_variables:
-            need = derived_part_variables[varname].get('gravity', False)
-        elif varname in star_variables:
-            need = star_variables[varname].get('gravity', False)
+        elif clean_name in geometrical_variables:
+            need = geometrical_variables[clean_name].get('gravity', False)
+        elif clean_name in raw_part_variables:
+            need = raw_part_variables[clean_name].get('gravity', False)
+        elif clean_name in derived_part_variables:
+            need = derived_part_variables[clean_name].get('gravity', False)
+        elif clean_name in star_variables:
+            need = star_variables[clean_name].get('gravity', False)
         else:
-            raise KeyError('Part variable not found, check: '+str(varname))
+            raise KeyError('Part variable not found, check: '+str(clean_name))
     return need
 
 def check_need_rt(varname,vartype):
@@ -139,18 +143,19 @@ def check_need_rt(varname,vartype):
         else:
             raise KeyError('Gas variable not found, check: '+str(varname))
     elif vartype == 'part':
-        if varname in ['cumulative', 'counts', 'column']:
+        clean_name = remove_last_suffix_if_numeric(varname)
+        if clean_name in ['cumulative', 'counts', 'column']:
             need = False
-        elif varname in geometrical_variables:
-            need = geometrical_variables[varname].get('rt', False)
-        elif varname in raw_part_variables:
-            need = raw_part_variables[varname].get('rt', False)
-        elif varname in derived_part_variables:
-            need = derived_part_variables[varname].get('rt', False)
-        elif varname in star_variables:
-            need = star_variables[varname].get('rt', False)
+        elif clean_name in geometrical_variables:
+            need = geometrical_variables[clean_name].get('rt', False)
+        elif clean_name in raw_part_variables:
+            need = raw_part_variables[clean_name].get('rt', False)
+        elif clean_name in derived_part_variables:
+            need = derived_part_variables[clean_name].get('rt', False)
+        elif clean_name in star_variables:
+            need = star_variables[clean_name].get('rt', False)
         else:
-            raise KeyError('Part variable not found, check: '+str(varname))
+            raise KeyError('Part variable not found, check: '+str(clean_name))
     return need
 
 def get_plotting_def(varname,vartype):
@@ -166,16 +171,17 @@ def get_plotting_def(varname,vartype):
         else:
             raise KeyError('Gas variable not found, check: '+str(varname))
     elif vartype == 'part':
-        if varname in geometrical_variables:
-            plotting_def = geometrical_variables[varname]
-        elif varname in raw_part_variables:
-            plotting_def = raw_part_variables[varname]
-        elif varname in derived_part_variables:
-            plotting_def = derived_part_variables[varname]
-        elif varname in star_variables:
-            plotting_def = star_variables[varname]
+        clean_name = remove_last_suffix_if_numeric(varname)
+        if clean_name in geometrical_variables:
+            plotting_def = geometrical_variables[clean_name]
+        elif clean_name in raw_part_variables:
+            plotting_def = raw_part_variables[clean_name]
+        elif clean_name in derived_part_variables:
+            plotting_def = derived_part_variables[clean_name]
+        elif clean_name in star_variables:
+            plotting_def = star_variables[clean_name]
         else:
-            raise KeyError('Part variable not found, check: '+str(varname))
+            raise KeyError('Part variable not found, check: '+str(clean_name))
     return plotting_def
 
 def get_mu(X,Y):
@@ -213,64 +219,111 @@ class RotationAwareAnnotation(mtext.Annotation):
 
     _rotation = property(_get_rotation, _set_rotation)
 
+# def most_contrast_rgba(rgba):
+#     """
+#     Returns the most contrasting RGBA color for a given RGBA color.
+#     """
+#     # Extract the RGBA components
+#     red, green, blue, alpha = rgba
+
+#     # Calculate the luminance of the color
+#     luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+
+#     # Calculate the opposite color
+#     opposite_red = 1 - red
+#     opposite_green = 1 - green
+#     opposite_blue = 1 - blue
+
+#     # Calculate the opposite color's luminance
+#     opposite_luminance = 0.2126 * opposite_red + 0.7152 * opposite_green + 0.0722 * opposite_blue
+
+#     # return (opposite_red, opposite_green, opposite_blue, alpha)
+#     # If the luminance of the opposite color is greater, return the opposite color
+#     if opposite_luminance > luminance:
+#         return (opposite_red, opposite_green, opposite_blue, alpha)
+
+#     # Otherwise, return black or white depending on the luminance of the original color
+#     if luminance < 0.5:
+#         return (0, 0, 0, alpha) # Black
+#     else:
+#         return (1, 1, 1, alpha) # White
+
+def srgb_to_linear(c):
+    """Convert sRGB component (0–1) to linear RGB."""
+    if c <= 0.04045:
+        return c / 12.92
+    return ((c + 0.055) / 1.055) ** 2.4
+
+
+def relative_luminance(rgb):
+    """WCAG relative luminance for an sRGB color."""
+    r, g, b = rgb
+    r_lin = srgb_to_linear(r)
+    g_lin = srgb_to_linear(g)
+    b_lin = srgb_to_linear(b)
+    return 0.2126 * r_lin + 0.7152 * g_lin + 0.0722 * b_lin
+
+
 def most_contrast_rgba(rgba):
-    """
-    Returns the most contrasting RGBA color for a given RGBA color.
-    """
-    # Extract the RGBA components
-    red, green, blue, alpha = rgba
+    r, g, b, a = rgba
+    L = relative_luminance((r, g, b))
 
-    # Calculate the luminance of the color
-    luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+    # Luminance of black and white
+    L_black = 0.0
+    L_white = 1.0
 
-    # Calculate the opposite color
-    opposite_red = 1 - red
-    opposite_green = 1 - green
-    opposite_blue = 1 - blue
+    # Contrast ratios
+    contrast_black = (L + 0.05) / (L_black + 0.05)
+    contrast_white = (L_white + 0.05) / (L + 0.05)
 
-    # Calculate the opposite color's luminance
-    opposite_luminance = 0.2126 * opposite_red + 0.7152 * opposite_green + 0.0722 * opposite_blue
-
-    return (opposite_red, opposite_green, opposite_blue, alpha)
-    # If the luminance of the opposite color is greater, return the opposite color
-    if opposite_luminance > luminance:
-        return (opposite_red, opposite_green, opposite_blue, alpha)
-
-    # Otherwise, return black or white depending on the luminance of the original color
-    if luminance < 0.5:
-        return (0, 0, 0, alpha) # Black
+    if contrast_black > contrast_white:
+        return (0, 0, 0, a)
     else:
-        return (1, 1, 1, alpha) # White
+        return (1, 1, 1, a)
 
 
 def invert_tick_colours(ax,var,vartype,type_scale,vmin=None,vmax=None,
                         linthresh=None,linscale=None,orientation='horizontal',
-                        logscale=True,colormap=None):
+                        logscale=True,colormap=None,ignore_plotdef=False):
     from matplotlib.colors import LogNorm,SymLogNorm
     from matplotlib import colormaps
 
     fig = plt.gcf()
-    plotting_def = get_plotting_def(var,vartype)
-    if colormap == None:
-        cmap = colormaps.get_cmap(plotting_def['cmap'])
+    
+    # Get plotting definition unless explicitly ignored
+    if not ignore_plotdef:
+        plotting_def = get_plotting_def(var,vartype)
+        use_symlog = plotting_def['symlog']
+        if colormap == None:
+            cmap = colormaps.get_cmap(plotting_def['cmap'])
+        else:
+            cmap = colormaps.get_cmap(colormap)
+        if vmin == None:
+            vmin = plotting_def['vmin'+type_scale]
+        if vmax == None:
+            vmax = plotting_def['vmax'+type_scale]
+        if linthresh == None and plotting_def['symlog']:
+            linthresh = plotting_def['linthresh']
+        if linscale == None and plotting_def['symlog']:
+            linscale = plotting_def['linscale']
     else:
+        # When ignoring plotdef, use only user-provided parameters
+        use_symlog = False  # Default to linear scale if not specified
+        if colormap == None:
+            raise ValueError("colormap must be provided when ignore_plotdef=True")
         cmap = colormaps.get_cmap(colormap)
-    if vmin == None:
-        vmin = plotting_def['vmin'+type_scale]
-    if vmax == None:
-        vmax = plotting_def['vmax'+type_scale]
-    if linthresh == None and plotting_def['symlog']:
-        linthresh = plotting_def['linthresh']
-    if linscale == None and plotting_def['symlog']:
-        linscale = plotting_def['linscale']
+        if vmin == None or vmax == None:
+            raise ValueError("vmin and vmax must be provided when ignore_plotdef=True")
+    
     if orientation == 'horizontal':
         ticks_pos = ax.get_xticks()
         ticks_labels = ax.get_xticklabels()
     else:
         ticks_pos = ax.get_yticks()
         ticks_labels = ax.get_yticklabels()
+    
     if logscale:
-        if not plotting_def['symlog']:
+        if not use_symlog:
             norm = LogNorm(vmin=vmin,
                             vmax=vmax,
                             clip=True)
@@ -1254,7 +1307,7 @@ def init_region(group, region_type, rmin=(0.0,'rvir'), rmax=(0.2,'rvir'), xmin=(
 
 def init_filter_hydro(cond_strs, name, obj):
     """Initialise filter Fortran derived type with the condition strings provided."""
-    from .amr.amr2_pkg import filtering
+    from .amr.amr2_pkg import filtering_hydro as filtering
     if isinstance(cond_strs, str):
         cond_strs = [cond_strs]
     filt = filtering.filter_hydro()
@@ -1303,7 +1356,7 @@ def init_filter_hydro(cond_strs, name, obj):
 
 def init_filter_part(cond_strs, name, obj):
     """ Initialise filter_part Fortran derived type with the condition strings provided."""
-    from part2 import filtering
+    from part2 import filtering_part as filtering
     if isinstance(cond_strs, str):
         cond_strs = [cond_strs]
     filt = filtering.filter_part()
@@ -1327,37 +1380,36 @@ def init_filter_part(cond_strs, name, obj):
         for i in range(0, filt.ncond):
             if cond_strs[i] != 'none':
                 correct_str = cond_strs[i].split('/')[0]
-                if len(correct_str.split('_')) > 1:
-                    nonum_str = correct_str.split('_')[0]
-                else:
-                    nonum_str = correct_str
+                # Use remove_last_suffix_if_numeric to properly handle numeric suffixes
+                # This allows variables like 'dust_mass_0', 'dust_mass_1' to be recognized
+                clean_name = remove_last_suffix_if_numeric(correct_str)
                 filt.cond_vars_name.T.view('S128')[i] = correct_str.ljust(128)
                 # Expresion operator
                 filt.cond_ops.T.view('S2')[i] = cond_strs[i].split('/')[1].ljust(2)
                 # Value transformed to code units
                 try:
                     value = obj.quantity(float(cond_strs[i].split('/')[2]), cond_strs[i].split('/')[3])
-                    if get_part_vartype(nonum_str) == 1:
-                        filt.cond_vals_d[i] = value.in_units(get_code_units(nonum_str,'part')).d
-                    elif get_part_vartype(nonum_str) == 2:
-                        filt.cond_vals_i[i] = int(value.in_units(get_code_units(nonum_str,'part')).d)
-                    elif get_part_vartype(nonum_str) == 3:
-                        filt.cond_vals_l[i] = int(value.in_units(get_code_units(nonum_str,'part')).d)
+                    if get_part_vartype(clean_name) == 1:
+                        filt.cond_vals_d[i] = value.in_units(get_code_units(clean_name,'part')).d
+                    elif get_part_vartype(clean_name) == 2:
+                        filt.cond_vals_i[i] = int(value.in_units(get_code_units(clean_name,'part')).d)
+                    elif get_part_vartype(clean_name) == 3:
+                        filt.cond_vals_l[i] = int(value.in_units(get_code_units(clean_name,'part')).d)
                 except:
                     # In the case of the condition value being a string
                     # we use variables for the filters
                     filt.use_var[i] = True
-                    units1 = get_code_units(nonum_str,'part')
-                    units2 = get_code_units(nonum_str[i].split('/')[2],'part')
+                    units1 = get_code_units(clean_name,'part')
+                    units2 = get_code_units(cond_strs[i].split('/')[2],'part')
                     if units1 != units2:
                         raise ValueError("You cannot compare %s and %s"%(units1,units2))
                     filt.cond_vars_comp_name = cond_strs[i].split('/')[2]
                     # And in place of units we should have the factor of that variable that we want
-                    if get_part_vartype(nonum_str) == 1:
+                    if get_part_vartype(clean_name) == 1:
                         filt.cond_vals_d[i] = float(cond_strs[i].split('/')[3])
-                    elif get_part_vartype(nonum_str) == 2:
+                    elif get_part_vartype(clean_name) == 2:
                         filt.cond_vals_i[i] = int(cond_strs[i].split('/')[3])
-                    elif get_part_vartype(nonum_str) == 3:
+                    elif get_part_vartype(clean_name) == 3:
                         filt.cond_vals_l[i] = int(cond_strs[i].split('/')[3])
         return filt
     else:
@@ -1819,12 +1871,12 @@ def pdf_handler_to_stats(obj,vartype,pdf_obj,ivar,ifilt,verbose=False):
     # Some fields have specific numerical flags at the end
     # which do not interfere with the units. If that is 
     # the case, get rid of that last 
-    varname = str(pdf_obj.varname.T.view('S128')[ivar][0].decode()).rstrip()
-    scaletype = str(pdf_obj.scaletype.T.view('S128')[ivar][0].decode()).rstrip()
+    varname = str(pdf_obj.varname.T.view('S128')[ivar][0].decode(errors='replace')).rstrip()
+    scaletype = str(pdf_obj.scaletype.T.view('S128')[ivar][0].decode(errors='replace')).rstrip()
     clean_name = remove_last_suffix_if_numeric(varname)
     code_units = get_code_units(clean_name,vartype)
     for i in range(0, nwvar):
-        wvarname = str(pdf_obj.wvarnames.T.view('S128')[i][0].decode()).rstrip()
+        wvarname = str(pdf_obj.wvarnames.T.view('S128')[i][0].decode(errors='replace')).rstrip()
         if wvarname != 'cumulative' and wvarname != 'counts' and wvarname != 'column':
             PDF = np.nan_to_num(pdf_obj.heights[ivar,ifilt,i,:],nan=0.0)
             x = 0.5*(pdf_obj.bins[1:,ivar]+pdf_obj.bins[:-1,ivar])

@@ -19,8 +19,8 @@ from .visualisation.vis_pkg import obs_instruments
 from .visualisation.vis_pkg import maps
 from .visualisation.vis_pkg import vectors
 from .visualisation.vis_pkg import io_ramses
-from .part.part2_pkg import filtering as filtering_part
-from .amr.amr2_pkg import filtering as filtering_hydro
+from .part.part2_pkg import filtering_part
+from .amr.amr2_pkg import filtering_hydro
 
 
 def ensure_healpix_compiled():

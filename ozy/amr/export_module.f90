@@ -21,7 +21,7 @@ module export_amr
     use dictionary_commons
     use io_ramses
     use hydro_commons
-    use filtering
+    use filtering_hydro
 
     type chunk_handler
         integer :: nvars,nx=100,ny=100,nz=100

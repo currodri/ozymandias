@@ -1,7 +1,7 @@
 module part_profiles
     use local
     use io_ramses
-    use filtering
+    use filtering_part
     use geometrical_regions
     use stats_utils
     use cosmology
@@ -74,7 +74,7 @@ module part_profiles
         yvarloop: do i=1,prof%ydata(ibin)%nvars
             if (prof%ydata(ibin)%do_binning(i)) then
                 ! Get variable
-                call findbinpos_part(reg,dcell,part_data_d,part_data_i,part_data_b,&
+                call findbinpos_part(amr,sim,reg,dcell,part_data_d,part_data_i,part_data_b,&
                                 & ipdf,ytemp,trans_matrix,&
                                 & prof%ydata(ibin)%scaletype(i),prof%ydata(ibin)%nbins,&
                                 & prof%ydata(ibin)%bins(:,i),prof%ydata(ibin)%linthresh(i),&
@@ -546,7 +546,7 @@ module part_profiles
                                             &part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
                                 if (ok_filter) then
                                     binpos = 0
-                                    call findbinpos_part(reg,dcell,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i),&
+                                    call findbinpos_part(amr,sim,reg,dcell,part_data_d(:,i),part_data_i(:,i),part_data_b(:,i),&
                                                         &binpos,ytemp,trans_matrix,prof_data%scaletype,&
                                                         &prof_data%nbins,prof_data%xdata,&
                                                         &prof_data%linthresh,prof_data%zero_index,prof_data%xvar)

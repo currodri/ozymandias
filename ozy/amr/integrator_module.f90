@@ -24,7 +24,7 @@ module amr_integrator
     use geometrical_regions
     use io_ramses
     use hydro_commons
-    use filtering
+    use filtering_hydro
     use stats_utils
     
     type amr_region_attrs
@@ -87,25 +87,25 @@ module amr_integrator
             if (attrs%result%do_binning(i)) then
                 ! Get variable
                 if (present(grav_var) .and. present(rt_var)) then
-                    call findbinpos(reg,x,cellvars,cellsons,cellsize,&
+                    call findbinpos(amr,sim,rtinfo,reg,x,cellvars,cellsons,cellsize,&
                                     & ibin,ytemp,trans_matrix,attrs%result%scaletype(i),&
                                     & attrs%result%nbins,attrs%result%bins(:,i),&
                                     & attrs%result%linthresh(i),attrs%result%zero_index(i),&
                                     & attrs%vars(i),grav_var,rt_var)
                 else if (present(grav_var)) then
-                    call findbinpos(reg,x,cellvars,cellsons,cellsize,&
+                    call findbinpos(amr,sim,rtinfo,reg,x,cellvars,cellsons,cellsize,&
                                     & ibin,ytemp,trans_matrix,attrs%result%scaletype(i),&
                                     & attrs%result%nbins,attrs%result%bins(:,i),&
                                     & attrs%result%linthresh(i),attrs%result%zero_index(i),&
                                     & attrs%vars(i),grav_var)
                 else if (present(rt_var)) then
-                    call findbinpos(reg,x,cellvars,cellsons,cellsize,&
+                    call findbinpos(amr,sim,rtinfo,reg,x,cellvars,cellsons,cellsize,&
                                     & ibin,ytemp,trans_matrix,attrs%result%scaletype(i),&
                                     & attrs%result%nbins,attrs%result%bins(:,i),&
                                     & attrs%result%linthresh(i),attrs%result%zero_index(i),&
                                     & attrs%vars(i),rtvars=rt_var)
                 else
-                    call findbinpos(reg,x,cellvars,cellsons,cellsize,&
+                    call findbinpos(amr,sim,rtinfo,reg,x,cellvars,cellsons,cellsize,&
                                     & ibin,ytemp,trans_matrix,attrs%result%scaletype(i),&
                                     & attrs%result%nbins,attrs%result%bins(:,i),&
                                     & attrs%result%linthresh(i),attrs%result%zero_index(i),&

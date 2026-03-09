@@ -21,7 +21,7 @@ module export_part
     use local
     use constants
     use io_ramses
-    use filtering
+    use filtering_part
     use cosmology
 
     contains

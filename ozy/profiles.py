@@ -17,8 +17,8 @@ from .amr.amr2_pkg import stats_utils
 from .amr.amr2_pkg import geometrical_regions as geo
 from .amr.amr2_pkg import io_ramses
 from .part.part2_pkg import part_profiles as partprofmod
-from .part.part2_pkg import filtering as filtering_part
-from .amr.amr2_pkg import filtering as filtering_hydro
+from .part.part2_pkg import filtering_part
+from .amr.amr2_pkg import filtering_hydro
 
 blacklist = [
     'yvars','weightvars','data','xdata','ydata'

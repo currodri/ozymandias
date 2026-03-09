@@ -445,4 +445,20 @@ module geometrical_regions
                 &reg%angle >= abs(theta))
     end subroutine cone
 
+    logical function filter_sub(sub,cell_x)
+        implicit none
+        type(region),intent(in) :: sub
+        real(dbl),dimension(1:3), intent(in) :: cell_x
+        integer :: i
+        real(dbl) :: distance
+        real(dbl),dimension(1:3) :: pos
+
+        filter_sub = .True.
+
+        pos = cell_x - (/sub%centre%x,sub%centre%y,sub%centre%z/)
+
+        call checkifinside(pos,sub,filter_sub,distance)
+        filter_sub = .not.filter_sub
+    end function filter_sub
+
 end module geometrical_regions

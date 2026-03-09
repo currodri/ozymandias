@@ -24,7 +24,7 @@ module amr_profiles
     use dictionary_commons
     use io_ramses
     use hydro_commons
-    use filtering
+    use filtering_hydro
     use geometrical_regions
     use stats_utils
 
@@ -142,22 +142,22 @@ module amr_profiles
             if (prof%ydata(ibin)%do_binning(i)) then
                 ! Get variable
                 if (present(grav_var) .and. present(rt_var)) then
-                    call findbinpos(reg,x,cellvars,cellsons,cellsize,ipdf,ytemp,trans_matrix,&
+                    call findbinpos(amr,sim,rtinfo,reg,x,cellvars,cellsons,cellsize,ipdf,ytemp,trans_matrix,&
                                     & prof%ydata(ibin)%scaletype(i),prof%ydata(ibin)%nbins,&
                                     & prof%ydata(ibin)%bins(:,i),prof%ydata(ibin)%linthresh(i),&
                                     & prof%ydata(ibin)%zero_index(i),prof%yvars(i),grav_var,rt_var)
                 else if (present(grav_var)) then
-                        call findbinpos(reg,x,cellvars,cellsons,cellsize,ipdf,ytemp,trans_matrix,&
+                        call findbinpos(amr,sim,rtinfo,reg,x,cellvars,cellsons,cellsize,ipdf,ytemp,trans_matrix,&
                                         & prof%ydata(ibin)%scaletype(i),prof%ydata(ibin)%nbins,&
                                         & prof%ydata(ibin)%bins(:,i),prof%ydata(ibin)%linthresh(i),&
                                         & prof%ydata(ibin)%zero_index(i),prof%yvars(i),grav_var)
                 else if (present(rt_var)) then
-                        call findbinpos(reg,x,cellvars,cellsons,cellsize,ipdf,ytemp,trans_matrix,&
+                        call findbinpos(amr,sim,rtinfo,reg,x,cellvars,cellsons,cellsize,ipdf,ytemp,trans_matrix,&
                                         & prof%ydata(ibin)%scaletype(i),prof%ydata(ibin)%nbins,&
                                         & prof%ydata(ibin)%bins(:,i),prof%ydata(ibin)%linthresh(i),&
                                         & prof%ydata(ibin)%zero_index(i),prof%yvars(i),rtvars=rt_var)
                 else
-                        call findbinpos(reg,x,cellvars,cellsons,cellsize,ipdf,ytemp,trans_matrix,&
+                        call findbinpos(amr,sim,rtinfo,reg,x,cellvars,cellsons,cellsize,ipdf,ytemp,trans_matrix,&
                                         & prof%ydata(ibin)%scaletype(i),prof%ydata(ibin)%nbins,&
                                         & prof%ydata(ibin)%bins(:,i),prof%ydata(ibin)%linthresh(i),&
                                         & prof%ydata(ibin)%zero_index(i),prof%yvars(i))
@@ -897,7 +897,7 @@ module amr_profiles
                                         if (ok_filter) then
                                             binpos = 0
                                             if (prof_data%use_gravity .and. prof_data%use_rt) then
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 & dx,binpos,ytemp,trans_matrix,&
                                                                 & prof_data%scaletype,prof_data%nbins,&
                                                                 & prof_data%xdata,prof_data%linthresh,&
@@ -905,7 +905,7 @@ module amr_profiles
                                                                 & tempgrav_var,temprt_var)
                                                 if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix,tempgrav_var,temprt_var)
                                             else if (prof_data%use_gravity) then
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 & dx,binpos,ytemp,trans_matrix,&
                                                                 & prof_data%scaletype,prof_data%nbins,&
                                                                 & prof_data%xdata,prof_data%linthresh,&
@@ -913,7 +913,7 @@ module amr_profiles
                                                                 & tempgrav_var)
                                                 if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix,tempgrav_var)
                                             else if (prof_data%use_rt) then
-                                                 call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                 call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 & dx,binpos,ytemp,trans_matrix,&
                                                                 & prof_data%scaletype,prof_data%nbins,&
                                                                 & prof_data%xdata,prof_data%linthresh,&
@@ -921,7 +921,7 @@ module amr_profiles
                                                                 & rtvars=temprt_var)
                                                 if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix,rt_var=temprt_var)
                                             else
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 & dx,binpos,ytemp,trans_matrix,&
                                                                 & prof_data%scaletype,prof_data%nbins,&
                                                                 & prof_data%xdata,prof_data%linthresh,&
@@ -1307,7 +1307,7 @@ module amr_profiles
                                         if (ok_filter) then
                                             binpos = 0
                                             if (prof_data%use_gravity .and. prof_data%use_rt) then
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 & dx,binpos,ytemp,trans_matrix,&
                                                                 & prof_data%scaletype,prof_data%nbins,&
                                                                 & prof_data%xdata,prof_data%linthresh,&
@@ -1315,7 +1315,7 @@ module amr_profiles
                                                                 & tempgrav_var,temprt_var)
                                                 if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix,tempgrav_var,temprt_var)
                                             else if (prof_data%use_rt) then
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 & dx,binpos,ytemp,trans_matrix,&
                                                                 & prof_data%scaletype,prof_data%nbins,&
                                                                 & prof_data%xdata,prof_data%linthresh,&
@@ -1323,7 +1323,7 @@ module amr_profiles
                                                                 & tempgrav_var,rtvars=temprt_var)
                                                 if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix,rt_var=temprt_var)
                                             else if (prof_data%use_gravity) then
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 & dx,binpos,ytemp,trans_matrix,&
                                                                 & prof_data%scaletype,prof_data%nbins,&
                                                                 & prof_data%xdata,prof_data%linthresh,&
@@ -1331,7 +1331,7 @@ module amr_profiles
                                                                 & tempgrav_var)
                                                 if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix,tempgrav_var)
                                             else
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 & dx,binpos,ytemp,trans_matrix,&
                                                                 & prof_data%scaletype,prof_data%nbins,&
                                                                 & prof_data%xdata,prof_data%linthresh,&
@@ -1824,13 +1824,13 @@ module amr_profiles
                                             xbinpos = 0; ybinpos=0
                                             total_ncell(ifilt) = total_ncell(ifilt) + 1
                                             if (prof_data%use_gravity .and. prof_data%use_rt) then
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 &dx,xbinpos,vartemp,trans_matrix,&
                                                                 &prof_data%scaletype(1),&
                                                                 &prof_data%nbins(1),prof_data%xdata,&
                                                                 &prof_data%linthresh(1),prof_data%zero_index(1),&
                                                                 &prof_data%xvar,tempgrav_var,temprt_var)
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 &dx,ybinpos,vartemp,trans_matrix,&
                                                                 &prof_data%scaletype(2),&
                                                                 &prof_data%nbins(2),prof_data%ydata,&
@@ -1841,13 +1841,13 @@ module amr_profiles
                                                                                         &xbinpos,ybinpos,ifilt,&
                                                                                         &trans_matrix,tempgrav_var,temprt_var)
                                             else if (prof_data%use_rt) then
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 &dx,xbinpos,vartemp,trans_matrix,&
                                                                 &prof_data%scaletype(1),&
                                                                 &prof_data%nbins(1),prof_data%xdata,&
                                                                 &prof_data%linthresh(1),prof_data%zero_index(1),&
                                                                 &prof_data%xvar,rtvars=temprt_var)
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 &dx,ybinpos,vartemp,trans_matrix,&
                                                                 &prof_data%scaletype(2),&
                                                                 &prof_data%nbins(2),prof_data%ydata,&
@@ -1858,13 +1858,13 @@ module amr_profiles
                                                                                         &xbinpos,ybinpos,ifilt,&
                                                                                         &trans_matrix,rt_var=temprt_var)
                                             else if (prof_data%use_gravity) then
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 &dx,xbinpos,vartemp,trans_matrix,&
                                                                 &prof_data%scaletype(1),&
                                                                 &prof_data%nbins(1),prof_data%xdata,&
                                                                 &prof_data%linthresh(1),prof_data%zero_index(1),&
                                                                 &prof_data%xvar,tempgrav_var)
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 &dx,ybinpos,vartemp,trans_matrix,&
                                                                 &prof_data%scaletype(2),&
                                                                 &prof_data%nbins(2),prof_data%ydata,&
@@ -1875,13 +1875,13 @@ module amr_profiles
                                                                                         &xbinpos,ybinpos,ifilt,&
                                                                                         &trans_matrix,tempgrav_var)
                                             else
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 &dx,xbinpos,vartemp,trans_matrix,&
                                                                 &prof_data%scaletype(1),&
                                                                 &prof_data%nbins(1),prof_data%xdata,&
                                                                 &prof_data%linthresh(1),prof_data%zero_index(1),&
                                                                 &prof_data%xvar)
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 &dx,ybinpos,vartemp,trans_matrix,&
                                                                 &prof_data%scaletype(2),&
                                                                 &prof_data%nbins(2),prof_data%ydata,&
@@ -2317,13 +2317,13 @@ module amr_profiles
                                             xbinpos = 0; ybinpos=0
                                             total_ncell(ifilt) = total_ncell(ifilt) + 1
                                             if (prof_data%use_gravity .and. prof_data%use_rt) then
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 &dx,xbinpos,vartemp,trans_matrix,&
                                                                 &prof_data%scaletype(1),&
                                                                 &prof_data%nbins(1),prof_data%xdata,&
                                                                 &prof_data%linthresh(1),prof_data%zero_index(1),&
                                                                 &prof_data%xvar,tempgrav_var,temprt_var)
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 &dx,ybinpos,vartemp,trans_matrix,&
                                                                 &prof_data%scaletype(2),&
                                                                 &prof_data%nbins(2),prof_data%ydata,&
@@ -2334,13 +2334,13 @@ module amr_profiles
                                                                                         &xbinpos,ybinpos,ifilt,&
                                                                                         &trans_matrix,tempgrav_var,temprt_var)
                                             else if (prof_data%use_rt) then
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 &dx,xbinpos,vartemp,trans_matrix,&
                                                                 &prof_data%scaletype(1),&
                                                                 &prof_data%nbins(1),prof_data%xdata,&
                                                                 &prof_data%linthresh(1),prof_data%zero_index(1),&
                                                                 &prof_data%xvar,rtvars=temprt_var)
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 &dx,ybinpos,vartemp,trans_matrix,&
                                                                 &prof_data%scaletype(2),&
                                                                 &prof_data%nbins(2),prof_data%ydata,&
@@ -2351,13 +2351,13 @@ module amr_profiles
                                                                                         &xbinpos,ybinpos,ifilt,&
                                                                                         &trans_matrix,rt_var=temprt_var)
                                             else if (prof_data%use_gravity) then
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 &dx,xbinpos,vartemp,trans_matrix,&
                                                                 &prof_data%scaletype(1),&
                                                                 &prof_data%nbins(1),prof_data%xdata,&
                                                                 &prof_data%linthresh(1),prof_data%zero_index(1),&
                                                                 &prof_data%xvar,tempgrav_var)
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 &dx,ybinpos,vartemp,trans_matrix,&
                                                                 &prof_data%scaletype(2),&
                                                                 &prof_data%nbins(2),prof_data%ydata,&
@@ -2368,13 +2368,13 @@ module amr_profiles
                                                                                         &xbinpos,ybinpos,ifilt,&
                                                                                         &trans_matrix,tempgrav_var)
                                             else
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 &dx,xbinpos,vartemp,trans_matrix,&
                                                                 &prof_data%scaletype(1),&
                                                                 &prof_data%nbins(1),prof_data%xdata,&
                                                                 &prof_data%linthresh(1),prof_data%zero_index(1),&
                                                                 &prof_data%xvar)
-                                                call findbinpos(reg,xtemp,tempvar,tempson,&
+                                                call findbinpos(amr,sim,rtinfo,reg,xtemp,tempvar,tempson,&
                                                                 &dx,ybinpos,vartemp,trans_matrix,&
                                                                 &prof_data%scaletype(2),&
                                                                 &prof_data%nbins(2),prof_data%ydata,&

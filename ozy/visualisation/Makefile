@@ -95,7 +95,8 @@ VPATH = ../fortran_commons
 
 # names (without suffix), f90 sources
 LIBSRC_SOURCES = local utils dictionary_module linalg_module coordinates_module \
-					cooling_module read_amr_module variables filtering \
+					cooling_module read_amr_module variables_hydro variables_part\
+					filtering_hydro filtering_part \
 					cosmology_module ramses2map #sunset
 
 # file names
@@ -113,7 +114,8 @@ LIBSRC_FPP_FILES = $(addsuffix .fpp,${LIBSRC_SOURCES})
 
 # names (without suffix), f90 sources
 LIBSRC_WRAP_SOURCES = dictionary_module linalg_module coordinates_module \
-						cooling_module read_amr_module variables filtering \
+						cooling_module read_amr_module variables_hydro variables_part \
+						filtering_hydro filtering_part \
 						cosmology_module ramses2map #sunset
 
 # file names

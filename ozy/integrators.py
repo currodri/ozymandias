@@ -10,7 +10,8 @@ def integrate_hydro(obj, group=None, filter=None, xmin=(0,'code_length'),
                      rmax=(0.5,'code_length'),region_type='sphere',
                      myaxis=np.array([0,0,1.]), bulk_velocity=([0,0,0],'code_velocity'),
                      variables=['mass'], weights=['cumulative'], do_binning=[False],
-                     verbose=False, remove_subs=False, lmax=100, lmin=1, pdf_bins=100):
+                     verbose=False, remove_subs=False, lmax=100, lmin=1, pdf_bins=100,
+                     region=None):
     """
     Integrate the hydro properties of a region in the simulation.
 
@@ -68,13 +69,16 @@ def integrate_hydro(obj, group=None, filter=None, xmin=(0,'code_length'),
 
     """
     from amr2 import io_ramses, amr_integrator, stats_utils
-    from .utils import check_need_gravity, check_need_neighbours
+    from .utils import check_need_gravity, check_need_neighbours,\
+                        check_need_rt
 
     if verbose:
         io_ramses.activate_verbose()
     
     # 1. Initialise region
-    if group == None:
+    if region is not None:
+        selected_reg = region
+    elif group == None:
         group = Group(obj)
         xcentre = 0.5*(obj.quantity(xmax[0],str(xmax[1])) + obj.quantity(xmin[0],str(xmin[1])))
         ycentre = 0.5*(obj.quantity(ymax[0],str(ymax[1])) + obj.quantity(ymin[0],str(ymin[1])))
@@ -156,23 +160,39 @@ def integrate_hydro(obj, group=None, filter=None, xmin=(0,'code_length'),
     # 10. Determine if the variables or weights need neighbours or gravity files
     use_neighbours = False
     use_gravity = False
+    use_rt = False
     for i in range(0, len(variables)):
         if check_need_neighbours(variables[i],'gas'):
             use_neighbours = True
         if check_need_gravity(variables[i],'gas'):
             use_gravity = True
-        if use_gravity and use_neighbours:
+        if check_need_rt(variables[i],'gas'):
+            use_rt = True
+        if use_gravity and use_neighbours and use_rt:
             break
+    for i in range(0, len(weights)):
+        if check_need_neighbours(weights[i],'gas'):
+            use_neighbours = True
+        if check_need_gravity(weights[i],'gas'):
+            use_gravity = True
+        if check_need_rt(weights[i],'gas'):
+            use_rt = True
+        if use_gravity and use_neighbours and use_rt:
+            break
+
+    glob_attrs.use_rt = use_rt
+    glob_attrs.use_gravity = use_gravity
+    glob_attrs.use_neigh = use_neighbours
 
     # 11. PERFORM THE INTEGRATION
     output_path = obj.simulation.fullpath
     if obj.use_vardict:
-        amr_integrator.integrate_region(output_path, selected_reg,use_neighbours,
-                                        use_gravity, glob_attrs, lmax, lmin,
+        amr_integrator.integrate_region(output_path, selected_reg,
+                                        glob_attrs, lmax, lmin,
                                         obj.vardict)
     else:
-        amr_integrator.integrate_region(output_path, selected_reg,use_neighbours,
-                                        use_gravity, glob_attrs, lmax, lmin)
+        amr_integrator.integrate_region(output_path, selected_reg,
+                                        glob_attrs, lmax, lmin)
     
     return glob_attrs
 
@@ -183,7 +203,8 @@ def integrate_part(obj, group=None, filter=None, xmin=(0,'code_length'),
                     rmax=(0.5,'code_length'),region_type='sphere',
                     myaxis=np.array([0,0,1.]), bulk_velocity=([0,0,0],'code_velocity'),
                     variables=['mass'], weights=['cumulative'], do_binning=[False],
-                    verbose=False, remove_subs=False, pdf_bins=100):
+                    verbose=False, remove_subs=False, pdf_bins=100,
+                    region=None):
     """
     Integrate the particle properties of a region in the simulation.
 
@@ -241,7 +262,9 @@ def integrate_part(obj, group=None, filter=None, xmin=(0,'code_length'),
         io_ramses.activate_verbose()
 
     # 1. Initialise region
-    if group == None:
+    if region is not None:
+        selected_reg = region
+    elif group == None:
         group = Group(obj)
         xcentre = 0.5*(obj.quantity(xmax[0],str(xmax[1])) + obj.quantity(xmin[0],str(xmin[1])))
         ycentre = 0.5*(obj.quantity(ymax[0],str(ymax[1])) + obj.quantity(ymin[0],str(ymin[1])))
@@ -310,13 +333,15 @@ def integrate_part(obj, group=None, filter=None, xmin=(0,'code_length'),
 
     # 9. Now fill up the variable and weight names with the correct bins
     for i in range(0, len(variables)):
-        mybins = get_code_bins(obj, 'part', variables[i], pdf_bins)
         glob_attrs.result.varname.T.view('S128')[i] = variables[i].ljust(128)
-        glob_attrs.result.scaletype.T.view('S128')[i] = mybins[1].ljust(128)
-        glob_attrs.result.bins[:,i] = mybins[0]
         glob_attrs.result.do_binning[i] = do_binning[i]
-        glob_attrs.result.zero_index[i] = mybins[2]
-        glob_attrs.result.linthresh[i] = mybins[3]
+        if do_binning[i]:
+            mybins = get_code_bins(obj, 'part', variables[i], pdf_bins)
+            glob_attrs.result.bins[:,i] = mybins[0]
+            glob_attrs.result.zero_index[i] = mybins[2]
+            glob_attrs.result.linthresh[i] = mybins[3]
+            glob_attrs.result.scaletype.T.view('S128')[i] = mybins[1].ljust(128)
+        
     for i in range(0, len(weights)):
         glob_attrs.result.wvarnames.T.view('S128')[i] = weights[i].ljust(128)
 

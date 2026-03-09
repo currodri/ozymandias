@@ -78,7 +78,7 @@ class Snapshot(object):
         length_unit = self._info["unit_l"]/1e+2 # cm to m
         density_unit = self._info["unit_d"] * 1e+3 # g/cm**3 to kg/m**3
         time_unit = self._info["unit_t"]
-        mass_unit = density_unit * (length_unit* self._info['boxlen']) ** 3
+        mass_unit = density_unit * (length_unit) ** 3
         magnetic_unit = np.sqrt(4. *np.pi) * length_unit * (density_unit**0.5) / time_unit
         velocity_unit = length_unit / time_unit
         pressure_unit = density_unit * (length_unit / time_unit) ** 2

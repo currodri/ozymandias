@@ -477,16 +477,52 @@ module io_ramses
         character(256)            :: nomfich
         logical                   :: ok
         character(25)  ::  newVar,newType
-        integer            ::  newID,status,i,TypeID
+        integer            ::  newID,status,i,TypeID,nvar_count
+        integer            ::  idx_d,idx_i,idx_b
 
         if (partIDs%count.ne.0) return
 
         nomfich=TRIM(repository)//'/part_file_descriptor.txt'
         inquire(file=nomfich, exist=ok) ! verify input file
         if (ok) then
-            sim%nvar_part_d = 0; sim%nvar_part_i = 0; sim%nvar_part_b = 0
-            sim%nvar_part = 0
             if (verbose) write(*,'(": Reading part IDs from part_file_descriptor.txt")')
+            
+            ! First pass: count variables and determine sizes
+            nvar_count = 0
+            sim%nvar_part_d = 0
+            sim%nvar_part_i = 0
+            sim%nvar_part_b = 0
+            
+            open(unit=111,file=nomfich,status='old',form='formatted')
+            read(111,*) ! Skip header
+            read(111,*) ! Skip header
+            do
+                read(111,*,iostat=status)newID,newVar,newType
+                if (status /= 0) exit
+                nvar_count = nvar_count + 1
+                if (trim(newType) .eq. 'd') then
+                    sim%nvar_part_d = sim%nvar_part_d + 1
+                elseif (trim(newType) .eq. 'i') then
+                    sim%nvar_part_i = sim%nvar_part_i + 1
+                elseif (trim(newType) .eq. 'b') then
+                    sim%nvar_part_b = sim%nvar_part_b + 1
+                endif
+            end do
+            close(111)
+            
+            ! Allocate arrays based on counts
+            if (.not.allocated(sim%part_var_types)) then
+                allocate(sim%part_var_types(nvar_count))
+                call partIDs%init(nvar_count)
+                call partvar_types%init(nvar_count)
+            end if
+            
+            ! Second pass: read and store data with sequential indices
+            sim%nvar_part = 0
+            idx_d = 0
+            idx_i = 0
+            idx_b = 0
+            
             open(unit=111,file=nomfich,status='old',form='formatted')
             read(111,*) ! Skip header
             read(111,*) ! Skip header
@@ -494,26 +530,28 @@ module io_ramses
                 read(111,*,iostat=status)newID,newVar,newType
                 if (status /= 0) exit
                 sim%nvar_part = sim%nvar_part + 1
+                
                 if (trim(newType) .eq. 'd') then
                     TypeID = 1
-                    sim%nvar_part_d = sim%nvar_part_d + 1
-                    call partIDs%add(newVar,sim%nvar_part_d)
+                    idx_d = idx_d + 1
+                    call partIDs%add(newVar, idx_d)
                 elseif (trim(newType) .eq. 'i') then
                     TypeID = 2
-                    sim%nvar_part_i = sim%nvar_part_i + 1
-                    call partIDs%add(newVar,sim%nvar_part_i)
+                    idx_i = idx_i + 1
+                    call partIDs%add(newVar, idx_i)
                 elseif (trim(newType) .eq. 'b') then
                     TypeID = 3
-                    sim%nvar_part_b = sim%nvar_part_b + 1
-                    call partIDs%add(newVar,sim%nvar_part_b)
+                    idx_b = idx_b + 1
+                    call partIDs%add(newVar, idx_b)
                 else
                     write(*,'(": ",A," particle type not found. Stopping!")')
                     stop
                 end if
                 sim%part_var_types(sim%nvar_part) = TypeID
-                call partvar_types%add(newVar,TypeID)
+                call partvar_types%add(newVar, TypeID)
             end do
             close(111)
+            
             if (verbose) then
                 write(*,*)'nvar_part=',sim%nvar_part
                 write(*,*)'nvar_part_d=',sim%nvar_part_d

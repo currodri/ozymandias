@@ -97,6 +97,7 @@ module constants
   real(dbl),parameter :: mMg_amu = 24.305d0        ! Magnesium molecular weight [amu]
   real(dbl),parameter :: mSi_amu = 28.0855d0       ! Silicon molecular weight [amu]
   real(dbl),parameter :: mFe_amu = 55.854d0        ! Iron molecular weight [amu]
+  real(dbl),parameter :: mOovermH = 15.875d0       ! Oxygen to Hydrogen mass ratio [dimensionless]
   ! Molecular constants
   real(dbl),parameter :: CO_to_Cmass = 0.4288      ! CO to C mass [dimensionless]
   ! Cosmology

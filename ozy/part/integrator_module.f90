@@ -22,7 +22,7 @@ module part_integrator
     use local
     use geometrical_regions
     use io_ramses
-    use filtering
+    use filtering_part
     use cosmology
     use stats_utils
 
@@ -86,7 +86,7 @@ module part_integrator
         varloop: do i=1,attrs%result%nvars
             if (attrs%result%do_binning(i)) then
                 ! Get variable
-                call findbinpos_part(reg,dcell,part_data_d,part_data_i,part_data_b,&
+                call findbinpos_part(amr,sim,reg,dcell,part_data_d,part_data_i,part_data_b,&
                                     & ibin,ytemp,trans_matrix,attrs%result%scaletype(i),&
                                     & attrs%result%nbins,attrs%result%bins(:,i),&
                                     & attrs%result%linthresh(i),attrs%result%zero_index(i),&
@@ -198,7 +198,6 @@ module part_integrator
                             stop
                         end if
                     endif
-                    
                     ! Save to attrs
                     attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) + ytemp2*wtemp ! Value (weighted or not)
                     attrs%result%total(i,ifilt,j,2) = attrs%result%total(i,ifilt,j,2) + wtemp       ! Weight
@@ -209,6 +208,7 @@ module part_integrator
     end subroutine extract_data
 
     subroutine renormalise(attrs)
+        use utils, only: get_cleaned_string, get_numeric_suffix
         implicit none
 
         ! Input part_region_attrs type
@@ -216,36 +216,29 @@ module part_integrator
 
         ! Local variable
         integer :: i,j,index2,ifilt
-        character(128) :: varname,sfrstr,wvarname
+        character(128) :: varname,clean_name,wvarname
         real(dbl) :: sfrind
+        integer :: suffix_value
 
         filterloop: do ifilt=1,attrs%nfilter
             varloop: do i=1,attrs%result%nvars
                 varname = TRIM(attrs%result%varname(i))
-                index2 = scan(varname,'_')
+                clean_name = TRIM(get_cleaned_string(varname))
+                suffix_value = get_numeric_suffix(varname)
                 if (attrs%result%do_binning(i)) then
                     wvarloop1: do j=1,attrs%result%nwvars
                         wvarname = TRIM(attrs%result%wvarnames(j))
-                        if (trim(wvarname) .eq. 'cumulative' .and. index2.ne.0 .and. trim(varname(1:index2-1)).eq.'sfr') then
-                            sfrstr = varname(index2+1:)
-                            read(sfrstr,'(F10.0)') sfrind
-                            attrs%result%heights(i,ifilt,j,:) = attrs%result%heights(i,ifilt,j,:) / attrs%result%totweights(i,ifilt,j) * sim%unit_m/ (sfrind*1D6*2D33) ! We now have it in Msun/yr
-                            attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) / attrs%result%total(i,ifilt,j,2) * sim%unit_m/ (sfrind*1D6*2D33) ! We now have it in Msun/yr
-                        elseif (trim(wvarname) /= 'cumulative' .and. index2.eq.0) then
+                        if (trim(wvarname) /= 'cumulative') then
                             attrs%result%heights(i,ifilt,j,:) = attrs%result%heights(i,ifilt,j,:) / attrs%result%totweights(i,ifilt,j)
                             attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) / attrs%result%total(i,ifilt,j,2)
-                        endif
+                        end if
                     end do wvarloop1
                 else
                     wvarloop2: do j=1,attrs%result%nwvars
                         wvarname = TRIM(attrs%result%wvarnames(j))
-                        if (trim(wvarname) .eq. 'cumulative' .and. index2.ne.0 .and. trim(varname(1:index2-1)).eq.'sfr') then
-                            sfrstr = varname(index2+1:)
-                            read(sfrstr,'(F10.0)') sfrind
-                            attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) * sim%unit_m/ (sfrind*1D6*2D33) ! We now have it in Msun/yr
-                        elseif (trim(wvarname) /= 'cumulative' .and. index2.eq.0) then
+                        if (trim(wvarname) /= 'cumulative') then
                             attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) / attrs%result%total(i,ifilt,j,2)
-                        endif
+                        end if
                     end do wvarloop2
                 end if
             end do varloop
@@ -271,8 +264,8 @@ module part_integrator
         integer :: roterr
         integer :: i,j,k
         integer :: ipos,icpu,binpos,ifilt,isub
-        integer :: npart,npart2,nstar,inpart=0
-        integer :: npart_selected=0,npart_sub=0
+        integer :: npart,npart2,nstar,inpart
+        integer :: npart_selected,npart_sub
         integer :: ncpu2,ndim2
         real(dbl) :: distance
         real(dbl),dimension(1:3,1:3) :: trans_matrix
@@ -408,6 +401,9 @@ module part_integrator
         ipos = INDEX(repository,'output_')
         nchar = repository(ipos+7:ipos+13)
         npart = 0
+        inpart = 0
+        npart_selected = 0
+        npart_sub = 0
         allocate(npart_filtered(1:attrs%nfilter))
         npart_filtered = 0
         do k=1,amr%ncpu_read
@@ -446,7 +442,9 @@ module part_integrator
 
             ! 1. Allocate particle data arrays
             allocate(part_data_d(sim%nvar_part_d,1:npart2))
+            
             allocate(part_data_b(sim%nvar_part_b,1:npart2))
+            
             allocate(part_data_i(sim%nvar_part_i,1:npart2))
 
             allocate(x(1:npart2,1:3))

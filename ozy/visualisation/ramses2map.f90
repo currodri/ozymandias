@@ -4,7 +4,6 @@ module obs_instruments
     use vectors
     use coordinate_systems
     use geometrical_regions
-    use filtering
 
     type camera
         type(vector) :: centre,los_axis,up_vector
@@ -84,7 +83,6 @@ module obs_instruments
     end subroutine get_map_size
 
     subroutine get_map_box(cam,box)
-        use geometrical_regions
         implicit none
         type(camera),intent(in) :: cam
         type(region),intent(inout) :: box
@@ -147,7 +145,6 @@ module obs_instruments
     end subroutine los_transformation
 
     subroutine get_bounding_box(cam,bbox)
-        use geometrical_regions
         implicit none
         type(camera),intent(in) :: cam
         type(region),intent(inout) :: bbox
@@ -251,7 +248,9 @@ module maps
     use geometrical_regions
     use obs_instruments
     use hydro_commons
+    use filtering_hydro
     use part_commons
+    use filtering_part
 
     type hydro_projection_handler
         character(128) :: pov
