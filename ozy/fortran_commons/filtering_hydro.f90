@@ -31,9 +31,10 @@ module filtering_hydro
         filt%use_var = .false.
     end subroutine allocate_filter_hydro
 
-    subroutine get_filter_var_tools(vardict,filt)
+    subroutine get_filter_var_tools(my_sim,vardict,filt)
         implicit none
 
+        type(sim_info), intent(in) :: my_sim
         type(dictf90),intent(in) :: vardict
         type(filter_hydro),intent(inout) :: filt
 
@@ -51,10 +52,10 @@ module filtering_hydro
 
             ! 2. Set the variable
             filt%cond_vars(i)%name = filt%cond_vars_name(i)
-            call set_hydro_var(vardict,filt%cond_vars(i))
+            call set_hydro_var(my_sim,vardict,filt%cond_vars(i))
             if (filt%use_var(i)) then
                 filt%cond_vars_comp(i)%name = filt%cond_vars_comp_name(i)
-                call set_hydro_var(vardict,filt%cond_vars_comp(i))
+                call set_hydro_var(my_sim,vardict,filt%cond_vars_comp(i))
             end if            
         
         end do ! i
@@ -73,11 +74,8 @@ module filtering_hydro
         integer,dimension(0:amr%twondim),intent(in) :: cell_son
         real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
         real(dbl),dimension(0:amr%twondim,1:4),intent(in),optional :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:amr%twondim,1:rtinfo%nRTvar),intent(in),optional :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:amr%twondim,1:rtinfo%nRTvar),intent(in),optional :: rt_var
-#endif
+
         integer :: i
         real(dbl) :: value,filt_value
 

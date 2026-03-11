@@ -68,10 +68,10 @@ class Snapshot(object):
         
         registry = UnitRegistry(unit_system='cgs')
 
-        _X = 0.76  # H fraction, hardcoded
-        _Y = 0.24  # He fraction, hardcoded
-        mean_molecular_weight_factor = get_mu(_X, _Y)
-        electron_molecular_weight_factor = get_electron_mu(_X, _Y)
+        # _X = 0.76  # H fraction, hardcoded
+        # _Y = 0.24  # He fraction, hardcoded
+        # mean_molecular_weight_factor = get_mu(_X, _Y)
+        # electron_molecular_weight_factor = get_electron_mu(_X, _Y)
 
         # unyt stores internally in MKS units (m,kg,s), so a couple of
         # transformations are required to the CGS units in RAMSES
@@ -82,11 +82,10 @@ class Snapshot(object):
         magnetic_unit = np.sqrt(4. *np.pi) * length_unit * (density_unit**0.5) / time_unit
         velocity_unit = length_unit / time_unit
         pressure_unit = density_unit * (length_unit / time_unit) ** 2
-        temperature_unit = velocity_unit ** 2 * 1.66e-27 / 1.3806200e-23 #kb.to('kg*m**2/(K*s**2)').d
+        temperature_unit = velocity_unit ** 2 * (mp.to('kg').d/kb.to('kg*m**2/(K*s**2)').d) #1.66e-27 / 1.3806200e-23 #
         s_entropy_unit = 1.4e+8 * erg / K / g
         s_entropy_unit = float(s_entropy_unit.to('m**2/s**2/K').d)
-        pseudo_entropy_unit = (mp.to('kg').d**(5./3.)) * mean_molecular_weight_factor * electron_molecular_weight_factor**(2./3.) * pressure_unit / (density_unit**(5./3.))
-
+        pseudo_entropy_unit = (mp.to('kg').d**(5./3.)) * pressure_unit / (density_unit**(5./3.))
 
         # Code length
         registry.add("code_length", base_value=length_unit * self._info['boxlen'], dimensions=length)

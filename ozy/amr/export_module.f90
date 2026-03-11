@@ -69,7 +69,7 @@ module export_amr
         real(dbl) :: distance,dx,value,signto
         real(dbl) :: xmin,ymin,zmin
         real(dbl) :: ddx,ddy,ddz,dex,dey,dez,xx,yy,zz
-        real(dbl),dimension(1:3) :: newx 
+        real(dbl),dimension(1:3) :: newx
         type(vector) :: xtemp,vtemp,fluxtemp
         logical :: ok_cell,ok_filter,ok_cell_each
         integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
@@ -78,7 +78,7 @@ module export_amr
         real(dbl),dimension(3,3) :: trans_matrix
         real(dbl),dimension(:,:),allocatable :: xg,x
         real(hydro_real_kind),dimension(:,:),allocatable :: var
-        real(hydro_real_kind),dimension(:,:),allocatable :: tempvar
+        real(dbl),dimension(:,:),allocatable :: tempvar
         integer,dimension(:,:),allocatable :: nbor
         integer,dimension(:),allocatable :: son,tempson
         integer,dimension(:),allocatable :: ind_grid,ind_cell,ind_cell2
@@ -105,10 +105,12 @@ module export_amr
 
         ! Set up hydro variables quicklook tools
         if (present(vardict)) then
+            ! Setup the kind of simulation variables
+            call setup_simulation_type(vardict)
             ! If the user provides their own variable dictionary,
             ! use that one instead of the automatic from the 
             ! hydro descriptor file (RAMSES)
-            call get_var_tools(vardict,chunk%nvars,chunk%varnames,chunk%vars)
+            call get_var_tools(sim,vardict,chunk%nvars,chunk%varnames,chunk%vars)
 
             ! We always need the indexes of the velocities
             ! to perform rotations of gas velocities
@@ -116,7 +118,10 @@ module export_amr
             ivy = vardict%get('velocity_y')
             ivz = vardict%get('velocity_z')
         else
-            call get_var_tools(varIDs,chunk%nvars,chunk%varnames,chunk%vars)
+            ! Setup the kind of simulation variables
+            call setup_simulation_type(vardict)
+
+            call get_var_tools(sim,varIDs,chunk%nvars,chunk%varnames,chunk%vars)
 
             ! We always need the indexes of the velocities
             ! to perform rotations of gas velocities
@@ -341,14 +346,11 @@ module export_amr
                             call checkifinside(newx,reg,ok_cell,distance)
 
                             ! Velocity transformed --> ONLY FOR CENTRAL CELL
-#if UPRE==4
-                            vtemp = dble(var(ind_cell(i),ivx:ivz))
-#else
-                            vtemp = var(ind_cell(i),ivx:ivz)
-#endif
+                            
+                            vtemp = real(var(ind_cell(i),ivx:ivz),kind=dbl)
                             vtemp = vtemp - reg%bulk_velocity
                             call rotate_vector(vtemp,trans_matrix)
-                            var(ind_cell(i),ivx:ivz) = vtemp
+                            vtmp = vtemp
 
                             ! Get neighbours
                             allocate(ind_nbor(0:amr%twondim))
@@ -356,6 +358,7 @@ module export_amr
                             ind_cell2(1) = ind_cell(i)
                             call getnbor(son,nbor,ind_cell2,ind_nbor,1)
                             deallocate(ind_cell2)
+                            
                             allocate(tempvar(0:amr%twondim,sim%nvar))
                             allocate(tempson(0:amr%twondim))
                             do inbor=0,amr%twondim
@@ -363,6 +366,7 @@ module export_amr
                                 tempson(inbor)       = son(ind_nbor(inbor))
                             end do
                             deallocate(ind_nbor)
+                            tempvar(0,ivx:ivz) = vtmp
 
                             ! Check filter
                             ok_filter = filter_cell(reg,chunk%filt,xtemp,dx,tempvar,&
@@ -513,10 +517,11 @@ module export_amr
         type(vector) :: xtemp,vtemp,xtempmin,xtempmax
         logical :: ok_cell,ok_filter,ok_cell_each,read_gravity
         integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
+        real(dbl),dimension(1:3) :: vtmp,fluxtmp
         real(dbl),dimension(1:8,1:3) :: xc
         real(dbl),dimension(3,3) :: trans_matrix
         real(dbl),dimension(:,:),allocatable :: xg,x
-        real(dbl),dimension(:,:),allocatable :: var
+        real(hydro_real_kind),dimension(:,:),allocatable :: var
         real(dbl),dimension(:,:),allocatable :: grav_var
         real(dbl),dimension(:,:),allocatable :: tempvar
         real(dbl),dimension(:,:),allocatable :: tempgrav_var
@@ -544,13 +549,15 @@ module export_amr
 
         ! Set up hydro variables quicklook tools
         if (present(vardict)) then
+            ! Setup the kind of simulation variables
+            call setup_simulation_type(vardict)
             ! If the user provides their own variable dictionary,
             ! use that one instead of the automatic from the 
             ! hydro descriptor file (RAMSES)
-            call get_var_tools(vardict,1,vname,hvar)
+            call get_var_tools(sim,vardict,1,vname,hvar)
 
             ! We also do it for the filter variables
-            call get_filter_var_tools(vardict,filt)
+            call get_filter_var_tools(sim,vardict,filt)
 
             ! We always need the indexes of the velocities
             ! to perform rotations of gas velocities
@@ -558,10 +565,13 @@ module export_amr
             ivy = vardict%get('velocity_y')
             ivz = vardict%get('velocity_z')
         else
-            call get_var_tools(varIDs,1,vname,hvar)
+            ! Setup the kind of simulation variables
+            call setup_simulation_type(vardict)
+
+            call get_var_tools(sim,varIDs,1,vname,hvar)
 
             ! We also do it for the filter variables
-            call get_filter_var_tools(varIDs,filt)
+            call get_filter_var_tools(sim,varIDs,filt)
 
             ! We always need the indexes of the velocities
             ! to perform rotations of gas velocities
@@ -826,9 +836,9 @@ module export_amr
                             x(i,:) = xtemp
                             call checkifinside(x(i,:),reg,ok_cell,distance)
                             ! Velocity transformed --> ONLY FOR CENTRAL CELL
-                            vtemp = var(ind_cell(i),ivx:ivz)
+                            vtemp = real(var(ind_cell(i),ivx:ivz),kind=dbl)
                             vtemp = vtemp - reg%bulk_velocity
-                            var(ind_cell(i),ivx:ivz) = vtemp
+                            vtmp = vtemp
 
                             ! Gravitational acc --> ONLY FOR CENTRAL CELL
                             if (read_gravity) then
@@ -852,6 +862,7 @@ module export_amr
                                 if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(inbor),:)
                             end do
                             deallocate(ind_nbor)
+                            tempvar(0,ivx:ivz) = vtmp
 
                             if (read_gravity) then
                                 ok_filter = filter_cell(reg,filt,xtemp,dx,tempvar,tempson,&

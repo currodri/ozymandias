@@ -39,15 +39,18 @@ module io_ramses
     type sim_info
         logical :: cosmo=.true.,family=.false.
         logical :: dm=.false.,hydro=.false.,mhd=.false.
+        logical :: metallicity=.false.
         logical :: cr=.false.,rt=.false.,bh=.false.
-        logical :: cr_st=.false.,cr_heat=.false.,dust=.false.
+        logical :: cr_st=.false.,cr_heat=.false.,dust=.false.,pahs=.false.
         logical :: isthere_part_descriptor=.false.
         real(dbl) :: h0,t,aexp,unit_l,unit_d,unit_t,unit_m,unit_v,unit_p
         real(dbl) :: boxlen,omega_m,omega_l,omega_k,omega_b
         real(dbl) :: time_tot,time_simu,redshift,T2,nH
         integer :: n_frw, nvar, nvar_part, nvar_part_d, nvar_part_i, nvar_part_b
+        integer :: nmetals
         integer,dimension(:),allocatable :: part_var_types
         real(dbl),dimension(:),allocatable :: aexp_frw,hexp_frw,tau_frw,t_frw
+        character(80),dimension(:),allocatable :: metal_varnames
         real(dbl) :: eta_sn=-1D0
         real(dbl) :: Dcr=3D28
     end type sim_info
@@ -462,6 +465,131 @@ module io_ramses
             stop
         end if
     end subroutine read_hydrofile_descriptor
+
+    !---------------------------------------------------------------
+    ! Subroutine: SETUP SIMULATION TYPE
+    !
+    ! This routine inspects hydro variable names in a vardict and
+    ! activates corresponding simulation flags in sim_info.
+    !---------------------------------------------------------------
+    subroutine setup_simulation_type(vardict)
+        implicit none
+
+        type(dictf90), intent(in) :: vardict
+        integer :: i, ia, nmetals_count
+        logical :: has_keys, is_fraction, is_excluded_fraction
+        character(len=128) :: keyname, lower_key
+
+        sim%nmetals = 0
+        if (allocated(sim%metal_varnames)) deallocate(sim%metal_varnames)
+
+        has_keys = allocated(vardict%keys) .and. (vardict%count > 0)
+        if (has_keys) then
+            nmetals_count = 0
+            do i = 1, vardict%count
+                keyname = trim(vardict%keys(i))
+                lower_key = keyname
+                do ia = 1, len_trim(lower_key)
+                    if (iachar(lower_key(ia:ia)) >= iachar('A') .and. iachar(lower_key(ia:ia)) <= iachar('Z')) then
+                        lower_key(ia:ia) = achar(iachar(lower_key(ia:ia)) + 32)
+                    end if
+                end do
+
+                if (.not. sim%mhd) then
+                    if (index(lower_key,'b_left_') > 0 .or. index(lower_key,'b_right_') > 0) sim%mhd = .true.
+                end if
+
+                if (.not. sim%cr) then
+                    if (index(lower_key,'cr_') > 0 .or. index(lower_key,'cosmic') > 0) sim%cr = .true.
+                end if
+
+                if (.not. sim%metallicity) then
+                    if (index(lower_key,'metallicity') > 0) sim%metallicity = .true.
+                end if
+
+                if (.not. sim%pahs) then
+                    if (index(lower_key,'pah') > 0) sim%pahs = .true.
+                end if
+
+                if (.not. sim%dust) then
+                    if (index(lower_key,'csmall') > 0 .or. index(lower_key,'clarge') > 0 &
+                        &.or. index(lower_key,'silsmall') > 0 .or. index(lower_key,'sillarge') > 0) sim%dust = .true.
+                end if
+
+                if (.not. sim%rt) then
+                    if (trim(lower_key) == 'xhii' .or. trim(lower_key) == 'xheii' .or. trim(lower_key) == 'xheiii') then
+                        sim%rt = .true.
+                    end if
+                end if
+
+                is_fraction = .false.
+                if (len_trim(lower_key) >= 9) then
+                    if (lower_key(len_trim(lower_key)-8:len_trim(lower_key)) == '_fraction') then
+                        is_fraction = .true.
+                    end if
+                end if
+
+                is_excluded_fraction = .false.
+                if (is_fraction) then
+                    if (trim(lower_key) == 'csmall_fraction' .or. trim(lower_key) == 'clarge_fraction' .or. &
+                        trim(lower_key) == 'silsmall_fraction' .or. trim(lower_key) == 'sillarge_fraction' .or. &
+                        trim(lower_key) == 'pahsmall_fraction' .or. trim(lower_key) == 'pahlarge_fraction') then
+                        is_excluded_fraction = .true.
+                    end if
+                end if
+
+                if (is_fraction .and. .not. is_excluded_fraction) then
+                    nmetals_count = nmetals_count + 1
+                end if
+            end do
+
+            sim%nmetals = nmetals_count
+            if (sim%nmetals > 0) then
+                allocate(sim%metal_varnames(sim%nmetals))
+                nmetals_count = 0
+                do i = 1, vardict%count
+                    keyname = trim(vardict%keys(i))
+                    lower_key = keyname
+                    do ia = 1, len_trim(lower_key)
+                        if (iachar(lower_key(ia:ia)) >= iachar('A') .and. iachar(lower_key(ia:ia)) <= iachar('Z')) then
+                            lower_key(ia:ia) = achar(iachar(lower_key(ia:ia)) + 32)
+                        end if
+                    end do
+
+                    is_fraction = .false.
+                    if (len_trim(lower_key) >= 9) then
+                        if (lower_key(len_trim(lower_key)-8:len_trim(lower_key)) == '_fraction') then
+                            is_fraction = .true.
+                        end if
+                    end if
+
+                    is_excluded_fraction = .false.
+                    if (is_fraction) then
+                        if (trim(lower_key) == 'csmall_fraction' .or. trim(lower_key) == 'clarge_fraction' .or. &
+                            trim(lower_key) == 'silsmall_fraction' .or. trim(lower_key) == 'sillarge_fraction' .or. &
+                            trim(lower_key) == 'pahsmall_fraction' .or. trim(lower_key) == 'pahlarge_fraction') then
+                            is_excluded_fraction = .true.
+                        end if
+                    end if
+
+                    if (is_fraction .and. .not. is_excluded_fraction) then
+                        nmetals_count = nmetals_count + 1
+                        sim%metal_varnames(nmetals_count) = trim(vardict%keys(i))
+                    end if
+                end do
+                sim%metallicity = .true.
+            end if
+        end if
+
+        if (sim%pahs) sim%dust = .true.
+
+        if (verbose) then
+            write(*,*)': Simulation flags from hydro vars:'
+            write(*,*)'   mhd=',sim%mhd,' cr=',sim%cr,' rt=',sim%rt
+            write(*,*)'   dust=',sim%dust,' pahs=',sim%pahs,' metallicity=',sim%metallicity
+            write(*,*)'   nmetals=',sim%nmetals
+        end if
+    end subroutine setup_simulation_type
 
     !---------------------------------------------------------------
     ! Subroutine: READ PART IDs
@@ -935,7 +1063,7 @@ module io_ramses
         character(5) :: nchar
         character(13) :: namestr13
         character(14) :: namestr14
-        integer :: ipos,impi,i,nx,ny,nz
+        integer :: ipos,impi,i,nx,ny,nz,upre_file
         character(128) :: nomfich
         character(128)  :: cooling_file
         logical :: ok
@@ -995,8 +1123,28 @@ module io_ramses
         open(unit=10,file=nomfich,form='formatted',status='old')
         read(10,*)!ncpu
         read(10,*)!ndim
-        read(10,'(A13,I11)')namestr13,amr%levelmin
-        read(10,'(A13,I11)')namestr13,amr%levelmax
+        
+        ! Check if the next line contains U_precision
+        read(10,'(A13)',advance='no') namestr13
+        if (trim(namestr13) == 'U_precision =') then
+            ! Read the U_precision value and compare with compiled precision
+            backspace(10)
+            read(10,'(A13,I11)') namestr13, upre_file
+            if (upre_file /= hydro_real_kind) then
+                write(*,'(": ERROR - U_precision mismatch!")')
+                write(*,'(": File U_precision = ",I2," but compiled precision = ",I2)') upre_file, hydro_real_kind
+                stop
+            end if
+            if (verbose) write(*,*) ': U_precision check passed'
+            ! Now read levelmin
+            read(10,'(A13,I11)') namestr13, amr%levelmin
+        else
+            ! No U_precision line, backspace and read levelmin normally
+            backspace(10)
+            read(10,'(A13,I11)') namestr13, amr%levelmin
+        end if
+        
+        read(10,'(A13,I11)') namestr13, amr%levelmax
         read(10,*)
         read(10,*)
         read(10,*)

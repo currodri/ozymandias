@@ -292,4 +292,90 @@ module cooling_module
         endif
     end subroutine solve_heating
 
+    subroutine solve_mu(nH,T2,zsolar,mu)
+        ! nH [H/cc], T2 [T/mu in Kelvin], Zsolar [metallicity in Zsun]
+        implicit none
+        real(kind=8),intent(in)::nH,T2,zsolar
+        real(kind=8),intent(inout)::mu
+
+        integer::i_nH,i_T2
+        real(kind=8)::boost
+        real(kind=8)::facT,dlog_nH,dlog_T2
+        real(kind=8)::fa,fb,W1H,W2H
+        real(kind=8)::tau,W1T,W2T
+        real(kind=8)::facH,zzz
+
+        ! Compute radiation boost factor
+        if(self_shielding)then
+            boost=MAX(exp(-nH/0.01),1.0D-20)
+        else
+            boost=1.0
+        endif
+
+        ! Get the necessary values for the cell
+        dlog_nH = dble(ctable%n1-1)/(ctable%nH(ctable%n1)-ctable%nH(1))
+        dlog_T2 = dble(ctable%n2-1)/(ctable%T2(ctable%n2)-ctable%T2(1))
+        zzz = zsolar
+        facH = MIN(MAX(log10(nH/boost),ctable%nH(1)),ctable%nH(ctable%n1))
+        i_nH = MIN(MAX(int((facH-ctable%nH(1))*dlog_nH)+1,1),ctable%n1-1)
+        facT=log10(T2)
+        i_T2 = MIN(MAX(int((facT-ctable%T2(1))*dlog_T2)+1,1),ctable%n2-1)
+        tau = T2
+        W1H = (ctable%nH(i_nH+1)-facH)/dlog_nH
+        W2H = (facH-ctable%nH(i_nH  ))/dlog_nH
+        W1T = (ctable%T2(i_T2+1)-facT)/dlog_T2
+        W2T = (facT-ctable%T2(i_T2  ))/dlog_T2
+
+
+        fa = ctable%mu(i_nH,i_T2  ) * w1H + ctable%mu(i_nH+1,i_T2  ) * w2H
+        fb = ctable%mu(i_nH,i_T2+1) * w1H + ctable%mu(i_nH+1,i_T2+1) * w2H
+        mu = fa * W1T + fb * W2T
+    end subroutine solve_mu
+
+    subroutine solve_mu_e(nH,T2,zsolar,mu_e,gas_fraction)
+        ! nH [H/cc], T2 [T/mu in Kelvin], Zsolar [metallicity in Zsun]
+        implicit none
+        real(kind=8),intent(in)::nH,T2,zsolar
+        real(kind=8),intent(inout)::mu_e
+        real(kind=8),intent(in),optional::gas_fraction
+
+        integer::i_nH,i_T2
+        real(kind=8)::boost
+        real(kind=8)::facT,dlog_nH,dlog_T2
+        real(kind=8)::fa,fb,W1H,W2H
+        real(kind=8)::tau,W1T,W2T
+        real(kind=8)::facH,zzz
+        real(kind=8)::electron_density,local_gas_fraction
+
+        local_gas_fraction = 1d0
+        if (present(gas_fraction)) local_gas_fraction = gas_fraction
+
+        ! Compute radiation boost factor
+        if(self_shielding)then
+            boost=MAX(exp(-nH/0.01),1.0D-20)
+        else
+            boost=1.0
+        endif
+
+        ! Get the necessary values for the cell
+        dlog_nH = dble(ctable%n1-1)/(ctable%nH(ctable%n1)-ctable%nH(1))
+        dlog_T2 = dble(ctable%n2-1)/(ctable%T2(ctable%n2)-ctable%T2(1))
+        zzz = zsolar
+        facH = MIN(MAX(log10(nH/boost),ctable%nH(1)),ctable%nH(ctable%n1))
+        i_nH = MIN(MAX(int((facH-ctable%nH(1))*dlog_nH)+1,1),ctable%n1-1)
+        facT=log10(T2)
+        i_T2 = MIN(MAX(int((facT-ctable%T2(1))*dlog_T2)+1,1),ctable%n2-1)
+        tau = T2
+        W1H = (ctable%nH(i_nH+1)-facH)/dlog_nH
+        W2H = (facH-ctable%nH(i_nH  ))/dlog_nH
+        W1T = (ctable%T2(i_T2+1)-facT)/dlog_T2
+        W2T = (facT-ctable%T2(i_T2  ))/dlog_T2
+
+        fa = ctable%n_spec(i_nH,i_T2  ,1) * w1H + ctable%n_spec(i_nH+1,i_T2  ,1) * w2H
+        fb = ctable%n_spec(i_nH,i_T2+1,1) * w1H + ctable%n_spec(i_nH+1,i_T2+1,1) * w2H
+        electron_density = fa * W1T + fb * W2T
+        electron_density = 10d0**electron_density
+        mu_e = nH / MAX(local_gas_fraction * XH * electron_density, tiny(1d0))
+    end subroutine solve_mu_e
+
 end module cooling_module

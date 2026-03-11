@@ -71,11 +71,7 @@ module amr_integrator
         integer, intent(in) :: ifilt
         real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
         real(dbl),dimension(0:amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:amr%twondim,1:rtinfo%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:amr%twondim,1:rtinfo%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         ! Local variables
         integer :: i,j,ibin
@@ -279,17 +275,19 @@ module amr_integrator
 
         ! Set up hydro variables quicklook tools
         if (present(vardict)) then
+            ! Setup the kind of simulation variables
+            call setup_simulation_type(vardict)
             ! If the user provides their own variable dictionary,
             ! use that one instead of the automatic from the 
             ! hydro descriptor file (RAMSES)
-            call get_var_tools(vardict,attrs%nvars,attrs%varnames,attrs%vars)
+            call get_var_tools(sim,vardict,attrs%nvars,attrs%varnames,attrs%vars)
 
             ! Do it now for the weight variables
-            call get_var_tools(vardict,attrs%nwvars,attrs%wvarnames,attrs%wvars)
+            call get_var_tools(sim,vardict,attrs%nwvars,attrs%wvarnames,attrs%wvars)
             
             ! We also do it for the filter variables
             do ii = 1, attrs%nfilter
-                call get_filter_var_tools(vardict,attrs%filters(ii))
+                call get_filter_var_tools(sim,vardict,attrs%filters(ii))
             end do
 
             ! We always need the indexes of the velocities
@@ -298,14 +296,17 @@ module amr_integrator
             ivy = vardict%get('velocity_y')
             ivz = vardict%get('velocity_z')
         else
-            call get_var_tools(varIDs,attrs%nvars,attrs%varnames,attrs%vars)
+            ! Setup the kind of simulation variables
+            call setup_simulation_type(vardict)
+
+            call get_var_tools(sim,varIDs,attrs%nvars,attrs%varnames,attrs%vars)
 
             ! Do it now for the weighted variables
-            call get_var_tools(varIDs,attrs%nwvars,attrs%wvarnames,attrs%wvars)
+            call get_var_tools(sim,varIDs,attrs%nwvars,attrs%wvarnames,attrs%wvars)
 
             ! We also do it for the filter variables
             do ii = 1, attrs%nfilter
-                call get_filter_var_tools(varIDs,attrs%filters(ii))
+                call get_filter_var_tools(sim,varIDs,attrs%filters(ii))
             end do
 
             ! We always need the indexes of the velocities
@@ -351,10 +352,10 @@ module amr_integrator
             real(dbl),dimension(:,:),allocatable :: xg,x,xorig
             real(hydro_real_kind),dimension(:,:,:),allocatable :: var
             real(dbl),dimension(:,:,:),allocatable :: grav_var
-            real(hydro_real_kind),dimension(:,:),allocatable :: tempvar
-            real(hydro_real_kind),dimension(:,:),allocatable :: tempgrav_var
+            real(dbl),dimension(:,:),allocatable :: tempvar
+            real(dbl),dimension(:,:),allocatable :: tempgrav_var
             real(rt_real_kind),dimension(:,:,:),allocatable :: rt_var
-            real(rt_real_kind),dimension(:,:),allocatable :: temprt_var
+            real(dbl),dimension(:,:),allocatable :: temprt_var
             integer,dimension(:,:),allocatable :: son
             integer,dimension(:),allocatable :: tempson
             logical,dimension(:),allocatable :: ref
@@ -624,11 +625,7 @@ module amr_integrator
                                         xtemp = xtemp - reg%centre
                                         call rotate_vector(xtemp,trans_matrix)
                                         ! Velocity transformed
-#if UPRE==4
-                                        vtemp = sngl(var(i,ind,ivx:ivz))
-#else
-                                        vtemp = var(i,ind,ivx:ivz)
-#endif
+                                        vtemp = real(var(i,ind,ivx:ivz),kind=dbl)
                                         vtemp = vtemp - reg%bulk_velocity
                                         call rotate_vector(vtemp,trans_matrix)
 
@@ -646,20 +643,16 @@ module amr_integrator
                                         tempson(0)       = son(i,ind)
                                         if (attrs%use_gravity) tempgrav_var(0,:) = grav_var(i,ind,:)
                                         vtmp = vtemp
-#if UPRE==4
-                                        tempvar(0,ivx:ivz) = sngl(vtmp)
-#else
                                         tempvar(0,ivx:ivz) = vtemp
-#endif
                                         if (attrs%use_gravity) tempgrav_var(0,2:4) = gtemp
                                         if (attrs%use_rt) then
                                             do igroup=1,rtinfo%nGroups
                                                 igrp = 1 + (amr%ndim + 1) * (igroup - 1)
                                                 temprt_var(0,igrp) = rt_var(i,ind,igrp)
-                                                fluxtemp = dble(rt_var(i,ind,igrp+1:igrp+amr%ndim))
+                                                fluxtemp = real(rt_var(i,ind,igrp+1:igrp+amr%ndim),kind=dbl)
                                                 call rotate_vector(fluxtemp,trans_matrix)
                                                 fluxtmp = fluxtemp
-                                                temprt_var(0,igrp+1:igrp+amr%ndim) = sngl(fluxtmp)
+                                                temprt_var(0,igrp+1:igrp+amr%ndim) = fluxtmp
                                             end do
                                         end if
                                         filterloop: do ifilt=1,attrs%nfilter
@@ -753,11 +746,11 @@ module amr_integrator
             real(dbl),dimension(:,:),allocatable :: x,xorig
             real(hydro_real_kind),dimension(:,:),allocatable :: var
             real(dbl),dimension(:,:),allocatable :: grav_var
-            real(hydro_real_kind),dimension(:,:),allocatable :: tempvar
+            real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
             real(dbl),dimension(:,:),allocatable :: cellpos
             real(rt_real_kind),dimension(:,:),allocatable :: rt_var
-            real(rt_real_kind),dimension(:,:),allocatable :: temprt_var
+            real(dbl),dimension(:,:),allocatable :: temprt_var
             integer,dimension(:,:),allocatable :: nbor
             integer,dimension(:),allocatable :: son,tempson,iig
             integer,dimension(:),allocatable :: ind_cell,ind_cell2
@@ -1065,11 +1058,7 @@ module amr_integrator
                                     xtemp = xtemp - reg%centre
                                     call rotate_vector(xtemp,trans_matrix)
                                     ! Velocity transformed --> ONLY FOR CENTRAL CELL
-#if UPRE==4
-                                    vtemp = sngl(var(ind_cell(i),ivx:ivz))
-#else
-                                    vtemp = var(ind_cell(i),ivx:ivz)
-#endif
+                                    vtemp = real(var(ind_cell(i),ivx:ivz),kind=dbl)
                                     vtemp = vtemp - reg%bulk_velocity
                                     call rotate_vector(vtemp,trans_matrix)
 
@@ -1093,20 +1082,16 @@ module amr_integrator
                                     tempson(0)       = son(ind_nbor(1,0))
                                     if (attrs%use_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
                                     vtmp = vtemp
-#if UPRE==4
-                                    tempvar(0,ivx:ivz) = sngl(vtmp)
-#else
                                     tempvar(0,ivx:ivz) = vtemp
-#endif
                                     if (attrs%use_gravity) tempgrav_var(0,2:4) = gtemp
                                     if (attrs%use_rt) then
                                         do igroup=1,rtinfo%nGroups
                                             igrp = 1 + (amr%ndim + 1) * (igroup - 1)
                                             temprt_var(0,igrp) = rt_var(ind_nbor(1,0),igrp)
-                                            fluxtemp = dble(rt_var(ind_nbor(1,0),igrp+1:igrp+amr%ndim))
+                                            fluxtemp = real(rt_var(ind_nbor(1,0),igrp+1:igrp+amr%ndim),kind=dbl)
                                             call rotate_vector(fluxtemp,trans_matrix)
                                             fluxtmp = fluxtemp
-                                            temprt_var(0,igrp+1:igrp+amr%ndim) = sngl(fluxtmp)
+                                            temprt_var(0,igrp+1:igrp+amr%ndim) = fluxtmp
                                         end do
                                     end if
                                     do inbor=1,amr%twondim

@@ -25,7 +25,7 @@ module hydro_commons
     use coordinate_systems
     use geometrical_regions
     use io_ramses, only: amr_info, sim_info, rt_info, Tmin, cV, lambda_crGH08
-    use cooling_module
+    use cooling_module, only: solve_cooling, solve_mu, solve_mu_e
 
     type hydro_var
         character(128) :: name,type
@@ -62,11 +62,7 @@ module hydro_commons
         real(dbl),dimension(0:nbins),intent(in) :: bins
         type(hydro_var),intent(in) :: xvar
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: gvars
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rtvars
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rtvars
-#endif
 
         ! Get variable value
         if (present(gvars) .and. present(rtvars)) then
@@ -139,19 +135,13 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        real(rt_real_kind),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
         real(dbl) :: raw_hydro
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
-        raw_hydro = var_dbl(0,hvar%ids(1))
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
+        raw_hydro = var(0,hvar%ids(1))
     end function raw_hydro
 
     ! GEOMETRICAL VARIABLES
@@ -165,24 +155,14 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: myinterface
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
         myinterface = magnitude(x)
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
     end function myinterface
 
     function d_euclid_wrap(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -194,24 +174,14 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: d_euclid_wrap
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Euclidean distance
         d_euclid_wrap = magnitude(x)
     end function d_euclid_wrap
@@ -225,24 +195,14 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: x_coord_wrap
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! x - coordinate
         x_coord_wrap = x%x
     end function x_coord_wrap
@@ -256,24 +216,14 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: y_coord_wrap
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! y - coordinate
         y_coord_wrap = x%y
     end function y_coord_wrap
@@ -287,24 +237,14 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: z_coord_wrap
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! z - coordinate
         z_coord_wrap = x%z
     end function z_coord_wrap
@@ -318,24 +258,14 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: r_sphere_wrap
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Radius from center of sphere
         r_sphere_wrap = r_sphere(x)
     end function r_sphere_wrap
@@ -349,24 +279,14 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: theta_sphere_wrap
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Value of spherical theta angle measured from the z axis
         theta_sphere_wrap = theta_sphere(x)
     end function theta_sphere_wrap
@@ -380,24 +300,14 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: phi_sphere_wrap
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Value of spherical phi angle measure in the x-y plane 
         ! from the x axis
         phi_sphere_wrap = phi_sphere(x)
@@ -412,24 +322,14 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: r_cyl_wrap
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Value of cylindrical radius
         r_cyl_wrap = r_cyl(x)
     end function r_cyl_wrap
@@ -443,24 +343,14 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: phi_cyl_wrap
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Value of cylindrical phi angle measure in the x-y plane 
         ! from the x axis
         phi_cyl_wrap = phi_cyl(x)
@@ -539,24 +429,14 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grav_potential
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Gravitational potential
         grav_potential = grav_var(0,1)
     end function grav_potential
@@ -570,24 +450,14 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grav_gx
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Gravitational acceleration in the x direction
         grav_gx = grav_var(0,2)
     end function grav_gx
@@ -601,24 +471,14 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grav_gy
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Gravitational acceleration in the y direction
         grav_gy = grav_var(0,3)
     end function grav_gy
@@ -632,24 +492,14 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grav_gz
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Gravitational acceleration in the z direction
         grav_gz = grav_var(0,4)
     end function grav_gz
@@ -700,24 +550,14 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: cell_volume
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         cell_volume = (dx * dx) * dx
     end function cell_volume
 
@@ -730,25 +570,15 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: cell_mass
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        cell_mass = (var_dbl(0,hvar%ids(1)) * (dx * dx)) * dx
+        cell_mass = (var(0,hvar%ids(1)) * (dx * dx)) * dx
     end function cell_mass
 
     function v_sphere_r(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -760,30 +590,20 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: v_sphere_r
         type(vector) :: v
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Velocity component in the spherical radial direction
         ! Dot product of velocity vector with spherical radial
         !    unit vector
-        v = (/var_dbl(0,hvar%ids(1)),var_dbl(0,hvar%ids(2)),var_dbl(0,hvar%ids(3))/)
+        v = real((/var(0,hvar%ids(1)),var(0,hvar%ids(2)),var(0,hvar%ids(3))/),kind=dbl)
         call spherical_basis_from_cartesian(x,temp_basis)
         v_sphere_r = v.DOT.temp_basis%u(1)
     end function v_sphere_r
@@ -797,30 +617,20 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: v_sphere_phi
         type(vector) :: v
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Velocity component in the spherical azimutal (phi) direction
         ! Dot product of velocity vector with spherical phi
         !    unit vector
-        v = (/var_dbl(0,hvar%ids(1)),var_dbl(0,hvar%ids(2)),var_dbl(0,hvar%ids(3))/)
+        v = real((/var(0,hvar%ids(1)),var(0,hvar%ids(2)),var(0,hvar%ids(3))/),kind=dbl)
         call spherical_basis_from_cartesian(x,temp_basis)
         v_sphere_phi = v .DOT. temp_basis%u(3)
     end function v_sphere_phi
@@ -834,30 +644,20 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: v_sphere_theta
         type(vector) :: v
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Velocity component in the spherical theta direction
         ! Dot product of velocity vector with spherical theta
         !    unit vector
-        v = (/var_dbl(0,hvar%ids(1)),var_dbl(0,hvar%ids(2)),var_dbl(0,hvar%ids(3))/)
+        v = real((/var(0,hvar%ids(1)),var(0,hvar%ids(2)),var(0,hvar%ids(3))/),kind=dbl)
         call spherical_basis_from_cartesian(x,temp_basis)
         v_sphere_theta = v .DOT. temp_basis%u(2)
     end function v_sphere_theta
@@ -871,30 +671,20 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: v_cyl_r
         type(vector) :: v
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Velocity component in the cylindrical radial direction
         ! Dot product of velocity vector with cylindrical
         !    radial unit vector
-        v = (/var_dbl(0,hvar%ids(1)),var_dbl(0,hvar%ids(2)),var_dbl(0,hvar%ids(3))/)
+        v = real((/var(0,hvar%ids(1)),var(0,hvar%ids(2)),var(0,hvar%ids(3))/),kind=dbl)
         call cylindrical_basis_from_cartesian(x,temp_basis)
         v_cyl_r = v .DOT. temp_basis%u(1)
     end function v_cyl_r
@@ -908,30 +698,20 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: v_cyl_z
         type(vector) :: v
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Velocity component in the cylindrical radial direction
         ! Dot product of velocity vector with cylindrical
         !    z unit vector
-        v = (/var_dbl(0,hvar%ids(1)),var_dbl(0,hvar%ids(2)),var_dbl(0,hvar%ids(3))/)
+        v = real((/var(0,hvar%ids(1)),var(0,hvar%ids(2)),var(0,hvar%ids(3))/),kind=dbl)
         call cylindrical_basis_from_cartesian(x,temp_basis)
         v_cyl_z = v .DOT. temp_basis%u(3)
     end function v_cyl_z
@@ -945,30 +725,20 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: v_cyl_phi
         type(vector) :: v
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Velocity component in the cylindrical radial direction
         ! Dot product of velocity vector with cylindrical
         !    phi unit vector
-        v = (/var_dbl(0,hvar%ids(1)),var_dbl(0,hvar%ids(2)),var_dbl(0,hvar%ids(3))/)
+        v = real((/var(0,hvar%ids(1)),var(0,hvar%ids(2)),var(0,hvar%ids(3))/),kind=dbl)
         call cylindrical_basis_from_cartesian(x,temp_basis)
         v_cyl_phi = v .DOT. temp_basis%u(2)
     end function v_cyl_phi
@@ -982,28 +752,18 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: v_magnitude
         type(vector) :: v
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Velocity magnitude from galaxy coordinates
-        v = (/var_dbl(0,hvar%ids(1)),var_dbl(0,hvar%ids(2)),var_dbl(0,hvar%ids(3))/)
+        v = real((/var(0,hvar%ids(1)),var(0,hvar%ids(2)),var(0,hvar%ids(3))/),kind=dbl)
         v_magnitude = magnitude(v)
     end function v_magnitude
 
@@ -1016,28 +776,18 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: v_squared
         type(vector) :: v
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Velocity magnitude squared from galaxy coordinates
-        v = (/var_dbl(0,hvar%ids(1)),var_dbl(0,hvar%ids(2)),var_dbl(0,hvar%ids(3))/)
+        v = real((/var(0,hvar%ids(1)),var(0,hvar%ids(2)),var(0,hvar%ids(3))/),kind=dbl)
         v_squared = v.DOT.v
     end function v_squared
 
@@ -1050,28 +800,18 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: momentum_x
         type(vector) :: v
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Linear momentum in the x direction as density*volume*corrected_velocity_x
-        momentum_x = ((var_dbl(0,hvar%ids(1)) * (dx*dx)) * dx) * var_dbl(0,hvar%ids(2))
+        momentum_x = ((var(0,hvar%ids(1)) * (dx*dx)) * dx) * var(0,hvar%ids(2))
     end function momentum_x
 
     function momentum_y(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -1083,28 +823,18 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: momentum_y
         type(vector) :: v
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Linear momentum in the y direction as density*volume*corrected_velocity_y
-        momentum_y = ((var_dbl(0,hvar%ids(1)) * (dx*dx)) * dx) * var_dbl(0,hvar%ids(2))
+        momentum_y = ((var(0,hvar%ids(1)) * (dx*dx)) * dx) * var(0,hvar%ids(2))
     end function momentum_y
 
     function momentum_z(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -1116,28 +846,18 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: momentum_z
         type(vector) :: v
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Linear momentum in the z direction as density*volume*corrected_velocity_z
-        momentum_z = ((var_dbl(0,hvar%ids(1)) * (dx*dx)) * dx) * var_dbl(0,hvar%ids(2))
+        momentum_z = ((var(0,hvar%ids(1)) * (dx*dx)) * dx) * var(0,hvar%ids(2))
     end function momentum_z
 
     function momentum(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -1149,29 +869,19 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: momentum
         type(vector) :: v
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Magnitude of linear momentum, using corrected velocity
-        v = (/var_dbl(0,hvar%ids(2)),var_dbl(0,hvar%ids(3)),var_dbl(0,hvar%ids(4))/)
-        momentum = ((var_dbl(0,hvar%ids(1)) * (dx*dx)) * dx) * &
+        v = real((/var(0,hvar%ids(2)),var(0,hvar%ids(3)),var(0,hvar%ids(4))/),kind=dbl)
+        momentum = ((var(0,hvar%ids(1)) * (dx*dx)) * dx) * &
                     & magnitude(v)
     end function momentum
 
@@ -1184,33 +894,23 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: momentum_sphere_r
         type(vector) :: v
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Linear momentum in the spherical radial direction
         ! 1. Dot product of velocity vector with spherical r
         !    unit vector
         ! 2. Multiply by mass of cell
-        v = (/var_dbl(0,hvar%ids(2)),var_dbl(0,hvar%ids(3)),var_dbl(0,hvar%ids(4))/)
+        v = real((/var(0,hvar%ids(1)),var(0,hvar%ids(2)),var(0,hvar%ids(3))/),kind=dbl)
         call spherical_basis_from_cartesian(x,temp_basis)
-        momentum_sphere_r = (var_dbl(0,hvar%ids(1)) * (dx*dx)) * dx * (v .DOT. temp_basis%u(1))
+        momentum_sphere_r = (var(0,hvar%ids(1)) * (dx*dx)) * dx * (v .DOT. temp_basis%u(1))
     end function momentum_sphere_r
 
     function momentum_cyl_z(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -1222,33 +922,23 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: momentum_cyl_z
         type(vector) :: v
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Linear momentum in the cylindrical z direction
         ! 1. Dot product of velocity vector with cylindrical z
         !    unit vector
         ! 2. Multiply by mass of cell
-        v = (/var_dbl(0,hvar%ids(2)),var_dbl(0,hvar%ids(3)),var_dbl(0,hvar%ids(4))/)
+        v = real((/var(0,hvar%ids(1)),var(0,hvar%ids(2)),var(0,hvar%ids(3))/),kind=dbl)
         call cylindrical_basis_from_cartesian(x,temp_basis)
-        momentum_cyl_z = (var_dbl(0,hvar%ids(1)) * (dx*dx)) * dx * (v .DOT. temp_basis%u(3))
+        momentum_cyl_z = (var(0,hvar%ids(1)) * (dx*dx)) * dx * (v .DOT. temp_basis%u(3))
     end function momentum_cyl_z
 
     function ang_momentum_x(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -1260,29 +950,19 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: ang_momentum_x
         type(vector) :: v
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Corrected angular momentum in the x direction
-        v = (/var_dbl(0,hvar%ids(2)),var_dbl(0,hvar%ids(3)),var_dbl(0,hvar%ids(4))/)
-        ang_momentum_x = ((var_dbl(0,hvar%ids(1)) * (dx*dx)) * dx) * (x%y * v%z &
+        v = real((/var(0,hvar%ids(1)),var(0,hvar%ids(2)),var(0,hvar%ids(3))/),kind=dbl)
+        ang_momentum_x = ((var(0,hvar%ids(1)) * (dx*dx)) * dx) * (x%y * v%z &
                             &- v%y * x%z)
     end function ang_momentum_x
 
@@ -1295,29 +975,19 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: ang_momentum_y
         type(vector) :: v
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Corrected angular momentum in the y direction
-        v = (/var_dbl(0,hvar%ids(2)),var_dbl(0,hvar%ids(3)),var_dbl(0,hvar%ids(4))/)
-        ang_momentum_y = ((var_dbl(0,hvar%ids(1)) * (dx*dx)) * dx) * (x%z*v%x &
+        v = real((/var(0,hvar%ids(1)),var(0,hvar%ids(2)),var(0,hvar%ids(3))/),kind=dbl)
+        ang_momentum_y = ((var(0,hvar%ids(1)) * (dx*dx)) * dx) * (x%z*v%x &
                             &- v%z*x%x)
     end function ang_momentum_y
 
@@ -1330,29 +1000,19 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: ang_momentum_z
         type(vector) :: v
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Corrected angular momentum in the z direction
-        v = (/var_dbl(0,hvar%ids(2)),var_dbl(0,hvar%ids(3)),var_dbl(0,hvar%ids(4))/)
-        ang_momentum_z = ((var_dbl(0,hvar%ids(1)) * (dx*dx)) * dx) * (x%x*v%y &
+        v = real((/var(0,hvar%ids(1)),var(0,hvar%ids(2)),var(0,hvar%ids(3))/),kind=dbl)
+        ang_momentum_z = ((var(0,hvar%ids(1)) * (dx*dx)) * dx) * (x%x*v%y &
                         &- v%x*x%y)
     end function ang_momentum_z
 
@@ -1365,30 +1025,20 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: ang_momentum
         type(vector) :: v,L
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Corrected angular momentum in the z direction
-        v = (/var_dbl(0,hvar%ids(2)),var_dbl(0,hvar%ids(3)),var_dbl(0,hvar%ids(4))/)
+        v = real((/var(0,hvar%ids(1)),var(0,hvar%ids(2)),var(0,hvar%ids(3))/),kind=dbl)
         L = x * v
-        ang_momentum = ((var_dbl(0,hvar%ids(1)) * (dx*dx)) * dx) * magnitude(L)
+        ang_momentum = ((var(0,hvar%ids(1)) * (dx*dx)) * dx) * magnitude(L)
     end function ang_momentum
 
     function massflow_rate_sphere_r(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -1400,31 +1050,21 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: massflow_rate_sphere_r
         type(vector) :: v
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Mass flow rate through the cell in the radial direction
             ! Mass per unit time
-        v = (/var_dbl(0,hvar%ids(2)),var_dbl(0,hvar%ids(3)),var_dbl(0,hvar%ids(4))/)
+        v = real((/var(0,hvar%ids(1)),var(0,hvar%ids(2)),var(0,hvar%ids(3))/),kind=dbl)
         call spherical_basis_from_cartesian(x,temp_basis)
-        massflow_rate_sphere_r = (var_dbl(0,hvar%ids(1)) * (dx*dx)) * (v .DOT. temp_basis%u(1))    
+        massflow_rate_sphere_r = (var(0,hvar%ids(1)) * (dx*dx)) * (v .DOT. temp_basis%u(1))    
     end function massflow_rate_sphere_r
 
     function massflux_rate_sphere_r(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -1436,31 +1076,21 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: massflux_rate_sphere_r
         type(vector) :: v
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Mass flux through the cell in the radial direction
         ! Mass per unit time per unit surface
-        v = (/var_dbl(0,hvar%ids(2)),var_dbl(0,hvar%ids(3)),var_dbl(0,hvar%ids(4))/)
+        v = real((/var(0,hvar%ids(1)),var(0,hvar%ids(2)),var(0,hvar%ids(3))/),kind=dbl)
         call spherical_basis_from_cartesian(x,temp_basis)
-        massflux_rate_sphere_r = var_dbl(0,hvar%ids(1)) * (v .DOT. temp_basis%u(1))  
+        massflux_rate_sphere_r = var(0,hvar%ids(1)) * (v .DOT. temp_basis%u(1))  
     end function massflux_rate_sphere_r
 
     function kinetic_energy(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -1472,29 +1102,19 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: kinetic_energy
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Kinetic energy, computed as 1/2*density*volume*magnitude(velocity)
         ! NOTE: Not corrected!
-        kinetic_energy = (0.5d0 * (var_dbl(0,hvar%ids(1)) * (dx*dx)) * dx) &
-                                 & * sqrt(var_dbl(0,hvar%ids(2))**2 + var_dbl(0,hvar%ids(3))**2 &
-                                 & + var_dbl(0,hvar%ids(4))**2)
+        kinetic_energy = (0.5d0 * (var(0,hvar%ids(1)) * (dx*dx)) * dx) &
+                                 & * sqrt(var(0,hvar%ids(2))**2 + var(0,hvar%ids(3))**2 &
+                                 & + var(0,hvar%ids(4))**2)
     end function kinetic_energy
 
     function sigma(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -1506,31 +1126,21 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: sigma
         type(vector) :: v
         real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: tempvar
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Local velocity dispersion
         ! Go back to box coordinates for the central cell, which is transformed usually
         ! before sent to read_amr
         ! Converging flow check
-        tempvar = var
+        tempvar = real(var,kind=dbl)
         v = (/tempvar(0,hvar%ids(2)),tempvar(0,hvar%ids(3)),tempvar(0,hvar%ids(4))/)
         call rotate_vector(v,transpose(trans_matrix))
         v = v + reg%bulk_velocity
@@ -1549,15 +1159,11 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
         real(dbl) :: turb_Mach_number
         real(dbl) :: sound_speed
         real(dbl) :: sigma
@@ -1568,7 +1174,7 @@ module hydro_commons
         ! Go back to box coordinates for the central cell, which is transformed usually
         ! before sent to read_amr
         ! Converging flow check
-        tempvar = var
+        tempvar = real(var,kind=dbl)
         v = (/tempvar(0,hvar%ids(2)),tempvar(0,hvar%ids(3)),tempvar(0,hvar%ids(4))/)
         call rotate_vector(v,transpose(trans_matrix))
         v = v + reg%bulk_velocity
@@ -1578,8 +1184,8 @@ module hydro_commons
         call cmp_sigma_turb(my_amr,my_sim,hvar,tempvar,sigma)
 
         ! Thermal sound speed, ideal gas
-        sound_speed = sqrt(gamma_gas * (max(var(0,hvar%ids(5)), Tmin*var(0,hvar%ids(1))) &
-                            & / var(0,hvar%ids(1))))
+        sound_speed = sqrt(gamma_gas * (max(tempvar(0,hvar%ids(5)), Tmin*tempvar(0,hvar%ids(1))) &
+                            & / tempvar(0,hvar%ids(1))))
         turb_Mach_number = sigma / sound_speed
     end function turb_Mach_number
 
@@ -1596,22 +1202,28 @@ module hydro_commons
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: temperature
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
+        real(dbl) :: local_mu,T,nH,Z
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Gas temperature
-        temperature = var_dbl(0,hvar%ids(2)) / var_dbl(0,hvar%ids(1))
+        if (my_sim%rt) then
+            ! In the case of a simulation with RT, we have non-equilibrium
+            ! chemistry of H and He, so we can compute the local mean molecular
+            ! weight from the H and He ionisation fractions
+            local_mu = getMu(var(0,hvar%ids(3)),var(0,hvar%ids(4)),var(0,hvar%ids(5)))
+            temperature = var(0,hvar%ids(2)) / var(0,hvar%ids(1)) * local_mu
+        else
+            ! Then we need to obtain the local mu from the cooling curves (i.e. non-RT runs)
+            T = var(0,hvar%ids(1)) / var(0,hvar%ids(2)) * my_sim%T2
+            ! TODO: This a fix only for some messed up CRMHD simulations!
+            if (T<15d0) T = 15d0
+            nH = var(0,hvar%ids(2)) * my_sim%nH
+            Z  = var(0,hvar%ids(3)) / 2D-2
+            call solve_mu(nH,T,Z,local_mu)
+            temperature = var(0,hvar%ids(2)) / var(0,hvar%ids(1)) * local_mu
+        end if
         if (temperature < 0d0) then
             temperature = Tmin
         endif
@@ -1626,26 +1238,16 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: thermal_energy
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Thermal energy, computed as thermal_pressure*volume/(gamma - 1)
-        thermal_energy = ((max(var_dbl(0,hvar%ids(2)), Tmin*var_dbl(0,hvar%ids(1))) &
+        thermal_energy = ((max(var(0,hvar%ids(2)), Tmin*var(0,hvar%ids(1))) &
                 & / (gamma_gas - 1d0)) * (dx * dx)) * dx
     end function thermal_energy
 
@@ -1658,27 +1260,17 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: thermal_energy_specific
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Specific thermal energy as E_ther/cell mass
-        thermal_energy_specific = (max(var_dbl(0,hvar%ids(2)), Tmin*var_dbl(0,hvar%ids(1))) &
-                                    & / (gamma_gas - 1d0)) / var_dbl(0,hvar%ids(1))
+        thermal_energy_specific = (max(var(0,hvar%ids(2)), Tmin*var(0,hvar%ids(1))) &
+                                    & / (gamma_gas - 1d0)) / var(0,hvar%ids(1))
     end function thermal_energy_specific
 
     function thermal_energy_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -1690,26 +1282,16 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: thermal_energy_density
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Thermal energy density  as E_ther/cell volume
-        thermal_energy_density = (max(var_dbl(0,hvar%ids(2)), Tmin*var_dbl(0,hvar%ids(1))) &
+        thermal_energy_density = (max(var(0,hvar%ids(2)), Tmin*var(0,hvar%ids(1))) &
                                     & / (gamma_gas - 1d0))
     end function thermal_energy_density
 
@@ -1722,31 +1304,95 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: entropy_specific
 
-        real(dbl) :: T,rho
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
+        real(dbl) :: local_mu,T,rho,nH,Z
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Specific entropy, following Gent 2012 equation
-        T = var_dbl(0,hvar%ids(2))/var_dbl(0,hvar%ids(1)) * my_sim%T2 * mu
-        rho = var_dbl(0,hvar%ids(1)) * my_sim%unit_d / mHydrogen
-        entropy_specific = log(T) - (gamma_gas-1d0) * log(rho)
+        if (my_sim%rt) then
+            local_mu = getMu(var(0,hvar%ids(3)),var(0,hvar%ids(4)),var(0,hvar%ids(5)))
+            T = var(0,hvar%ids(2)) / var(0,hvar%ids(1)) * local_mu
+        else
+            T = var(0,hvar%ids(1)) / var(0,hvar%ids(2)) * my_sim%T2
+            if (T < 15d0) T = 15d0
+            nH = var(0,hvar%ids(2)) * my_sim%nH
+            Z = var(0,hvar%ids(3)) / 2D-2
+            call solve_mu(nH,T,Z,local_mu)
+            T = var(0,hvar%ids(2)) / var(0,hvar%ids(1)) * local_mu
+        end if
+        T = T * my_sim%T2
+        rho = var(0,hvar%ids(1)) * my_sim%unit_d / mHydrogen
+        entropy_specific = log(T) - (gamma_gas-1d0) * log(MAX(rho, tiny(1d0)))
     end function entropy_specific
+
+    function pseudo_entropy(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+
+        real(dbl) :: pseudo_entropy
+
+        real(dbl) :: local_mu,local_mu_e,P,T,rho,nH,Z
+        real(dbl) :: metal_mass,dust_mass,gas_fraction
+        integer :: i,first_dust,idx_thP,idx_xHII,idx_xHeII,idx_xHeIII
+
+        if (my_sim%metallicity) then
+            metal_mass = var(0,hvar%ids(2))
+            first_dust = 3
+        else
+            metal_mass = 0d0
+            do i = 2, 1+my_sim%nmetals
+                if (hvar%ids(i) > 0) metal_mass = metal_mass + var(0,hvar%ids(i))
+            end do
+            first_dust = 2 + my_sim%nmetals
+        end if
+
+        ! Specific entropy, following Gent 2012 equation
+        if (my_sim%rt) then
+            idx_thP = size(hvar%ids)
+            idx_xHeIII = idx_thP - 1
+            idx_xHeII = idx_thP - 2
+            idx_xHII = idx_thP - 3
+            dust_mass = 0d0
+            do i = first_dust, idx_xHII-1
+                if (hvar%ids(i) > 0) dust_mass = dust_mass + var(0,hvar%ids(i))
+            end do
+            gas_fraction = MAX(1d0 - metal_mass - dust_mass, tiny(1d0))
+            local_mu = getMu(var(0,hvar%ids(idx_xHII)),var(0,hvar%ids(idx_xHeII)),var(0,hvar%ids(idx_xHeIII)))
+            local_mu_e = getMu_e(var(0,hvar%ids(idx_xHII)),var(0,hvar%ids(idx_xHeII)),var(0,hvar%ids(idx_xHeIII)),gas_fraction)
+        else
+            idx_thP = size(hvar%ids)
+            dust_mass = 0d0
+            do i = first_dust, idx_thP-1
+                if (hvar%ids(i) > 0) dust_mass = dust_mass + var(0,hvar%ids(i))
+            end do
+            gas_fraction = MAX(1d0 - metal_mass - dust_mass, tiny(1d0))
+            T = var(0,hvar%ids(1)) / var(0,hvar%ids(idx_thP)) * my_sim%T2
+            if (T < 15d0) T = 15d0
+            nH = var(0,hvar%ids(1)) * gas_fraction * XH * my_sim%unit_d / mHydrogen
+            Z = metal_mass / 2D-2
+            call solve_mu(nH,T,Z,local_mu)
+            call solve_mu_e(nH,T,Z,local_mu_e,gas_fraction)
+        end if
+        P = max(var(0,hvar%ids(idx_thP)), Tmin*var(0,hvar%ids(1)))
+        pseudo_entropy = local_mu * (local_mu_e)**(gamma_gas-1d0) * P / (var(0,hvar%ids(1)) ** gamma_gas)
+    end function pseudo_entropy
 
     function sound_speed(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
@@ -1757,27 +1403,17 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: sound_speed
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Thermal sound speed, ideal gas
-        sound_speed = sqrt(gamma_gas * (max(var_dbl(0,hvar%ids(2)), Tmin*var_dbl(0,hvar%ids(1))) &
-                            & / var_dbl(0,hvar%ids(1))))
+        sound_speed = sqrt(gamma_gas * (max(var(0,hvar%ids(2)), Tmin*var(0,hvar%ids(1))) &
+                            & / var(0,hvar%ids(1))))
     end function sound_speed
 
     function grad_thermalpressure(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -1789,43 +1425,33 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grad_thermalpressure
 
         real(dbl) :: dxright,dxleft
         type(vector) :: v
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Magnitude of thermal pressure gradient
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (max(var_dbl(1,hvar%ids(2)), Tmin*var_dbl(1,hvar%ids(1))) - &
-                & max(var_dbl(2,hvar%ids(2)),Tmin*var_dbl(2,hvar%ids(1)))) / (dxright + dxleft)
+        v%x = (max(var(1,hvar%ids(2)), Tmin*var(1,hvar%ids(1))) - &
+                & max(var(2,hvar%ids(2)),Tmin*var(2,hvar%ids(1)))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (max(var_dbl(3,hvar%ids(2)), Tmin*var_dbl(3,hvar%ids(1))) - &
-                & max(var_dbl(4,hvar%ids(2)),Tmin*var_dbl(4,hvar%ids(1)))) / (dxright + dxleft)
+        v%y = (max(var(3,hvar%ids(2)), Tmin*var(3,hvar%ids(1))) - &
+                & max(var(4,hvar%ids(2)),Tmin*var(4,hvar%ids(1)))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (max(var_dbl(5,hvar%ids(2)), Tmin*var_dbl(5,hvar%ids(1))) - &
-                & max(var_dbl(6,hvar%ids(2)),Tmin*var_dbl(6,hvar%ids(1)))) / (dxright + dxleft)
+        v%z = (max(var(5,hvar%ids(2)), Tmin*var(5,hvar%ids(1))) - &
+                & max(var(6,hvar%ids(2)),Tmin*var(6,hvar%ids(1)))) / (dxright + dxleft)
         grad_thermalpressure = magnitude(v)
     end function grad_thermalpressure
 
@@ -1838,44 +1464,34 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grad_therprsphere
 
         type(vector) :: v
         type(basis) :: temp_basis
         real(dbl) :: dxright,dxleft
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Thermal pressure gradient in the radial direction
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (max(var_dbl(1,hvar%ids(2)), Tmin*var_dbl(1,hvar%ids(1))) - &
-                & max(var_dbl(2,hvar%ids(2)),Tmin*var_dbl(2,hvar%ids(1)))) / (dxright + dxleft)
+        v%x = (max(var(1,hvar%ids(2)), Tmin*var(1,hvar%ids(1))) - &
+                & max(var(2,hvar%ids(2)),Tmin*var(2,hvar%ids(1)))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (max(var_dbl(3,hvar%ids(2)), Tmin*var_dbl(3,hvar%ids(1))) - &
-                & max(var_dbl(4,hvar%ids(2)),Tmin*var_dbl(4,hvar%ids(1)))) / (dxright + dxleft)
+        v%y = (max(var(3,hvar%ids(2)), Tmin*var(3,hvar%ids(1))) - &
+                & max(var(4,hvar%ids(2)),Tmin*var(4,hvar%ids(1)))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (max(var_dbl(5,hvar%ids(2)), Tmin*var_dbl(5,hvar%ids(1))) - &
-                & max(var_dbl(6,hvar%ids(2)),Tmin*var_dbl(6,hvar%ids(1)))) / (dxright + dxleft)
+        v%z = (max(var(5,hvar%ids(2)), Tmin*var(5,hvar%ids(1))) - &
+                & max(var(6,hvar%ids(2)),Tmin*var(6,hvar%ids(1)))) / (dxright + dxleft)
         call rotate_vector(v,trans_matrix)
         call spherical_basis_from_cartesian(x,temp_basis)
         grad_therprsphere = v.DOT.temp_basis%u(1)
@@ -1890,43 +1506,33 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grad_therpz
 
         type(vector) :: v
         real(dbl) :: dxright,dxleft
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Thermal pressure gradient in the z direction
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (max(var_dbl(1,hvar%ids(2)), Tmin*var_dbl(1,hvar%ids(1))) - &
-                & max(var_dbl(2,hvar%ids(2)),Tmin*var_dbl(2,hvar%ids(1)))) / (dxright + dxleft)
+        v%x = (max(var(1,hvar%ids(2)), Tmin*var(1,hvar%ids(1))) - &
+                & max(var(2,hvar%ids(2)),Tmin*var(2,hvar%ids(1)))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (max(var_dbl(3,hvar%ids(2)), Tmin*var_dbl(3,hvar%ids(1))) - &
-                & max(var_dbl(4,hvar%ids(2)),Tmin*var_dbl(4,hvar%ids(1)))) / (dxright + dxleft)
+        v%y = (max(var(3,hvar%ids(2)), Tmin*var(3,hvar%ids(1))) - &
+                & max(var(4,hvar%ids(2)),Tmin*var(4,hvar%ids(1)))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (max(var_dbl(5,hvar%ids(2)), Tmin*var_dbl(5,hvar%ids(1))) - &
-                & max(var_dbl(6,hvar%ids(2)),Tmin*var_dbl(6,hvar%ids(1)))) / (dxright + dxleft)
+        v%z = (max(var(5,hvar%ids(2)), Tmin*var(5,hvar%ids(1))) - &
+                & max(var(6,hvar%ids(2)),Tmin*var(6,hvar%ids(1)))) / (dxright + dxleft)
         call rotate_vector(v,trans_matrix)
         grad_therpz = v%z
     end function grad_therpz
@@ -1940,30 +1546,20 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: magnetic_energy
 
         type(vector) :: B
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Magnetic energy as magnitude(B)**2/2
-        B = 0.5 *(/(var_dbl(0,hvar%ids(1))+var_dbl(0,hvar%ids(4))),&
-                    (var_dbl(0,hvar%ids(2))+var_dbl(0,hvar%ids(5))),&
-                    (var_dbl(0,hvar%ids(3))+var_dbl(0,hvar%ids(6)))/)
+        B = 0.5 * real((/(var(0,hvar%ids(1))+var(0,hvar%ids(4))),&
+                    (var(0,hvar%ids(2))+var(0,hvar%ids(5))),&
+                    (var(0,hvar%ids(3))+var(0,hvar%ids(6)))/),kind=dbl)
         magnetic_energy = (0.5 * (B.DOT.B) * (dx*dx)) * dx
     end function magnetic_energy
 
@@ -1976,30 +1572,20 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: magnetic_magnitude
 
         type(vector) :: B
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Magnetic field magnitude
-        B = 0.5 *(/(var_dbl(0,hvar%ids(1))+var_dbl(0,hvar%ids(4))),&
-                    (var_dbl(0,hvar%ids(2))+var_dbl(0,hvar%ids(5))),&
-                    (var_dbl(0,hvar%ids(3))+var_dbl(0,hvar%ids(6)))/)
+        B = 0.5 * real((/(var(0,hvar%ids(1))+var(0,hvar%ids(4))),&
+                    (var(0,hvar%ids(2))+var(0,hvar%ids(5))),&
+                    (var(0,hvar%ids(3))+var(0,hvar%ids(6)))/),kind=dbl)
         magnetic_magnitude = magnitude(B)
     end function magnetic_magnitude
 
@@ -2012,31 +1598,21 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: magnetic_energy_specific
 
         type(vector) :: B
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Magnetic field magnitude
-        B = 0.5 *(/(var_dbl(0,hvar%ids(1))+var_dbl(0,hvar%ids(4))),&
-                    (var_dbl(0,hvar%ids(2))+var_dbl(0,hvar%ids(5))),&
-                    (var_dbl(0,hvar%ids(3))+var_dbl(0,hvar%ids(6)))/)
-        magnetic_energy_specific = (0.5 * (B.DOT.B)) / var_dbl(0,hvar%ids(7))
+        B = 0.5 * real((/(var(0,hvar%ids(1))+var(0,hvar%ids(4))),&
+                    (var(0,hvar%ids(2))+var(0,hvar%ids(5))),&
+                    (var(0,hvar%ids(3))+var(0,hvar%ids(6)))/),kind=dbl)
+        magnetic_energy_specific = (0.5 * (B.DOT.B)) / var(0,hvar%ids(7))
     end function magnetic_energy_specific
 
     function magnetic_energy_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -2048,30 +1624,20 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: magnetic_energy_density
 
         type(vector) :: B
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Magnetic field magnitude
-        B = 0.5 *(/(var_dbl(0,hvar%ids(1))+var_dbl(0,hvar%ids(4))),&
-                    (var_dbl(0,hvar%ids(2))+var_dbl(0,hvar%ids(5))),&
-                    (var_dbl(0,hvar%ids(3))+var_dbl(0,hvar%ids(6)))/)
+        B = 0.5 * real((/(var(0,hvar%ids(1))+var(0,hvar%ids(4))),&
+                    (var(0,hvar%ids(2))+var(0,hvar%ids(5))),&
+                    (var(0,hvar%ids(3))+var(0,hvar%ids(6)))/),kind=dbl)
         magnetic_energy_density = 0.5 * (B.DOT.B)
     end function magnetic_energy_density
 
@@ -2084,31 +1650,21 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: alfven_speed
 
         type(vector) :: B
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Magnetic field magnitude
-        B = 0.5 *(/(var_dbl(0,hvar%ids(1))+var_dbl(0,hvar%ids(4))),&
-                    (var_dbl(0,hvar%ids(2))+var_dbl(0,hvar%ids(5))),&
-                    (var_dbl(0,hvar%ids(3))+var_dbl(0,hvar%ids(6)))/)
-        alfven_speed = magnitude(B) / sqrt(var_dbl(0,hvar%ids(7)))
+        B = 0.5 * real((/(var(0,hvar%ids(1))+var(0,hvar%ids(4))),&
+                    (var(0,hvar%ids(2))+var(0,hvar%ids(5))),&
+                    (var(0,hvar%ids(3))+var(0,hvar%ids(6)))/),kind=dbl)
+        alfven_speed = magnitude(B) / sqrt(var(0,hvar%ids(7)))
     end function alfven_speed
 
     function grav_magpfrsphere(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -2120,36 +1676,26 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grav_magpfrsphere
 
-        integer :: i
+        integer :: i, first_dust
         type(vector) :: B,v,g
         type(basis) :: temp_basis
         real(dbl) :: dxright,dxleft
         real(dbl),dimension(1:my_amr%twondim) :: totP
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Magnetic field magnitude
         totP(:) = 0d0
         do i=1,my_amr%twondim
-            B = 0.5 *(/(var_dbl(i,hvar%ids(1))+var_dbl(i,hvar%ids(4))),&
-                        (var_dbl(i,hvar%ids(2))+var_dbl(i,hvar%ids(5))),&
-                        (var_dbl(i,hvar%ids(3))+var_dbl(i,hvar%ids(6)))/)
+            B = 0.5 * real((/(var(i,hvar%ids(1))+var(i,hvar%ids(4))),&
+                        (var(i,hvar%ids(2))+var(i,hvar%ids(5))),&
+                        (var(i,hvar%ids(3))+var(i,hvar%ids(6)))/),kind=dbl)
             totP(i) = 0.5d0 * (B.DOT.B)
         end do
         dxright = dx; dxleft = dx
@@ -2168,7 +1714,7 @@ module hydro_commons
 
         g = grav_var(0,2:4)
         call spherical_basis_from_cartesian(x,temp_basis)
-        grav_magpfrsphere = -(v.DOT.temp_basis%u(1)) / (var_dbl(0,hvar%ids(7)) * (B .DOT. temp_basis%u(1)))
+        grav_magpfrsphere = -(v.DOT.temp_basis%u(1)) / (var(0,hvar%ids(7)) * (B .DOT. temp_basis%u(1)))
     end function grav_magpfrsphere
 
     function grav_magpfrspherepos(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -2180,36 +1726,26 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grav_magpfrspherepos
 
-        integer :: i
+        integer :: i, first_dust
         type(vector) :: B,v,g
         type(basis) :: temp_basis
         real(dbl) :: dxright,dxleft
         real(dbl),dimension(1:my_amr%twondim) :: totP
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Magnetic field magnitude
         totP(:) = 0d0
         do i=1,my_amr%twondim
-            B = 0.5 *(/(var_dbl(i,hvar%ids(1))+var_dbl(i,hvar%ids(4))),&
-                        (var_dbl(i,hvar%ids(2))+var_dbl(i,hvar%ids(5))),&
-                        (var_dbl(i,hvar%ids(3))+var_dbl(i,hvar%ids(6)))/)
+            B = 0.5 * real((/(var(i,hvar%ids(1))+var(i,hvar%ids(4))),&
+                        (var(i,hvar%ids(2))+var(i,hvar%ids(5))),&
+                        (var(i,hvar%ids(3))+var(i,hvar%ids(6)))/),kind=dbl)
             totP(i) = 0.5d0 * (B.DOT.B)
         end do
         dxright = dx; dxleft = dx
@@ -2228,7 +1764,7 @@ module hydro_commons
 
         g = grav_var(0,2:4)
         call spherical_basis_from_cartesian(x,temp_basis)
-        grav_magpfrspherepos = -(v.DOT.temp_basis%u(1)) / (var_dbl(0,hvar%ids(7)) * (B .DOT. temp_basis%u(1)))
+        grav_magpfrspherepos = -(v.DOT.temp_basis%u(1)) / (var(0,hvar%ids(7)) * (B .DOT. temp_basis%u(1)))
         if (grav_magpfrspherepos < 0) grav_magpfrspherepos = 0d0
     end function grav_magpfrspherepos
 
@@ -2241,15 +1777,11 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grav_magpfrsphereneg
 
@@ -2258,19 +1790,13 @@ module hydro_commons
         type(basis) :: temp_basis
         real(dbl) :: dxright,dxleft
         real(dbl),dimension(1:my_amr%twondim) :: totP
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Magnetic field magnitude
         totP(:) = 0d0
         do i=1,my_amr%twondim
-            B = 0.5 *(/(var_dbl(i,hvar%ids(1))+var_dbl(i,hvar%ids(4))),&
-                        (var_dbl(i,hvar%ids(2))+var_dbl(i,hvar%ids(5))),&
-                        (var_dbl(i,hvar%ids(3))+var_dbl(i,hvar%ids(6)))/)
+            B = 0.5 * real((/(var(i,hvar%ids(1))+var(i,hvar%ids(4))),&
+                        (var(i,hvar%ids(2))+var(i,hvar%ids(5))),&
+                        (var(i,hvar%ids(3))+var(i,hvar%ids(6)))/),kind=dbl)
             totP(i) = 0.5d0 * (B.DOT.B)
         end do
         dxright = dx; dxleft = dx
@@ -2289,7 +1815,7 @@ module hydro_commons
 
         g = grav_var(0,2:4)
         call spherical_basis_from_cartesian(x,temp_basis)
-        grav_magpfrsphereneg = -(v.DOT.temp_basis%u(1)) / (var_dbl(0,hvar%ids(7)) * (B .DOT. temp_basis%u(1)))
+        grav_magpfrsphereneg = -(v.DOT.temp_basis%u(1)) / (var(0,hvar%ids(7)) * (B .DOT. temp_basis%u(1)))
         if (grav_magpfrsphereneg > 0) grav_magpfrsphereneg = 0d0
     end function grav_magpfrsphereneg
 
@@ -2302,26 +1828,16 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: cr_energy
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! CR energy, computed as CR_energydensity*volume
-        cr_energy = ((var_dbl(0,hvar%ids(1)) / (gamma_cr - 1d0)) * (dx*dx)) * dx
+        cr_energy = ((var(0,hvar%ids(1)) / (gamma_cr - 1d0)) * (dx*dx)) * dx
     end function cr_energy
 
     function cr_energy_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -2333,26 +1849,16 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: cr_energy_density
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! CR energy density
-        cr_energy_density = var_dbl(0,hvar%ids(1)) / (gamma_cr - 1d0)
+        cr_energy_density = var(0,hvar%ids(1)) / (gamma_cr - 1d0)
     end function cr_energy_density
 
     function cr_energy_specific(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -2364,26 +1870,16 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: cr_energy_specific
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Specific CR energy, computed as CR_energydensity*volume/cell mass
-        cr_energy_specific = (var_dbl(0,hvar%ids(1)) / (gamma_cr - 1d0)) / var_dbl(0,hvar%ids(2))
+        cr_energy_specific = (var(0,hvar%ids(1)) / (gamma_cr - 1d0)) / var(0,hvar%ids(2))
     end function cr_energy_specific
 
     function cr_temperature_eff(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -2395,26 +1891,16 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: cr_temperature_eff
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Effective CR temperature
-        cr_temperature_eff = var_dbl(0,hvar%ids(1)) / var_dbl(0,hvar%ids(2))
+        cr_temperature_eff = var(0,hvar%ids(1)) / var(0,hvar%ids(2))
     end function cr_temperature_eff
 
     function cr_GH08heat(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -2426,31 +1912,21 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: cr_GH08heat
 
         real(dbl) :: ne,ecr
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Cosmic rays hadronic and Coulomb heating from Guo&Ho(2008)
         ! (Assume fully ionised gas)
         ! TODO: Update for RT! 
-        ne = var_dbl(0,hvar%ids(2)) * my_sim%unit_d / mHydrogen 
-        ecr = var_dbl(0,hvar%ids(1)) / (gamma_cr - 1d0)
+        ne = var(0,hvar%ids(2)) * my_sim%unit_d / mHydrogen 
+        ecr = var(0,hvar%ids(1)) / (gamma_cr - 1d0)
         ecr = ecr * (my_sim%unit_d * ((my_sim%unit_l/my_sim%unit_t)**2))
         cr_GH08heat = lambda_crGH08 * ne * ecr
     end function cr_GH08heat
@@ -2464,39 +1940,29 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grad_crp
         type(vector) :: v
         real(dbl) :: dxright,dxleft
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Magnitude of CR pressure gradient
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (var_dbl(1,hvar%ids(1)) - var_dbl(2,hvar%ids(1))) / (dxright + dxleft)
+        v%x = (var(1,hvar%ids(1)) - var(2,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (var_dbl(3,hvar%ids(1)) - var_dbl(4,hvar%ids(1))) / (dxright + dxleft)
+        v%y = (var(3,hvar%ids(1)) - var(4,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (var_dbl(5,hvar%ids(1)) - var_dbl(6,hvar%ids(1))) / (dxright + dxleft)
+        v%z = (var(5,hvar%ids(1)) - var(6,hvar%ids(1))) / (dxright + dxleft)
         grad_crp = magnitude(v)
     end function grad_crp
 
@@ -2509,39 +1975,29 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grad_crpx
         type(vector) :: v
         real(dbl) :: dxright,dxleft
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Magnitude of CR pressure gradient
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (var_dbl(1,hvar%ids(1)) - var_dbl(2,hvar%ids(1))) / (dxright + dxleft)
+        v%x = (var(1,hvar%ids(1)) - var(2,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (var_dbl(3,hvar%ids(1)) - var_dbl(4,hvar%ids(1))) / (dxright + dxleft)
+        v%y = (var(3,hvar%ids(1)) - var(4,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (var_dbl(5,hvar%ids(1)) - var_dbl(6,hvar%ids(1))) / (dxright + dxleft)
+        v%z = (var(5,hvar%ids(1)) - var(6,hvar%ids(1))) / (dxright + dxleft)
         call rotate_vector(v,trans_matrix)
         grad_crpx = v%x
     end function grad_crpx
@@ -2555,39 +2011,29 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grad_crpy
         type(vector) :: v
         real(dbl) :: dxright,dxleft
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Magnitude of CR pressure gradient
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (var_dbl(1,hvar%ids(1)) - var_dbl(2,hvar%ids(1))) / (dxright + dxleft)
+        v%x = (var(1,hvar%ids(1)) - var(2,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (var_dbl(3,hvar%ids(1)) - var_dbl(4,hvar%ids(1))) / (dxright + dxleft)
+        v%y = (var(3,hvar%ids(1)) - var(4,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (var_dbl(5,hvar%ids(1)) - var_dbl(6,hvar%ids(1))) / (dxright + dxleft)
+        v%z = (var(5,hvar%ids(1)) - var(6,hvar%ids(1))) / (dxright + dxleft)
         call rotate_vector(v,trans_matrix)
         grad_crpy = v%y
     end function grad_crpy
@@ -2601,39 +2047,29 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grad_crpz
         type(vector) :: v
         real(dbl) :: dxright,dxleft
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Magnitude of CR pressure gradient
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (var_dbl(1,hvar%ids(1)) - var_dbl(2,hvar%ids(1))) / (dxright + dxleft)
+        v%x = (var(1,hvar%ids(1)) - var(2,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (var_dbl(3,hvar%ids(1)) - var_dbl(4,hvar%ids(1))) / (dxright + dxleft)
+        v%y = (var(3,hvar%ids(1)) - var(4,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (var_dbl(5,hvar%ids(1)) - var_dbl(6,hvar%ids(1))) / (dxright + dxleft)
+        v%z = (var(5,hvar%ids(1)) - var(6,hvar%ids(1))) / (dxright + dxleft)
         call rotate_vector(v,trans_matrix)
         grad_crpz = v%z
     end function grad_crpz
@@ -2647,40 +2083,30 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grad_crprsphere
         type(vector) :: v
         real(dbl) :: dxright,dxleft
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! CR pressure gradient in the radial direction
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (var_dbl(1,hvar%ids(1)) - var_dbl(2,hvar%ids(1))) / (dxright + dxleft)
+        v%x = (var(1,hvar%ids(1)) - var(2,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (var_dbl(3,hvar%ids(1)) - var_dbl(4,hvar%ids(1))) / (dxright + dxleft)
+        v%y = (var(3,hvar%ids(1)) - var(4,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (var_dbl(5,hvar%ids(1)) - var_dbl(6,hvar%ids(1))) / (dxright + dxleft)
+        v%z = (var(5,hvar%ids(1)) - var(6,hvar%ids(1))) / (dxright + dxleft)
         call rotate_vector(v,trans_matrix)
         call spherical_basis_from_cartesian(x,temp_basis)
         grad_crprsphere = (v.DOT.temp_basis%u(1))
@@ -2695,44 +2121,34 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: gradscale_crprsphere
         type(vector) :: v
         real(dbl) :: dxright,dxleft
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! CR pressure gradient scale in the radial direction
         ! This is defined as Pcr/grad(Pcr)
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (var_dbl(1,hvar%ids(1)) - var_dbl(2,hvar%ids(1))) / (dxright + dxleft)
+        v%x = (var(1,hvar%ids(1)) - var(2,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (var_dbl(3,hvar%ids(1)) - var_dbl(4,hvar%ids(1))) / (dxright + dxleft)
+        v%y = (var(3,hvar%ids(1)) - var(4,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (var_dbl(5,hvar%ids(1)) - var_dbl(6,hvar%ids(1))) / (dxright + dxleft)
+        v%z = (var(5,hvar%ids(1)) - var(6,hvar%ids(1))) / (dxright + dxleft)
         call rotate_vector(v,trans_matrix)
         call spherical_basis_from_cartesian(x,temp_basis)
-        gradscale_crprsphere = abs(var_dbl(0,hvar%ids(1))/(v.DOT.temp_basis%u(1)))
+        gradscale_crprsphere = abs(var(0,hvar%ids(1))/(v.DOT.temp_basis%u(1)))
     end function gradscale_crprsphere
 
     function gradscale_crp(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -2744,44 +2160,34 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: gradscale_crp
         type(vector) :: v
         real(dbl) :: dxright,dxleft
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! CR pressure gradient scale
         ! This is defined as Pcr/grad(Pcr)
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (var_dbl(1,hvar%ids(1)) - var_dbl(2,hvar%ids(1))) / (dxright + dxleft)
+        v%x = (var(1,hvar%ids(1)) - var(2,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (var_dbl(3,hvar%ids(1)) - var_dbl(4,hvar%ids(1))) / (dxright + dxleft)
+        v%y = (var(3,hvar%ids(1)) - var(4,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (var_dbl(5,hvar%ids(1)) - var_dbl(6,hvar%ids(1))) / (dxright + dxleft)
+        v%z = (var(5,hvar%ids(1)) - var(6,hvar%ids(1))) / (dxright + dxleft)
         call rotate_vector(v,trans_matrix)
         call spherical_basis_from_cartesian(x,temp_basis)
-        gradscale_crp = abs(var_dbl(0,hvar%ids(1))/(magnitude(v)))
+        gradscale_crp = abs(var(0,hvar%ids(1))/(magnitude(v)))
     end function gradscale_crp
 
     function diffusion_speed(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -2793,27 +2199,17 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: diffusion_speed
         type(vector) :: v
         real(dbl) :: dxright,dxleft
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! CR diffusion speed
         ! This is defined as Dcr/Lcr, with Lcr the CR pressure gradient scale
         ! CR pressure gradient scale
@@ -2821,18 +2217,18 @@ module hydro_commons
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (var_dbl(1,hvar%ids(1)) - var_dbl(2,hvar%ids(1))) / (dxright + dxleft)
+        v%x = (var(1,hvar%ids(1)) - var(2,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (var_dbl(3,hvar%ids(1)) - var_dbl(4,hvar%ids(1))) / (dxright + dxleft)
+        v%y = (var(3,hvar%ids(1)) - var(4,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (var_dbl(5,hvar%ids(1)) - var_dbl(6,hvar%ids(1))) / (dxright + dxleft)
+        v%z = (var(5,hvar%ids(1)) - var(6,hvar%ids(1))) / (dxright + dxleft)
         call rotate_vector(v,trans_matrix)
         call spherical_basis_from_cartesian(x,temp_basis)
-        diffusion_speed = my_sim%Dcr / abs(var_dbl(0,hvar%ids(1))/magnitude(v))
+        diffusion_speed = my_sim%Dcr / abs(var(0,hvar%ids(1))/magnitude(v))
     end function diffusion_speed
 
     function alfvendiff_ratio(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -2844,47 +2240,37 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: alfvendiff_ratio
         type(vector) :: v,B
         real(dbl) :: dxright,dxleft
         real(dbl) :: vA,vdiff
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Ratio of Alfven to diffusion speed
-        B = 0.5d0 * (/(var_dbl(0,hvar%ids(1))+var_dbl(0,hvar%ids(4))),&
-                    &(var_dbl(0,hvar%ids(2))+var_dbl(0,hvar%ids(5))),&
-                    (var_dbl(0,hvar%ids(3))+var_dbl(0,hvar%ids(6)))/)
-        vA = magnitude(B) / sqrt(var_dbl(0,hvar%ids(8)))
+        B = 0.5d0 * (/(var(0,hvar%ids(1))+var(0,hvar%ids(4))),&
+                    &(var(0,hvar%ids(2))+var(0,hvar%ids(5))),&
+                    (var(0,hvar%ids(3))+var(0,hvar%ids(6)))/)
+        vA = magnitude(B) / sqrt(var(0,hvar%ids(8)))
 
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (var_dbl(1,hvar%ids(7)) - var_dbl(2,hvar%ids(7))) / (dxright + dxleft)
+        v%x = (var(1,hvar%ids(7)) - var(2,hvar%ids(7))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (var_dbl(3,hvar%ids(7)) - var_dbl(4,hvar%ids(7))) / (dxright + dxleft)
+        v%y = (var(3,hvar%ids(7)) - var(4,hvar%ids(7))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (var_dbl(5,hvar%ids(7)) - var_dbl(6,hvar%ids(7))) / (dxright + dxleft)
+        v%z = (var(5,hvar%ids(7)) - var(6,hvar%ids(7))) / (dxright + dxleft)
         B = B / magnitude(B)
-        vdiff = my_sim%Dcr / abs(var_dbl(0,hvar%ids(7))/(abs(v.DOT.B)))
+        vdiff = my_sim%Dcr / abs(var(0,hvar%ids(7))/(abs(v.DOT.B)))
         alfvendiff_ratio = (5d0/3d0) * vA / (vdiff + (5d0/3d0) * vA)
     end function alfvendiff_ratio
 
@@ -2897,44 +2283,34 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: streaming_heating
         type(vector) :: v,B,vA
         real(dbl) :: dxright,dxleft
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Streaming heating
-        B = 0.5d0 * (/(var_dbl(0,hvar%ids(1))+var_dbl(0,hvar%ids(4))),&
-                    &(var_dbl(0,hvar%ids(2))+var_dbl(0,hvar%ids(5))),&
-                    (var_dbl(0,hvar%ids(3))+var_dbl(0,hvar%ids(6)))/)
-        vA = B / sqrt(var_dbl(0,hvar%ids(8)))
+        B = 0.5d0 * (/(var(0,hvar%ids(1))+var(0,hvar%ids(4))),&
+                    &(var(0,hvar%ids(2))+var(0,hvar%ids(5))),&
+                    (var(0,hvar%ids(3))+var(0,hvar%ids(6)))/)
+        vA = B / sqrt(var(0,hvar%ids(8)))
 
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (var_dbl(1,hvar%ids(7)) - var_dbl(2,hvar%ids(7))) / (dxright + dxleft)
+        v%x = (var(1,hvar%ids(7)) - var(2,hvar%ids(7))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (var_dbl(3,hvar%ids(7)) - var_dbl(4,hvar%ids(7))) / (dxright + dxleft)
+        v%y = (var(3,hvar%ids(7)) - var(4,hvar%ids(7))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (var_dbl(5,hvar%ids(7)) - var_dbl(6,hvar%ids(7))) / (dxright + dxleft)
+        v%z = (var(5,hvar%ids(7)) - var(6,hvar%ids(7))) / (dxright + dxleft)
         streaming_heating = abs(vA .DOT. v)
     end function streaming_heating
 
@@ -2947,30 +2323,20 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
     
         real(dbl) :: net_cooling
         real(dbl) :: T,nH,Z,lambda,lambda_prime
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        T = var_dbl(0,hvar%ids(1)) / var_dbl(0,hvar%ids(2)) * my_sim%T2
+        T = var(0,hvar%ids(1)) / var(0,hvar%ids(2)) * my_sim%T2
         ! TODO: This a fix only for some messed up CRMHD simulations!
         if (T<15d0) T = 15d0
-        nH = var_dbl(0,hvar%ids(2)) * my_sim%nH
-        Z  = var_dbl(0,hvar%ids(3)) / 2D-2
+        nH = var(0,hvar%ids(2)) * my_sim%nH
+        Z  = var(0,hvar%ids(3)) / 2D-2
         call solve_cooling(nH,T,Z,lambda,lambda_prime)
         net_cooling = ((lambda * nH) * nH) * ((my_sim%unit_t**3)/(my_sim%unit_d*(my_sim%unit_l**2)))
     end function net_cooling
@@ -2984,52 +2350,42 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: stheatcooling_ratio
         type(vector) :: v,B,vA
         real(dbl) :: dxright,dxleft
         real(dbl) :: T,nH,Z,lambda,lambda_prime,lambda_st
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Ratio of Alfven to diffusion speed
-        B = 0.5d0 * (/(var_dbl(0,hvar%ids(1))+var_dbl(0,hvar%ids(4))),&
-                    &(var_dbl(0,hvar%ids(2))+var_dbl(0,hvar%ids(5))),&
-                    (var_dbl(0,hvar%ids(3))+var_dbl(0,hvar%ids(6)))/)
-        vA = B / sqrt(var_dbl(0,hvar%ids(8)))
+        B = 0.5d0 * (/(var(0,hvar%ids(1))+var(0,hvar%ids(4))),&
+                    &(var(0,hvar%ids(2))+var(0,hvar%ids(5))),&
+                    (var(0,hvar%ids(3))+var(0,hvar%ids(6)))/)
+        vA = B / sqrt(var(0,hvar%ids(8)))
 
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (var_dbl(1,hvar%ids(7)) - var_dbl(2,hvar%ids(7))) / (dxright + dxleft)
+        v%x = (var(1,hvar%ids(7)) - var(2,hvar%ids(7))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (var_dbl(3,hvar%ids(7)) - var_dbl(4,hvar%ids(7))) / (dxright + dxleft)
+        v%y = (var(3,hvar%ids(7)) - var(4,hvar%ids(7))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (var_dbl(5,hvar%ids(7)) - var_dbl(6,hvar%ids(7))) / (dxright + dxleft)
+        v%z = (var(5,hvar%ids(7)) - var(6,hvar%ids(7))) / (dxright + dxleft)
         lambda_st = abs(vA .DOT. v)
 
-        T = var_dbl(0,hvar%ids(9)) / var_dbl(0,hvar%ids(8)) * my_sim%T2
+        T = var(0,hvar%ids(9)) / var(0,hvar%ids(8)) * my_sim%T2
         ! TODO: This a fix only for some messed up CRMHD simulations!
         if (T<15d0) T = 15d0
-        nH = var_dbl(0,hvar%ids(8)) * my_sim%nH
-        Z  = var_dbl(0,hvar%ids(10)) / 2D-2
+        nH = var(0,hvar%ids(8)) * my_sim%nH
+        Z  = var(0,hvar%ids(10)) / 2D-2
         call solve_cooling(nH,T,Z,lambda,lambda_prime)
         lambda = ((lambda * nH) * nH) * ((my_sim%unit_t**3)/(my_sim%unit_d*(my_sim%unit_l**2)))
         stheatcooling_ratio = abs(lambda_st / lambda)
@@ -3044,46 +2400,36 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: total_coolingtime
         type(vector) :: v,B,vA
         real(dbl) :: dxright,dxleft
         real(dbl) :: ne,ecr
         real(dbl) :: T,nH,Z,lambda,lambda_prime,lambda_st,lambda_cr
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         if (my_sim%cr .and. my_sim%cr_st .and. my_sim%cr_heat) then
-            B = 0.5d0 * (/(var_dbl(0,hvar%ids(1))+var_dbl(0,hvar%ids(4))),&
-                        &(var_dbl(0,hvar%ids(2))+var_dbl(0,hvar%ids(5))),&
-                        (var_dbl(0,hvar%ids(3))+var_dbl(0,hvar%ids(6)))/)
-            vA = B / sqrt(var_dbl(0,hvar%ids(8)))
+            B = 0.5d0 * (/(var(0,hvar%ids(1))+var(0,hvar%ids(4))),&
+                        &(var(0,hvar%ids(2))+var(0,hvar%ids(5))),&
+                        (var(0,hvar%ids(3))+var(0,hvar%ids(6)))/)
+            vA = B / sqrt(var(0,hvar%ids(8)))
 
             dxright = dx; dxleft = dx
             if (son(1) .eq. 0) dxright = dxright * 1.5D0
             if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-            v%x = (var_dbl(1,hvar%ids(7)) - var_dbl(2,hvar%ids(7))) / (dxright + dxleft)
+            v%x = (var(1,hvar%ids(7)) - var(2,hvar%ids(7))) / (dxright + dxleft)
             dxright = dx; dxleft = dx
             if (son(3) .eq. 0) dxright = dxright * 1.5D0
             if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-            v%y = (var_dbl(3,hvar%ids(7)) - var_dbl(4,hvar%ids(7))) / (dxright + dxleft)
+            v%y = (var(3,hvar%ids(7)) - var(4,hvar%ids(7))) / (dxright + dxleft)
             dxright = dx; dxleft = dx
             if (son(5) .eq. 0) dxright = dxright * 1.5D0
             if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-            v%z = (var_dbl(5,hvar%ids(7)) - var_dbl(6,hvar%ids(7))) / (dxright + dxleft)
+            v%z = (var(5,hvar%ids(7)) - var(6,hvar%ids(7))) / (dxright + dxleft)
             lambda_st = abs(vA .DOT. v)
         else
             lambda_st = 0D0
@@ -3094,28 +2440,28 @@ module hydro_commons
             ! (Assume fully ionised gas)
             ! TODO: Update for RT!
             lambda = 2.63d-16 * ((my_sim%unit_t**3)/(my_sim%unit_d*(my_sim%unit_l**2)))
-            ne = var_dbl(0,hvar%ids(8)) * my_sim%nH
-            ecr = var_dbl(0,hvar%ids(7)) / (gamma_cr - 1d0)
+            ne = var(0,hvar%ids(8)) * my_sim%nH
+            ecr = var(0,hvar%ids(7)) / (gamma_cr - 1d0)
             ecr = ecr * (my_sim%unit_d * ((my_sim%unit_l/my_sim%unit_t)**2))
             lambda_cr = lambda * ne * ecr
         else
             lambda_cr = 0D0
         end if
 
-        T = var_dbl(0,hvar%ids(9)) / var_dbl(0,hvar%ids(8)) * my_sim%T2
+        T = var(0,hvar%ids(9)) / var(0,hvar%ids(8)) * my_sim%T2
         ! TODO: This a fix only for some messed up CRMHD simulations!
         if (T<15d0) T = 15d0
-        nH = var_dbl(0,hvar%ids(8)) * my_sim%nH
-        Z  = var_dbl(0,hvar%ids(10)) / 2D-2
+        nH = var(0,hvar%ids(8)) * my_sim%nH
+        Z  = var(0,hvar%ids(10)) / 2D-2
         call solve_cooling(nH,T,Z,lambda,lambda_prime)
         lambda = ((lambda * nH) * nH) * ((my_sim%unit_t**3)/(my_sim%unit_d*(my_sim%unit_l**2)))
 
         ! Thermal energy, computed as thermal_pressure*volume/(gamma - 1)
         ! TODO: This a fix only for some messed up CRMHD simulations!
         if (T<15) then
-            total_coolingtime = (Tmin * var_dbl(0,hvar%ids(8))) / (gamma_gas - 1d0)
+            total_coolingtime = (Tmin * var(0,hvar%ids(8))) / (gamma_gas - 1d0)
         else
-            total_coolingtime = var_dbl(0,hvar%ids(9)) / (gamma_gas - 1d0)
+            total_coolingtime = var(0,hvar%ids(9)) / (gamma_gas - 1d0)
         end if
 
         total_coolingtime = total_coolingtime / (lambda - lambda_st - lambda_cr)
@@ -3130,29 +2476,19 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grav_frsphere
         type(vector) :: B
         type(basis) :: temp_basis
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         B = grav_var(0,2:4)
         call spherical_basis_from_cartesian(x,temp_basis)
-        grav_frsphere = var_dbl(0,hvar%ids(1)) * (B .DOT. temp_basis%u(1))
+        grav_frsphere = real(var(0,hvar%ids(1)), kind=dbl) * (B .DOT. temp_basis%u(1))
     end function grav_frsphere
 
     function escape_velocity(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -3164,24 +2500,14 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: escape_velocity
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         escape_velocity = sqrt(2d0*grav_var(0,1))
     end function escape_velocity
 
@@ -3194,42 +2520,32 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grav_crpf
         type(vector) :: v,g
         real(dbl) :: dxright,dxleft
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Ratio of CR pressure gradient and gravitational acceleration
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (var_dbl(1,hvar%ids(1)) - var_dbl(2,hvar%ids(1))) / (dxright + dxleft)
+        v%x = (var(1,hvar%ids(1)) - var(2,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (var_dbl(3,hvar%ids(1)) - var_dbl(4,hvar%ids(1))) / (dxright + dxleft)
+        v%y = (var(3,hvar%ids(1)) - var(4,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (var_dbl(5,hvar%ids(1)) - var_dbl(6,hvar%ids(1))) / (dxright + dxleft)
+        v%z = (var(5,hvar%ids(1)) - var(6,hvar%ids(1))) / (dxright + dxleft)
         
         g = grav_var(0,2:4)
-        grav_crpf = magnitude(v) / (var_dbl(0,hvar%ids(2)) * magnitude(g))
+        grav_crpf = magnitude(v) / (var(0,hvar%ids(2)) * magnitude(g))
     end function grav_crpf
 
     function grav_crpfz(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -3241,42 +2557,32 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grav_crpfz
         type(vector) :: v,g
         real(dbl) :: dxright,dxleft
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Ratio of CR pressure gradient and gravitational acceleration
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (var_dbl(1,hvar%ids(1)) - var_dbl(2,hvar%ids(1))) / (dxright + dxleft)
+        v%x = (var(1,hvar%ids(1)) - var(2,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (var_dbl(3,hvar%ids(1)) - var_dbl(4,hvar%ids(1))) / (dxright + dxleft)
+        v%y = (var(3,hvar%ids(1)) - var(4,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (var_dbl(5,hvar%ids(1)) - var_dbl(6,hvar%ids(1))) / (dxright + dxleft)
+        v%z = (var(5,hvar%ids(1)) - var(6,hvar%ids(1))) / (dxright + dxleft)
         call rotate_vector(v,trans_matrix)
         g = grav_var(0,2:4)
-        grav_crpfz = -v%z / (var_dbl(0,hvar%ids(2)) * magnitude(g))
+        grav_crpfz = -v%z / (var(0,hvar%ids(2)) * magnitude(g))
     end function grav_crpfz
 
     function grav_therpfz(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -3288,43 +2594,33 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grav_therpfz
         type(vector) :: v,g
         real(dbl) :: dxright,dxleft
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Ratio of thermal pressure gradient and gravitational acceleration
         ! in the z direction
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (var_dbl(1,hvar%ids(1)) - var_dbl(2,hvar%ids(1))) / (dxright + dxleft)
+        v%x = (var(1,hvar%ids(1)) - var(2,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (var_dbl(3,hvar%ids(1)) - var_dbl(4,hvar%ids(1))) / (dxright + dxleft)
+        v%y = (var(3,hvar%ids(1)) - var(4,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (var_dbl(5,hvar%ids(1)) - var_dbl(6,hvar%ids(1))) / (dxright + dxleft)
+        v%z = (var(5,hvar%ids(1)) - var(6,hvar%ids(1))) / (dxright + dxleft)
         call rotate_vector(v,trans_matrix)
         g = grav_var(0,2:4)
-        grav_therpfz = -v%z / (var_dbl(0,hvar%ids(2)) * magnitude(g))
+        grav_therpfz = -v%z / (var(0,hvar%ids(2)) * magnitude(g))
     end function grav_therpfz
 
     function grav_therpfrsphere(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -3336,45 +2632,35 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grav_therpfrsphere
         type(vector) :: v,g
         type(basis) :: temp_basis
         real(dbl) :: dxright,dxleft
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Ratio of thermal pressure gradient and gravitational acceleration
         ! in the z direction
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (var_dbl(1,hvar%ids(1)) - var_dbl(2,hvar%ids(1))) / (dxright + dxleft)
+        v%x = (var(1,hvar%ids(1)) - var(2,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (var_dbl(3,hvar%ids(1)) - var_dbl(4,hvar%ids(1))) / (dxright + dxleft)
+        v%y = (var(3,hvar%ids(1)) - var(4,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (var_dbl(5,hvar%ids(1)) - var_dbl(6,hvar%ids(1))) / (dxright + dxleft)
+        v%z = (var(5,hvar%ids(1)) - var(6,hvar%ids(1))) / (dxright + dxleft)
         call rotate_vector(v,trans_matrix)
         g = grav_var(0,2:4)
         call spherical_basis_from_cartesian(x,temp_basis)
-        grav_therpfrsphere = -(v .DOT. temp_basis%u(1)) / (var_dbl(0,hvar%ids(2)) * (g.DOT.temp_basis%u(1)))
+        grav_therpfrsphere = -(v .DOT. temp_basis%u(1)) / (var(0,hvar%ids(2)) * (g.DOT.temp_basis%u(1)))
     end function grav_therpfrsphere
 
     function grav_therpfrspherepos(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -3386,45 +2672,35 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grav_therpfrspherepos
         type(vector) :: v,g
         type(basis) :: temp_basis
         real(dbl) :: dxright,dxleft
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Ratio of thermal pressure gradient and gravitational acceleration
         ! in the z direction
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (var_dbl(1,hvar%ids(1)) - var_dbl(2,hvar%ids(1))) / (dxright + dxleft)
+        v%x = (var(1,hvar%ids(1)) - var(2,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (var_dbl(3,hvar%ids(1)) - var_dbl(4,hvar%ids(1))) / (dxright + dxleft)
+        v%y = (var(3,hvar%ids(1)) - var(4,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (var_dbl(5,hvar%ids(1)) - var_dbl(6,hvar%ids(1))) / (dxright + dxleft)
+        v%z = (var(5,hvar%ids(1)) - var(6,hvar%ids(1))) / (dxright + dxleft)
         call rotate_vector(v,trans_matrix)
         g = grav_var(0,2:4)
         call spherical_basis_from_cartesian(x,temp_basis)
-        grav_therpfrspherepos = -(v .DOT. temp_basis%u(1)) / (var_dbl(0,hvar%ids(2)) * (g.DOT.temp_basis%u(1)))
+        grav_therpfrspherepos = -(v .DOT. temp_basis%u(1)) / (var(0,hvar%ids(2)) * (g.DOT.temp_basis%u(1)))
         if (grav_therpfrspherepos < 0d0) grav_therpfrspherepos = 0d0
     end function grav_therpfrspherepos
 
@@ -3437,46 +2713,36 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grav_therpfrsphereneg
         type(vector) :: v,g
         type(basis) :: temp_basis
         real(dbl) :: dxright,dxleft
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Ratio of thermal pressure gradient and gravitational acceleration
         ! in the spherical r direction
         ! ONLY NEGATIVE
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (var_dbl(1,hvar%ids(1)) - var_dbl(2,hvar%ids(1))) / (dxright + dxleft)
+        v%x = (var(1,hvar%ids(1)) - var(2,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (var_dbl(3,hvar%ids(1)) - var_dbl(4,hvar%ids(1))) / (dxright + dxleft)
+        v%y = (var(3,hvar%ids(1)) - var(4,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (var_dbl(5,hvar%ids(1)) - var_dbl(6,hvar%ids(1))) / (dxright + dxleft)
+        v%z = (var(5,hvar%ids(1)) - var(6,hvar%ids(1))) / (dxright + dxleft)
         call rotate_vector(v,trans_matrix)
         g = grav_var(0,2:4)
         call spherical_basis_from_cartesian(x,temp_basis)
-        grav_therpfrsphereneg = -(v .DOT. temp_basis%u(1)) / (var_dbl(0,hvar%ids(2)) * (g.DOT.temp_basis%u(1)))
+        grav_therpfrsphereneg = -(v .DOT. temp_basis%u(1)) / (var(0,hvar%ids(2)) * (g.DOT.temp_basis%u(1)))
         if (grav_therpfrsphereneg > 0d0) then
             grav_therpfrsphereneg = 0d0
         else
@@ -3493,45 +2759,35 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grav_crpfrsphere
         type(vector) :: v,g
         type(basis) :: temp_basis
         real(dbl) :: dxright,dxleft
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Ratio of CR pressure gradient and gravitational acceleration
         ! in the z direction
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (var_dbl(1,hvar%ids(1)) - var_dbl(2,hvar%ids(1))) / (dxright + dxleft)
+        v%x = (var(1,hvar%ids(1)) - var(2,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (var_dbl(3,hvar%ids(1)) - var_dbl(4,hvar%ids(1))) / (dxright + dxleft)
+        v%y = (var(3,hvar%ids(1)) - var(4,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (var_dbl(5,hvar%ids(1)) - var_dbl(6,hvar%ids(1))) / (dxright + dxleft)
+        v%z = (var(5,hvar%ids(1)) - var(6,hvar%ids(1))) / (dxright + dxleft)
         call rotate_vector(v,trans_matrix)
         g = grav_var(0,2:4)
         call spherical_basis_from_cartesian(x,temp_basis)
-        grav_crpfrsphere = -(v .DOT. temp_basis%u(1)) / (var_dbl(0,hvar%ids(2)) * (g.DOT.temp_basis%u(1)))
+        grav_crpfrsphere = -(v .DOT. temp_basis%u(1)) / (var(0,hvar%ids(2)) * (g.DOT.temp_basis%u(1)))
     end function grav_crpfrsphere
 
     function grav_crpfrspherepos(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -3543,46 +2799,36 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grav_crpfrspherepos
         type(vector) :: v,g
         type(basis) :: temp_basis
         real(dbl) :: dxright,dxleft
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Ratio of CR pressure gradient and gravitational acceleration
         ! in the z direction
         ! ONLY POSITIVE
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (var_dbl(1,hvar%ids(1)) - var_dbl(2,hvar%ids(1))) / (dxright + dxleft)
+        v%x = (var(1,hvar%ids(1)) - var(2,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (var_dbl(3,hvar%ids(1)) - var_dbl(4,hvar%ids(1))) / (dxright + dxleft)
+        v%y = (var(3,hvar%ids(1)) - var(4,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (var_dbl(5,hvar%ids(1)) - var_dbl(6,hvar%ids(1))) / (dxright + dxleft)
+        v%z = (var(5,hvar%ids(1)) - var(6,hvar%ids(1))) / (dxright + dxleft)
         call rotate_vector(v,trans_matrix)
         g = grav_var(0,2:4)
         call spherical_basis_from_cartesian(x,temp_basis)
-        grav_crpfrspherepos = -(v .DOT. temp_basis%u(1)) / (var_dbl(0,hvar%ids(2)) * (g.DOT.temp_basis%u(1)))
+        grav_crpfrspherepos = -(v .DOT. temp_basis%u(1)) / (var(0,hvar%ids(2)) * (g.DOT.temp_basis%u(1)))
         if (grav_crpfrspherepos < 0d0) grav_crpfrspherepos = 0d0
     end function grav_crpfrspherepos
 
@@ -3595,46 +2841,36 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: grav_crpfrsphereneg
         type(vector) :: v,g
         type(basis) :: temp_basis
         real(dbl) :: dxright,dxleft
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Ratio of thermal pressure gradient and gravitational acceleration
         ! in the spherical r direction
         ! ONLY NEGATIVE
         dxright = dx; dxleft = dx
         if (son(1) .eq. 0) dxright = dxright * 1.5D0
         if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
-        v%x = (var_dbl(1,hvar%ids(1)) - var_dbl(2,hvar%ids(1))) / (dxright + dxleft)
+        v%x = (var(1,hvar%ids(1)) - var(2,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(3) .eq. 0) dxright = dxright * 1.5D0
         if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
-        v%y = (var_dbl(3,hvar%ids(1)) - var_dbl(4,hvar%ids(1))) / (dxright + dxleft)
+        v%y = (var(3,hvar%ids(1)) - var(4,hvar%ids(1))) / (dxright + dxleft)
         dxright = dx; dxleft = dx
         if (son(5) .eq. 0) dxright = dxright * 1.5D0
         if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
-        v%z = (var_dbl(5,hvar%ids(1)) - var_dbl(6,hvar%ids(1))) / (dxright + dxleft)
+        v%z = (var(5,hvar%ids(1)) - var(6,hvar%ids(1))) / (dxright + dxleft)
         call rotate_vector(v,trans_matrix)
         g = grav_var(0,2:4)
         call spherical_basis_from_cartesian(x,temp_basis)
-        grav_crpfrsphereneg = -(v .DOT. temp_basis%u(1)) / (var_dbl(0,hvar%ids(2)) * (g.DOT.temp_basis%u(1)))
+        grav_crpfrsphereneg = -(v .DOT. temp_basis%u(1)) / (var(0,hvar%ids(2)) * (g.DOT.temp_basis%u(1)))
         if (grav_crpfrsphereneg > 0d0) then
             grav_crpfrsphereneg = 0d0
         else
@@ -3651,15 +2887,11 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         integer :: i
         real(dbl) :: grav_totpfrsphere
@@ -3667,23 +2899,17 @@ module hydro_commons
         type(basis) :: temp_basis
         real(dbl) :: dxright,dxleft
         real(dbl),dimension(1:my_amr%twondim) :: totP
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         totP(:) = 0d0
         do i = 1, my_amr%twondim
-            if (my_sim%hydro) totP(i) = var_dbl(i,hvar%ids(9))
+            if (my_sim%hydro) totP(i) = var(i,hvar%ids(9))
             if (my_sim%mhd) then
-                B = 0.5d0 * (/(var_dbl(0,hvar%ids(1))+var_dbl(0,hvar%ids(4))),&
-                        &(var_dbl(0,hvar%ids(2))+var_dbl(0,hvar%ids(5))),&
-                        (var_dbl(0,hvar%ids(3))+var_dbl(0,hvar%ids(6)))/)
+                B = 0.5d0 * (/(var(0,hvar%ids(1))+var(0,hvar%ids(4))),&
+                        &(var(0,hvar%ids(2))+var(0,hvar%ids(5))),&
+                        (var(0,hvar%ids(3))+var(0,hvar%ids(6)))/)
                 totP(i) = totP(i) + 0.5d0 * (B.DOT.B)
             end if
-            if (my_sim%cr) totP(i) = totP(i) + var_dbl(i,hvar%ids(7))
+            if (my_sim%cr) totP(i) = totP(i) + var(i,hvar%ids(7))
         end do
 
         ! Ratio of CR pressure gradient and gravitational acceleration
@@ -3703,7 +2929,7 @@ module hydro_commons
         call rotate_vector(v,trans_matrix)
         g = grav_var(0,2:4)
         call spherical_basis_from_cartesian(x,temp_basis)
-        grav_totpfrsphere = -(v .DOT. temp_basis%u(1)) / (var_dbl(0,hvar%ids(8)) * (g.DOT.temp_basis%u(1)))
+        grav_totpfrsphere = -(v .DOT. temp_basis%u(1)) / (var(0,hvar%ids(8)) * (g.DOT.temp_basis%u(1)))
     end function grav_totpfrsphere
 
     function grav_totpfrspherepos(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -3715,15 +2941,11 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         integer :: i
         real(dbl) :: grav_totpfrspherepos
@@ -3731,23 +2953,17 @@ module hydro_commons
         type(basis) :: temp_basis
         real(dbl) :: dxright,dxleft
         real(dbl),dimension(1:my_amr%twondim) :: totP
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         totP(:) = 0d0
         do i = 1, my_amr%twondim
-            if (my_sim%hydro) totP(i) = var_dbl(i,hvar%ids(9))
+            if (my_sim%hydro) totP(i) = var(i,hvar%ids(9))
             if (my_sim%mhd) then
-                B = 0.5d0 * (/(var_dbl(0,hvar%ids(1))+var_dbl(0,hvar%ids(4))),&
-                        &(var_dbl(0,hvar%ids(2))+var_dbl(0,hvar%ids(5))),&
-                        (var_dbl(0,hvar%ids(3))+var_dbl(0,hvar%ids(6)))/)
+                B = 0.5d0 * (/(var(0,hvar%ids(1))+var(0,hvar%ids(4))),&
+                        &(var(0,hvar%ids(2))+var(0,hvar%ids(5))),&
+                        (var(0,hvar%ids(3))+var(0,hvar%ids(6)))/)
                 totP(i) = totP(i) + 0.5d0 * (B.DOT.B)
             end if
-            if (my_sim%cr) totP(i) = totP(i) + var_dbl(i,hvar%ids(7))
+            if (my_sim%cr) totP(i) = totP(i) + var(i,hvar%ids(7))
         end do
 
         ! Ratio of CR pressure gradient and gravitational acceleration
@@ -3767,7 +2983,7 @@ module hydro_commons
         call rotate_vector(v,trans_matrix)
         g = grav_var(0,2:4)
         call spherical_basis_from_cartesian(x,temp_basis)
-        grav_totpfrspherepos = -(v .DOT. temp_basis%u(1)) / (var_dbl(0,hvar%ids(8)) * (g.DOT.temp_basis%u(1)))
+        grav_totpfrspherepos = -(v .DOT. temp_basis%u(1)) / (var(0,hvar%ids(8)) * (g.DOT.temp_basis%u(1)))
         if (grav_totpfrspherepos < 0d0) grav_totpfrspherepos = 0d0
     end function grav_totpfrspherepos
 
@@ -3780,15 +2996,11 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         integer :: i
         real(dbl) :: grav_totpfrsphereneg
@@ -3796,23 +3008,17 @@ module hydro_commons
         type(basis) :: temp_basis
         real(dbl) :: dxright,dxleft
         real(dbl),dimension(1:my_amr%twondim) :: totP
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         totP(:) = 0d0
         do i = 1, my_amr%twondim
-            if (my_sim%hydro) totP(i) = var_dbl(i,hvar%ids(9))
+            if (my_sim%hydro) totP(i) = var(i,hvar%ids(9))
             if (my_sim%mhd) then
-                B = 0.5d0 * (/(var_dbl(0,hvar%ids(1))+var_dbl(0,hvar%ids(4))),&
-                        &(var_dbl(0,hvar%ids(2))+var_dbl(0,hvar%ids(5))),&
-                        (var_dbl(0,hvar%ids(3))+var_dbl(0,hvar%ids(6)))/)
+                B = 0.5d0 * (/(var(0,hvar%ids(1))+var(0,hvar%ids(4))),&
+                        &(var(0,hvar%ids(2))+var(0,hvar%ids(5))),&
+                        (var(0,hvar%ids(3))+var(0,hvar%ids(6)))/)
                 totP(i) = totP(i) + 0.5d0 * (B.DOT.B)
             end if
-            if (my_sim%cr) totP(i) = totP(i) + var_dbl(i,hvar%ids(7))
+            if (my_sim%cr) totP(i) = totP(i) + var(i,hvar%ids(7))
         end do
 
         ! Ratio of CR pressure gradient and gravitational acceleration
@@ -3832,7 +3038,7 @@ module hydro_commons
         call rotate_vector(v,trans_matrix)
         g = grav_var(0,2:4)
         call spherical_basis_from_cartesian(x,temp_basis)
-        grav_totpfrsphereneg = -(v .DOT. temp_basis%u(1)) / (var_dbl(0,hvar%ids(8)) * (g.DOT.temp_basis%u(1)))
+        grav_totpfrsphereneg = -(v .DOT. temp_basis%u(1)) / (var(0,hvar%ids(8)) * (g.DOT.temp_basis%u(1)))
         if (grav_totpfrsphereneg > 0d0) then
             grav_totpfrsphereneg = 0d0
         else
@@ -3849,29 +3055,19 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: eff_FKmag
         real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar):: tempvar
         type(vector) :: v
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Go back to box coordinates for the central cell, which is transformed usually
         ! before sent to read_amr
-        tempvar(:,:) = var_dbl(:,:)
+        tempvar(:,:) = real(var(:,:),kind=dbl)
         v = tempvar(0,hvar%ids(7):hvar%ids(9))
         call rotate_vector(v,transpose(trans_matrix))
         v = v + reg%bulk_velocity
@@ -3889,29 +3085,19 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: eff_FKmagnocr
         real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar):: tempvar
         type(vector) :: v
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Go back to box coordinates for the central cell, which is transformed usually
         ! before sent to read_amr
-        tempvar(:,:) = var_dbl(:,:)
+        tempvar(:,:) = real(var(:,:),kind=dbl)
         v = tempvar(0,hvar%ids(7):hvar%ids(9))
         call rotate_vector(v,transpose(trans_matrix))
         v = v + reg%bulk_velocity
@@ -3929,29 +3115,19 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: eff_FK2
         real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar):: tempvar
         type(vector) :: v
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Go back to box coordinates for the central cell, which is transformed usually
         ! before sent to read_amr
-        tempvar(:,:) = var_dbl(:,:)
+        tempvar(:,:) = real(var(:,:),kind=dbl)
         v = tempvar(0,hvar%ids(7):hvar%ids(9))
         call rotate_vector(v,transpose(trans_matrix))
         v = v + reg%bulk_velocity
@@ -3961,53 +3137,6 @@ module hydro_commons
     end function eff_FK2
 
     ! ELEMENT VARIABLES
-    function ne(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
-        implicit none
-        type(amr_info),intent(in) :: my_amr
-        type(sim_info),intent(in) :: my_sim
-        type(hydro_var), intent(in) :: hvar
-        type(region),intent(in)                       :: reg
-        real(dbl),intent(in)                       :: dx
-        type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
-        integer,dimension(0:my_amr%twondim),intent(in) :: son
-        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
-        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-        type(rt_info),intent(in) :: my_rt
-        real(rt_real_kind),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-        real(dbl) :: ne
-        real(dbl) :: metal_mass,dust_mass,hydrogen_density
-        real(dbl) :: nH,nHe,T,local_mu
-        integer :: i
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
-
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        ! 1. Add up the metal mass
-        metal_mass = 0d0
-        do i = 2, 10
-            metal_mass = metal_mass + var_dbl(0,hvar%ids(i))
-        end do
-
-        ! 2. Add up the dust mass
-        dust_mass = 0d0
-        do i = 11, 16
-            dust_mass = dust_mass + var_dbl(0,hvar%ids(i))
-        end do
-
-        ! 3. Compute nH and nHe
-        hydrogen_density = var_dbl(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass) * XH
-        nH = hydrogen_density / mHydrogen * my_sim%unit_d
-        nHe = 0.25d0 * nH * YHe / XH
-
-        ! 4. Compute ne (TODO: This should also use the metals)
-        ne = nH * var_dbl(0,hvar%ids(17)) + nHe * (var_dbl(0,hvar%ids(18)) + 2d0 * var_dbl(0,hvar%ids(19)))
-
-    end function ne
-
     function hydrogen_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
@@ -4017,39 +3146,35 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: hydrogen_density
         real(dbl) :: metal_mass,dust_mass
-        integer :: i
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
+        integer :: i,first_dust
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! 1. Add up the metal mass
-        metal_mass = 0d0
-        do i = 2, 10
-            metal_mass = metal_mass + var_dbl(0,hvar%ids(i))
-        end do
+        if (my_sim%metallicity) then
+            metal_mass = var(0,hvar%ids(2))
+            first_dust = 3
+        else
+            metal_mass = 0d0
+            do i = 2, 1+my_sim%nmetals
+                if (hvar%ids(i) > 0) metal_mass = metal_mass + var(0,hvar%ids(i))
+            end do
+            first_dust = 2 + my_sim%nmetals
+        end if
 
         ! 2. Add up the dust mass
         dust_mass = 0d0
-        do i = 11, 16
-            dust_mass = dust_mass + var_dbl(0,hvar%ids(i))
+        do i = first_dust, size(hvar%ids)
+            if (hvar%ids(i) > 0) dust_mass = dust_mass + var(0,hvar%ids(i))
         end do
 
-        hydrogen_density = var_dbl(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass) * XH
+        hydrogen_density = var(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass)
     end function hydrogen_density
 
     function HI_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -4061,34 +3186,37 @@ module hydro_commons
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: HI_density
         real(dbl) :: metal_mass,dust_mass,xHI
-        integer :: i
+        integer :: i, first_dust, idx_xHI
 
         ! 1. Add up the metal mass
-        metal_mass = 0d0
-        do i = 2, 10
-            metal_mass = metal_mass + var(0,hvar%ids(i))
-        end do
+        if (my_sim%metallicity) then
+            metal_mass = var(0,hvar%ids(2))
+            first_dust = 3
+        else
+            metal_mass = 0d0
+            do i = 2, 1+my_sim%nmetals
+                if (hvar%ids(i) > 0) metal_mass = metal_mass + var(0,hvar%ids(i))
+            end do
+            first_dust = 2 + my_sim%nmetals
+        end if
 
         ! 2. Add up the dust mass
         dust_mass = 0d0
-        do i = 11, 16
-            dust_mass = dust_mass + var(0,hvar%ids(i))
+        idx_xHI = size(hvar%ids)
+        do i = first_dust, idx_xHI-1
+            if (hvar%ids(i) > 0) dust_mass = dust_mass + var(0,hvar%ids(i))
         end do
 
         ! 3. Compute the HI density
-        xHI = var(0,hvar%ids(17))
+        xHI = var(0,hvar%ids(idx_xHI))
         HI_density = var(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass) * xHI
     end function HI_density
 
@@ -4105,30 +3233,33 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: HII_density
         real(dbl) :: metal_mass,dust_mass,xHII
-        integer :: i
+        integer :: i, first_dust, idx_xHII
 
         ! 1. Add up the metal mass
-        metal_mass = 0d0
-        do i = 2, 10
-            metal_mass = metal_mass + var(0,hvar%ids(i))
-        end do
+        if (my_sim%metallicity) then
+            metal_mass = var(0,hvar%ids(2))
+            first_dust = 3
+        else
+            metal_mass = 0d0
+            do i = 2, 1+my_sim%nmetals
+                if (hvar%ids(i) > 0) metal_mass = metal_mass + var(0,hvar%ids(i))
+            end do
+            first_dust = 2 + my_sim%nmetals
+        end if
 
         ! 2. Add up the dust mass
         dust_mass = 0d0
-        do i = 11, 16
-            dust_mass = dust_mass + var(0,hvar%ids(i))
+        idx_xHII = size(hvar%ids)
+        do i = first_dust, idx_xHII-1
+            if (hvar%ids(i) > 0) dust_mass = dust_mass + var(0,hvar%ids(i))
         end do
 
         ! 3. Compute the HI density
-        xHII = var(0,hvar%ids(17))
+        xHII = var(0,hvar%ids(idx_xHII))
         HII_density = var(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass) * xHII
     end function HII_density
 
@@ -4145,38 +3276,36 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: H2_density
         real(dbl) :: metal_mass,dust_mass,xH2
-        integer :: i
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
+        integer :: i, first_dust, idx_xHI, idx_xHII
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! 1. Add up the metal mass
-        metal_mass = 0d0
-        do i = 2, 10
-            metal_mass = metal_mass + var_dbl(0,hvar%ids(i))
-        end do
+        if (my_sim%metallicity) then
+            metal_mass = var(0,hvar%ids(2))
+            first_dust = 3
+        else
+            metal_mass = 0d0
+            do i = 2, 1+my_sim%nmetals
+                if (hvar%ids(i) > 0) metal_mass = metal_mass + var(0,hvar%ids(i))
+            end do
+            first_dust = 2 + my_sim%nmetals
+        end if
 
         ! 2. Add up the dust mass
         dust_mass = 0d0
-        do i = 11, 16
-            dust_mass = dust_mass + var_dbl(0,hvar%ids(i))
+        idx_xHII = size(hvar%ids)
+        idx_xHI = idx_xHII - 1
+        do i = first_dust, idx_xHI-1
+            if (hvar%ids(i) > 0) dust_mass = dust_mass + var(0,hvar%ids(i))
         end do
 
         ! 3. Compute the xH2
-        xH2 = (1.d0 - var_dbl(0,hvar%ids(17)) - var_dbl(0,hvar%ids(18))) / 2d0
+        xH2 = (1.d0 - var(0,hvar%ids(idx_xHI)) - var(0,hvar%ids(idx_xHII))) / 2d0
 
-        H2_density = var_dbl(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass) * xH2
+        H2_density = var(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass) * xH2
     end function H2_density
 
     function xH2(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -4188,26 +3317,16 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: xH2
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! 1. Compute the xH2
-        xH2 = (1.d0 - var_dbl(0,hvar%ids(1)) - var_dbl(0,hvar%ids(2))) / 2d0
+        xH2 = (1.d0 - var(0,hvar%ids(1)) - var(0,hvar%ids(2))) / 2d0
     end function xH2
 
     function xCO(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -4219,36 +3338,26 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: xCO
         real(dbl) :: mCO,mPAH,mCgrains
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! 1. Compute the C mass in CO_fraction
-        mCO = var_dbl(0,hvar%ids(2)) * CO_to_Cmass
+        mCO = var(0,hvar%ids(2)) * CO_to_Cmass
 
         ! 2. Compute the C mass in PAHs
-        mPAH = var_dbl(0,hvar%ids(3)) + var_dbl(0,hvar%ids(4))
+        mPAH = var(0,hvar%ids(3)) + var(0,hvar%ids(4))
 
         ! 3. Compute the C mass in Cgrains
-        mCgrains = var_dbl(0,hvar%ids(5)) + var_dbl(0,hvar%ids(6))
+        mCgrains = var(0,hvar%ids(5)) + var(0,hvar%ids(6))
 
         ! 4. Compute xCO
-        xCO = mCO / (var_dbl(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
+        xCO = mCO / (var(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
     end function xCO
 
     function xCI(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -4260,36 +3369,26 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: xCI
         real(dbl) :: mCO,mPAH,mCgrains
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! 1. Compute the C mass in CO_fraction
-        mCO = var_dbl(0,hvar%ids(2)) * CO_to_Cmass
+        mCO = var(0,hvar%ids(2)) * CO_to_Cmass
 
         ! 2. Compute the C mass in PAHs
-        mPAH = var_dbl(0,hvar%ids(3)) + var_dbl(0,hvar%ids(4))
+        mPAH = var(0,hvar%ids(3)) + var(0,hvar%ids(4))
 
         ! 3. Compute the C mass in Cgrains
-        mCgrains = var_dbl(0,hvar%ids(5)) + var_dbl(0,hvar%ids(6))
+        mCgrains = var(0,hvar%ids(5)) + var(0,hvar%ids(6))
 
         ! 4. Compute xCI
-        xCI = (var_dbl(0,hvar%ids(1))*var_dbl(0,hvar%ids(7))) / (var_dbl(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
+        xCI = (var(0,hvar%ids(1))*var(0,hvar%ids(7))) / (var(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
     end function xCI
 
     function xCII(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -4301,36 +3400,26 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: xCII
         real(dbl) :: mCO,mPAH,mCgrains
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! 1. Compute the C mass in CO_fraction
-        mCO = var_dbl(0,hvar%ids(2)) * CO_to_Cmass
+        mCO = var(0,hvar%ids(2)) * CO_to_Cmass
 
         ! 2. Compute the C mass in PAHs
-        mPAH = var_dbl(0,hvar%ids(3)) + var_dbl(0,hvar%ids(4))
+        mPAH = var(0,hvar%ids(3)) + var(0,hvar%ids(4))
 
         ! 3. Compute the C mass in Cgrains
-        mCgrains = var_dbl(0,hvar%ids(5)) + var_dbl(0,hvar%ids(6))
+        mCgrains = var(0,hvar%ids(5)) + var(0,hvar%ids(6))
 
         ! 4. Compute xCII
-        xCII = (var_dbl(0,hvar%ids(1))*var_dbl(0,hvar%ids(7))) / (var_dbl(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
+        xCII = (var(0,hvar%ids(1))*var(0,hvar%ids(7))) / (var(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
     end function xCII
 
     function oxygen_abundance(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -4346,33 +3435,37 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: oxygen_abundance
         real(dbl) :: metal_mass,dust_mass,Hmassfraction,Omassfraction
-        integer :: i
+        integer :: i, first_dust, idx_oxygen
 
         ! 1. Add up the metal mass
-        metal_mass = 0d0
-        do i = 1, 9
-            metal_mass = metal_mass + var(0,hvar%ids(i))
-        end do
+        if (my_sim%metallicity) then
+            metal_mass = var(0,hvar%ids(1))
+            idx_oxygen = 2
+            first_dust = 3
+        else
+            metal_mass = 0d0
+            do i = 1, my_sim%nmetals
+                if (hvar%ids(i) > 0) metal_mass = metal_mass + var(0,hvar%ids(i))
+            end do
+            idx_oxygen = my_sim%nmetals + 1
+            first_dust = my_sim%nmetals + 2
+        end if
 
         ! 2. Add up the dust mass
         dust_mass = 0d0
-        do i = 10, 15
-            dust_mass = dust_mass + var(0,hvar%ids(i))
+        do i = first_dust, size(hvar%ids)
+            if (hvar%ids(i) > 0) dust_mass = dust_mass + var(0,hvar%ids(i))
         end do
 
         ! 3. Compute the mass fraction of hydrogen
         Hmassfraction = (1d0 - metal_mass - dust_mass) * XH
 
         ! 4. Compute the oxygen abundance
-        Omassfraction = var(0,hvar%ids(2))
+        Omassfraction = var(0,hvar%ids(idx_oxygen))
         oxygen_abundance = 12d0 + log10( Omassfraction / Hmassfraction / mOovermH)
     end function oxygen_abundance
 
@@ -4387,25 +3480,15 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: PAHSmall_density
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        PAHSmall_density = var_dbl(0,hvar%ids(1)) * var_dbl(0,hvar%ids(2))
+        PAHSmall_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
     end function PAHSmall_density
 
     function xC_PAHSmall(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -4417,36 +3500,26 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: xC_PAHSmall
         real(dbl) :: mCO,mPAH,mCgrains
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! 1. Compute the C mass in CO_fraction
-        mCO = var_dbl(0,hvar%ids(2)) * CO_to_Cmass
+        mCO = var(0,hvar%ids(2)) * CO_to_Cmass
 
         ! 2. Compute the C mass in PAHs
-        mPAH = var_dbl(0,hvar%ids(3)) + var_dbl(0,hvar%ids(4))
+        mPAH = var(0,hvar%ids(3)) + var(0,hvar%ids(4))
 
         ! 3. Compute the C mass in Cgrains
-        mCgrains = var_dbl(0,hvar%ids(5)) + var_dbl(0,hvar%ids(6))
+        mCgrains = var(0,hvar%ids(5)) + var(0,hvar%ids(6))
 
         ! 4. Compute xC_PAHSmall
-        xC_PAHSmall = var_dbl(0,hvar%ids(3)) / (var_dbl(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
+        xC_PAHSmall = var(0,hvar%ids(3)) / (var(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
         
     end function xC_PAHSmall
 
@@ -4459,25 +3532,15 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: PAHLarge_density
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        PAHLarge_density = var_dbl(0,hvar%ids(1)) * var_dbl(0,hvar%ids(2))
+        PAHLarge_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
     end function PAHLarge_density
 
     function xC_PAHLarge(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -4489,36 +3552,26 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: xC_PAHLarge
         real(dbl) :: mCO,mPAH,mCgrains
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! 1. Compute the C mass in CO_fraction
-        mCO = var_dbl(0,hvar%ids(2)) * CO_to_Cmass
+        mCO = var(0,hvar%ids(2)) * CO_to_Cmass
 
         ! 2. Compute the C mass in PAHs
-        mPAH = var_dbl(0,hvar%ids(3)) + var_dbl(0,hvar%ids(4))
+        mPAH = var(0,hvar%ids(3)) + var(0,hvar%ids(4))
 
         ! 3. Compute the C mass in Cgrains
-        mCgrains = var_dbl(0,hvar%ids(5)) + var_dbl(0,hvar%ids(6))
+        mCgrains = var(0,hvar%ids(5)) + var(0,hvar%ids(6))
 
         ! 4. Compute xC_PAHLarge
-        xC_PAHLarge = var_dbl(0,hvar%ids(4)) / (var_dbl(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
+        xC_PAHLarge = var(0,hvar%ids(4)) / (var(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
         
     end function xC_PAHLarge
 
@@ -4531,25 +3584,15 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: CSmall_density
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        CSmall_density = var_dbl(0,hvar%ids(1)) * var_dbl(0,hvar%ids(2))
+        CSmall_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
     end function CSmall_density
 
     function xC_CSmall(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -4561,36 +3604,26 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: xC_CSmall
         real(dbl) :: mCO,mPAH,mCgrains
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! 1. Compute the C mass in CO_fraction
-        mCO = var_dbl(0,hvar%ids(2)) * CO_to_Cmass
+        mCO = var(0,hvar%ids(2)) * CO_to_Cmass
 
         ! 2. Compute the C mass in PAHs
-        mPAH = var_dbl(0,hvar%ids(3)) + var_dbl(0,hvar%ids(4))
+        mPAH = var(0,hvar%ids(3)) + var(0,hvar%ids(4))
 
         ! 3. Compute the C mass in Cgrains
-        mCgrains = var_dbl(0,hvar%ids(5)) + var_dbl(0,hvar%ids(6))
+        mCgrains = var(0,hvar%ids(5)) + var(0,hvar%ids(6))
 
         ! 4. Compute xC_CSmall
-        xC_CSmall = var_dbl(0,hvar%ids(5)) / (var_dbl(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
+        xC_CSmall = var(0,hvar%ids(5)) / (var(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
         
     end function xC_CSmall
 
@@ -4603,25 +3636,15 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: CLarge_density
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        CLarge_density = var_dbl(0,hvar%ids(1)) * var_dbl(0,hvar%ids(2))
+        CLarge_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
     end function CLarge_density
 
     function xC_CLarge(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -4633,36 +3656,26 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: xC_CLarge
         real(dbl) :: mCO,mPAH,mCgrains
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! 1. Compute the C mass in CO_fraction
-        mCO = var_dbl(0,hvar%ids(2)) * CO_to_Cmass
+        mCO = var(0,hvar%ids(2)) * CO_to_Cmass
 
         ! 2. Compute the C mass in PAHs
-        mPAH = var_dbl(0,hvar%ids(3)) + var_dbl(0,hvar%ids(4))
+        mPAH = var(0,hvar%ids(3)) + var(0,hvar%ids(4))
 
         ! 3. Compute the C mass in Cgrains
-        mCgrains = var_dbl(0,hvar%ids(5)) + var_dbl(0,hvar%ids(6))
+        mCgrains = var(0,hvar%ids(5)) + var(0,hvar%ids(6))
 
         ! 4. Compute xC_CLarge
-        xC_CLarge = var_dbl(0,hvar%ids(6)) / (var_dbl(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
+        xC_CLarge = var(0,hvar%ids(6)) / (var(0,hvar%ids(1)) + mCO + mPAH + mCgrains)
         
     end function xC_CLarge
 
@@ -4675,25 +3688,15 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: SilSmall_density
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        SilSmall_density = var_dbl(0,hvar%ids(1)) * var_dbl(0,hvar%ids(2))
+        SilSmall_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
     end function SilSmall_density
 
     function SilLarge_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -4705,25 +3708,15 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: SilLarge_density
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        SilLarge_density = var_dbl(0,hvar%ids(1)) * var_dbl(0,hvar%ids(2))
+        SilLarge_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
     end function SilLarge_density
 
     function CI_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -4735,15 +3728,11 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: CI_density
 
@@ -4763,11 +3752,7 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: CII_density
 
@@ -4787,21 +3772,11 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: CO_density
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        CO_density = var_dbl(0,hvar%ids(1)) * var_dbl(0,hvar%ids(2))
+        CO_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
     end function CO_density
 
     function PAHSmall_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -4813,25 +3788,15 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: PAHSmall_mass
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        PAHSmall_mass = ((var_dbl(0,hvar%ids(1)) * var_dbl(0,hvar%ids(2)) * dx) * dx) * dx
+        PAHSmall_mass = ((var(0,hvar%ids(1)) * var(0,hvar%ids(2)) * dx) * dx) * dx
     end function PAHSmall_mass
 
     function PAHLarge_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -4843,25 +3808,15 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: PAHLarge_mass
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        PAHLarge_mass = ((var_dbl(0,hvar%ids(1)) * var_dbl(0,hvar%ids(2)) * dx) * dx) * dx
+        PAHLarge_mass = ((var(0,hvar%ids(1)) * var(0,hvar%ids(2)) * dx) * dx) * dx
     end function PAHLarge_mass
 
     function CSmall_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -4873,25 +3828,15 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: CSmall_mass
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        CSmall_mass = ((var_dbl(0,hvar%ids(1)) * var_dbl(0,hvar%ids(2)) * dx) * dx) * dx
+        CSmall_mass = ((var(0,hvar%ids(1)) * var(0,hvar%ids(2)) * dx) * dx) * dx
     end function CSmall_mass
 
     function CLarge_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -4903,25 +3848,15 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: CLarge_mass
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        CLarge_mass = ((var_dbl(0,hvar%ids(1)) * var_dbl(0,hvar%ids(2)) * dx) * dx) * dx
+        CLarge_mass = ((var(0,hvar%ids(1)) * var(0,hvar%ids(2)) * dx) * dx) * dx
     end function CLarge_mass
 
     function SilSmall_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -4933,25 +3868,15 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: SilSmall_mass
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        SilSmall_mass = ((var_dbl(0,hvar%ids(1)) * var_dbl(0,hvar%ids(2)) * dx) * dx) * dx
+        SilSmall_mass = ((var(0,hvar%ids(1)) * var(0,hvar%ids(2)) * dx) * dx) * dx
     end function SilSmall_mass
 
     function SilLarge_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -4963,25 +3888,15 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: SilLarge_mass
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        SilLarge_mass = ((var_dbl(0,hvar%ids(1)) * var_dbl(0,hvar%ids(2)) * dx) * dx) * dx
+        SilLarge_mass = ((var(0,hvar%ids(1)) * var(0,hvar%ids(2)) * dx) * dx) * dx
     end function SilLarge_mass
 
     function CO_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -4993,25 +3908,15 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: CO_mass
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        CO_mass = ((var_dbl(0,hvar%ids(1)) * var_dbl(0,hvar%ids(2)) * dx) * dx) * dx
+        CO_mass = ((var(0,hvar%ids(1)) * var(0,hvar%ids(2)) * dx) * dx) * dx
     end function CO_mass
 
     function DTM(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -5023,36 +3928,34 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: DTM
         real(dbl) :: total_dust_mass, total_metal_mass
-        integer :: i
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
+        integer :: i, idust_end, imetal_start
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        total_dust_mass = var_dbl(0,hvar%ids(1)) + var_dbl(0,hvar%ids(2)) &
-                            & + var_dbl(0,hvar%ids(3)) + var_dbl(0,hvar%ids(4)) &
-                            & + var_dbl(0,hvar%ids(5)) + var_dbl(0,hvar%ids(6))
-        if (hvar%ids(7).eq. 0) then
-            total_metal_mass = 0d0
-            do i = 8, size(hvar%ids(:))
-                total_metal_mass = total_metal_mass + var_dbl(0,hvar%ids(i))
+        total_dust_mass = 0d0
+        total_metal_mass = 0d0
+
+        if (my_sim%metallicity) then
+            idust_end = size(hvar%ids) - 1
+            do i = 1, max(0,idust_end)
+                total_dust_mass = total_dust_mass + var(0,hvar%ids(i))
             end do
+            if (size(hvar%ids) > 0) total_metal_mass = var(0,hvar%ids(size(hvar%ids)))
         else
-            total_metal_mass = var_dbl(0,hvar%ids(7))
+            imetal_start = size(hvar%ids) - my_sim%nmetals + 1
+            idust_end = imetal_start - 1
+            do i = 1, max(0,idust_end)
+                total_dust_mass = total_dust_mass + var(0,hvar%ids(i))
+            end do
+            do i = max(1,imetal_start), size(hvar%ids)
+                total_metal_mass = total_metal_mass + var(0,hvar%ids(i))
+            end do
         end if
         DTM = total_dust_mass / (total_dust_mass + total_metal_mass)
     end function DTM
@@ -5066,20 +3969,19 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: DTG
+        integer :: i
 
-        DTG = var(0,hvar%ids(1)) + var(0,hvar%ids(2)) + var(0,hvar%ids(3)) + var(0,hvar%ids(4)) &
-                & + var(0,hvar%ids(5)) + var(0,hvar%ids(6))
+        DTG = 0d0
+        do i = 1, size(hvar%ids)
+            DTG = DTG + var(0,hvar%ids(i))
+        end do
     end function DTG
 
     function STL(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -5091,27 +3993,17 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: STL
         real(dbl) :: total_small_grains, total_large_grains
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        total_small_grains = var_dbl(0,hvar%ids(1)) + var_dbl(0,hvar%ids(3))
-        total_large_grains = var_dbl(0,hvar%ids(2)) + var_dbl(0,hvar%ids(4))
+        total_small_grains = var(0,hvar%ids(1)) + var(0,hvar%ids(3))
+        total_large_grains = var(0,hvar%ids(2)) + var(0,hvar%ids(4))
         STL = total_small_grains / total_large_grains
     end function STL
 
@@ -5124,27 +4016,17 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: CSR
         real(dbl) :: total_carbon, total_silicon
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        total_carbon = var_dbl(0,hvar%ids(1)) + var_dbl(0,hvar%ids(2))
-        total_silicon = var_dbl(0,hvar%ids(3)) + var_dbl(0,hvar%ids(4))
+        total_carbon = var(0,hvar%ids(1)) + var(0,hvar%ids(2))
+        total_silicon = var(0,hvar%ids(3)) + var(0,hvar%ids(4))
         CSR = total_carbon / total_silicon
     end function CSR
 
@@ -5157,29 +4039,19 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: qPAH
         real(dbl) :: total_dust, total_pah
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        total_dust = var_dbl(0,hvar%ids(1)) + var_dbl(0,hvar%ids(2)) + var_dbl(0,hvar%ids(3)) + var_dbl(0,hvar%ids(4)) + &
-                     & var_dbl(0,hvar%ids(5)) + var_dbl(0,hvar%ids(6))
-        total_pah = var_dbl(0,hvar%ids(5)) + var_dbl(0,hvar%ids(6))
-        qPAH = total_pah / (total_pah + total_dust)
+        total_dust = var(0,hvar%ids(1)) + var(0,hvar%ids(2)) + var(0,hvar%ids(3)) + var(0,hvar%ids(4)) + &
+                     & var(0,hvar%ids(5)) + var(0,hvar%ids(6))
+        total_pah = var(0,hvar%ids(5)) + var(0,hvar%ids(6))
+        qPAH = total_pah / total_dust
     end function qPAH
 
     function fionPAH(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -5191,27 +4063,17 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: fionPAH
         real(dbl) :: total_ion, total_pah
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        total_pah = var_dbl(0,hvar%ids(1)) + var_dbl(0,hvar%ids(2))
-        total_ion = var_dbl(0,hvar%ids(1)) * var_dbl(0,hvar%ids(3)) + var_dbl(0,hvar%ids(2)) * var_dbl(0,hvar%ids(4))
+        total_pah = var(0,hvar%ids(1)) + var(0,hvar%ids(2))
+        total_ion = var(0,hvar%ids(1)) * var(0,hvar%ids(3)) + var(0,hvar%ids(2)) * var(0,hvar%ids(4))
         
         fionPAH = total_ion / total_pah
     end function fionPAH
@@ -5225,25 +4087,15 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: STL_PAH
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
-        STL_PAH = max(var_dbl(0,hvar%ids(1)),1d-30) / max(var_dbl(0,hvar%ids(1)) + var_dbl(0,hvar%ids(2)),1d-30)
+        STL_PAH = var(0,hvar%ids(1)) / var(0,hvar%ids(2))
     end function STL_PAH
 
     function CSmall_Stokes(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -5255,41 +4107,30 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: CSmall_Stokes
         real(dbl) :: c_s,t_s,t_turb,sdust,adust
         real(dbl) :: vel_dis,value
         type(vector) :: v
         real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: tempvar
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! 1. Compute the local sound speed
-        c_s = sqrt(gamma_gas * (max(var_dbl(0,hvar%ids(2)), Tmin*var_dbl(0,hvar%ids(1))) &
-                            & / var_dbl(0,hvar%ids(1))))
+        c_s = sqrt(gamma_gas * (max(var(0,hvar%ids(2)), Tmin*tempvar(0,hvar%ids(1))) &
+                            & / tempvar(0,hvar%ids(1))))
 
         ! 2. Compute the stopping time
         sdust = 2.2d0 / my_sim%unit_d
         adust = 0.005d-4 / my_sim%unit_l
-        t_s = sdust * adust / (var_dbl(0,hvar%ids(1)) * sqrt(8d0/pi) * c_s)
+        t_s = sdust * adust / (tempvar(0,hvar%ids(1)) * sqrt(8d0/pi) * c_s)
 
         ! 3. Compute the dynamical (turbulent) time
         ! Go back to box coordinates for the central cell, which is transformed usually
         ! before sent to read_amr
-        tempvar(:,:) = var_dbl(:,:)
         v = (/tempvar(0,hvar%ids(3)),tempvar(0,hvar%ids(4)),tempvar(0,hvar%ids(5))/)
         call rotate_vector(v,transpose(trans_matrix))
         v = v + reg%bulk_velocity
@@ -5312,41 +4153,30 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: CLarge_Stokes
         real(dbl) :: c_s,t_s,t_turb,sdust,adust
         real(dbl) :: vel_dis,value
         type(vector) :: v
         real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: tempvar
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! 1. Compute the local sound speed
-        c_s = sqrt(gamma_gas * (max(var_dbl(0,hvar%ids(2)), Tmin*var_dbl(0,hvar%ids(1))) &
-                            & / var_dbl(0,hvar%ids(1))))
+        c_s = sqrt(gamma_gas * (max(tempvar(0,hvar%ids(2)), Tmin*tempvar(0,hvar%ids(1))) &
+                            & / tempvar(0,hvar%ids(1))))
 
         ! 2. Compute the stopping time
         sdust = 2.2d0 / my_sim%unit_d
         adust = 0.1d-4 / my_sim%unit_l
-        t_s = sdust * adust / (var_dbl(0,hvar%ids(1)) * sqrt(8d0/pi) * c_s)
+        t_s = sdust * adust / (tempvar(0,hvar%ids(1)) * sqrt(8d0/pi) * c_s)
 
         ! 3. Compute the dynamical (turbulent) time
         ! Go back to box coordinates for the central cell, which is transformed usually
         ! before sent to read_amr
-        tempvar(:,:) = var_dbl(:,:)
         v = (/tempvar(0,hvar%ids(3)),tempvar(0,hvar%ids(4)),tempvar(0,hvar%ids(5))/)
         call rotate_vector(v,transpose(trans_matrix))
         v = v + reg%bulk_velocity
@@ -5369,41 +4199,30 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: SilSmall_Stokes
         real(dbl) :: c_s,t_s,t_turb,sdust,adust
         real(dbl) :: vel_dis,value
         type(vector) :: v
         real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: tempvar
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! 1. Compute the local sound speed
-        c_s = sqrt(gamma_gas * (max(var_dbl(0,hvar%ids(2)), Tmin*var_dbl(0,hvar%ids(1))) &
-                            & / var_dbl(0,hvar%ids(1))))
+        c_s = sqrt(gamma_gas * (max(tempvar(0,hvar%ids(2)), Tmin*tempvar(0,hvar%ids(1))) &
+                            & / tempvar(0,hvar%ids(1))))
 
         ! 2. Compute the stopping time
         sdust = 3.3d0 / my_sim%unit_d
         adust = 0.005d-4 / my_sim%unit_l
-        t_s = sdust * adust / (var_dbl(0,hvar%ids(1)) * sqrt(8d0/pi) * c_s)
+        t_s = sdust * adust / (tempvar(0,hvar%ids(1)) * sqrt(8d0/pi) * c_s)
 
         ! 3. Compute the dynamical (turbulent) time
         ! Go back to box coordinates for the central cell, which is transformed usually
         ! before sent to read_amr
-        tempvar(:,:) = var_dbl(:,:)
         v = (/tempvar(0,hvar%ids(3)),tempvar(0,hvar%ids(4)),tempvar(0,hvar%ids(5))/)
         call rotate_vector(v,transpose(trans_matrix))
         v = v + reg%bulk_velocity
@@ -5426,41 +4245,30 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         real(dbl) :: SilLarge_Stokes
         real(dbl) :: c_s,t_s,t_turb,sdust,adust
         real(dbl) :: vel_dis,value
         type(vector) :: v
         real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: tempvar
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! 1. Compute the local sound speed
-        c_s = sqrt(gamma_gas * (max(var_dbl(0,hvar%ids(2)), Tmin*var_dbl(0,hvar%ids(1))) &
-                            & / var_dbl(0,hvar%ids(1))))
+        c_s = sqrt(gamma_gas * (max(tempvar(0,hvar%ids(2)), Tmin*tempvar(0,hvar%ids(1))) &
+                            & / tempvar(0,hvar%ids(1))))
 
         ! 2. Compute the stopping time
         sdust = 3.3d0 / my_sim%unit_d
         adust = 0.1d-4 / my_sim%unit_l
-        t_s = sdust * adust / (var_dbl(0,hvar%ids(1)) * sqrt(8d0/pi) * c_s)
+        t_s = sdust * adust / (tempvar(0,hvar%ids(1)) * sqrt(8d0/pi) * c_s)
 
         ! 3. Compute the dynamical (turbulent) time
         ! Go back to box coordinates for the central cell, which is transformed usually
         ! before sent to read_amr
-        tempvar(:,:) = var_dbl(:,:)
         v = (/tempvar(0,hvar%ids(3)),tempvar(0,hvar%ids(4)),tempvar(0,hvar%ids(5))/)
         call rotate_vector(v,transpose(trans_matrix))
         v = v + reg%bulk_velocity
@@ -5484,29 +4292,17 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         type(region),intent(in)                       :: reg
         real(dbl),intent(in)                       :: dx
         type(vector),intent(in)        :: x
-        real(hydro_real_kind),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         integer :: igroup,igrp
         real(dbl) :: G0
         real(dbl) :: energy_density
-        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar) :: var_dbl
 
-        if (hydro_real_kind /= dbl) then
-            var_dbl(:,:) = real(var(:,:), kind=dbl)
-        else
-            var_dbl(:,:) = var(:,:)
-        end if
         ! Compute the energy density in the Habing band (6eV-13.6eV)
-        ! NOTE: For some stupid reason the photon density groups are actually
-        ! saved in the outputs multiplied by the speed of light in code units
         energy_density = 0d0
         do igroup = 1, my_rt%nGroups
             igrp = 1 + (my_amr%ndim + 1) * (igroup - 1)
@@ -5523,6 +4319,35 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         G0 = energy_density / 1.6d-3
     end function G0
 
+    function rt_flux_group(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+
+        integer :: igroup,igrp
+        real(dbl) :: rt_flux_group
+
+        igroup = hvar%ids(1)
+        if (igroup < 1 .or. igroup > my_rt%nGroups) then
+            rt_flux_group = 0d0
+            return
+        end if
+        igrp = 1 + (my_amr%ndim + 1) * (igroup - 1)
+
+        rt_flux_group = rt_var(0,igrp) * my_rt%group_egy(igroup)
+        rt_flux_group = rt_flux_group * my_sim%unit_v * my_rt%scale_np * eV2erg
+    end function rt_flux_group
+
     function charging_gamma(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
@@ -5536,28 +4361,34 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
         real(dbl) :: charging_gamma
         real(dbl) :: metal_mass,dust_mass,hydrogen_density
         real(dbl) :: nH,nHe,ne,T,local_mu
-        integer :: igroup,igrp,i
+        integer :: igroup,igrp,i,first_dust,idx_xHII,idx_xHeII,idx_xHeIII,idx_thP
         real(dbl) :: G0
         real(dbl) :: energy_density
 
         ! 1. Add up the metal mass
-        metal_mass = 0d0
-        do i = 2, 10
-            metal_mass = metal_mass + var(0,hvar%ids(i))
-        end do
+        if (my_sim%metallicity) then
+            metal_mass = var(0,hvar%ids(2))
+            first_dust = 3
+        else
+            metal_mass = 0d0
+            do i = 2, 1+my_sim%nmetals
+                if (hvar%ids(i) > 0) metal_mass = metal_mass + var(0,hvar%ids(i))
+            end do
+            first_dust = 2 + my_sim%nmetals
+        end if
 
         ! 2. Add up the dust mass
         dust_mass = 0d0
-        do i = 11, 16
-            dust_mass = dust_mass + var(0,hvar%ids(i))
+        idx_thP = size(hvar%ids)
+        idx_xHeIII = idx_thP - 1
+        idx_xHeII = idx_thP - 2
+        idx_xHII = idx_thP - 3
+        do i = first_dust, idx_xHII-1
+            if (hvar%ids(i) > 0) dust_mass = dust_mass + var(0,hvar%ids(i))
         end do
 
         ! 3. Compute nH and nHe
@@ -5566,12 +4397,12 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         nHe = 0.25d0 * nH * YHe / XH
 
         ! 4. Compute ne (TODO: This should also use the metals)
-        ne = nH * var(0,hvar%ids(17)) + nHe * (var(0,hvar%ids(18)) + 2d0 * var(0,hvar%ids(19)))
+        ne = nH * var(0,hvar%ids(idx_xHII)) + nHe * (var(0,hvar%ids(idx_xHeII)) + 2d0 * var(0,hvar%ids(idx_xHeIII)))
 
         ! 5. Compute T in K
-        local_mu = 1d0 / (XH * (1d0+var(0,hvar%ids(17))) + &
-                    & 0.25d0 * YHe * (1d0 + var(0,hvar%ids(18)) + 2d0 * var(0,hvar%ids(19))))
-        T = var(0,hvar%ids(20))/var(0,hvar%ids(1)) * my_sim%T2 * local_mu
+        local_mu = 1d0 / (XH * (1d0+var(0,hvar%ids(idx_xHII))) + &
+                & 0.25d0 * YHe * (1d0 + var(0,hvar%ids(idx_xHeII)) + 2d0 * var(0,hvar%ids(idx_xHeIII))))
+        T = var(0,hvar%ids(idx_thP))/var(0,hvar%ids(1)) * my_sim%T2 * local_mu
 
         ! 6. Compute the energy density in the Habing band (6eV-13.6eV)
         energy_density = 0d0
@@ -5607,11 +4438,7 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
         real(dbl) :: h2form_prism_ratio
 
         real(dbl) :: dtg_mw,h2formation_prism,TK
@@ -5642,11 +4469,7 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
         real(dbl) :: heatingfrac_peh
 
         heatingfrac_peh = var(0,hvar%ids(2)) / var(0,hvar%ids(1))
@@ -5666,11 +4489,7 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
         real(dbl) :: heatingfrac_h2
 
         heatingfrac_h2 = var(0,hvar%ids(2)) / var(0,hvar%ids(1))
@@ -5690,11 +4509,7 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
         real(dbl) :: coolingfrac_dustrecomb
 
         coolingfrac_dustrecomb = var(0,hvar%ids(2)) / var(0,hvar%ids(1))
@@ -5714,11 +4529,7 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
         real(dbl) :: coolingfrac_dustcoll
 
         coolingfrac_dustcoll = var(0,hvar%ids(2)) / var(0,hvar%ids(1))
@@ -5738,11 +4549,7 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
         real(dbl) :: coolingfrac_CO
         coolingfrac_CO = var(0,hvar%ids(2)) / var(0,hvar%ids(1))
         
@@ -5761,23 +4568,113 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         integer,dimension(0:my_amr%twondim),intent(in) :: son
         real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
         real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
-#endif
         real(dbl) :: coolingfrac_CII
         coolingfrac_CII = var(0,hvar%ids(2)) / var(0,hvar%ids(1))
         
     end function coolingfrac_CII
 
-    subroutine check_dervar(vardict,varname,hvar,ok)
+    subroutine set_optional_dust_ids(vardict,dust_ids,ndust)
+        implicit none
+        type(dictf90), intent(in) :: vardict
+        integer,dimension(6),intent(out) :: dust_ids
+        integer,intent(out) :: ndust
+        integer :: i
+
+        dust_ids(1) = vardict%get('PAHSmall_fraction')
+        dust_ids(2) = vardict%get('PAHLarge_fraction')
+        dust_ids(3) = vardict%get('CSmall_fraction')
+        dust_ids(4) = vardict%get('CLarge_fraction')
+        dust_ids(5) = vardict%get('SilSmall_fraction')
+        dust_ids(6) = vardict%get('SilLarge_fraction')
+
+        ndust = 0
+        do i = 1, 6
+            if (dust_ids(i) > 0) ndust = ndust + 1
+        end do
+    end subroutine set_optional_dust_ids
+
+    subroutine append_present_ids(source,nsource,target,start_idx,nadded)
+        implicit none
+        integer,dimension(:),intent(in) :: source
+        integer,intent(in) :: nsource,start_idx
+        integer,dimension(:),intent(inout) :: target
+        integer,intent(out) :: nadded
+        integer :: i
+
+        nadded = 0
+        do i = 1, nsource
+            if (source(i) > 0) then
+                nadded = nadded + 1
+                target(start_idx+nadded) = source(i)
+            end if
+        end do
+    end subroutine append_present_ids
+
+    subroutine check_rtvar(varname,hvar,ok)
         implicit none
 
+        character(128), intent(in) :: varname
+        type(hydro_var), intent(inout) :: hvar
+        logical, intent(inout) :: ok
+        integer :: igrp, parse_stat
+        character(128) :: grp_str
+
+        ok = .true.
+        if (index(trim(varname),'rt_flux_') == 1) then
+            grp_str = trim(varname(9:))
+            read(grp_str,*,iostat=parse_stat) igrp
+            if (parse_stat == 0 .and. igrp >= 1) then
+                hvar%type = 'derived'
+                hvar%name = trim(varname)
+                allocate(hvar%ids(1))
+                hvar%ids(1) = igrp
+                hvar%myfunction => rt_flux_group
+            else
+                ok = .false.
+            end if
+        else
+            ok = .false.
+        end if
+    end subroutine check_rtvar
+
+    subroutine check_dervar(my_sim,vardict,varname,hvar,ok)
+        implicit none
+
+        type(sim_info), intent(in) :: my_sim
         type(dictf90), intent(in)      :: vardict
         character(128), intent(in) :: varname
         type(hydro_var), intent(inout) :: hvar
         logical, intent(inout)        :: ok
+        integer :: i, nmetal, ndust
+        integer, dimension(6) :: dust_ids
+        logical :: need_dust, need_pahs
+
+        need_dust = .false.
+        need_pahs = .false.
+          select case (trim(varname))
+          case ('DTM','DTG','STL','CSR','qPAH','fionPAH','STL_PAH','CSmall_Stokes', &
+              'CLarge_Stokes','SilSmall_Stokes','SilLarge_Stokes','h2form_prism_ratio', &
+              'PAHSmall_density','PAHLarge_density','xC_PAHSmall','xC_PAHLarge', &
+              'CSmall_density','CLarge_density','SilSmall_density','SilLarge_density', &
+              'PAHSmall_mass','PAHLarge_mass','CSmall_mass','CLarge_mass','SilSmall_mass', &
+              'SilLarge_mass')
+            need_dust = .true.
+        end select
+        select case (trim(varname))
+          case ('qPAH','fionPAH','STL_PAH','PAHSmall_density','PAHLarge_density', &
+              'xC_PAHSmall','xC_PAHLarge','PAHSmall_mass','PAHLarge_mass')
+            need_pahs = .true.
+        end select
+
+        if (need_dust .and. .not. my_sim%dust) then
+            write(*,*) 'ERROR: Variable requires dust, but simulation has no dust: ', trim(varname)
+            stop
+        end if
+        if (need_pahs .and. .not. my_sim%pahs) then
+            write(*,*) 'ERROR: Variable requires PAHs, but simulation has no PAHs: ', trim(varname)
+            stop
+        end if
         
         ok = .true.
         select case (trim(varname))
@@ -6024,9 +4921,18 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
             ! Gas temperature
             hvar%type = 'derived'
             hvar%name = 'temperature'
-            allocate(hvar%ids(2))
-            hvar%ids(1) = vardict%get('density')
-            hvar%ids(2) = vardict%get('thermal_pressure')
+            if (my_sim%rt) then
+                allocate(hvar%ids(5))
+                hvar%ids(1) = vardict%get('density')
+                hvar%ids(2) = vardict%get('thermal_pressure')
+                hvar%ids(3) = vardict%get('xHII')
+                hvar%ids(4) = vardict%get('xHeII')
+                hvar%ids(5) = vardict%get('xHeIII')
+            else
+                allocate(hvar%ids(2))
+                hvar%ids(1) = vardict%get('density')
+                hvar%ids(2) = vardict%get('thermal_pressure')
+            end if
             hvar%myfunction => temperature
         case ('thermal_energy')
             ! Thermal energy, computed as thermal_pressure*volume/(gamma - 1)
@@ -6056,10 +4962,67 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
             ! Specific entropy, following Gent 2012 equation
             hvar%type = 'derived'
             hvar%name = 'entropy_specific'
-            allocate(hvar%ids(2))
-            hvar%ids(1) = vardict%get('density')
-            hvar%ids(2) = vardict%get('thermal_pressure')
+            if (my_sim%rt) then
+                allocate(hvar%ids(5))
+                hvar%ids(1) = vardict%get('density')
+                hvar%ids(2) = vardict%get('thermal_pressure')
+                hvar%ids(3) = vardict%get('xHII')
+                hvar%ids(4) = vardict%get('xHeII')
+                hvar%ids(5) = vardict%get('xHeIII')
+            else
+                allocate(hvar%ids(3))
+                hvar%ids(1) = vardict%get('density')
+                hvar%ids(2) = vardict%get('thermal_pressure')
+                hvar%ids(3) = vardict%get('metallicity')
+            end if
             hvar%myfunction => entropy_specific
+        case ('pseudo_entropy')
+            ! Pseudo-entropy, following the definition used for galaxy clusters
+            hvar%type = 'derived'
+            hvar%name = 'pseudo_entropy'
+            call set_optional_dust_ids(vardict,dust_ids,ndust)
+            if (my_sim%rt) then
+                if (my_sim%metallicity) then
+                    allocate(hvar%ids(6+ndust))
+                    hvar%ids(1) = vardict%get('density')
+                    hvar%ids(2) = vardict%get('metallicity')
+                    call append_present_ids(dust_ids,6,hvar%ids,2,ndust)
+                    hvar%ids(3+ndust) = vardict%get('xHII')
+                    hvar%ids(4+ndust) = vardict%get('xHeII')
+                    hvar%ids(5+ndust) = vardict%get('xHeIII')
+                    hvar%ids(6+ndust) = vardict%get('thermal_pressure')
+                else
+                    nmetal = my_sim%nmetals
+                    allocate(hvar%ids(5+nmetal+ndust))
+                    hvar%ids(1) = vardict%get('density')
+                    do i = 1, nmetal
+                        hvar%ids(1+i) = vardict%get(trim(my_sim%metal_varnames(i)))
+                    end do
+                    call append_present_ids(dust_ids,6,hvar%ids,1+nmetal,ndust)
+                    hvar%ids(2+nmetal+ndust) = vardict%get('xHII')
+                    hvar%ids(3+nmetal+ndust) = vardict%get('xHeII')
+                    hvar%ids(4+nmetal+ndust) = vardict%get('xHeIII')
+                    hvar%ids(5+nmetal+ndust) = vardict%get('thermal_pressure')
+                end if
+            else
+                if (my_sim%metallicity) then
+                    allocate(hvar%ids(3+ndust))
+                    hvar%ids(1) = vardict%get('density')
+                    hvar%ids(2) = vardict%get('metallicity')
+                    call append_present_ids(dust_ids,6,hvar%ids,2,ndust)
+                    hvar%ids(3+ndust) = vardict%get('thermal_pressure')
+                else
+                    nmetal = my_sim%nmetals
+                    allocate(hvar%ids(2+nmetal+ndust))
+                    hvar%ids(1) = vardict%get('density')
+                    do i = 1, nmetal
+                        hvar%ids(1+i) = vardict%get(trim(my_sim%metal_varnames(i)))
+                    end do
+                    call append_present_ids(dust_ids,6,hvar%ids,1+nmetal,ndust)
+                    hvar%ids(2+nmetal+ndust) = vardict%get('thermal_pressure')
+                end if
+            end if
+            hvar%myfunction => pseudo_entropy
         case ('sound_speed')
             ! Thermal sound speed, ideal gas
             hvar%type = 'derived'
@@ -6593,122 +5556,93 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
             hvar%ids(11) = vardict%get('thermal_pressure')
             hvar%ids(12) = vardict%get('cr_pressure')
             hvar%myfunction => eff_FK2
-        case ('ne')
-            ! Number density of electrons
-            hvar%type = 'derived'
-            hvar%name = 'ne'
-            allocate(hvar%ids(19))
-            hvar%ids(1) = vardict%get('density')
-            hvar%ids(2) = vardict%get('iron_fraction')
-            hvar%ids(3) = vardict%get('oxygen_fraction')
-            hvar%ids(4) = vardict%get('carbon_fraction')
-            hvar%ids(5) = vardict%get('silicon_fraction')
-            hvar%ids(6) = vardict%get('magnesium_fraction')
-            hvar%ids(7) = vardict%get('sulfur_fraction')
-            hvar%ids(8) = vardict%get('nitrogen_fraction')
-            hvar%ids(9) = vardict%get('calcium_fraction')
-            hvar%ids(10) = vardict%get('neon_fraction')
-            hvar%ids(11) = vardict%get('PAHSmall_fraction')
-            hvar%ids(12) = vardict%get('PAHLarge_fraction')
-            hvar%ids(13) = vardict%get('CSmall_fraction')
-            hvar%ids(14) = vardict%get('CLarge_fraction')
-            hvar%ids(15) = vardict%get('SilSmall_fraction')
-            hvar%ids(16) = vardict%get('SilLarge_fraction')
-            hvar%ids(17) = vardict%get('xHII')
-            hvar%ids(18) = vardict%get('xHeII')
-            hvar%ids(19) = vardict%get('xHeIII')
-            hvar%myfunction => ne
         case ('hydrogen_density')
             ! Density of the hydrogen gas
             hvar%type = 'derived'
             hvar%name = 'hydrogen_density'
-            allocate(hvar%ids(16))
-            hvar%ids(1) = vardict%get('density')
-            hvar%ids(2) = vardict%get('iron_fraction')
-            hvar%ids(3) = vardict%get('oxygen_fraction')
-            hvar%ids(4) = vardict%get('carbon_fraction')
-            hvar%ids(5) = vardict%get('silicon_fraction')
-            hvar%ids(6) = vardict%get('magnesium_fraction')
-            hvar%ids(7) = vardict%get('sulfur_fraction')
-            hvar%ids(8) = vardict%get('nitrogen_fraction')
-            hvar%ids(9) = vardict%get('calcium_fraction')
-            hvar%ids(10) = vardict%get('neon_fraction')
-            hvar%ids(11) = vardict%get('PAHSmall_fraction')
-            hvar%ids(12) = vardict%get('PAHLarge_fraction')
-            hvar%ids(13) = vardict%get('CSmall_fraction')
-            hvar%ids(14) = vardict%get('CLarge_fraction')
-            hvar%ids(15) = vardict%get('SilSmall_fraction')
-            hvar%ids(16) = vardict%get('SilLarge_fraction')
+            call set_optional_dust_ids(vardict,dust_ids,ndust)
+            if (my_sim%metallicity) then
+                allocate(hvar%ids(2+ndust))
+                hvar%ids(1) = vardict%get('density')
+                hvar%ids(2) = vardict%get('metallicity')
+                call append_present_ids(dust_ids,6,hvar%ids,2,ndust)
+            else
+                nmetal = my_sim%nmetals
+                allocate(hvar%ids(1+nmetal+ndust))
+                hvar%ids(1) = vardict%get('density')
+                do i = 1, nmetal
+                    hvar%ids(1+i) = vardict%get(trim(my_sim%metal_varnames(i)))
+                end do
+                call append_present_ids(dust_ids,6,hvar%ids,1+nmetal,ndust)
+            end if
             hvar%myfunction => hydrogen_density
         case ('HI_density')
             ! Density of the neutral hydrogen gas
             hvar%type = 'derived'
             hvar%name = 'HI_density'
-            allocate(hvar%ids(17))
-            hvar%ids(1) = vardict%get('density')
-            hvar%ids(2) = vardict%get('iron_fraction')
-            hvar%ids(3) = vardict%get('oxygen_fraction')
-            hvar%ids(4) = vardict%get('carbon_fraction')
-            hvar%ids(5) = vardict%get('silicon_fraction')
-            hvar%ids(6) = vardict%get('magnesium_fraction')
-            hvar%ids(7) = vardict%get('sulfur_fraction')
-            hvar%ids(8) = vardict%get('nitrogen_fraction')
-            hvar%ids(9) = vardict%get('calcium_fraction')
-            hvar%ids(10) = vardict%get('neon_fraction')
-            hvar%ids(11) = vardict%get('PAHSmall_fraction')
-            hvar%ids(12) = vardict%get('PAHLarge_fraction')
-            hvar%ids(13) = vardict%get('CSmall_fraction')
-            hvar%ids(14) = vardict%get('CLarge_fraction')
-            hvar%ids(15) = vardict%get('SilSmall_fraction')
-            hvar%ids(16) = vardict%get('SilLarge_fraction')
-            hvar%ids(17) = vardict%get('xHI')
+            call set_optional_dust_ids(vardict,dust_ids,ndust)
+            if (my_sim%metallicity) then
+                allocate(hvar%ids(3+ndust))
+                hvar%ids(1) = vardict%get('density')
+                hvar%ids(2) = vardict%get('metallicity')
+                call append_present_ids(dust_ids,6,hvar%ids,2,ndust)
+                hvar%ids(3+ndust) = vardict%get('xHI')
+            else
+                nmetal = my_sim%nmetals
+                allocate(hvar%ids(2+nmetal+ndust))
+                hvar%ids(1) = vardict%get('density')
+                do i = 1, nmetal
+                    hvar%ids(1+i) = vardict%get(trim(my_sim%metal_varnames(i)))
+                end do
+                call append_present_ids(dust_ids,6,hvar%ids,1+nmetal,ndust)
+                hvar%ids(2+nmetal+ndust) = vardict%get('xHI')
+            end if
             hvar%myfunction => HI_density
         case ('HII_density')
             ! Density of the ionised hydrogen gas
             hvar%type = 'derived'
             hvar%name = 'HII_density'
-            allocate(hvar%ids(17))
-            hvar%ids(1) = vardict%get('density')
-            hvar%ids(2) = vardict%get('iron_fraction')
-            hvar%ids(3) = vardict%get('oxygen_fraction')
-            hvar%ids(4) = vardict%get('carbon_fraction')
-            hvar%ids(5) = vardict%get('silicon_fraction')
-            hvar%ids(6) = vardict%get('magnesium_fraction')
-            hvar%ids(7) = vardict%get('sulfur_fraction')
-            hvar%ids(8) = vardict%get('nitrogen_fraction')
-            hvar%ids(9) = vardict%get('calcium_fraction')
-            hvar%ids(10) = vardict%get('neon_fraction')
-            hvar%ids(11) = vardict%get('PAHSmall_fraction')
-            hvar%ids(12) = vardict%get('PAHLarge_fraction')
-            hvar%ids(13) = vardict%get('CSmall_fraction')
-            hvar%ids(14) = vardict%get('CLarge_fraction')
-            hvar%ids(15) = vardict%get('SilSmall_fraction')
-            hvar%ids(16) = vardict%get('SilLarge_fraction')
-            hvar%ids(17) = vardict%get('xHII')
+            call set_optional_dust_ids(vardict,dust_ids,ndust)
+            if (my_sim%metallicity) then
+                allocate(hvar%ids(3+ndust))
+                hvar%ids(1) = vardict%get('density')
+                hvar%ids(2) = vardict%get('metallicity')
+                call append_present_ids(dust_ids,6,hvar%ids,2,ndust)
+                hvar%ids(3+ndust) = vardict%get('xHII')
+            else
+                nmetal = my_sim%nmetals
+                allocate(hvar%ids(2+nmetal+ndust))
+                hvar%ids(1) = vardict%get('density')
+                do i = 1, nmetal
+                    hvar%ids(1+i) = vardict%get(trim(my_sim%metal_varnames(i)))
+                end do
+                call append_present_ids(dust_ids,6,hvar%ids,1+nmetal,ndust)
+                hvar%ids(2+nmetal+ndust) = vardict%get('xHII')
+            end if
             hvar%myfunction => HII_density
         case ('H2_density')
             ! Density of the molecular hydrogen gas
             hvar%type = 'derived'
             hvar%name = 'H2_density'
-            allocate(hvar%ids(18))
-            hvar%ids(1) = vardict%get('density')
-            hvar%ids(2) = vardict%get('iron_fraction')
-            hvar%ids(3) = vardict%get('oxygen_fraction')
-            hvar%ids(4) = vardict%get('carbon_fraction')
-            hvar%ids(5) = vardict%get('silicon_fraction')
-            hvar%ids(6) = vardict%get('magnesium_fraction')
-            hvar%ids(7) = vardict%get('sulfur_fraction')
-            hvar%ids(8) = vardict%get('nitrogen_fraction')
-            hvar%ids(9) = vardict%get('calcium_fraction')
-            hvar%ids(10) = vardict%get('neon_fraction')
-            hvar%ids(11) = vardict%get('PAHSmall_fraction')
-            hvar%ids(12) = vardict%get('PAHLarge_fraction')
-            hvar%ids(13) = vardict%get('CSmall_fraction')
-            hvar%ids(14) = vardict%get('CLarge_fraction')
-            hvar%ids(15) = vardict%get('SilSmall_fraction')
-            hvar%ids(16) = vardict%get('SilLarge_fraction')
-            hvar%ids(17) = vardict%get('xHI')
-            hvar%ids(18) = vardict%get('xHII')
+            call set_optional_dust_ids(vardict,dust_ids,ndust)
+            if (my_sim%metallicity) then
+                allocate(hvar%ids(4+ndust))
+                hvar%ids(1) = vardict%get('density')
+                hvar%ids(2) = vardict%get('metallicity')
+                call append_present_ids(dust_ids,6,hvar%ids,2,ndust)
+                hvar%ids(3+ndust) = vardict%get('xHI')
+                hvar%ids(4+ndust) = vardict%get('xHII')
+            else
+                nmetal = my_sim%nmetals
+                allocate(hvar%ids(3+nmetal+ndust))
+                hvar%ids(1) = vardict%get('density')
+                do i = 1, nmetal
+                    hvar%ids(1+i) = vardict%get(trim(my_sim%metal_varnames(i)))
+                end do
+                call append_present_ids(dust_ids,6,hvar%ids,1+nmetal,ndust)
+                hvar%ids(2+nmetal+ndust) = vardict%get('xHI')
+                hvar%ids(3+nmetal+ndust) = vardict%get('xHII')
+            end if
             hvar%myfunction => H2_density
         case ('xH2')
             ! Fraction of hydrogen in molecular form
@@ -6938,57 +5872,47 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
             ! Oxygen abundance 12+log(O/H)
             hvar%type = 'derived'
             hvar%name = 'oxygen_abundance'
-            allocate(hvar%ids(15))
-            hvar%ids(1) = vardict%get('iron_fraction')
-            hvar%ids(2) = vardict%get('oxygen_fraction')
-            hvar%ids(3) = vardict%get('carbon_fraction')
-            hvar%ids(4) = vardict%get('silicon_fraction')
-            hvar%ids(5) = vardict%get('magnesium_fraction')
-            hvar%ids(6) = vardict%get('sulfur_fraction')
-            hvar%ids(7) = vardict%get('nitrogen_fraction')
-            hvar%ids(8) = vardict%get('calcium_fraction')
-            hvar%ids(9) = vardict%get('neon_fraction')
-            hvar%ids(10) = vardict%get('PAHSmall_fraction')
-            hvar%ids(11) = vardict%get('PAHLarge_fraction')
-            hvar%ids(12) = vardict%get('CSmall_fraction')
-            hvar%ids(13) = vardict%get('CLarge_fraction')
-            hvar%ids(14) = vardict%get('SilSmall_fraction')
-            hvar%ids(15) = vardict%get('SilLarge_fraction')
+            call set_optional_dust_ids(vardict,dust_ids,ndust)
+            if (my_sim%metallicity) then
+                allocate(hvar%ids(2+ndust))
+                hvar%ids(1) = vardict%get('metallicity')
+                hvar%ids(2) = vardict%get('oxygen_fraction')
+                call append_present_ids(dust_ids,6,hvar%ids,2,ndust)
+            else
+                nmetal = my_sim%nmetals
+                allocate(hvar%ids(nmetal+1+ndust))
+                do i = 1, nmetal
+                    hvar%ids(i) = vardict%get(trim(my_sim%metal_varnames(i)))
+                end do
+                hvar%ids(nmetal+1) = vardict%get('oxygen_fraction')
+                call append_present_ids(dust_ids,6,hvar%ids,nmetal+1,ndust)
+            end if
             hvar%myfunction => oxygen_abundance
         case ('DTM')
             ! dust-to-metal mass ratio
             hvar%type = 'derived'
             hvar%name = 'DTM'
-            allocate(hvar%ids(17))
-            hvar%ids(1) = vardict%get('CSmall_fraction')
-            hvar%ids(2) = vardict%get('CLarge_fraction')
-            hvar%ids(3) = vardict%get('SilSmall_fraction')
-            hvar%ids(4) = vardict%get('SilLarge_fraction')
-            hvar%ids(5) = vardict%get('PAHSmall_fraction')
-            hvar%ids(6) = vardict%get('PAHLarge_fraction')
-            hvar%ids(7) = vardict%get('metallicity')
-            hvar%ids(8) = vardict%get('iron_fraction')
-            hvar%ids(9) = vardict%get('oxygen_fraction')
-            hvar%ids(10) = vardict%get('nitrogen_fraction')
-            hvar%ids(11) = vardict%get('magnesium_fraction')
-            hvar%ids(12) = vardict%get('neon_fraction')
-            hvar%ids(13) = vardict%get('silicon_fraction')
-            hvar%ids(14) = vardict%get('calcium_fraction')
-            hvar%ids(15) = vardict%get('carbon_fraction')
-            hvar%ids(16) = vardict%get('sulfur_fraction')
-            hvar%ids(17) = vardict%get('CO_fraction')
+            call set_optional_dust_ids(vardict,dust_ids,ndust)
+            if (my_sim%metallicity) then
+                allocate(hvar%ids(ndust+1))
+                call append_present_ids(dust_ids,6,hvar%ids,0,ndust)
+                hvar%ids(ndust+1) = vardict%get('metallicity')
+            else
+                nmetal = my_sim%nmetals
+                allocate(hvar%ids(ndust+nmetal))
+                call append_present_ids(dust_ids,6,hvar%ids,0,ndust)
+                do i = 1, nmetal
+                    hvar%ids(ndust+i) = vardict%get(trim(my_sim%metal_varnames(i)))
+                end do
+            end if
             hvar%myfunction => DTM
         case ('DTG')
             ! dust-to-gas mass ratio
             hvar%type = 'derived'
             hvar%name = 'DTG'
-            allocate(hvar%ids(6))
-            hvar%ids(1) = vardict%get('CSmall_fraction')
-            hvar%ids(2) = vardict%get('CLarge_fraction')
-            hvar%ids(3) = vardict%get('SilSmall_fraction')
-            hvar%ids(4) = vardict%get('SilLarge_fraction')
-            hvar%ids(5) = vardict%get('PAHSmall_fraction') 
-            hvar%ids(6) = vardict%get('PAHLarge_fraction')
+            call set_optional_dust_ids(vardict,dust_ids,ndust)
+            allocate(hvar%ids(ndust))
+            call append_present_ids(dust_ids,6,hvar%ids,0,ndust)
             hvar%myfunction => DTG
         case ('STL')
             ! small-to-large grain mass ratio
@@ -7088,34 +6012,44 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
             hvar%myfunction => SilLarge_Stokes
         case ('G0')
             ! Interstellar radiation field strength in Habing units
+            if (.not.my_sim%rt) then
+                write(*,*) 'Error: G0 can only be computed for simulations with radiative transfer'
+                stop
+            end if
             hvar%type = 'derived'
             hvar%name = 'G0'
             hvar%myfunction => G0
         case ('charging_gamma')
             ! Charging gamma parameter G0 sqrt(T)/n_e
+            if (.not.my_sim%rt) then
+                write(*,*) 'Error: charging_gamma can only be computed for simulations with radiative transfer'
+                stop
+            end if
             hvar%type = 'derived'
             hvar%name = 'charging_gamma'
-            allocate(hvar%ids(20))
-            hvar%ids(1) = vardict%get('density')
-            hvar%ids(2) = vardict%get('iron_fraction')
-            hvar%ids(3) = vardict%get('oxygen_fraction')
-            hvar%ids(4) = vardict%get('carbon_fraction')
-            hvar%ids(5) = vardict%get('silicon_fraction')
-            hvar%ids(6) = vardict%get('magnesium_fraction')
-            hvar%ids(7) = vardict%get('sulfur_fraction')
-            hvar%ids(8) = vardict%get('nitrogen_fraction')
-            hvar%ids(9) = vardict%get('calcium_fraction')
-            hvar%ids(10) = vardict%get('neon_fraction')
-            hvar%ids(11) = vardict%get('PAHSmall_fraction')
-            hvar%ids(12) = vardict%get('PAHLarge_fraction')
-            hvar%ids(13) = vardict%get('CSmall_fraction')
-            hvar%ids(14) = vardict%get('CLarge_fraction')
-            hvar%ids(15) = vardict%get('SilSmall_fraction')
-            hvar%ids(16) = vardict%get('SilLarge_fraction')
-            hvar%ids(17) = vardict%get('xHII')
-            hvar%ids(18) = vardict%get('xHeII')
-            hvar%ids(19) = vardict%get('xHeIII')
-            hvar%ids(20) = vardict%get('thermal_pressure')
+            call set_optional_dust_ids(vardict,dust_ids,ndust)
+            if (my_sim%metallicity) then
+                allocate(hvar%ids(6+ndust))
+                hvar%ids(1) = vardict%get('density')
+                hvar%ids(2) = vardict%get('metallicity')
+                call append_present_ids(dust_ids,6,hvar%ids,2,ndust)
+                hvar%ids(3+ndust) = vardict%get('xHII')
+                hvar%ids(4+ndust) = vardict%get('xHeII')
+                hvar%ids(5+ndust) = vardict%get('xHeIII')
+                hvar%ids(6+ndust) = vardict%get('thermal_pressure')
+            else
+                nmetal = my_sim%nmetals
+                allocate(hvar%ids(5+nmetal+ndust))
+                hvar%ids(1) = vardict%get('density')
+                do i = 1, nmetal
+                    hvar%ids(1+i) = vardict%get(trim(my_sim%metal_varnames(i)))
+                end do
+                call append_present_ids(dust_ids,6,hvar%ids,1+nmetal,ndust)
+                hvar%ids(2+nmetal+ndust) = vardict%get('xHII')
+                hvar%ids(3+nmetal+ndust) = vardict%get('xHeII')
+                hvar%ids(4+nmetal+ndust) = vardict%get('xHeIII')
+                hvar%ids(5+nmetal+ndust) = vardict%get('thermal_pressure')
+            end if
             hvar%myfunction => charging_gamma
         case ('h2form_prism_ratio')
             ! Ratio of H2 formation from live dust to the scaling
@@ -7186,9 +6120,10 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
 
     end subroutine check_dervar
 
-    subroutine get_var_tools(vardict,nreq,reqvars,cleaned_vars)
+    subroutine get_var_tools(my_sim,vardict,nreq,reqvars,cleaned_vars)
         implicit none
 
+        type(sim_info), intent(in)   :: my_sim
         type(dictf90), intent(in)      :: vardict
         integer, intent(in)            :: nreq
         character(128), dimension(:), intent(in):: reqvars
@@ -7233,13 +6168,17 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
                 call check_geovar(reqvars(i),cleaned_vars(i),ok_check)
                 if (ok_check) cycle
 
-                ! 3. Then the variable may be a derived one, so we go
-                ! through the defined derived variables to pre-define
-                ! the indexes (for speed-up)
-                call check_dervar(vardict,reqvars(i),cleaned_vars(i),ok_check)
+                ! 3. Then the variable may be a RT variable
+                call check_rtvar(reqvars(i),cleaned_vars(i),ok_check)
                 if (ok_check) cycle
 
-                ! 4. The option left: we are asked for a gravity variable
+                ! 4. Then the variable may be a derived one, so we go
+                ! through the defined derived variables to pre-define
+                ! the indexes (for speed-up)
+                call check_dervar(my_sim,vardict,reqvars(i),cleaned_vars(i),ok_check)
+                if (ok_check) cycle
+
+                ! 5. The option left: we are asked for a gravity variable
                 call check_gravvar(reqvars(i),cleaned_vars(i),ok_check)
                 
                 if (.not.ok_check) then
@@ -7251,9 +6190,10 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         end do
     end subroutine get_var_tools
 
-    subroutine set_hydro_var(vardict,hvar)
+    subroutine set_hydro_var(my_sim,vardict,hvar)
         implicit none
 
+        type(sim_info), intent(in)   :: my_sim
         type(dictf90), intent(in)      :: vardict
         type(hydro_var), intent(inout) :: hvar
 
@@ -7291,13 +6231,17 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
             call check_geovar(hvar%name,hvar,ok_check)
             if (ok_check) return
 
-            ! 3. Then the variable maybe a derived one, so we go
-            ! through the defined derived variables to pre-define
-            ! the indexes (for speed-up)
-            call check_dervar(vardict,hvar%name,hvar,ok_check)
+            ! 3. Then the variable may be a RT variable
+            call check_rtvar(hvar%name,hvar,ok_check)
             if (ok_check) return
 
-            ! 4. The option left: we are asked for a gravity variable
+            ! 4. Then the variable maybe a derived one, so we go
+            ! through the defined derived variables to pre-define
+            ! the indexes (for speed-up)
+            call check_dervar(my_sim,vardict,hvar%name,hvar,ok_check)
+            if (ok_check) return
+
+            ! 5. The option left: we are asked for a gravity variable
             call check_gravvar(hvar%name,hvar,ok_check)
             
             if (.not.ok_check) then
@@ -7307,6 +6251,39 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
             end if
         end if
     end subroutine set_hydro_var
+
+    !---------------------------------------------------------------
+    ! Function: GET MU
+    !
+    ! This function computes the mean molecular weight in the cell
+    ! based on the H and He ionisation state.
+    !----------------------------------------------------------------
+    function getMu(xHII,xHeII,xHeIII) result(mu)
+        real(dbl), intent(in) :: xHII,xHeII,xHeIII
+        real(dbl) :: mu
+
+        mu = 1d0 / (XH * (1d0 + xHII) + 0.25d0 * YHe * (1d0 + xHeII + 2d0 * xHeIII))
+    end function getMu
+
+    !---------------------------------------------------------------
+    ! Function: GET MU_E
+    !
+    ! This function computes the electron molecular weight in the cell
+    ! based on the H and He ionisation state, optionally accounting for
+    ! the gas mass fraction in multi-fluid runs.
+    !----------------------------------------------------------------
+    function getMu_e(xHII,xHeII,xHeIII,gas_fraction) result(mu_e)
+        real(dbl), intent(in) :: xHII,xHeII,xHeIII
+        real(dbl), intent(in), optional :: gas_fraction
+        real(dbl) :: mu_e
+        real(dbl) :: electron_abundance,local_gas_fraction
+
+        local_gas_fraction = 1d0
+        if (present(gas_fraction)) local_gas_fraction = gas_fraction
+
+        electron_abundance = XH * xHII + 0.25d0 * YHe * (xHeII + 2d0 * xHeIII)
+        mu_e = 1d0 / MAX(local_gas_fraction * electron_abundance, tiny(1d0))
+    end function getMu_e
 
     !---------------------------------------------------------------
     ! Function: SF EFF

@@ -89,6 +89,7 @@ module obs_instruments
         real(dbl) :: dx,dy
 
         dx = cam%region_size(1); dy = cam%region_size(2)
+        box%name = 'cube'
         box%centre = cam%centre
         box%axis = cam%region_axis
         box%xmin = -dx/2D0; box%ymin = -dy/2D0; box%zmin = -cam%far_cut_depth
@@ -188,6 +189,7 @@ module obs_instruments
         xform_min = (/ (max(0D0,xform_min(i)), i=1,3) /)
         xform_max = (/ (min(1D0,xform_max(i)), i=1,3) /)
 
+        bbox%name = 'cube'
         bbox%xmin = xform_min(1);bbox%ymin = xform_min(2);bbox%zmin = xform_min(3)
         bbox%xmax = xform_max(1);bbox%ymax = xform_max(2);bbox%zmax = xform_max(3)
     end subroutine get_bounding_box
@@ -235,6 +237,40 @@ module obs_instruments
             points(i,:) = temp_vec
         end do
     end subroutine project_points
+
+    subroutine camera_centered_to_los_abs(cam_centre_los,point_cam_centered,point_los_abs)
+        implicit none
+        type(vector),intent(in) :: cam_centre_los
+        real(dbl),dimension(1:3),intent(in) :: point_cam_centered
+        type(vector),intent(inout) :: point_los_abs
+
+        point_los_abs = point_cam_centered
+        point_los_abs = point_los_abs + cam_centre_los
+    end subroutine camera_centered_to_los_abs
+
+    subroutine shift_cube_region_to_absolute(reg,centre_los)
+        implicit none
+        type(region),intent(inout) :: reg
+        type(vector),intent(in) :: centre_los
+
+        reg%xmin = reg%xmin + centre_los%x
+        reg%xmax = reg%xmax + centre_los%x
+        reg%ymin = reg%ymin + centre_los%y
+        reg%ymax = reg%ymax + centre_los%y
+        reg%zmin = reg%zmin + centre_los%z
+        reg%zmax = reg%zmax + centre_los%z
+        reg%centre = (/0D0,0D0,0D0/)
+    end subroutine shift_cube_region_to_absolute
+
+    subroutine world_to_region_relative(region_centre,point_world,point_relative)
+        implicit none
+        type(vector),intent(in) :: region_centre
+        real(dbl),dimension(1:3),intent(in) :: point_world
+        type(vector),intent(inout) :: point_relative
+
+        point_relative = point_world
+        point_relative = point_relative - region_centre
+    end subroutine world_to_region_relative
 
 end module obs_instruments
 
@@ -648,7 +684,7 @@ module maps
         real(dbl),intent(in),optional :: nexp_factor
         type(dictf90),intent(in),optional :: vardict
 
-        type(region) :: bbox
+        type(region) :: bbox, cam_reg
         integer :: ivx,ivy,ivz
         integer :: ii
 
@@ -669,8 +705,8 @@ module maps
         if (verbose) write(*,*)'Camera using lmin, lmax: ',cam%lmin,cam%lmax
         call get_bounding_box(cam,bbox)
         if (verbose) then
-            write(*,*)'Bounding box x: ',bbox%xmin,bbox%ymin
-            write(*,*)'Bounding box y: ',bbox%xmax,bbox%ymax
+            write(*,*)'Bounding box x: ',bbox%xmin,bbox%xmax
+            write(*,*)'Bounding box y: ',bbox%ymin,bbox%ymax
             write(*,*)'Bounding box z: ',bbox%zmin,bbox%zmax
         end if
         bbox%name = 'cube'
@@ -680,24 +716,29 @@ module maps
         ! Compute the Hilbert curve for the bounding box
         call get_cpu_map(bbox)
         if (verbose) write(*,*)'ncpu: ',amr%ncpu_read
-        call get_map_box(cam,bbox)
+        call get_map_box(cam,cam_reg)
+        cam_reg%name = 'cube'
+        cam_reg%bulk_velocity = cam%region_velocity
+        cam_reg%criteria_name = 'd_euclid'
 
         if (cam%nsubs>0 .and. verbose)write(*,*)'Excluding substructure: ',cam%nsubs
         call get_map_size(cam,proj%n_sample)
 
         ! Set up hydro variables quicklook tools
         if (present(vardict)) then
+            ! Setup the kind of simulation variables
+            call setup_simulation_type(vardict)
             ! If the user provides their own variable dictionary,
             ! use that one instead of the automatic from the 
             ! hydro descriptor file (RAMSES)
-            call get_var_tools(vardict,proj%nvars,proj%varnames,proj%vars)
+            call get_var_tools(sim,vardict,proj%nvars,proj%varnames,proj%vars)
 
             ! Do it also for the weight variable
-            call get_var_tools(vardict,proj%nwvars,proj%weightvars,proj%wvars)
+            call get_var_tools(sim,vardict,proj%nwvars,proj%weightvars,proj%wvars)
             
             ! We also do it for the filter variables
             do ii = 1, proj%nfilter
-                call get_filter_var_tools(vardict,proj%filters(ii))
+                call get_filter_var_tools(sim,vardict,proj%filters(ii))
             end do
 
             if (verbose) then
@@ -722,14 +763,17 @@ module maps
             ! Set nvar based on the number of variables in the dictionary
             sim%nvar = vardict%count
         else
-            call get_var_tools(varIDs,proj%nvars,proj%varnames,proj%vars)
+            ! Setup the kind of simulation variables
+            call setup_simulation_type(varIDs)
+
+            call get_var_tools(sim,varIDs,proj%nvars,proj%varnames,proj%vars)
 
             ! Do it also for the weight variable
-            call get_var_tools(varIDs,proj%nwvars,proj%weightvars,proj%wvars)
+            call get_var_tools(sim,varIDs,proj%nwvars,proj%weightvars,proj%wvars)
 
             ! We also do it for the filter variables
             do ii = 1, proj%nfilter
-                call get_filter_var_tools(varIDs,proj%filters(ii))
+                call get_filter_var_tools(sim,varIDs,proj%filters(ii))
             end do
 
             ! We always need the indexes of the velocities
@@ -777,15 +821,15 @@ module maps
             real(dbl),dimension(1:3) :: fluxtmp,vtmp
             integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
             real(dbl),dimension(1:8,1:3) :: xc
-            real(dbl),dimension(1:3,1:3) :: trans_matrix
+            real(dbl),dimension(1:3,1:3) :: trans_matrix,los_matrix
             real(dbl),dimension(1:proj%nvars) :: hvalues
             real(dbl),dimension(:,:),allocatable :: xg,x,xorig
             real(hydro_real_kind),dimension(:,:,:),allocatable :: var
             real(dbl),dimension(:,:,:),allocatable :: grav_var
-            real(hydro_real_kind),dimension(:,:),allocatable :: tempvar
+            real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
             real(rt_real_kind),dimension(:,:,:),allocatable :: rt_var
-            real(rt_real_kind),dimension(:,:),allocatable :: temprt_var
+            real(dbl),dimension(:,:),allocatable :: temprt_var
             integer,dimension(:,:),allocatable :: son
             integer,dimension(:),allocatable :: tempson
             logical,dimension(:),allocatable :: ref
@@ -793,12 +837,15 @@ module maps
             real(dbl) :: xmin,ymin
             integer :: ndom
             integer,dimension(1:2) :: ii_map
-            integer :: ncells
+            integer :: ncells,ncells_region,ncells_ref,ncells_sub
+            integer,dimension(1:proj%nfilter) :: ncells_filter
+            type(vector) :: cam_centre_los
             
 
             type(level),dimension(1:100) :: grid
 
-            ncells = 0
+            ncells = 0; ncells_region = 0; ncells_filter(:) = 0
+            ncells_ref = 0; ncells_sub = 0
 
             ! Check whether we need to read the gravity files
             read_gravity = .false.
@@ -810,14 +857,26 @@ module maps
                 endif
             end do
 
+            ! Setup the transformation matrices
+            trans_matrix = 0D0
+            call new_z_coordinates(cam_reg%axis,trans_matrix,roterr)
+            if (roterr.eq.1) then
+                if (verbose) write(*,*) 'Incorrect CS transformation!'
+                stop
+            endif
+            call los_transformation(cam,los_matrix)
+            call rotate_vector(cam_reg%centre,los_matrix)
+            cam_centre_los = cam_reg%centre
+            call shift_cube_region_to_absolute(cam_reg,cam_centre_los)
+
             ! Compute hierarchy
             do ilevel=1,amr%lmax
                 nx_full = 2**ilevel
                 ny_full = 2**ilevel
-                imin = int((bbox%xmin+bbox%centre%x)*dble(nx_full))+1
-                imax = int((bbox%xmax+bbox%centre%x)*dble(nx_full))+1
-                jmin = int((bbox%ymin+bbox%centre%y)*dble(ny_full))+1
-                jmax = int((bbox%ymax+bbox%centre%y)*dble(ny_full))+1
+                imin = int(cam_reg%xmin*dble(nx_full))+1
+                imax = int(cam_reg%xmax*dble(nx_full))+1
+                jmin = int(cam_reg%ymin*dble(ny_full))+1
+                jmax = int(cam_reg%ymax*dble(ny_full))+1
                 allocate(grid(ilevel)%cube(1:proj%nfilter,1:proj%nvars,1:proj%nwvars,imin:imax,jmin:jmax))
                 allocate(grid(ilevel)%map(1:proj%nfilter,1:proj%nwvars,imin:imax,jmin:jmax))
                 grid(ilevel)%cube(:,:,:,:,:) = 0D0
@@ -828,13 +887,6 @@ module maps
                 grid(ilevel)%jmax = jmax
                 grid(ilevel)%active = .false.
             end do
-
-            trans_matrix = 0D0
-            call new_z_coordinates(bbox%axis,trans_matrix,roterr)
-            if (roterr.eq.1) then
-                if (verbose) write(*,*) 'Incorrect CS transformation!'
-                stop
-            endif
 
             allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
             allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
@@ -1056,12 +1108,10 @@ module maps
                             ngridaloop: do i=1,ngrida
                                 ! Check if cell is inside the desired region
                                 distance = 0D0
-                                xtemp = x(i,:)
-                                xtemp = xtemp - bbox%centre
-                                x(i,:) = xtemp
-                                call checkifinside(x(i,:),bbox,ok_cell,distance)
-                                xtemp = xtemp + bbox%centre
-                                x(i,:) = xtemp
+                                call camera_centered_to_los_abs(cam_centre_los,x(i,:),xtemp)
+                                call checkifinside((/xtemp%x,xtemp%y,xtemp%z/),cam_reg,ok_cell,distance)
+                                ncells_region = ncells_region + merge(1,0,ok_cell)
+                                ncells_ref = ncells_ref + merge(1,0,ok_cell.and..not.ref(i))
                                 ok_cell= ok_cell.and..not.ref(i)
                                 ! If we are avoiding substructure, check whether we are safe
                                 if (cam%nsubs>0) then
@@ -1070,11 +1120,13 @@ module maps
                                         ok_sub = ok_sub .and. filter_sub(cam%subs(isub),xorig(i,:))
                                     end do
                                     ok_cell = ok_cell .and. ok_sub
+                                    ncells_sub = ncells_sub + merge(1,0,ok_cell.and..not.ok_sub)
                                 end if
                                 if (ok_cell) then
-                                    ix = int((x(i,1)+bbox%centre%x)*dble(nx_full)) + 1
-                                    iy = int((x(i,2)+bbox%centre%y)*dble(ny_full)) + 1
-                                    geo_weight = (min(x(i,3)+dx/2.,bbox%zmax)-max(x(i,3)-dx/2.,bbox%zmin))/dx
+                                    ix = int(xtemp%x*dble(nx_full)) + 1
+                                    iy = int(xtemp%y*dble(ny_full)) + 1
+                                    geo_weight = (min(xtemp%z+dx/2d0,cam_reg%zmax)&
+                                                    &-max(xtemp%z-dx/2d0,cam_reg%zmin))/dx
                                     geo_weight = min(1.0d0,max(geo_weight,0.0d0))
                                     if( ix>=grid(ilevel)%imin.and.&
                                         & iy>=grid(ilevel)%jmin.and.&
@@ -1085,11 +1137,7 @@ module maps
                                         xtemp = xtemp - bbox%centre
                                         call rotate_vector(xtemp,trans_matrix)
                                         ! Velocity transformed
-#if UPRE==4
-                                        vtemp = dble(var(i,ind,ivx:ivz))
-#else
-                                        vtemp = var(i,ind,ivx:ivz)
-#endif
+                                        vtemp = real(var(i,ind,ivx:ivz),kind=dbl)
                                         vtemp = vtemp - bbox%bulk_velocity
                                         call rotate_vector(vtemp,trans_matrix)
 
@@ -1107,20 +1155,16 @@ module maps
                                         tempson(0)       = son(i,ind)
                                         if (read_gravity) tempgrav_var(0,:) = grav_var(i,ind,:)
                                         vtmp = vtemp
-#if UPRE==4
-                                        tempvar(0,ivx:ivz) = sngl(vtmp)
-#else
                                         tempvar(0,ivx:ivz) = vtmp
-#endif
                                         if (read_gravity) tempgrav_var(0,2:4) = gtemp
                                         if (proj%use_rt) then
                                             do igroup=1,rtinfo%nGroups
                                                 igrp = 1 + (amr%ndim + 1) * (igroup - 1)
                                                 temprt_var(0,igrp) = rt_var(i,ind,igrp)
-                                                fluxtemp = dble(rt_var(i,ind,igrp+1:igrp+amr%ndim))
+                                                fluxtemp = real(rt_var(i,ind,igrp+1:igrp+amr%ndim),kind=dbl)
                                                 call rotate_vector(fluxtemp,trans_matrix)
                                                 fluxtmp = fluxtemp
-                                                temprt_var(0,igrp+1:igrp+amr%ndim) = sngl(fluxtmp)
+                                                temprt_var(0,igrp+1:igrp+amr%ndim) = fluxtmp
                                             end do
                                         end if
                                         
@@ -1140,6 +1184,7 @@ module maps
                                             end if
                                             ! Finally, get hydro data
                                             if (ok_filter) then
+                                                ncells_filter(ifilt) = ncells_filter(ifilt) + 1
                                                 if (.not.grid(ilevel)%active) grid(ilevel)%active = .true.
                                                 weightvarloop: do iweight=1,proj%nwvars
                                                     if (trim(proj%weightvars(iweight)) == 'counts') then
@@ -1169,7 +1214,7 @@ module maps
                                                     if (proj%is_column_weight(iweight)) then
                                                         weight = MAX(weight*geo_weight,0D0)
                                                     else
-                                                        weight = MAX(weight*geo_weight*dx/(bbox%zmax-bbox%zmin),0D0)
+                                                        weight = MAX(weight*geo_weight*dx/(cam_reg%zmax-cam_reg%zmin),0D0)
                                                     end if
                                                     grid(ilevel)%map(ifilt,iweight,ix,iy)=grid(ilevel)%map(ifilt,iweight,ix,iy)+weight
                                                     projvarloop: do ivar=1,proj%nvars
@@ -1222,7 +1267,13 @@ module maps
                 if (read_gravity) close(12)
                 if (proj%use_rt) close(13)
             end do cpuloop
-            if (verbose) write(*,*)'ncells:',ncells
+            if (verbose) then
+                write(*,*)'ncells:',ncells
+                write(*,*)'ncells_region:',ncells_region
+                write(*,*)'ncells_ref:',ncells_ref
+                if (cam%nsubs>0) write(*,*)'ncells_sub:',ncells_sub
+                write(*,*)'ncells_filter:',ncells_filter
+            end if
 
             ! Select the type of projection function needed
             select case (trim(type_projection))
@@ -1231,7 +1282,7 @@ module maps
             case ('point_deposition')
                 call point_projection(proj,cam,grid)
             case ('upload_deposition')
-                call upload_projection(proj,cam,bbox,grid)
+                call upload_projection(proj,cam,cam_reg,grid)
             case default
                 if (verbose) write(*,*)'Deposition type ',trim(type_projection),' not recognised'
                 if (verbose) write(*,*)'Falling back to default (upload_projection)'
@@ -1257,15 +1308,15 @@ module maps
             integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
             real(dbl),dimension(:),allocatable :: xxg,son_dens
             real(dbl),dimension(1:8,1:3) :: xc
-            real(dbl),dimension(1:3,1:3) :: trans_matrix
+            real(dbl),dimension(1:3,1:3) :: trans_matrix,los_matrix
             real(dbl),dimension(:,:),allocatable :: x,xorig
             real(hydro_real_kind),dimension(:,:),allocatable :: var
             real(dbl),dimension(:,:),allocatable :: grav_var
-            real(hydro_real_kind),dimension(:,:),allocatable :: tempvar
+            real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
             real(dbl),dimension(:,:),allocatable :: cellpos
             real(rt_real_kind),dimension(:,:),allocatable :: rt_var
-            real(rt_real_kind),dimension(:,:),allocatable :: temprt_var
+            real(dbl),dimension(:,:),allocatable :: temprt_var
             integer,dimension(:,:),allocatable :: nbor
             integer,dimension(:),allocatable :: son,tempson,iig
             integer,dimension(:),allocatable :: ind_cell,ind_cell2
@@ -1279,6 +1330,8 @@ module maps
             integer :: ngrid_current
             integer :: idebug
             integer :: ifilt
+            type(region) :: bbox_abs
+            type(vector) :: bbox_centre_los
             
 
             type(level),dimension(1:100) :: grid
@@ -1297,14 +1350,20 @@ module maps
                 endif
             end do
 
+            call los_transformation(cam,los_matrix)
+            bbox_abs = bbox
+            call rotate_vector(bbox_abs%centre,los_matrix)
+            bbox_centre_los = bbox_abs%centre
+            call shift_cube_region_to_absolute(bbox_abs,bbox_centre_los)
+
             ! Compute hierarchy
             do ilevel=1,amr%lmax
                 nx_full = 2**ilevel
                 ny_full = 2**ilevel
-                imin = int((bbox%xmin+bbox%centre%x)*dble(nx_full))+1
-                imax = int((bbox%xmax+bbox%centre%x)*dble(nx_full))+1
-                jmin = int((bbox%ymin+bbox%centre%y)*dble(ny_full))+1
-                jmax = int((bbox%ymax+bbox%centre%y)*dble(ny_full))+1
+                imin = int(bbox_abs%xmin*dble(nx_full))+1
+                imax = int(bbox_abs%xmax*dble(nx_full))+1
+                jmin = int(bbox_abs%ymin*dble(ny_full))+1
+                jmax = int(bbox_abs%ymax*dble(ny_full))+1
                 allocate(grid(ilevel)%cube(1:proj%nfilter,1:proj%nvars,1:proj%nwvars,imin:imax,jmin:jmax))
                 allocate(grid(ilevel)%map(1:proj%nfilter,1:proj%nwvars,imin:imax,jmin:jmax))
                 grid(ilevel)%cube(:,:,:,:,:) = 0D0
@@ -1484,8 +1543,7 @@ module maps
                             tndimloop: do ind=1,amr%twotondim
                                 iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                                 varloop: do ivar=1,sim%nvar
-                                    read(11)xxg
-                                    var(grid(ilevel)%ind_grid(:)+iskip,ivar) = xxg(:)
+                                    read(11)var(grid(ilevel)%ind_grid(:)+iskip,ivar)
                                 end do varloop
                             end do tndimloop
                         endif
@@ -1586,12 +1644,8 @@ module maps
                             ngridaloop: do i=1,ngrida
                                 ! Check if cell is inside the desired region
                                 distance = 0D0
-                                xtemp = x(i,:)
-                                xtemp = xtemp - bbox%centre
-                                x(i,:) = xtemp
-                                call checkifinside(x(i,:),bbox,ok_cell,distance)
-                                xtemp = xtemp + bbox%centre
-                                x(i,:) = xtemp
+                                call camera_centered_to_los_abs(bbox_centre_los,x(i,:),xtemp)
+                                call checkifinside((/xtemp%x,xtemp%y,xtemp%z/),bbox_abs,ok_cell,distance)
                                 ok_cell= ok_cell.and..not.ref(i)
                                 ! If we are avoiding substructure, check whether we are safe
                                 if (cam%nsubs>0) then
@@ -1602,25 +1656,20 @@ module maps
                                     ok_cell = ok_cell .and. ok_sub
                                 end if
                                 if (ok_cell) then
-                                    ix = int((x(i,1)+bbox%centre%x)*dble(nx_full)) + 1
-                                    iy = int((x(i,2)+bbox%centre%y)*dble(ny_full)) + 1
-                                    geo_weight = (min(x(i,3)+dx/2.,bbox%zmax)-max(x(i,3)-dx/2.,bbox%zmin))/dx
+                                    ix = int(xtemp%x*dble(nx_full)) + 1
+                                    iy = int(xtemp%y*dble(ny_full)) + 1
+                                    geo_weight = (min(xtemp%z+dx/2.,bbox_abs%zmax)-max(xtemp%z-dx/2.,bbox_abs%zmin))/dx
                                     geo_weight = min(1.0d0,max(geo_weight,0.0d0))
                                     if( ix>=grid(ilevel)%imin.and.&
                                         & iy>=grid(ilevel)%jmin.and.&
                                         & ix<=grid(ilevel)%imax.and.&
                                         & iy<=grid(ilevel)%jmax) then
                                         ! print*,ilevel,ind_cell(i),son(ind_cell(i)),var(ind_cell(i),1)
-                                        xtemp = xorig(i,:)
-                                        xtemp = xtemp - bbox%centre
+                                        call world_to_region_relative(bbox%centre,xorig(i,:),xtemp)
                                         call rotate_vector(xtemp,trans_matrix)
 
                                         ! Velocity transformed --> ONLY FOR CENTRAL CELL
-#if UPRE==4
-                                        vtemp = dble(var(ind_cell(i),ivx:ivz))
-#else
-                                        vtemp = var(ind_cell(i),ivx:ivz)
-#endif
+                                        vtemp = real(var(ind_cell(i),ivx:ivz),kind=dbl)
                                         vtemp = vtemp - bbox%bulk_velocity
                                         call rotate_vector(vtemp,trans_matrix)
 
@@ -1646,20 +1695,16 @@ module maps
                                         tempson(0)       = son(ind_nbor(1,0))
                                         if (read_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
                                         vtmp = vtemp
-#if UPRE==4
-                                        tempvar(0,ivx:ivz) = sngl(vtmp)
-#else
                                         tempvar(0,ivx:ivz) = vtmp
-#endif
                                         if (read_gravity) tempgrav_var(0,2:4) = gtemp
                                         if (proj%use_rt) then
                                             do igroup=1,rtinfo%nGroups
                                                 igrp = 1 + (amr%ndim + 1) * (igroup - 1)
                                                 temprt_var(0,igrp) = rt_var(ind_nbor(1,0),igrp)
-                                                fluxtemp = dble(rt_var(ind_nbor(1,0),igrp+1:igrp+amr%ndim))
+                                                fluxtemp = real(rt_var(ind_nbor(1,0),igrp+1:igrp+amr%ndim),kind=dbl)
                                                 call rotate_vector(fluxtemp,trans_matrix)
                                                 fluxtmp = fluxtemp
-                                                temprt_var(0,igrp+1:igrp+amr%ndim) = sngl(fluxtmp)
+                                                temprt_var(0,igrp+1:igrp+amr%ndim) = fluxtmp
                                             end do
                                         end if
                                         
@@ -1767,11 +1812,11 @@ module maps
             case ('point_deposition')
                 call point_projection(proj,cam,grid)
             case ('upload_deposition')
-                call upload_projection(proj,cam,bbox,grid)
+                call upload_projection(proj,cam,bbox_abs,grid)
             case default
                 if (verbose) write(*,*)'Deposition type ',trim(type_projection),' not recognised'
                 if (verbose) write(*,*)'Falling back to default (upload_projection)'
-                call upload_projection(proj,cam,bbox,grid)
+                call upload_projection(proj,cam,bbox_abs,grid)
             end select        
         end subroutine project_cells_neigh
 
@@ -1938,7 +1983,7 @@ module maps
             character(5) :: nchar,ncharcpu
             character(6) :: ptype
             character(128) :: nomfich
-            type(vector) :: xtemp,vtemp,dcell
+            type(vector) :: xtemp,vtemp,dcell,cam_centre_los
             integer,dimension(:),allocatable :: order
             integer,dimension(:),allocatable :: nparttoto
 #ifndef LONGINT
@@ -1993,6 +2038,9 @@ module maps
             
             ! Compute transformation matrix for camera LOS
             call los_transformation(cam,trans_matrix)
+            cam_centre_los = cam%centre
+            call rotate_vector(cam_centre_los,trans_matrix)
+            call shift_cube_region_to_absolute(bbox,cam_centre_los)
             
             ! Get camera resolution
             call get_map_size(cam,n_map)
@@ -2100,18 +2148,14 @@ module maps
                 ! of interest in the region
                 partloop: do i=1,npart2
                     distance = 0D0
-                    xtemp = x(i,:)
-                    xtemp = xtemp - bbox%centre
-                    x(i,:) = xtemp
-                    call checkifinside(x(i,:),bbox,ok_part,distance)
-                    xtemp = xtemp + bbox%centre
-                    x(i,:) = xtemp
+                    call camera_centered_to_los_abs(cam_centre_los,x(i,:),xtemp)
+                    call checkifinside((/xtemp%x,xtemp%y,xtemp%z/),bbox,ok_part,distance)
     
                     ! If we are avoiding substructure, check whether we are safe
                     if (cam%nsubs>0) then
                         ok_sub = .true.
                         do isub=1,cam%nsubs
-                            ok_sub = ok_sub .and. filter_sub(cam%subs(isub),x(i,:))
+                            ok_sub = ok_sub .and. filter_sub(cam%subs(isub),(/xtemp%x,xtemp%y,xtemp%z/))
                         end do
                         if (.not.ok_sub)npartsub = npartsub + 1
                         ok_part = ok_part .and. ok_sub
@@ -2131,8 +2175,8 @@ module maps
                     endif
                     if (ok_part) then
                         ! TODO: Properly understand WOH is going on here
-                        ddx = (x(i,1)-bbox%xmin)/dx
-                        ddy = (x(i,2)-bbox%ymin)/dy
+                        ddx = (xtemp%x-bbox%xmin)/dx
+                        ddy = (xtemp%y-bbox%ymin)/dy
                         ix = int(ddx)
                         iy = int(ddy)
                         ddx = ddx - dble(ix)
@@ -2259,17 +2303,19 @@ module maps
 
         ! Set up hydro variables quicklook tools
         if (present(vardict)) then
+            ! Setup the kind of simulation variables
+            call setup_simulation_type(vardict)
             ! If the user provides their own variable dictionary,
             ! use that one instead of the automatic from the 
             ! hydro descriptor file (RAMSES)
-            call get_var_tools(vardict,proj%nvars,proj%varnames,proj%vars)
+            call get_var_tools(sim,vardict,proj%nvars,proj%varnames,proj%vars)
 
             ! Do it also for the weight variable
-            call get_var_tools(vardict,proj%nwvars,proj%weightvars,proj%wvars)
+            call get_var_tools(sim,vardict,proj%nwvars,proj%weightvars,proj%wvars)
             
             ! We also do it for the filter variables
             do ii = 1, proj%nfilter
-                call get_filter_var_tools(vardict,proj%filters(ii))
+                call get_filter_var_tools(sim,vardict,proj%filters(ii))
             end do
 
             ! We always need the indexes of the velocities
@@ -2278,14 +2324,17 @@ module maps
             ivy = vardict%get('velocity_y')
             ivz = vardict%get('velocity_z')
         else
-            call get_var_tools(varIDs,proj%nvars,proj%varnames,proj%vars)
+            ! Setup the kind of simulation variables
+            call setup_simulation_type(varIDs)
+
+            call get_var_tools(sim,varIDs,proj%nvars,proj%varnames,proj%vars)
 
             ! Do it also for the weight variable
-            call get_var_tools(varIDs,proj%nwvars,proj%weightvars,proj%wvars)
+            call get_var_tools(sim,varIDs,proj%nwvars,proj%weightvars,proj%wvars)
 
             ! We also do it for the filter variables
             do ii = 1, proj%nfilter
-                call get_filter_var_tools(varIDs,proj%filters(ii))
+                call get_filter_var_tools(sim,varIDs,proj%filters(ii))
             end do
 
             ! We always need the indexes of the velocities
@@ -2326,9 +2375,9 @@ module maps
             real(dbl),dimension(1:3,1:3) :: trans_matrix
             real(dbl),dimension(:,:),allocatable :: xg,x,xorig
             real(hydro_real_kind),dimension(:,:,:),allocatable :: var
+            real(dbl),dimension(:,:),allocatable :: tempvar
             real(rt_real_kind),dimension(:,:,:),allocatable :: rt_var
-            real(rt_real_kind),dimension(:,:),allocatable :: temprt_var
-            real(hydro_real_kind),dimension(:,:),allocatable :: tempvar
+            real(dbl),dimension(:,:),allocatable :: temprt_var
             integer,dimension(:,:),allocatable :: son
             integer,dimension(:),allocatable :: tempson
             logical,dimension(:),allocatable :: ref
@@ -2553,13 +2602,10 @@ module maps
                             ngridaloop: do i=1,ngrida
                                 ! Check if cell is inside the desired region
                                 distance = 0D0
-                                xtemp = x(i,:)
-
-                                ! Move to center of galaxy
-                                x(i,:) = xtemp - bsphere%centre
+                                call world_to_region_relative(bsphere%centre,x(i,:),xtemp)
 
                                 ! Check if cell is inside the desired region
-                                call checkifinside(x(i,:),bsphere,ok_cell,distance)
+                                call checkifinside((/xtemp%x,xtemp%y,xtemp%z/),bsphere,ok_cell,distance)
                                 ok_cell= ok_cell.and.(.not.ref(i))
                                 listpix = -1
                                 nlist = 0
@@ -2574,19 +2620,18 @@ module maps
                                 end if
 
                                 if (ok_cell) then
-                                    xtemp = x(i,:)
                                     ! Rotate position such that we have cells in the galaxy frame
                                     call rotate_vector(xtemp,trans_matrix)
-                                    x(i,:) = xtemp
 
                                     ! Get pixels to which the cell contributes
                                     aperture = datan(0.707*dx/distance)
-                                    call query_disc(nside,x(i,:),aperture,listpix,nlist)
+                                    xvec = (/xtemp%x,xtemp%y,xtemp%z/)
+                                    call query_disc(nside,xvec,aperture,listpix,nlist)
                                     listpix_clean = pack(listpix,listpix.ge.0)
                                     if (nlist.eq.0) then
                                         listpix = -1
                                         nlist = 0
-                                        call query_disc(nside,x(i,:),aperture,listpix,nlist,nest=0,inclusive=1)
+                                        call query_disc(nside,xvec,aperture,listpix,nlist,nest=0,inclusive=1)
                                         listpix_clean = pack(listpix,listpix.ge.0)
                                     end if
 
@@ -2597,11 +2642,7 @@ module maps
                                     ! If the cell contributes to at least one pixel, project
                                     if(nlist>0) then
                                         ! Rotate velocity with respect to galaxy frame
-#if UPRE==4
-                                        vtemp = dble(var(i,ind,ivx:ivz))
-#else
-                                        vtemp = var(i,ind,ivx:ivz)
-#endif
+                                        vtemp = real(var(i,ind,ivx:ivz),kind=dbl)
                                         vtemp = vtemp - bsphere%bulk_velocity
                                         call rotate_vector(vtemp,trans_matrix)
 
@@ -2612,19 +2653,15 @@ module maps
                                         tempvar(0,:) = var(i,ind,:)
                                         tempson(0)       = son(i,ind)
                                         vtmp = vtemp
-#if UPRE==4
-                                        tempvar(0,ivx:ivz) = sngl(vtmp)
-#else
                                         tempvar(0,ivx:ivz) = vtmp
-#endif
                                         if (proj%use_rt) then
                                             do igroup=1,rtinfo%nGroups
                                                 igrp = 1 + (amr%ndim + 1) * (igroup - 1)
                                                 temprt_var(0,igrp) = rt_var(i,ind,igrp)
-                                                fluxtemp = dble(rt_var(i,ind,igrp+1:igrp+amr%ndim))
+                                                fluxtemp = real(rt_var(i,ind,igrp+1:igrp+amr%ndim),kind=dbl)
                                                 call rotate_vector(fluxtemp,trans_matrix)
                                                 fluxtmp = fluxtemp
-                                                temprt_var(0,igrp+1:igrp+amr%ndim) = sngl(fluxtmp)
+                                                temprt_var(0,igrp+1:igrp+amr%ndim) = fluxtmp
                                             end do
                                         end if
 

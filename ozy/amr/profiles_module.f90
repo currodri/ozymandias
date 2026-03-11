@@ -126,11 +126,7 @@ module amr_profiles
         integer,intent(in) :: ibin,ifilt
         real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
         real(dbl),dimension(0:amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:amr%twondim,1:rtinfo%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:amr%twondim,1:rtinfo%nRTvar),optional,intent(in) :: rt_var
-#endif
 
         ! Local variables
         integer :: i,j,ipdf
@@ -314,11 +310,8 @@ module amr_profiles
         integer,intent(in) :: ibinx,ibiny,ifilt
         real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
         real(dbl),dimension(0:amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:amr%twondim,1:rtinfo%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
         real(dbl),dimension(0:amr%twondim,1:rtinfo%nRTvar),optional,intent(in) :: rt_var
-#endif
+
         integer :: i,j
         real(dbl) :: ytemp,wtemp,bigwtemp,bigatemp
         type(vector) :: x
@@ -446,17 +439,19 @@ module amr_profiles
         
         ! Set up hydro variables quicklook tools
         if (present(vardict)) then
+            ! Setup the kind of simulation variables
+            call setup_simulation_type(vardict)
             ! If the user provides their own variable dictionary,
             ! use that one instead of the automatic from the 
             ! hydro descriptor file (RAMSES)
-            call get_var_tools(vardict,prof_data%nyvar,prof_data%yvarnames,prof_data%yvars)
-            call get_var_tools(vardict,prof_data%nwvar,prof_data%wvarnames,prof_data%wvars)
+            call get_var_tools(sim,vardict,prof_data%nyvar,prof_data%yvarnames,prof_data%yvars)
+            call get_var_tools(sim,vardict,prof_data%nwvar,prof_data%wvarnames,prof_data%wvars)
             prof_data%xvar%name = prof_data%xvarname
-            call set_hydro_var(vardict,prof_data%xvar)
+            call set_hydro_var(sim,vardict,prof_data%xvar)
             
             ! We also do it for the filter variables
             do ifilt=1,prof_data%nfilter
-                call get_filter_var_tools(vardict,prof_data%filters(ifilt))
+                call get_filter_var_tools(sim,vardict,prof_data%filters(ifilt))
             end do
 
             ! We always need the indexes of the velocities
@@ -465,13 +460,15 @@ module amr_profiles
             ivy = vardict%get('velocity_y')
             ivz = vardict%get('velocity_z')
         else
-            call get_var_tools(varIDs,prof_data%nyvar,prof_data%yvarnames,prof_data%yvars)
-            call get_var_tools(varIDs,prof_data%nwvar,prof_data%wvarnames,prof_data%wvars)
-            call set_hydro_var(varIDs,prof_data%xvar)
+            ! Setup the kind of simulation variables
+            call setup_simulation_type(vardict)
+            call get_var_tools(sim,varIDs,prof_data%nyvar,prof_data%yvarnames,prof_data%yvars)
+            call get_var_tools(sim,varIDs,prof_data%nwvar,prof_data%wvarnames,prof_data%wvars)
+            call set_hydro_var(sim,varIDs,prof_data%xvar)
 
             ! We also do it for the filter variables
             do ifilt=1,prof_data%nfilter
-                call get_filter_var_tools(varIDs,prof_data%filters(ifilt))
+                call get_filter_var_tools(sim,varIDs,prof_data%filters(ifilt))
             end do
 
             ! We always need the indexes of the velocities
@@ -519,10 +516,10 @@ module amr_profiles
             real(dbl),dimension(:,:),allocatable :: x,xorig
             real(hydro_real_kind),dimension(:,:),allocatable :: var
             real(dbl),dimension(:,:),allocatable :: grav_var
-            real(hydro_real_kind),dimension(:,:),allocatable :: tempvar
+            real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
             real(rt_real_kind),dimension(:,:),allocatable :: rt_var
-            real(rt_real_kind),dimension(:,:),allocatable :: temprt_var
+            real(dbl),dimension(:,:),allocatable :: temprt_var
             real(dbl),dimension(:,:),allocatable :: cellpos
             integer,dimension(:,:),allocatable :: nbor
             integer,dimension(:),allocatable :: son,tempson,iig
@@ -830,11 +827,7 @@ module amr_profiles
                                 ok_cell = ok_cell.and.(.not.ref(i))
                                 if (ok_cell) then
                                     ! Velocity transformed --> ONLY FOR CENTRAL CELL
-#if UPRE==4
-                                    vtemp = dble(var(ind_cell(i),ivx:ivz))
-#else
-                                    vtemp = var(ind_cell(i),ivx:ivz)
-#endif
+                                    vtemp = real(var(ind_cell(i),ivx:ivz),kind=dbl)
                                     vtemp = vtemp - reg%bulk_velocity
                                     call rotate_vector(vtemp,trans_matrix)
 
@@ -858,20 +851,16 @@ module amr_profiles
                                     tempson(0)       = son(ind_nbor(1,0))
                                     if (prof_data%use_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
                                     vtmp = vtemp
-#if UPRE==4
-                                    tempvar(0,ivx:ivz) = sngl(vtmp)
-#else
-                                    tempvar(0,ivx:ivz) = vtemp
-#endif
+                                    tempvar(0,ivx:ivz) = vtmp
                                     if (prof_data%use_gravity) tempgrav_var(0,2:4) = gtemp
                                     if (prof_data%use_rt) then
                                         do igroup=1,rtinfo%nGroups
                                             igrp = 1 + (amr%ndim + 1) * (igroup - 1)
                                             temprt_var(0,igrp) = rt_var(ind_nbor(1,0),igrp)
-                                            fluxtemp = dble(rt_var(ind_nbor(1,0),igrp+1:igrp+amr%ndim))
+                                            fluxtemp = real(rt_var(ind_nbor(1,0),igrp+1:igrp+amr%ndim),kind=dbl)
                                             call rotate_vector(fluxtemp,trans_matrix)
                                             fluxtmp = fluxtemp
-                                            temprt_var(0,igrp+1:igrp+amr%ndim) = sngl(fluxtmp)
+                                            temprt_var(0,igrp+1:igrp+amr%ndim) = fluxtmp
                                         end do
                                     end if
 
@@ -979,7 +968,7 @@ module amr_profiles
             character(128) :: nomfich
             real(dbl) :: distance,dx,ytemp
             type(vector) :: xtemp,vtemp,gtemp,fluxtemp
-            real(dbl),dimension(1:3) :: fluxtmp
+            real(dbl),dimension(1:3) :: fluxtmp,vtmp
             logical :: ok_cell,ok_filter,ok_cell_each,ok_sub
             integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
             real(dbl),dimension(1:8,1:3) :: xc
@@ -987,10 +976,10 @@ module amr_profiles
             real(dbl),dimension(:,:),allocatable :: xg,x,xorig
             real(hydro_real_kind),dimension(:,:,:),allocatable :: var
             real(dbl),dimension(:,:,:),allocatable :: grav_var
-            real(hydro_real_kind),dimension(:,:),allocatable :: tempvar
+            real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
             real(rt_real_kind),dimension(:,:,:),allocatable :: rt_var
-            real(rt_real_kind),dimension(:,:),allocatable :: temprt_var
+            real(dbl),dimension(:,:),allocatable :: temprt_var
             integer,dimension(:,:),allocatable :: son
             integer,dimension(:),allocatable :: tempson
             logical,dimension(:),allocatable :: ref
@@ -1260,11 +1249,7 @@ module amr_profiles
                                     xtemp = xtemp - reg%centre
                                     call rotate_vector(xtemp,trans_matrix)
                                     ! Velocity transformed
-#if UPRE==4
-                                    vtemp = dble(var(i,ind,ivx:ivz))
-#else
-                                    vtemp = var(i,ind,ivx:ivz)
-#endif
+                                    vtemp = real(var(i,ind,ivx:ivz),kind=dbl)
                                     vtemp = vtemp - reg%bulk_velocity
                                     call rotate_vector(vtemp,trans_matrix)
 
@@ -1282,20 +1267,16 @@ module amr_profiles
                                     tempson(0)       = son(i,ind)
                                     if (prof_data%use_gravity) tempgrav_var(0,:) = grav_var(i,ind,:)
                                     vtmp = vtemp
-#if UPRE==4
-                                    tempvar(0,ivx:ivz) = sngl(vtmp)
-#else
                                     tempvar(0,ivx:ivz) = vtmp
-#endif
                                     if (prof_data%use_gravity) tempgrav_var(0,2:4) = gtemp
                                     if (prof_data%use_rt) then
                                         do igroup=1,rtinfo%nGroups
                                             igrp = 1 + (amr%ndim + 1) * (igroup - 1)
                                             temprt_var(0,igrp) = rt_var(i,ind,igrp)
-                                            fluxtemp = dble(rt_var(i,ind,igrp+1:igrp+amr%ndim))
+                                            fluxtemp = real(rt_var(i,ind,igrp+1:igrp+amr%ndim),kind=dbl)
                                             call rotate_vector(fluxtemp,trans_matrix)
                                             fluxtmp = fluxtemp
-                                            temprt_var(0,igrp+1:igrp+amr%ndim) = sngl(fluxtmp)
+                                            temprt_var(0,igrp+1:igrp+amr%ndim) = fluxtmp
                                         end do
                                     end if
                                     tot_sel = tot_sel + 1
@@ -1374,13 +1355,13 @@ module amr_profiles
                     close(13)
                 end if
             end do cpuloop
-        if (verbose) then
-            write(*,*)'Total number of cells used (per filter): ', total_ncell
-            write(*,*)'Total number of cells in region and refined: ', tot_sel
-            write(*,*)'Total number of cells refined: ', tot_ref
-            write(*,*)'Total number of cells in region: ', tot_pos
-            write(*,*)'Total number of cells in substructures: ', tot_insubs
-        end if
+            if (verbose) then
+                write(*,*)'Total number of cells used (per filter): ', total_ncell
+                write(*,*)'Total number of cells in region and refined: ', tot_sel
+                write(*,*)'Total number of cells refined: ', tot_ref
+                write(*,*)'Total number of cells in region: ', tot_pos
+                write(*,*)'Total number of cells in substructures: ', tot_insubs
+            end if
         end subroutine get_cells_onedprofile_fast
     end subroutine onedprofile
 
@@ -1412,21 +1393,23 @@ module amr_profiles
 
         ! Set up hydro variables quicklook tools
         if (present(vardict)) then
+            ! Setup the kind of simulation variables
+            call setup_simulation_type(vardict)
             ! If the user provides their own variable dictionary,
             ! use that one instead of the automatic from the 
             ! hydro descriptor file (RAMSES)
             if (verbose) write(*,*)'Using user-provided variable dictionary'
-            call get_var_tools(vardict,prof_data%nzvar,prof_data%zvarnames,prof_data%zvars)
-            call get_var_tools(vardict,prof_data%nwvar,prof_data%wvarnames,prof_data%wvars)
+            call get_var_tools(sim,vardict,prof_data%nzvar,prof_data%zvarnames,prof_data%zvars)
+            call get_var_tools(sim,vardict,prof_data%nwvar,prof_data%wvarnames,prof_data%wvars)
             prof_data%xvar%name = prof_data%xvarname
             prof_data%yvar%name = prof_data%yvarname
-            call set_hydro_var(vardict,prof_data%xvar)
-            call set_hydro_var(vardict,prof_data%yvar)
+            call set_hydro_var(sim,vardict,prof_data%xvar)
+            call set_hydro_var(sim,vardict,prof_data%yvar)
             
             ! We also do it for the filter variables
             if (verbose.and.prof_data%nfilter>0) write(*,*)'Setting up filter variables'
             do ifilt=1,prof_data%nfilter
-                call get_filter_var_tools(vardict,prof_data%filters(ifilt))
+                call get_filter_var_tools(sim,vardict,prof_data%filters(ifilt))
             end do
 
             if (verbose) then
@@ -1449,14 +1432,16 @@ module amr_profiles
             ivz = vardict%get('velocity_z')
             if (verbose) write(*,*)'Finished setting up hydro variables'
         else
-            call get_var_tools(varIDs,prof_data%nzvar,prof_data%zvarnames,prof_data%zvars)
-            call get_var_tools(varIDs,prof_data%nwvar,prof_data%wvarnames,prof_data%wvars)
-            call set_hydro_var(varIDs,prof_data%xvar)
-            call set_hydro_var(varIDs,prof_data%yvar)
+            ! Setup the kind of simulation variables
+            call setup_simulation_type(vardict)
+            call get_var_tools(sim,varIDs,prof_data%nzvar,prof_data%zvarnames,prof_data%zvars)
+            call get_var_tools(sim,varIDs,prof_data%nwvar,prof_data%wvarnames,prof_data%wvars)
+            call set_hydro_var(sim,varIDs,prof_data%xvar)
+            call set_hydro_var(sim,varIDs,prof_data%yvar)
 
             ! We also do it for the filter variables
             do ifilt=1,prof_data%nfilter
-                call get_filter_var_tools(vardict,prof_data%filters(ifilt))
+                call get_filter_var_tools(sim,vardict,prof_data%filters(ifilt))
             end do
 
             ! We always need the indexes of the velocities
@@ -1507,10 +1492,10 @@ module amr_profiles
             real(dbl),dimension(:,:),allocatable :: xg,x,xorig
             real(hydro_real_kind),dimension(:,:,:),allocatable :: var
             real(dbl),dimension(:,:,:),allocatable :: grav_var
-            real(hydro_real_kind),dimension(:,:),allocatable :: tempvar
+            real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
             real(rt_real_kind),dimension(:,:,:),allocatable :: rt_var
-            real(rt_real_kind),dimension(:,:),allocatable :: temprt_var
+            real(dbl),dimension(:,:),allocatable :: temprt_var
             integer,dimension(:,:),allocatable :: son
             integer,dimension(:),allocatable :: tempson
             logical,dimension(:),allocatable :: ref
@@ -1780,11 +1765,7 @@ module amr_profiles
                                     xtemp = xtemp - reg%centre
                                     call rotate_vector(xtemp,trans_matrix)
                                     ! Velocity transformed
-#if UPRE==4
-                                    vtemp = dble(var(i,ind,ivx:ivz))
-#else
-                                    vtemp = var(i,ind,ivx:ivz)
-#endif
+                                    vtemp = real(var(i,ind,ivx:ivz),kind=dbl)
                                     vtemp = vtemp - reg%bulk_velocity
                                     call rotate_vector(vtemp,trans_matrix)
 
@@ -1802,20 +1783,16 @@ module amr_profiles
                                     tempson(0)       = son(i,ind)
                                     if (prof_data%use_gravity) tempgrav_var(0,:) = grav_var(i,ind,:)
                                     vtmp = vtemp
-#if UPRE==4
-                                    tempvar(0,ivx:ivz) = sngl(vtmp)
-#else
                                     tempvar(0,ivx:ivz) = vtmp
-#endif
                                     if (prof_data%use_gravity) tempgrav_var(0,2:4) = gtemp
                                     if (prof_data%use_rt) then
                                         do igroup=1,rtinfo%nGroups
                                             igrp = 1 + (amr%ndim + 1) * (igroup - 1)
                                             temprt_var(0,igrp) = rt_var(i,ind,igrp)
-                                            fluxtemp = dble(rt_var(i,ind,igrp+1:igrp+amr%ndim))
+                                            fluxtemp = real(rt_var(i,ind,igrp+1:igrp+amr%ndim),kind=dbl)
                                             call rotate_vector(fluxtemp,trans_matrix)
                                             fluxtmp = fluxtemp
-                                            temprt_var(0,igrp+1:igrp+amr%ndim) = sngl(fluxtmp)
+                                            temprt_var(0,igrp+1:igrp+amr%ndim) = fluxtmp
                                         end do
                                     end if
                                     tot_sel = tot_sel + 1
@@ -1967,11 +1944,11 @@ module amr_profiles
             real(dbl),dimension(:,:),allocatable :: x,xorig
             real(hydro_real_kind),dimension(:,:),allocatable :: var
             real(dbl),dimension(:,:),allocatable :: grav_var
-            real(hydro_real_kind),dimension(:,:),allocatable :: tempvar
+            real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
             real(dbl),dimension(:,:),allocatable :: cellpos
             real(rt_real_kind),dimension(:,:),allocatable :: rt_var
-            real(rt_real_kind),dimension(:,:),allocatable :: temprt_var
+            real(dbl),dimension(:,:),allocatable :: temprt_var
             integer,dimension(:,:),allocatable :: nbor
             integer,dimension(:),allocatable :: son,tempson,iig
             integer,dimension(:),allocatable :: ind_cell,ind_cell2
@@ -2265,11 +2242,7 @@ module amr_profiles
                                 ok_cell = ok_cell.and.(.not.ref(i))
                                 if (ok_cell) then
                                     ! Velocity transformed --> ONLY FOR CENTRAL CELL
-#if UPRE==4
-                                    vtemp = dble(var(ind_cell(i),ivx:ivz))
-#else
-                                    vtemp = var(ind_cell(i),ivx:ivz)
-#endif
+                                    vtemp = real(var(ind_cell(i),ivx:ivz),kind=dbl)
                                     vtemp = vtemp - reg%bulk_velocity
                                     call rotate_vector(vtemp,trans_matrix)
 
@@ -2292,20 +2265,16 @@ module amr_profiles
                                     tempson(0)       = son(ind_nbor(1,0))
                                     if (prof_data%use_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
                                     vtmp = vtemp
-#if UPRE==4
-                                    tempvar(0,ivx:ivz) = sngl(vtmp)
-#else
                                     tempvar(0,ivx:ivz) = vtemp
-#endif
                                     if (prof_data%use_gravity) tempgrav_var(0,2:4) = gtemp
                                     if (prof_data%use_rt) then
                                         do igroup=1,rtinfo%nGroups
                                             igrp = 1 + (amr%ndim + 1) * (igroup - 1)
                                             temprt_var(0,igrp) = rt_var(ind_nbor(1,0),igrp)
-                                            fluxtemp = dble(rt_var(ind_nbor(1,0),igrp+1:igrp+amr%ndim))
+                                            fluxtemp = real(rt_var(ind_nbor(1,0),igrp+1:igrp+amr%ndim),kind=dbl)
                                             call rotate_vector(fluxtemp,trans_matrix)
                                             fluxtmp = fluxtemp
-                                            temprt_var(0,igrp+1:igrp+amr%ndim) = sngl(fluxtmp)
+                                            temprt_var(0,igrp+1:igrp+amr%ndim) = fluxtmp
                                         end do
                                     end if
                                     do inbor=1,amr%twondim

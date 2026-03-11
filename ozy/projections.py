@@ -1007,7 +1007,6 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
     cam = obs_instruments.init_camera(centre,los_axis,up_axis,np.array([width_x.d,width_y.d]),los_axis,velocity,
                                       width_x.d,width_x.d,hdul[0].header['NAXIS1'],
                                       len(centers))
-    stellar = False
     for i in range(0, ax.shape[0]):
         for j in range(0, ax.shape[1]):
             ivar = i*ax.shape[1] + j
@@ -1023,7 +1022,10 @@ def plot_single_galaxy_projection(proj_FITS,fields,logscale=True,scalebar=(3,'kp
             ax[i,j].axis('off')
             h = [k for k in range(0,len(hdul)) if hdul[k].header['btype']==fields[ivar]][0]
             correct_str = fields[ivar].split('/')[1]
-            nonum_str = remove_last_suffix_if_numeric(correct_str)
+            if correct_str.startswith('rt_flux'):
+                nonum_str = correct_str
+            else:
+                nonum_str = remove_last_suffix_if_numeric(correct_str)
             plotting_def = get_plotting_def(nonum_str,fields[ivar].split('/')[0])
             print(fields[ivar],np.nanmin(hdul[h].data.T),np.nanmax(hdul[h].data.T))
             if smooth:
