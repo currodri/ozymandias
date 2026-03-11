@@ -50,7 +50,7 @@ def print_art():
 
 def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
           build_HaloMaker=True, build_TreeMaker=False,
-          extension='hdf5', prefix='ozy_', **kwargs):
+          extension='hdf5', prefix='ozy_', verbose=False, **kwargs):
     """Driver function for running `ÒZYMANDIAS``on multiple snapshots.
     
     """
@@ -72,7 +72,7 @@ def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
         nprocs = 1
         rank = 0
     
-    if rank == 0:
+    if rank == 0 and verbose:
         print_art()
     snaps = []
     for snapdir in snapdirs:
@@ -80,10 +80,13 @@ def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
             snaps.append(RAMSESSnapshot(snapdir, snapname, snapindex))
     
     if build_HaloMaker:
+        run_kwargs = dict(kwargs)
+        run_kwargs.setdefault('verbose', verbose)
         rank_snaps = snaps[rank::nprocs]
         for snap in rank_snaps:
-            if skipran: print('Task # %d: Building HaloMaker for %s' % (rank, snap.snap))
-            snap.build_HaloMaker(skipran, **kwargs)
+            if verbose:
+                print('Task # %d: Building HaloMaker for %s' % (rank, snap.snap))
+            snap.build_HaloMaker(skipran, **run_kwargs)
 
     # if build_TreeMaker:
 

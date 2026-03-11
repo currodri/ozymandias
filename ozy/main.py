@@ -226,6 +226,7 @@ class CosmoSnapshot(Snapshot):
 
         self._args = args
         self._kwargs = kwargs
+        verbose = self._kwargs.get('verbose', False)
 
         # 1. Setup the HaloMaker runs
         DM_catalogue = hmCatalogue(self,self.simupath,self.snapindex)
@@ -236,8 +237,8 @@ class CosmoSnapshot(Snapshot):
         stars_catalogue.setup_GalFinderRun(run=True)
 
         # 3. Read the catalogues and save the new groups
-        DM_catalogue.load_catalogue()
-        stars_catalogue.load_catalogue()
+        DM_catalogue.load_catalogue(verbose=verbose)
+        stars_catalogue.load_catalogue(verbose=verbose)
 
         if self._has_halos:
             # Make assignment
@@ -247,7 +248,8 @@ class CosmoSnapshot(Snapshot):
             main_gal_ID = -1
             if 'main_gal' in self._kwargs:
                 if self._kwargs['main_gal']:
-                    print('Computing details just for main galaxy in simulation.')
+                    if verbose:
+                        print('Computing details just for main galaxy in simulation.')
                     masses = [i.virial_quantities['mass'] for i in self.galaxies]
                     main_gal_ID = self.galaxies[np.argmax(masses)].ID
                     
@@ -265,7 +267,8 @@ class CosmoSnapshot(Snapshot):
             assign.central_galaxies(self)
             link.create_sublists(self)
         else:
-            print("WARNING: Not a single virialised halo above the minimum particle threshold.")
+            if verbose:
+                print("WARNING: Not a single virialised halo above the minimum particle threshold.")
 
     
     # def build_HaloMaker(self, *args, **kwargs):

@@ -87,7 +87,7 @@ class Galaxy(Group):
         self.pressure_support = {}
         self.velocity_dispersion = {}
         self.stellar_properties = {}
-    def _process_galaxy(self):
+    def _process_galaxy(self, **kwargs):
         """Process each galaxy after creation. This means
         calculating the total mass, and then calculate the rest of masses,
         radial quantities, velocity dispersions, angular momentum...
@@ -281,16 +281,18 @@ class Galaxy(Group):
                     do_binning += [True]
 
         # Begin integration
+        verbose = self.obj._kwargs.get('verbose', False)
         glob_attrs = integrate_part(self.obj,group=self,rmin=(0.0,'rvir'),
                                     rmax=(0.2,'rvir'),region_type='sphere',
                                     filter=filters,variables=variables,
                                     weights=weights,do_binning=do_binning,
-                                    verbose=False)
+                                    verbose=verbose)
 
         # Stellar details
         self.mass['stellar'] = self.obj.quantity(glob_attrs.result.total[0,1,0,0], 'code_mass')
         self.nstar = glob_attrs.result.nvalues[0,1]
-        print('Number of stellar particles in galaxy %s: %d,%d'%(self.ID,self.nstar,self.npart))
+        if verbose:
+            print('Number of stellar particles in galaxy %s: %d,%d'%(self.ID,self.nstar,self.npart))
         self.stellar_properties['age'] = self.obj.array(pdf_handler_to_stats(self.obj,'part',glob_attrs.result,1,1), 'Gyr')
         self.sfr['10Myr'] = self.obj.quantity(glob_attrs.result.total[2,1,0,0],'Msun/yr')
         self.sfr['100Myr'] = self.obj.quantity(glob_attrs.result.total[3,1,0,0],'Msun/yr')
@@ -305,7 +307,8 @@ class Galaxy(Group):
         # DM details
         self.mass['dm'] = self.obj.quantity(glob_attrs.result.total[0,2,0,0], 'code_mass')
         self.ndm = glob_attrs.result.nvalues[0,2]
-        print('Number of DM particles in galaxy %s (%s): %d,%d'%(self.ID,self.obj.halos[self.parent_halo_index].ID,self.ndm,self.obj.halos[self.parent_halo_index].npart))
+        if verbose:
+            print('Number of DM particles in galaxy %s (%s): %d,%d'%(self.ID,self.obj.halos[self.parent_halo_index].ID,self.ndm,self.obj.halos[self.parent_halo_index].npart))
         self.angular_mom['dm'] = self.obj.array(np.array([glob_attrs.result.total[4,2,0,0],glob_attrs.result.total[5,2,0,0],glob_attrs.result.total[6,2,0,0]]),
                                                              'code_mass*code_length*code_velocity')
 
@@ -398,11 +401,12 @@ class Galaxy(Group):
             do_binning += [True,True,True]
                 
         # Begin integration
+        verbose = self.obj._kwargs.get('verbose', False)
         glob_attrs = integrate_hydro(self.obj,group=self,rmin=(0.0,'rvir'),
                                      rmax=(0.2,'rvir'),region_type='sphere',
                                      filter=filt,variables=quantity_names,
                                      weights=weight_names,do_binning=do_binning,
-                                     verbose=False)
+                                     verbose=verbose)
 
         # Assign results to galaxy object
         if self.obj.simulation.physics['hydro']:
@@ -427,7 +431,8 @@ class Galaxy(Group):
                                                                                           nvar_metals+i,0),'dimensionless')
             for i in range(0, len(phase_names)):
                 self.mass['gas_'+phase_names[i]] = self.obj.quantity(glob_attrs.result.total[0,i+1,0,0], 'code_mass')
-                print('Mass in %s gas is %.5f'%(phase_names[i],self.mass['gas_'+phase_names[i]].to('Msun')))
+                if verbose:
+                    print('Mass in %s gas is %.5f'%(phase_names[i],self.mass['gas_'+phase_names[i]].to('Msun')))
                 self.gas_density[phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,'gas',glob_attrs.result,1,i+1),'code_density')
                 self.temperature[phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,'gas',glob_attrs.result,2,i+1),'code_temperature')
                 self.angular_mom['gas_'+phase_names[i]] = self.obj.array(np.array([glob_attrs.result.total[3,0,0,0],
@@ -610,12 +615,15 @@ class Galaxy(Group):
             do_binning += [True,True,True]
                 
         # Begin integration
+        verbose = self.obj._kwargs.get('verbose', False)
         glob_attrs = integrate_hydro(self.obj,group=self,rmin=(0.2,'rvir'),
                                      rmax=(1.0,'rvir'),region_type='sphere',
                                      filter=filt,variables=quantity_names,
-                                     weights=weight_names,do_binning=do_binning)
+                                     weights=weight_names,do_binning=do_binning,
+                                     verbose=verbose)
 
-        print('Integrating gas quantities for the halo region...')
+        if verbose:
+            print('Integrating gas quantities for the halo region...')
 
         # Assign results to galaxy object
         if self.obj.simulation.physics['hydro']:
@@ -784,7 +792,8 @@ class Halo(Group):
     def substructure_list(self):
         subs = []
         if self.nextsub == 0:
-            print('This halo does not seem to have a substructure assigned!')
+            if self.obj._kwargs.get('verbose', False):
+                print('This halo does not seem to have a substructure assigned!')
             return subs
         haloIDs = [i.ID for i in self.obj.halos]
         nexti = self.nextsub

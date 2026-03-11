@@ -88,7 +88,7 @@ class hmCatalogue(object):
             os.system(runCmd)
             os.chdir(here)
     
-    def load_catalogue(self):
+    def load_catalogue(self, verbose=False):
 
         # 1. Check if the HaloMaker output directory exists already
         if not os.path.exists(self.HaloDir):
@@ -161,7 +161,8 @@ class hmCatalogue(object):
             new_group.rho_0 = self.Obj.quantity(halos[i,30]*1e11/hm_correction_fact**3., 'Msun/Mpc**3') # Halo profile central density
             new_group.r_c = self.Obj.quantity(halos[i,31] * hm_correction_fact, 'Mpc') # Halo profile scale radius
 
-            print(grouptype, new_group.ID, new_group.npart, new_group.mass['total']/1e6, new_group.virial_quantities['radius'].to('kpc'), new_group.radius['total'].to('kpc'))
+            if verbose:
+                print(grouptype, new_group.ID, new_group.npart, new_group.mass['total']/1e6, new_group.virial_quantities['radius'].to('kpc'), new_group.radius['total'].to('kpc'))
             # Halo contamination (for zoom simulations)
             if self.is_zoom:
                 new_group.contamination = halos[i,32]
@@ -177,11 +178,13 @@ class hmCatalogue(object):
         if self.is_galaxies:
             self.Obj.ngalaxies = nselected_halos + nselected_subhalos
             self.Obj.nsatellites = nselected_subhalos
-            print(f"Loaded {self.Obj.ngalaxies} galaxies and {self.Obj.nsatellites} satellites from {self.TreeFile}.")
+            if verbose:
+                print(f"Loaded {self.Obj.ngalaxies} galaxies and {self.Obj.nsatellites} satellites from {self.TreeFile}.")
         else:
             self.Obj.nhalos = nselected_halos + nselected_subhalos
             self.Obj.nsubhalos = nselected_subhalos
-            print(f"Loaded {self.Obj.nhalos} halos and {self.Obj.nsubhalos} subhalos from {self.TreeFile}.")
+            if verbose:
+                print(f"Loaded {self.Obj.nhalos} halos and {self.Obj.nsubhalos} subhalos from {self.TreeFile}.")
         
 class galaxyCatalogue(hmCatalogue):
     """Class for galaxy catalogues, inheriting from hmCatalogue."""
