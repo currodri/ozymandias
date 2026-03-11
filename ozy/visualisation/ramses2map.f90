@@ -825,7 +825,7 @@ module maps
             real(dbl),dimension(1:proj%nvars) :: hvalues
             real(dbl),dimension(:,:),allocatable :: xg,x,xorig
             real(hydro_real_kind),dimension(:,:,:),allocatable :: var
-            real(dbl),dimension(:,:,:),allocatable :: grav_var
+            real(hydro_real_kind),dimension(:,:,:),allocatable :: grav_var
             real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
             real(rt_real_kind),dimension(:,:,:),allocatable :: rt_var
@@ -1143,7 +1143,7 @@ module maps
 
                                         ! Gravitational acc
                                         if (read_gravity) then
-                                            gtemp = grav_var(i,ind,2:4)
+                                            gtemp = real(grav_var(i,ind,2:4),kind=dbl)
                                             call rotate_vector(gtemp,trans_matrix)
                                         endif
                                         allocate(tempvar(0:amr%twondim,sim%nvar))
@@ -1311,7 +1311,7 @@ module maps
             real(dbl),dimension(1:3,1:3) :: trans_matrix,los_matrix
             real(dbl),dimension(:,:),allocatable :: x,xorig
             real(hydro_real_kind),dimension(:,:),allocatable :: var
-            real(dbl),dimension(:,:),allocatable :: grav_var
+            real(hydro_real_kind),dimension(:,:),allocatable :: grav_var
             real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
             real(dbl),dimension(:,:),allocatable :: cellpos
@@ -1568,11 +1568,9 @@ module maps
                             if(ngrida>0)then
                                 do ind=1,amr%twotondim
                                     iskip = amr%ncoarse+(ind-1)*amr%ngridmax
-                                    read(12)xxg
-                                    grav_var(grid(ilevel)%ind_grid(:)+iskip,1) = xxg(:)
+                                    read(12)grav_var(grid(ilevel)%ind_grid(:)+iskip,1)
                                     do ivar=1,amr%ndim
-                                        read(12)xxg
-                                        grav_var(grid(ilevel)%ind_grid(:)+iskip,ivar+1) = xxg(:)
+                                        read(12)grav_var(grid(ilevel)%ind_grid(:)+iskip,ivar+1)
                                     end do
                                 end do
                             end if
@@ -1675,7 +1673,7 @@ module maps
 
                                         ! Gravitational acc --> ONLY FOR CENTRAL CELL
                                         if (read_gravity) then
-                                            gtemp = grav_var(ind_cell(i),2:4)
+                                            gtemp = real(grav_var(ind_cell(i),2:4),kind=dbl)
                                             call rotate_vector(gtemp,trans_matrix)
                                         endif
 

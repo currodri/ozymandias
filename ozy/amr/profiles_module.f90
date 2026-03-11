@@ -515,7 +515,7 @@ module amr_profiles
             real(dbl),dimension(1:3,1:3) :: trans_matrix
             real(dbl),dimension(:,:),allocatable :: x,xorig
             real(hydro_real_kind),dimension(:,:),allocatable :: var
-            real(dbl),dimension(:,:),allocatable :: grav_var
+            real(hydro_real_kind),dimension(:,:),allocatable :: grav_var
             real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
             real(rt_real_kind),dimension(:,:),allocatable :: rt_var
@@ -718,15 +718,9 @@ module amr_profiles
                             if(ngrida>0)then
                                 do ind=1,amr%twotondim
                                     iskip = amr%ncoarse+(ind-1)*amr%ngridmax
-                                    read(12)xxg
-                                    do i=1,ngrida
-                                        grav_var(grid(ilevel)%ind_grid(i)+iskip,1) = xxg(i)
-                                    end do
+                                    read(12)grav_var(grid(ilevel)%ind_grid(:)+iskip,1)
                                     do ivar=1,amr%ndim
-                                        read(12)xxg
-                                        do i=1,ngrida
-                                            grav_var(grid(ilevel)%ind_grid(i)+iskip,ivar+1) = xxg(i)
-                                        end do
+                                        read(12)grav_var(grid(ilevel)%ind_grid(:)+iskip,ivar+1)
                                     end do
                                 end do
                             end if
@@ -833,7 +827,7 @@ module amr_profiles
 
                                     ! Gravitational acc --> ONLY FOR CENTRAL CELL
                                     if (prof_data%use_gravity) then
-                                        gtemp = grav_var(ind_cell(i),2:4)
+                                        gtemp = real(grav_var(ind_cell(i),2:4),kind=dbl)
                                         call rotate_vector(gtemp,trans_matrix)
                                     endif
 
@@ -975,7 +969,7 @@ module amr_profiles
             real(dbl),dimension(3,3) :: trans_matrix
             real(dbl),dimension(:,:),allocatable :: xg,x,xorig
             real(hydro_real_kind),dimension(:,:,:),allocatable :: var
-            real(dbl),dimension(:,:,:),allocatable :: grav_var
+            real(hydro_real_kind),dimension(:,:,:),allocatable :: grav_var
             real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
             real(rt_real_kind),dimension(:,:,:),allocatable :: rt_var
@@ -1255,7 +1249,7 @@ module amr_profiles
 
                                     ! Gravitational acc
                                     if (prof_data%use_gravity) then
-                                        gtemp = grav_var(i,ind,2:4)
+                                        gtemp = real(grav_var(i,ind,2:4),kind=dbl)
                                         call rotate_vector(gtemp,trans_matrix)
                                     endif
                                     allocate(tempvar(0:amr%twondim,sim%nvar))
@@ -1491,7 +1485,7 @@ module amr_profiles
             real(dbl),dimension(3,3) :: trans_matrix
             real(dbl),dimension(:,:),allocatable :: xg,x,xorig
             real(hydro_real_kind),dimension(:,:,:),allocatable :: var
-            real(dbl),dimension(:,:,:),allocatable :: grav_var
+            real(hydro_real_kind),dimension(:,:,:),allocatable :: grav_var
             real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
             real(rt_real_kind),dimension(:,:,:),allocatable :: rt_var
@@ -1771,7 +1765,7 @@ module amr_profiles
 
                                     ! Gravitational acc
                                     if (prof_data%use_gravity) then
-                                        gtemp = grav_var(i,ind,2:4)
+                                        gtemp = real(grav_var(i,ind,2:4),kind=dbl)
                                         call rotate_vector(gtemp,trans_matrix)
                                     endif
                                     allocate(tempvar(0:amr%twondim,sim%nvar))
@@ -1943,7 +1937,7 @@ module amr_profiles
             real(dbl),dimension(1:3,1:3) :: trans_matrix
             real(dbl),dimension(:,:),allocatable :: x,xorig
             real(hydro_real_kind),dimension(:,:),allocatable :: var
-            real(dbl),dimension(:,:),allocatable :: grav_var
+            real(hydro_real_kind),dimension(:,:),allocatable :: grav_var
             real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
             real(dbl),dimension(:,:),allocatable :: cellpos
@@ -2155,11 +2149,9 @@ module amr_profiles
                             if(ngrida>0)then
                                 do ind=1,amr%twotondim
                                     iskip = amr%ncoarse+(ind-1)*amr%ngridmax
-                                    read(12)xxg
-                                    grav_var(grid(ilevel)%ind_grid(:)+iskip,1) = xxg(:)
+                                    read(12)grav_var(grid(ilevel)%ind_grid(:)+iskip,1)
                                     do ivar=1,amr%ndim
-                                        read(12)xxg
-                                        grav_var(grid(ilevel)%ind_grid(:)+iskip,ivar+1) = xxg(:)
+                                        read(12)grav_var(grid(ilevel)%ind_grid(:)+iskip,ivar+1)
                                     end do
                                 end do
                             end if
@@ -2248,7 +2240,7 @@ module amr_profiles
 
                                     ! Gravitational acc --> ONLY FOR CENTRAL CELL
                                     if (prof_data%use_gravity) then
-                                        gtemp = grav_var(ind_cell(i),2:4)
+                                        gtemp = real(grav_var(ind_cell(i),2:4),kind=dbl)
                                         call rotate_vector(gtemp,trans_matrix)
                                     endif
                                     ! Get neighbours
