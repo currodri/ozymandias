@@ -293,6 +293,10 @@ module part_integrator
         ! Obtain details of the particle variables stored
         call read_partfile_descriptor(repository)
 
+        ! Always read the hydrofile descriptor to ge the type of simulation
+        call read_hydrofile_descriptor(repository)
+        call setup_simulation_type(varIDs)
+
         ! Compute the Hilbert curve
         call get_cpu_map(reg)
 
@@ -339,21 +343,21 @@ module part_integrator
             partIDs = part_dict
             partvar_types = part_vtypes
 
-            if (verbose) then
-                write(*,*) 'Using particle dictionary provided by the user'
-                write(*,*) 'Number of variables: ',attrs%nvars
-                write(*,*) 'Number of weight variables: ',attrs%nwvars
-                write(*,*) 'Number of filters: ',attrs%nfilter
+            ! if (verbose) then
+            !     write(*,*) 'Using particle dictionary provided by the user'
+            !     write(*,*) 'Number of variables: ',attrs%nvars
+            !     write(*,*) 'Number of weight variables: ',attrs%nwvars
+            !     write(*,*) 'Number of filters: ',attrs%nfilter
 
-                do ii = 1, attrs%nvars
-                    write(*,*) 'Variable ',ii,' name: ',attrs%varnames(ii)
-                    write(*,*) 'Variable ',ii,' type: ',attrs%vars(ii)%vartype
-                end do
-                do ii = 1, attrs%nwvars
-                    write(*,*) 'Weight variable ',ii,' name: ',attrs%wvarnames(ii)
-                    write(*,*) 'Weight variable ',ii,' type: ',attrs%wvars(ii)%vartype
-                end do
-            end if
+            !     do ii = 1, attrs%nvars
+            !         write(*,*) 'Variable ',ii,' name: ',attrs%varnames(ii)
+            !         write(*,*) 'Variable ',ii,' type: ',attrs%vars(ii)%vartype
+            !     end do
+            !     do ii = 1, attrs%nwvars
+            !         write(*,*) 'Weight variable ',ii,' name: ',attrs%wvarnames(ii)
+            !         write(*,*) 'Weight variable ',ii,' type: ',attrs%wvars(ii)%vartype
+            !     end do
+            ! end if
         else
             ! If the user does not provide a dictionary, we just use the one
             ! from the particle_file_descriptor.txt (RAMSES)

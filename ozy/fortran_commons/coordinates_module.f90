@@ -404,7 +404,7 @@ module geometrical_regions
                 &reg%ymin <= ptemp%y.and.ptemp%y <= reg%ymax.and.&
                 &reg%zmin <= ptemp%z.and.ptemp%z <= reg%zmax)
         if (ok) then
-            distance=magnitude(ptemp)
+            distance=magnitude(p)
         endif
     end subroutine cube
 

@@ -27,6 +27,7 @@ class Group(object):
         self.hostsub  = -1
         self.nsub     = -1
         self.nextsub  = -1
+        self.subs_list = []
         self.npart    = 0
         self.tstep    = -1
         self.units    = 'code'
@@ -87,6 +88,25 @@ class Galaxy(Group):
         self.pressure_support = {}
         self.velocity_dispersion = {}
         self.stellar_properties = {}
+
+    @property
+    def substructure_list(self):
+        subs = []
+        if self.nextsub == 0:
+            if self.obj._kwargs.get('verbose', False):
+                print('This galaxy does not seem to have a substructure assigned!', flush=True)
+            return subs
+        galIDs = [i.ID for i in self.obj.galaxies]
+        nexti = self.nextsub
+        while nexti != -1:
+            if len(np.where(nexti == galIDs)[0]) != 0:
+                nextindex = np.where(nexti == galIDs)[0][0]
+                subs.append(self.obj.galaxies[nextindex])
+                nexti = self.obj.galaxies[nextindex].nextsub
+            else:
+                break
+        return subs
+    
     def _process_galaxy(self, **kwargs):
         """Process each galaxy after creation. This means
         calculating the total mass, and then calculate the rest of masses,
@@ -127,7 +147,13 @@ class Galaxy(Group):
         self.nstar = 0
         self.sfr['10Myr'] = self.obj.quantity(0.0,'Msun/yr')
         self.sfr['100Myr'] = self.obj.quantity(0.0,'Msun/yr')
-        self.metallicity['stellar'] = self.obj.array(empty_array, 'dimensionless') # Mass-weighted average!
+        self.stellar_properties['age'] = self.obj.array(empty_array, 'Gyr')
+        if self.obj.simulation.physics['metallicity']:
+            self.stellar_properties['metallicity'] = self.obj.array(empty_array, 'dimensionless')
+        if self.obj.simulation.physics['metals']:
+            for el, present in self.obj.simulation.elements.items():
+                if present:
+                    self.stellar_properties[el+'_fraction'] = self.obj.array(empty_array, 'dimensionless')
         self.angular_mom['stellar'] = self.obj.array(np.array([0,0,0]),
                                                              'code_mass*code_length*code_velocity')
         
@@ -143,11 +169,15 @@ class Galaxy(Group):
             self.energies['thermal_energy'] = self.obj.quantity(0.0, 'code_mass * code_velocity**2')
             self.energies['thermal_energy_specific'] = self.obj.array(empty_array, 'code_specific_energy')
             self.pressure_support['grav_therpfrsphere'] = self.obj.array(empty_array, 'dimensionless')
-            self.velocity_dispersion['gas_turbulent'] = self.obj.array(empty_array, 'dimensionless')
+            self.velocity_dispersion['gas_turbulent'] = self.obj.array(empty_array, 'code_velocity')
             if not self.obj.simulation.physics['magnetic'] and not self.obj.simulation.physics['cr']:
                 self.sf_efficiency['eff_FK2'] = self.obj.array(empty_array, 'dimensionless')
-            if self.obj.simulation.physics['metals']:
+            if self.obj.simulation.physics['metallicity']:
                 self.metallicity['gas'] = self.obj.array(empty_array, 'dimensionless')
+            if self.obj.simulation.physics['metals']:
+                for el, present in self.obj.simulation.elements.items():
+                    if present:
+                        self.metallicity[el+'_fraction'] = self.obj.array(empty_array, 'dimensionless')
             for i in range(0, len(phase_names)):
                 self.mass['gas_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass')
                 self.gas_density[phase_names[i]] = self.obj.array(empty_array, 'code_density')
@@ -158,8 +188,62 @@ class Galaxy(Group):
                 self.energies['thermal_energy_specific_'+phase_names[i]] = self.obj.array(empty_array, 'code_specific_energy')
                 self.pressure_support['grav_therpfrsphere_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
                 self.velocity_dispersion['gas_turbulent_'+phase_names[i]] = self.obj.array(empty_array, 'code_velocity')
-                if self.obj.simulation.physics['metals']:
+                if self.obj.simulation.physics['metallicity']:
                     self.metallicity['gas_'+phase_names[i]] = self.obj.array(empty_array,'dimensionless')
+                if self.obj.simulation.physics['metals']:
+                    for el, present in self.obj.simulation.elements.items():
+                        if present:
+                            self.metallicity[el+'_fraction'+'_'+phase_names[i]] = self.obj.array(empty_array,'dimensionless')
+            if self.obj.simulation.physics['dust']:
+                self.dust['CSmall_mass'] = self.obj.quantity(0.0, 'code_mass')
+                self.dust['CLarge_mass'] = self.obj.quantity(0.0, 'code_mass')
+                self.dust['SilSmall_mass'] = self.obj.quantity(0.0, 'code_mass')
+                self.dust['SilLarge_mass'] = self.obj.quantity(0.0, 'code_mass')
+                self.dust['CSmall_density'] = self.obj.array(empty_array, 'code_density')
+                self.dust['CLarge_density'] = self.obj.array(empty_array, 'code_density')
+                self.dust['SilSmall_density'] = self.obj.array(empty_array, 'code_density')
+                self.dust['SilLarge_density'] = self.obj.array(empty_array, 'code_density')
+                self.dust['CSmall_fraction'] = self.obj.array(empty_array, 'dimensionless')
+                self.dust['CLarge_fraction'] = self.obj.array(empty_array, 'dimensionless')
+                self.dust['SilSmall_fraction'] = self.obj.array(empty_array, 'dimensionless')
+                self.dust['SilLarge_fraction'] = self.obj.array(empty_array, 'dimensionless')
+                self.dust['DTM'] = self.obj.array(empty_array, 'dimensionless')
+                self.dust['DTG'] = self.obj.array(empty_array, 'dimensionless')
+                self.dust['STL'] = self.obj.array(empty_array, 'dimensionless')
+                self.dust['CSR'] = self.obj.array(empty_array, 'dimensionless')
+                if self.obj.simulation.physics['PAHs']:
+                    self.dust['qPAH'] = self.obj.array(empty_array, 'dimensionless')
+                    self.dust['PAHSmall_mass'] = self.obj.quantity(0.0, 'code_mass')
+                    self.dust['PAHLarge_mass'] = self.obj.quantity(0.0, 'code_mass')
+                    self.dust['PAHSmall_density'] = self.obj.array(empty_array, 'code_density')
+                    self.dust['PAHLarge_density'] = self.obj.array(empty_array, 'code_density')
+                    self.dust['PAHSmall_fraction'] = self.obj.array(empty_array, 'dimensionless')
+                    self.dust['PAHLarge_fraction'] = self.obj.array(empty_array, 'dimensionless')
+                for i in range(0, len(phase_names)):
+                    self.dust['CSmall_mass_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass')
+                    self.dust['CLarge_mass_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass')
+                    self.dust['SilSmall_mass_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass')
+                    self.dust['SilLarge_mass_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass')
+                    self.dust['CSmall_density_'+phase_names[i]] = self.obj.array(empty_array, 'code_density')
+                    self.dust['CLarge_density_'+phase_names[i]] = self.obj.array(empty_array, 'code_density')
+                    self.dust['SilSmall_density_'+phase_names[i]] = self.obj.array(empty_array, 'code_density')
+                    self.dust['SilLarge_density_'+phase_names[i]] = self.obj.array(empty_array, 'code_density')
+                    self.dust['CSmall_fraction_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+                    self.dust['CLarge_fraction_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+                    self.dust['SilSmall_fraction_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+                    self.dust['SilLarge_fraction_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+                    self.dust['DTM_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+                    self.dust['DTG_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+                    self.dust['STL_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+                    self.dust['CSR_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+                    if self.obj.simulation.physics['PAHs']:
+                        self.dust['qPAH_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+                        self.dust['PAHSmall_mass_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass')
+                        self.dust['PAHLarge_mass_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass')
+                        self.dust['PAHSmall_density_'+phase_names[i]] = self.obj.array(empty_array, 'code_density')
+                        self.dust['PAHLarge_density_'+phase_names[i]] = self.obj.array(empty_array, 'code_density')
+                        self.dust['PAHSmall_fraction_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+                        self.dust['PAHLarge_fraction_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
         else:
             self.mass['gas'] = self.obj.quantity(0.0, 'code_mass')
         
@@ -205,8 +289,12 @@ class Galaxy(Group):
             self.energies['halo_thermal_energy_specific'] = self.obj.array(empty_array, 'code_specific_energy')
             self.pressure_support['halo_grav_therpfrsphere'] = self.obj.array(empty_array, 'dimensionless')
             self.velocity_dispersion['halo_gas_turbulent'] = self.obj.array(empty_array, 'code_velocity')
-            if self.obj.simulation.physics['metals']:
+            if self.obj.simulation.physics['metallicity']:
                 self.metallicity['halo_gas'] = self.obj.array(empty_array,'dimensionless')
+            if self.obj.simulation.physics['metals']:
+                for el, present in self.obj.simulation.elements.items():
+                    if present:
+                        self.metallicity[el+'_fraction'] = self.obj.array(empty_array, 'dimensionless')
             for i in range(0, len(phase_names)):
                 self.mass['halo_gas_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass')
                 self.gas_density['halo_gas_'+phase_names[i]] = self.obj.array(empty_array,'code_density')
@@ -217,6 +305,62 @@ class Galaxy(Group):
                 self.energies['halo_thermal_energy_specific_'+phase_names[i]] = self.obj.array(empty_array,'code_specific_energy')
                 self.pressure_support['halo_grav_therpfrsphere_'+phase_names[i]] = self.obj.array(empty_array,'dimensionless')
                 self.velocity_dispersion['halo_gas_turbulent_'+phase_names[i]] = self.obj.array(empty_array,'code_velocity')
+                if self.obj.simulation.physics['metallicity']:
+                    self.metallicity['halo_gas_'+phase_names[i]] = self.obj.array(empty_array,'dimensionless')
+                if self.obj.simulation.physics['metals']:
+                    for el, present in self.obj.simulation.elements.items():
+                        if present:
+                            self.metallicity[el+'_fraction'+'_'+phase_names[i]] = self.obj.array(empty_array,'dimensionless')
+            if self.obj.simulation.physics['dust']:
+                self.dust['halo_CSmall_mass'] = self.obj.quantity(0.0, 'code_mass')
+                self.dust['halo_CLarge_mass'] = self.obj.quantity(0.0, 'code_mass')
+                self.dust['halo_SilSmall_mass'] = self.obj.quantity(0.0, 'code_mass')
+                self.dust['halo_SilLarge_mass'] = self.obj.quantity(0.0, 'code_mass')
+                self.dust['halo_CSmall_density'] = self.obj.array(empty_array, 'code_density')
+                self.dust['halo_CLarge_density'] = self.obj.array(empty_array, 'code_density')
+                self.dust['halo_SilSmall_density'] = self.obj.array(empty_array, 'code_density')
+                self.dust['halo_SilLarge_density'] = self.obj.array(empty_array, 'code_density')
+                self.dust['halo_CSmall_fraction'] = self.obj.array(empty_array, 'dimensionless')
+                self.dust['halo_CLarge_fraction'] = self.obj.array(empty_array, 'dimensionless')
+                self.dust['halo_SilSmall_fraction'] = self.obj.array(empty_array, 'dimensionless')
+                self.dust['halo_SilLarge_fraction'] = self.obj.array(empty_array, 'dimensionless')
+                self.dust['halo_DTM'] = self.obj.array(empty_array, 'dimensionless')
+                self.dust['halo_DTG'] = self.obj.array(empty_array, 'dimensionless')
+                self.dust['halo_STL'] = self.obj.array(empty_array, 'dimensionless')
+                self.dust['halo_CSR'] = self.obj.array(empty_array, 'dimensionless')
+                if self.obj.simulation.physics['PAHs']:
+                    self.dust['halo_qPAH'] = self.obj.array(empty_array, 'dimensionless')
+                    self.dust['halo_PAHSmall_mass'] = self.obj.quantity(0.0, 'code_mass')
+                    self.dust['halo_PAHLarge_mass'] = self.obj.quantity(0.0, 'code_mass')
+                    self.dust['halo_PAHSmall_density'] = self.obj.array(empty_array, 'code_density')
+                    self.dust['halo_PAHLarge_density'] = self.obj.array(empty_array, 'code_density')
+                    self.dust['halo_PAHSmall_fraction'] = self.obj.array(empty_array, 'dimensionless')
+                    self.dust['halo_PAHLarge_fraction'] = self.obj.array(empty_array, 'dimensionless')
+                for i in range(0, len(phase_names)):
+                    self.dust['halo_CSmall_mass_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass')
+                    self.dust['halo_CLarge_mass_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass')
+                    self.dust['halo_SilSmall_mass_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass')
+                    self.dust['halo_SilLarge_mass_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass')
+                    self.dust['halo_CSmall_density_'+phase_names[i]] = self.obj.array(empty_array, 'code_density')
+                    self.dust['halo_CLarge_density_'+phase_names[i]] = self.obj.array(empty_array, 'code_density')
+                    self.dust['halo_SilSmall_density_'+phase_names[i]] = self.obj.array(empty_array, 'code_density')
+                    self.dust['halo_SilLarge_density_'+phase_names[i]] = self.obj.array(empty_array, 'code_density')
+                    self.dust['halo_CSmall_fraction_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+                    self.dust['halo_CLarge_fraction_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+                    self.dust['halo_SilSmall_fraction_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+                    self.dust['halo_SilLarge_fraction_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+                    self.dust['halo_DTM_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+                    self.dust['halo_DTG_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+                    self.dust['halo_STL_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+                    self.dust['halo_CSR_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+                    if self.obj.simulation.physics['PAHs']:
+                        self.dust['halo_qPAH_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+                        self.dust['halo_PAHSmall_mass_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass')
+                        self.dust['halo_PAHLarge_mass_'+phase_names[i]] = self.obj.quantity(0.0, 'code_mass')
+                        self.dust['halo_PAHSmall_density_'+phase_names[i]] = self.obj.array(empty_array, 'code_density')
+                        self.dust['halo_PAHLarge_density_'+phase_names[i]] = self.obj.array(empty_array, 'code_density')
+                        self.dust['halo_PAHSmall_fraction_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
+                        self.dust['halo_PAHLarge_fraction_'+phase_names[i]] = self.obj.array(empty_array, 'dimensionless')
             
         else:
             self.mass['halo_gas'] = self.obj.quantity(0.0, 'code_mass')
@@ -283,7 +427,7 @@ class Galaxy(Group):
         # Begin integration
         verbose = self.obj._kwargs.get('verbose', False)
         glob_attrs = integrate_part(self.obj,group=self,rmin=(0.0,'rvir'),
-                                    rmax=(0.2,'rvir'),region_type='sphere',
+                                    rmax=(0.3,'rvir'),region_type='sphere',
                                     filter=filters,variables=variables,
                                     weights=weights,do_binning=do_binning,
                                     verbose=verbose)
@@ -292,7 +436,7 @@ class Galaxy(Group):
         self.mass['stellar'] = self.obj.quantity(glob_attrs.result.total[0,1,0,0], 'code_mass')
         self.nstar = glob_attrs.result.nvalues[0,1]
         if verbose:
-            print('Number of stellar particles in galaxy %s: %d,%d'%(self.ID,self.nstar,self.npart))
+            print('Number of stellar particles in galaxy %s: %d,%d'%(self.ID,self.nstar,self.npart), flush=True)
         self.stellar_properties['age'] = self.obj.array(pdf_handler_to_stats(self.obj,'part',glob_attrs.result,1,1), 'Gyr')
         self.sfr['10Myr'] = self.obj.quantity(glob_attrs.result.total[2,1,0,0],'Msun/yr')
         self.sfr['100Myr'] = self.obj.quantity(glob_attrs.result.total[3,1,0,0],'Msun/yr')
@@ -308,7 +452,7 @@ class Galaxy(Group):
         self.mass['dm'] = self.obj.quantity(glob_attrs.result.total[0,2,0,0], 'code_mass')
         self.ndm = glob_attrs.result.nvalues[0,2]
         if verbose:
-            print('Number of DM particles in galaxy %s (%s): %d,%d'%(self.ID,self.obj.halos[self.parent_halo_index].ID,self.ndm,self.obj.halos[self.parent_halo_index].npart))
+            print('Number of DM particles in galaxy %s (%s): %d,%d'%(self.ID,self.obj.halos[self.parent_halo_index].ID,self.ndm,self.obj.halos[self.parent_halo_index].npart), flush=True)
         self.angular_mom['dm'] = self.obj.array(np.array([glob_attrs.result.total[4,2,0,0],glob_attrs.result.total[5,2,0,0],glob_attrs.result.total[6,2,0,0]]),
                                                              'code_mass*code_length*code_velocity')
 
@@ -403,7 +547,7 @@ class Galaxy(Group):
         # Begin integration
         verbose = self.obj._kwargs.get('verbose', False)
         glob_attrs = integrate_hydro(self.obj,group=self,rmin=(0.0,'rvir'),
-                                     rmax=(0.2,'rvir'),region_type='sphere',
+                                     rmax=(0.3,'rvir'),region_type='sphere',
                                      filter=filt,variables=quantity_names,
                                      weights=weight_names,do_binning=do_binning,
                                      verbose=verbose)
@@ -432,7 +576,7 @@ class Galaxy(Group):
             for i in range(0, len(phase_names)):
                 self.mass['gas_'+phase_names[i]] = self.obj.quantity(glob_attrs.result.total[0,i+1,0,0], 'code_mass')
                 if verbose:
-                    print('Mass in %s gas is %.5f'%(phase_names[i],self.mass['gas_'+phase_names[i]].to('Msun')))
+                    print('Mass in %s gas is %.5f'%(phase_names[i],self.mass['gas_'+phase_names[i]].to('Msun')), flush=True)
                 self.gas_density[phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,'gas',glob_attrs.result,1,i+1),'code_density')
                 self.temperature[phase_names[i]] = self.obj.array(pdf_handler_to_stats(self.obj,'gas',glob_attrs.result,2,i+1),'code_temperature')
                 self.angular_mom['gas_'+phase_names[i]] = self.obj.array(np.array([glob_attrs.result.total[3,0,0,0],
@@ -616,14 +760,14 @@ class Galaxy(Group):
                 
         # Begin integration
         verbose = self.obj._kwargs.get('verbose', False)
-        glob_attrs = integrate_hydro(self.obj,group=self,rmin=(0.2,'rvir'),
+        glob_attrs = integrate_hydro(self.obj,group=self,rmin=(0.3,'rvir'),
                                      rmax=(1.0,'rvir'),region_type='sphere',
                                      filter=filt,variables=quantity_names,
                                      weights=weight_names,do_binning=do_binning,
                                      verbose=verbose)
 
         if verbose:
-            print('Integrating gas quantities for the halo region...')
+            print('Integrating gas quantities for the halo region...', flush=True)
 
         # Assign results to galaxy object
         if self.obj.simulation.physics['hydro']:
@@ -763,18 +907,31 @@ class Galaxy(Group):
         """
         Computes the dynamical time-scale tdyn as
         the time required for a test particle to complete
-        one full orbit at 0.2 Rvir.
+        one full orbit at 0.3 Rvir.
 
         tdyn = 2pi*sqrt(R^3/(GM))
         where we assume M = Mgas+Mstars*Mdm is measured 
-        within 0.2 Rvir
+        within 0.3 Rvir
         """
         from unyt import G
         
         Mtot = self.mass['dm'] + self.mass['baryon']
-        r = 0.2*self.obj.halos[self.parent_halo_index].virial_quantities['radius']
+        r = 0.3*self.obj.halos[self.parent_halo_index].virial_quantities['radius']
         tdyn = 2*np.pi*np.sqrt(r**3/(G*Mtot))
         return tdyn
+
+    def _get_totmass_withsubs(self):
+        """Get the total mass of the group adding the contribution
+        from substructure."""
+        if self.nsubs == 0:
+            return self.mass['total']
+        else:
+            totmass = self.mass['total']
+            subs = self.subs_list
+            for s in subs:
+                totmass += s.mass['total']
+            return totmass
+
 class Halo(Group):
     """Halo class which has different levels of the halo hierarchy."""
     obj_type = 'halo'
@@ -783,7 +940,6 @@ class Halo(Group):
         self.spin = 0
         self.type               = 'halo'
         self.ndm               = 0
-        self.galaxies           = []
         self.central_galaxy     = None
         self.satellite_galaxies = []
         self.galaxy_index_list = []
@@ -793,7 +949,7 @@ class Halo(Group):
         subs = []
         if self.nextsub == 0:
             if self.obj._kwargs.get('verbose', False):
-                print('This halo does not seem to have a substructure assigned!')
+                print('This halo does not seem to have a substructure assigned!', flush=True)
             return subs
         haloIDs = [i.ID for i in self.obj.halos]
         nexti = self.nextsub

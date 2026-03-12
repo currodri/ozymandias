@@ -131,6 +131,8 @@ class hmCatalogue(object):
             new_group.hostsub = int(halos[i,5]) # Host subhalo ID (if any)
             new_group.nsub = int(halos[i,6])# Number of subhalos in this halo
             new_group.nextsub = int(halos[i,7]) # Next subhalo ID (if any)
+            if self.is_galaxies and new_group.host == new_group.ID:
+                new_group.central = True
 
             # Halo basic properties
             new_group.mass['total'] = self.Obj.quantity(halos[i,8]*1e11, 'Msun') # Halo mass (stupid HM with 10^11 Msun units...)
@@ -161,8 +163,6 @@ class hmCatalogue(object):
             new_group.rho_0 = self.Obj.quantity(halos[i,30]*1e11/hm_correction_fact**3., 'Msun/Mpc**3') # Halo profile central density
             new_group.r_c = self.Obj.quantity(halos[i,31] * hm_correction_fact, 'Mpc') # Halo profile scale radius
 
-            if verbose:
-                print(grouptype, new_group.ID, new_group.npart, new_group.mass['total']/1e6, new_group.virial_quantities['radius'].to('kpc'), new_group.radius['total'].to('kpc'))
             # Halo contamination (for zoom simulations)
             if self.is_zoom:
                 new_group.contamination = halos[i,32]
@@ -179,12 +179,12 @@ class hmCatalogue(object):
             self.Obj.ngalaxies = nselected_halos + nselected_subhalos
             self.Obj.nsatellites = nselected_subhalos
             if verbose:
-                print(f"Loaded {self.Obj.ngalaxies} galaxies and {self.Obj.nsatellites} satellites from {self.TreeFile}.")
+                print(f"Loaded {self.Obj.ngalaxies-self.Obj.nsatellites} central galaxies and {self.Obj.nsatellites} satellites from {self.TreeFile}.", flush=True)
         else:
             self.Obj.nhalos = nselected_halos + nselected_subhalos
             self.Obj.nsubhalos = nselected_subhalos
             if verbose:
-                print(f"Loaded {self.Obj.nhalos} halos and {self.Obj.nsubhalos} subhalos from {self.TreeFile}.")
+                print(f"Loaded {self.Obj.nhalos-self.Obj.nsubhalos} central halos and {self.Obj.nsubhalos} subhalos from {self.TreeFile}.", flush=True)
         
 class galaxyCatalogue(hmCatalogue):
     """Class for galaxy catalogues, inheriting from hmCatalogue."""

@@ -349,6 +349,7 @@ class OZY:
         galaxies = []
         for h in self.halos:
             galaxies.extend(h.satellite_galaxies)
+        return galaxies
     
     def most_massive_galaxy(self,return_index=False):
         mstellar = [i.mass['stellar'] for i in self.galaxies]
@@ -438,16 +439,31 @@ class Halo(Group):
         return self.obj._galaxy_index_list[self.galaxy_index_list_start:self.
                                            galaxy_index_list_end]
 
+    def _fallback_galaxy_indices(self):
+        return [i for i, galaxy in enumerate(self.obj.galaxies)
+                if galaxy.parent_halo_index == self._index]
+
     def _init_galaxies(self):
         self._galaxies = []
         self._satellite_galaxies = []
-        for galaxy_index in self.galaxy_index_list:
-            galaxy = self.obj.galaxies[galaxy_index]
-            self._galaxies.append(galaxy)
-            if galaxy.central:
-                self._central_galaxy = galaxy
-            else:
-                self._satellite_galaxies.append(galaxy)
+
+        if self.obj._galaxy_index_list is not None and hasattr(self, 'galaxy_index_list_start'):
+            galaxy_indices = list(self.galaxy_index_list)
+        else:
+            galaxy_indices = []
+
+        if len(galaxy_indices) == 0:
+            galaxy_indices = self._fallback_galaxy_indices()
+
+        if len(galaxy_indices) == 0:
+            self._central_galaxy = None
+            return
+
+        for galaxy_index in galaxy_indices:
+            self._galaxies.append(self.obj.galaxies[galaxy_index])
+
+        self._central_galaxy = self._galaxies[0]
+        self._satellite_galaxies = self._galaxies[1:]
 
     @property
     def galaxies(self):
@@ -501,7 +517,8 @@ class Galaxy(Group):
         self.type = 'galaxy'
         self.obj = obj
         self._index = index
-        self.halo = obj.halos[self.parent_halo_index]
+        _phi = self.parent_halo_index
+        self.halo = obj.halos[_phi] if _phi >= 0 else None
         self.profiles = None
         self.histograms = None
         self.flows = None
@@ -561,7 +578,7 @@ class Galaxy(Group):
 
     @property
     def satellites(self):
-        if self.central:
+        if self.halo is not None and self.halo.central_galaxy is self:
             return self.halo.satellite_galaxies
         return []
 

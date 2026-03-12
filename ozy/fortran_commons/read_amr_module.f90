@@ -945,12 +945,13 @@ module io_ramses
         integer            ::  newID,statn
 
         nomfich=TRIM(repository)//'/hydro_file_descriptor.txt'
-        write(*,'(": Reading variables IDs from hydro_descriptor")')
+        if (verbose) write(*,'(": Reading variables IDs from hydro_descriptor")')
         open(unit=10,file=nomfich,status='old',form='formatted')
         read(10,*) igr9,igr1,igr2
         read(igr2,*,iostat=statn) nvhydro
-        write(*,*)'nvar=',nvhydro
+        if (verbose) write(*,*)'nvar=',nvhydro
         sim%nvar = nvhydro
+        call varIDs%init(max(1,nvhydro))
         if (nvhydro > 9) then
             nvloop = 9
         else
@@ -961,7 +962,7 @@ module io_ramses
             read(igr1,*,iostat=statn) newID
             call varIDs%add(newVar,newID)
         end do
-        if (nvhydro > 10) then
+        if (nvhydro > 9) then
             do i=nvloop+1,nvhydro
                 read(10,*) igr8,igr3,newVar
                 igr3 = igr3(2:3);
@@ -970,6 +971,7 @@ module io_ramses
             end do
         end if
         close(10)
+        if (verbose) write(*,'(": Finished reading variables IDs from hydro_descriptor")')
     end subroutine read_hydrofile_descriptor_old
 
     !---------------------------------------------------------------
@@ -987,11 +989,14 @@ module io_ramses
         character(128) :: nomfich
         logical            ::  ok
         character(25)  ::  newVar,newType
-        integer            ::  newID,status,nvar=0
+        integer            ::  newID,status,nvar
 
         nomfich=TRIM(repository)//'/hydro_file_descriptor.txt'
         inquire(file=nomfich, exist=ok) ! verify input file
         if (verbose) write(*,'(": Reading variables IDs from hydro_descriptor")')
+
+        ! First pass: count variables
+        nvar = 0
         open(unit=10,file=nomfich,status='old',form='formatted')
         read(10,*)
         read(10,*)
@@ -999,9 +1004,22 @@ module io_ramses
             read(10,*,iostat=status)newID,newVar,newType
             if (status /= 0) exit
             nvar = nvar + 1
+        end do
+        close(10)
+
+        call varIDs%init(max(1,nvar))
+
+        ! Second pass: store variable IDs
+        open(unit=10,file=nomfich,status='old',form='formatted')
+        read(10,*)
+        read(10,*)
+        do
+            read(10,*,iostat=status)newID,newVar,newType
+            if (status /= 0) exit
             call varIDs%add(newVar,newID)
         end do
         close(10)
+
         if (verbose) write(*,*)'nvar=',nvar
         sim%nvar = nvar
     end subroutine read_hydrofile_descriptor_new

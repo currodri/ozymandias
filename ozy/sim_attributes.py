@@ -176,13 +176,15 @@ class SimulationAttributes(object):
         try:
             phyhdd = hdd['physics']
             self.physics = {'hydro':False,
+                            'metallicity':False,
                             'metals':False,
                             'magnetic':False,
                             'cr':False,
                             'rt':False,
                             'bh':False,
                             'AGN':False,
-                            'dust':False}
+                            'dust':False,
+                            'pahs':False}
             for k,v in phyhdd.attrs.items():
                 self.physics[k] = v
         except:

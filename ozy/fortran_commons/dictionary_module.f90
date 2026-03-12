@@ -44,8 +44,10 @@ module dictionary_commons
         type(dictf90), intent(inout) :: self
         integer, intent(in)          :: nkeys
 
-        if (.not.allocated(self%keys)) allocate(self%keys(1:nkeys))
-        if (.not.allocated(self%values)) allocate(self%values(1:nkeys))
+        if (allocated(self%keys)) deallocate(self%keys)
+        if (allocated(self%values)) deallocate(self%values)
+        allocate(self%keys(1:max(1,nkeys)))
+        allocate(self%values(1:max(1,nkeys)))
         self%count = 0
     end subroutine allocate_dict
 

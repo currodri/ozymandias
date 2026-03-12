@@ -9,6 +9,12 @@ F90      = ifx
 #F90      =  /opt/intel/composer_xe_2015.3.187/bin/intel64/ifort
 PYTHON   = python
 
+# Add a flag for the RTPRE
+RTPRE = 4
+
+# Add a flag for the UPRE
+UPRE = 4
+
 #=======================================================================
 #                     additional flags
 #=======================================================================
@@ -16,7 +22,7 @@ PYTHON   = python
 ifeq ($(F90),gfortran)
 	FPP      = gfortran -E
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC -g
-	F90FLAGS = -Ofast -fPIC -cpp -ffree-line-length-256 -DIMASS -DNOIFPORT
+	F90FLAGS = -Ofast -fPIC -cpp -ffree-line-length-256 -DIMASS -DNOIFPORT -DRTPRE=${RTPRE} -DUPRE=${UPRE}
     FCOMP    = gfortran
     LIBS     =
 endif
@@ -25,8 +31,8 @@ ifeq ($(F90),ifx)
 
 	FPP      = gfortran -E # gfortran f90wrap temp files only. not compilation
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
-	F90FLAGS = -O3 -cpp -fpscomp logicals -fPIC -DIMASS # use 1 and 0 for True and False
-	#F90FLAGS = -g -O0 -traceback -check bounds -cpp -fpscomp logicals -DIMASS -fPIC # use 1 and 0 for True and False
+	#F90FLAGS = -O3 -cpp -fpscomp logicals -fPIC -DIMASS -DRTPRE=${RTPRE} -DUPRE=${UPRE} # use 1 and 0 for True and False
+	F90FLAGS = -g -O0 -traceback -check bounds -cpp -fpscomp logicals -DIMASS -fPIC -DRTPRE=${RTPRE} -DUPRE=${UPRE} # use 1 and 0 for True and False
     FCOMP    = intelem # for f2py
     LIBS =
 endif

@@ -137,7 +137,7 @@ class Snapshot(object):
         self.part_vardict = dictionary_commons.dictf90()
         self.part_vartypes = dictionary_commons.dictf90()
         if len(hydro_variables_ordering) > 0:
-            print("Setting hydro variable ordering from local ozy_settings.py.")
+            print("Setting hydro variable ordering from local ozy_settings.py.", flush=True)
             self.vardict.init(len(hydro_variables_ordering))
             for varname,varindex in hydro_variables_ordering.items():
                 self.vardict.add(varname,varindex)
@@ -145,7 +145,7 @@ class Snapshot(object):
         else:
             self.use_vardict = False
         if len(part_variables_ordering) > 0:
-            print("Setting particle variable ordering from local ozy_settings.py.")
+            print("Setting particle variable ordering from local ozy_settings.py.", flush=True)
             self.part_vardict.init(len(part_variables_ordering))
             for varname,varindex in part_variables_ordering.items():
                 self.part_vardict.add(varname,varindex)
@@ -161,6 +161,23 @@ class Snapshot(object):
         from .saver import save
         save(self, filename)
 
+    def get_distance(self,posA,posB):
+        """Compute the distance between two points, 
+            taking into account periodic boundary conditions.
+        """
+        boxsize = self.simulation.boxsize.to('Mpc')
+        posA = posA.to('Mpc')
+        posB = posB.to('Mpc')
+        d_x = np.absolute(posA[0] - posB[0])
+        d_x = min(d_x, np.absolute(d_x - boxsize))
+        d_y = np.absolute(posA[1] - posB[1])
+        d_y = min(d_y, np.absolute(d_y - boxsize))
+        d_z = np.absolute(posA[2] - posB[2])
+        d_z = min(d_z, np.absolute(d_z - boxsize))
+        d = np.sqrt(d_x**2 + d_y**2 + d_z**2)
+        d = self.array(d, 'Mpc')
+        return d
+
 class CosmoSnapshot(Snapshot):
     """Cosmological Snapshot class.
     CosmoSnapshot objects contain all the necessary references to halos
@@ -171,6 +188,9 @@ class CosmoSnapshot(Snapshot):
     """
     def __init__(self, fullpath, *args, **kwargs):
         super().__init__(fullpath, *args, **kwargs)
+        self.add_satellites = self._kwargs.get('add_satellites', False)
+        self.galaxies_processed = self._kwargs.get('do_galaxies', False)
+        self.use_GalFinder = self._kwargs.get('use_GalFinder', False)
         self.nhalos      = 0
         self.nsubhalos   = 0
         self.ngalaxies   = 0
@@ -199,14 +219,9 @@ class CosmoSnapshot(Snapshot):
         """Assign galaxies to halos to galaxies.
             Also connect halos with their central galaxy."""
         import ozy.group_assignment as assign
+        assign.satellites_to_galaxies(self)
         assign.galaxies_to_halos(self)
-        assign.central_galaxies(self)
-    
-    def _link_groups(self):
-        """Two-way linking of objects."""
-        from .group_linking import link
-        link.galaxies_to_halos(self)
-        link.create_sublists(self)
+        assign.create_sublists(self)
     
     def save(self, filename):
         """Save OZY object as HDF5 file."""
@@ -221,7 +236,6 @@ class CosmoSnapshot(Snapshot):
 
         """
         import ozy.group_assignment as assign
-        import ozy.group_linking as link
         from .HaloMaker_utils import hmCatalogue,galaxyCatalogue
 
         self._args = args
@@ -230,104 +244,52 @@ class CosmoSnapshot(Snapshot):
 
         # 1. Setup the HaloMaker runs
         DM_catalogue = hmCatalogue(self,self.simupath,self.snapindex)
-        stars_catalogue = galaxyCatalogue(self,self.simupath,self.snapindex)
+        if self.use_GalFinder:
+            stars_catalogue = galaxyCatalogue(self,self.simupath,self.snapindex)
 
         # 2. Run the halo finder
         DM_catalogue.setup_HaloFinderRun(run=True)
-        stars_catalogue.setup_GalFinderRun(run=True)
+        if self.use_GalFinder:
+            stars_catalogue.setup_GalFinderRun(run=True)
 
         # 3. Read the catalogues and save the new groups
         DM_catalogue.load_catalogue(verbose=verbose)
-        stars_catalogue.load_catalogue(verbose=verbose)
+        if self.use_GalFinder:
+            stars_catalogue.load_catalogue(verbose=verbose)
 
         if self._has_halos:
             # Make assignment
+            if verbose: print("Assigning satellites to galaxies...", flush=True)
+            assign.satellites_to_galaxies(self)
+            if verbose: print("Assigning galaxies to halos...", flush=True)
             assign.galaxies_to_halos(self)
+            if verbose: print("Creating sublists...", flush=True)
+            assign.create_sublists(self)
 
-            # Now process galaxies using their assigned halo
-            main_gal_ID = -1
-            if 'main_gal' in self._kwargs:
-                if self._kwargs['main_gal']:
-                    if verbose:
-                        print('Computing details just for main galaxy in simulation.')
-                    masses = [i.virial_quantities['mass'] for i in self.galaxies]
-                    main_gal_ID = self.galaxies[np.argmax(masses)].ID
-                    
-            if main_gal_ID != -1:
-                for gal in self.galaxies:
-                    gal._empty_galaxy()
-                self.galaxies[np.argmax(masses)]._process_galaxy()
-            else:
-                for gal in self.galaxies:
-                    gal._process_galaxy(**self._kwargs)
-
-            # Link objects between each other
-            link.galaxies_to_halos(self)
-
-            assign.central_galaxies(self)
-            link.create_sublists(self)
+            if self.galaxies_processed:
+                if verbose: print("Processing galaxy properties...", flush=True)
+                # Now process galaxies using their assigned halo
+                main_gal_ID = -1
+                if 'main_gal' in self._kwargs:
+                    if self._kwargs['main_gal']:
+                        if verbose:
+                            print('Computing details just for main galaxy in simulation.', flush=True)
+                        masses = [i.virial_quantities['mass'] for i in self.galaxies]
+                        main_gal_ID = self.galaxies[np.argmax(masses)].ID
+                        
+                if main_gal_ID != -1:
+                    for gal in self.galaxies:
+                        gal._empty_galaxy()
+                    self.galaxies[np.argmax(masses)]._process_galaxy()
+                else:
+                    for gal in self.galaxies:
+                        if gal.halo is not None:
+                            gal._process_galaxy(**self._kwargs)
+                        else:
+                            gal._empty_galaxy()
         else:
             if verbose:
-                print("WARNING: Not a single virialised halo above the minimum particle threshold.")
-
-    
-    # def build_HaloMaker(self, *args, **kwargs):
-    #     """This is the central function of the OZY class for the HALOMAKER catalogues.
-
-    #     This method is reponsible for:
-    #     1) Calling the Fortran routines that cleans up the raw HaloMaker catalogues
-    #     2) Creating halos and galaxies
-    #     3) Linking objects through the chosen method
-    #     4) Computing additional quantities
-    #     5) Saving all as a clean HDF5 file
-
-    #     """
-    #     import ozy.group_assignment as assign
-    #     import ozy.group_linking as link
-    #     from .read_HaloMaker import read_HM
-        
-    #     self._args = args
-    #     self._kwargs = kwargs
-
-    #     # TODO: Add the option to run HaloMaker if the brick files do not exist
-    #     # import .run_halomaker as run
-    #     # run(self, 'halo')
-    #     # run(self, 'galaxy')
-    #     # run(self, 'cloud')
-    #     self.clean_brickfile = True
-
-    #     # Read HaloMaker brick catalogues
-    #     print("Running build_HaloMaker")
-    #     read_HM(self, 'halo')
-    #     read_HM(self, 'galaxy')
-
-    #     if self._has_halos:
-    #         # Make assignment
-    #         assign.galaxies_to_halos(self)
-
-    #         # Now process galaxies using their assigned halo
-    #         main_gal_ID = -1
-    #         if 'main_gal' in self._kwargs:
-    #             if self._kwargs['main_gal']:
-    #                 print('Computing details just for main galaxy in simulation.')
-    #                 masses = [i.virial_quantities['mass'] for i in self.galaxies]
-    #                 main_gal_ID = self.galaxies[np.argmax(masses)].ID
-                    
-    #         if main_gal_ID != -1:
-    #             for gal in self.galaxies:
-    #                 gal._empty_galaxy()
-    #             self.galaxies[np.argmax(masses)]._process_galaxy()
-    #         else:
-    #             for gal in self.galaxies:
-    #                 gal._process_galaxy(**self._kwargs)
-
-    #         # Link objects between each other
-    #         link.galaxies_to_halos(self)
-
-    #         assign.central_galaxies(self)
-    #         link.create_sublists(self)
-    #     else:
-    #         print("WARNING: Not a single virialised halo above the minimum particle threshold.")
+                print("WARNING: Not a single virialised halo above the minimum particle threshold.", flush=True)
 
     def galaxies_summary(self, top=10):
         """Method to briefly print information for the most massive galaxies in the catalogue."""

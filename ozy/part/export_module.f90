@@ -24,7 +24,31 @@ module export_part
     use filtering_part
     use cosmology
 
+    type part_chunk_handler
+        integer :: nvars=1,npart=0,npartmax=0
+        character(128),dimension(:),allocatable :: varnames
+        type(filter_part) :: filt
+        real(dbl),dimension(:,:),allocatable :: data
+        type(part_var),dimension(:),allocatable :: vars
+    end type part_chunk_handler
+
     contains
+
+    subroutine allocate_part_chunk_handler(chunk)
+        implicit none
+        type(part_chunk_handler),intent(inout) :: chunk
+
+        if (.not.allocated(chunk%varnames)) allocate(chunk%varnames(1:chunk%nvars))
+        if (.not.allocated(chunk%vars)) allocate(chunk%vars(1:chunk%nvars))
+        if (chunk%npartmax > 0) then
+            if (.not.allocated(chunk%data)) then
+                allocate(chunk%data(1:chunk%nvars,1:chunk%npartmax))
+            else if (size(chunk%data,1) /= chunk%nvars .or. size(chunk%data,2) /= chunk%npartmax) then
+                deallocate(chunk%data)
+                allocate(chunk%data(1:chunk%nvars,1:chunk%npartmax))
+            end if
+        end if
+    end subroutine allocate_part_chunk_handler
 
     subroutine part2skirt(repository,reg,filt,lmax,&
                         &h,smoothmethod,sedmethod,outpath,&
@@ -811,5 +835,246 @@ module export_part
         write(*,102)nstarsaved
         102 format('File includes ',I12,' star particles')
     end subroutine part2file
+
+    subroutine part2list(repository,reg,chunk,&
+                        &part_dict,part_vtypes)
+        use vectors
+        use coordinate_systems
+        use geometrical_regions
+
+        implicit none
+        ! Input/output variables
+        character(128),intent(in) :: repository
+        type(region),intent(in) :: reg
+        type(part_chunk_handler),intent(inout) :: chunk
+        type(dictf90),intent(in),optional :: part_dict,part_vtypes
+
+        ! Specific variables for this subroutine
+        logical :: ok_part,ok_filter
+        integer :: roterr
+        integer :: i,k
+        integer :: ipos,icpu
+        integer :: npart,npart2,nstar,inpart=0
+        integer :: nout_vars
+        integer :: ncpu2,ndim2
+        real(dbl) :: distance
+        real(dbl),dimension(1:3,1:3) :: trans_matrix
+        character(5) :: nchar,ncharcpu
+        character(128) :: nomfich
+        type(vector) :: xtemp,vtemp,dcell
+#ifndef LONGINT
+        integer(irg),dimension(:,:),allocatable :: part_data_i
+        integer(irg) :: ytemp_i
+#else
+        integer(ilg),dimension(:,:),allocatable :: part_data_i
+        integer(ilg) :: ytemp_i
+#endif
+        real(dbl),dimension(:,:),allocatable :: part_data_d
+        integer(1),dimension(:,:),allocatable :: part_data_b
+        real(dbl),dimension(:,:),allocatable :: x
+        real(dbl) :: ytemp
+        integer(1) :: ytemp_b
+        integer :: ii,iv
+        integer :: ivx,ivy,ivz
+
+        nout_vars = chunk%nvars
+
+        if (.not.allocated(chunk%varnames)) then
+            write(*,*) 'Error: chunk%varnames must be allocated before calling part2list'
+            stop
+        end if
+
+        ! Initialise parameters of the AMR structure and simulation attributes
+        call init_amr_read(repository)
+
+        ! Obtain details of the particle variables stored
+        call read_partfile_descriptor(repository)
+
+        ! Always read the hydrofile descriptor to set up simulation type
+        call read_hydrofile_descriptor(repository)
+        call setup_simulation_type(varIDs)
+
+        ! Compute the Hilbert curve
+        call get_cpu_map(reg)
+        if (verbose) write(*,*)'ncpu_read:',amr%ncpu_read
+
+        ! Compute rotation matrix following integrate_region
+        trans_matrix = 0D0
+        call new_z_coordinates(reg%axis,trans_matrix,roterr)
+        if (roterr.eq.1) then
+            write(*,*) 'Incorrect CS transformation!'
+            stop
+        endif
+
+        ! Cosmological model
+        if (sim%aexp.eq.1.and.sim%h0.eq.1)sim%cosmo=.false.
+        if (sim%cosmo) then
+            call cosmology_model
+        else
+            sim%time_simu = sim%t
+            write(*,*)'Age simu=',sim%time_simu*sim%unit_t/(365.*24.*3600.*1d9)
+        endif
+
+        if (.not.allocated(chunk%vars)) allocate(chunk%vars(1:nout_vars))
+
+        ! Set up particle variable tools using the same strategy as part_integrator
+        if (present(part_dict).and.present(part_vtypes)) then
+            call get_partvar_tools(part_dict,part_vtypes,nout_vars,chunk%varnames,chunk%vars)
+            call get_filter_part_tools(part_dict,part_vtypes,chunk%filt)
+            ivx = part_dict%get('velocity_x')
+            ivy = part_dict%get('velocity_y')
+            ivz = part_dict%get('velocity_z')
+            if (sim%isthere_part_descriptor) then
+                do ii = 1, sim%nvar_part
+                    if (sim%part_var_types(ii) /= part_vtypes%get(part_vtypes%keys(ii))) then
+                        write(*,*)'Error: Provided particle dictionary is not consistent with the particle_file_descriptor.txt'
+                        write(*,*)'sim%part_var_types: ',sim%part_var_types
+                        write(*,*)sim%part_var_types(ii), part_vtypes%get(part_vtypes%keys(ii))
+                        stop
+                    end if
+                end do
+            end if
+            partIDs = part_dict
+            partvar_types = part_vtypes
+        else
+            call get_partvar_tools(partIDs,partvar_types,nout_vars,chunk%varnames,chunk%vars)
+            call get_filter_part_tools(partIDs,partvar_types,chunk%filt)
+            ivx = partIDs%get('velocity_x')
+            ivy = partIDs%get('velocity_y')
+            ivz = partIDs%get('velocity_z')
+        end if
+
+        ! Count particles in selected CPUs
+        ipos = INDEX(repository,'output_')
+        nchar = repository(ipos+7:ipos+13)
+        npart = 0
+        do k=1,amr%ncpu_read
+            icpu = amr%cpu_list(k)
+            call title(icpu,ncharcpu)
+            nomfich=TRIM(repository)//'/part_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+            open(unit=1,file=nomfich,status='old',form='unformatted')
+            read(1)ncpu2
+            read(1)ndim2
+            read(1)npart2
+            read(1)
+            read(1)nstar
+            close(1)
+            npart=npart+npart2
+        end do
+        write(*,*)'Found ',npart,' particles.'
+        if(nstar>0)then
+            write(*,*)'Found ',nstar,' star particles.'
+        endif
+
+        ! Ensure output storage exists and is large enough
+        chunk%npart = 0
+        if (.not.allocated(chunk%data)) then
+            allocate(chunk%data(1:nout_vars,1:npart))
+        else if (size(chunk%data,1) /= nout_vars .or. size(chunk%data,2) < npart) then
+            deallocate(chunk%data)
+            allocate(chunk%data(1:nout_vars,1:npart))
+        end if
+        chunk%data = 0D0
+        chunk%npartmax = size(chunk%data,2)
+
+        ! Main loop over CPUs
+        cpuloop: do k=1,amr%ncpu_read
+            icpu = amr%cpu_list(k)
+            call title(icpu,ncharcpu)
+            nomfich=TRIM(repository)//'/part_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+            open(unit=1,file=nomfich,status='old',form='unformatted')
+            read(1)ncpu2
+            read(1)ndim2
+            read(1)npart2
+            read(1)
+            read(1)
+            read(1)
+            read(1)
+            read(1)
+
+            ! Allocate particle data arrays
+            allocate(part_data_d(sim%nvar_part_d,1:npart2))
+            allocate(part_data_b(sim%nvar_part_b,1:npart2))
+            allocate(part_data_i(sim%nvar_part_i,1:npart2))
+            allocate(x(1:npart2,1:3))
+
+            ! Read variables according to their type
+            do i = 1, sim%nvar_part
+                if (sim%part_var_types(i) == 1) then
+                    read(1) part_data_d(partIDs%get(partIDs%keys(i)),:)
+                elseif (sim%part_var_types(i) == 2) then
+                    read(1) part_data_i(partIDs%get(partIDs%keys(i)),:)
+                elseif (sim%part_var_types(i) == 3) then
+                    read(1) part_data_b(partIDs%get(partIDs%keys(i)),:)
+                endif
+            end do
+            close(1)
+
+            ! Particle positions in box units for geometric region checks
+            x(:,1) = part_data_d(partIDs%get('x'),:) / sim%boxlen
+            if (amr%ndim > 1) x(:,2) = part_data_d(partIDs%get('y'),:) / sim%boxlen
+            if (amr%ndim > 2) x(:,3) = part_data_d(partIDs%get('z'),:) / sim%boxlen
+
+            ! Loop over particles
+            partloop: do i=1,npart2
+                distance = 0D0
+                xtemp = x(i,:)
+                xtemp = xtemp - reg%centre
+                x(i,:) = xtemp
+                call checkifinside(x(i,:),reg,ok_part,distance)
+                xtemp = xtemp + reg%centre
+                x(i,:) = xtemp
+                if (ok_part) then
+                    ! Follow integrate_region: transform coordinates and velocities
+                    ! before particle filtering and variable extraction.
+                    vtemp%x = part_data_d(ivx,i)
+                    if (amr%ndim > 1) vtemp%y = part_data_d(ivy,i)
+                    if (amr%ndim > 2) vtemp%z = part_data_d(ivz,i)
+                    vtemp = vtemp - reg%bulk_velocity
+                    call rotate_vector(vtemp,trans_matrix)
+
+                    xtemp = x(i,:)
+                    xtemp = xtemp - reg%centre
+                    call rotate_vector(xtemp,trans_matrix)
+                    part_data_d(partIDs%get('x'),i) = xtemp%x
+                    if (amr%ndim > 1) part_data_d(partIDs%get('y'),i) = xtemp%y
+                    if (amr%ndim > 2) part_data_d(partIDs%get('z'),i) = xtemp%z
+
+                    part_data_d(ivx,i) = vtemp%x
+                    if (amr%ndim > 1) part_data_d(ivy,i) = vtemp%y
+                    if (amr%ndim > 2) part_data_d(ivz,i) = vtemp%z
+
+                    ok_filter = filter_particle(reg,chunk%filt,dcell,part_data_d(:,i),&
+                                                &part_data_i(:,i),part_data_b(:,i))
+                    if (ok_filter) then
+                        chunk%npart = chunk%npart + 1
+                        do iv = 1, nout_vars
+                            if (chunk%vars(iv)%vartype == 1) then
+                                ytemp = chunk%vars(iv)%myfunction_d(amr,sim,chunk%vars(iv),reg,dcell,&
+                                                                & part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
+                                chunk%data(iv,chunk%npart) = ytemp
+                            else if (chunk%vars(iv)%vartype == 2) then
+                                ytemp_i = chunk%vars(iv)%myfunction_i(amr,sim,chunk%vars(iv),reg,dcell,&
+                                                                & part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
+                                chunk%data(iv,chunk%npart) = real(ytemp_i,kind=dbl)
+                            else if (chunk%vars(iv)%vartype == 3) then
+                                ytemp_b = chunk%vars(iv)%myfunction_b(amr,sim,chunk%vars(iv),reg,dcell,&
+                                                                & part_data_d(:,i),part_data_i(:,i),part_data_b(:,i))
+                                chunk%data(iv,chunk%npart) = real(ytemp_b,kind=dbl)
+                            else
+                                write(*,*)'Error: unknown variable type in part2list'
+                                stop
+                            end if
+                        end do
+                    end if
+                end if
+            end do partloop
+            inpart = inpart + npart2
+            deallocate(x,part_data_d,part_data_i,part_data_b)
+        end do cpuloop
+
+        write(*,103)chunk%npart
+        103 format('Returning ',I12,' particles in list')
+    end subroutine part2list
 
 end module export_part

@@ -46,7 +46,7 @@ def print_art():
     version   = '   Version %s' % VERSION
 
     art =  text2art("Ozymandias","ogre")
-    print('\n%s\n%s\n%s\n' % (art, copywrite, version))
+    print('\n%s\n%s\n%s\n' % (art, copywrite, version), flush=True)
 
 def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
           build_HaloMaker=True, build_TreeMaker=False,
@@ -72,7 +72,7 @@ def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
         nprocs = 1
         rank = 0
     
-    if rank == 0 and verbose:
+    if rank == 0:
         print_art()
     snaps = []
     for snapdir in snapdirs:
@@ -85,7 +85,7 @@ def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
         rank_snaps = snaps[rank::nprocs]
         for snap in rank_snaps:
             if verbose:
-                print('Task # %d: Building HaloMaker for %s' % (rank, snap.snap))
+                print('Task # %d: Building HaloMaker for %s' % (rank, snap.snap), flush=True)
             snap.build_HaloMaker(skipran, **run_kwargs)
 
     # if build_TreeMaker:
