@@ -125,9 +125,9 @@ module cooling_module
         real(kind=8)::boost
         real(kind=8)::facT,dlog_nH,dlog_T2
         real(kind=8)::metal,cool,heat,cool_com,heat_com
-        real(kind=8)::metal_prime,cool_prime,heat_prime,cool_com_prime,heat_com_prime,wcool
-        real(kind=8)::fa,fb,fprimea,fprimeb,alpha,beta,gamma
-        real(kind=8)::rgt,lft,tau
+        real(kind=8)::metal_prime,cool_prime,heat_prime,cool_com_prime,heat_com_prime
+        real(kind=8)::fa,fb,alpha,beta,gamma
+        real(kind=8)::tau,h,h2,h3,yy,yy2,yy3,W1H,W2H
         real(kind=8)::facH,zzz
 
         ! Compute radiation boost factor
@@ -140,33 +140,96 @@ module cooling_module
         ! Get the necessary values for the cell
         dlog_nH = dble(ctable%n1-1)/(ctable%nH(ctable%n1)-ctable%nH(1))
         dlog_T2 = dble(ctable%n2-1)/(ctable%T2(ctable%n2)-ctable%T2(1))
+        h = 1d0 / dlog_T2
+        h2 = h * h
+        h3 = h2 * h
         zzz = zsolar
         facH = MIN(MAX(log10(nH/boost),ctable%nH(1)),ctable%nH(ctable%n1))
         i_nH = MIN(MAX(int((facH-ctable%nH(1))*dlog_nH)+1,1),ctable%n1-1)
         facT=log10(T2)
         i_T2 = MIN(MAX(int((facT-ctable%T2(1))*dlog_T2)+1,1),ctable%n2-1)
         tau = T2
+        yy = facT - ctable%T2(i_T2)
+        yy2 = yy * yy
+        yy3 = yy2 * yy
+        W1H = (ctable%nH(i_nH+1)-facH)*dlog_nH
+        W2H = (facH-ctable%nH(i_nH  ))*dlog_nH
 
         if(facT.le.logT2max)then
            ! Cooling
-           cool=10d0**(ctable%cool(i_nH,i_T2  ))
-           cool_prime=10d0**(ctable%cool_prime(i_nH,i_T2  ))
+            fa = ctable%cool(i_nH,i_T2  ) * W1H + ctable%cool(i_nH+1,i_T2  ) * W2H
+            fb = ctable%cool(i_nH,i_T2+1) * W1H + ctable%cool(i_nH+1,i_T2+1) * W2H
+            alpha = fa
+            beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+            gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+            cool = 10d0**(fa + alpha * yy + beta * yy2 + gamma * yy3)
+
+            fa = ctable%cool_prime(i_nH,i_T2  ) * W1H + ctable%cool_prime(i_nH+1,i_T2  ) * W2H
+            fb = ctable%cool_prime(i_nH,i_T2+1) * W1H + ctable%cool_prime(i_nH+1,i_T2+1) * W2H
+            alpha = fa
+            beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+            gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+            cool_prime = 10d0**(fa + alpha * yy + beta * yy2 + gamma * yy3)
 
            ! Heating
-           heat=10d0**(ctable%heat(i_nH,i_T2  ))
-           heat_prime=10d0**(ctable%heat_prime(i_nH,i_T2  ))
+            fa = ctable%heat(i_nH,i_T2  ) * W1H + ctable%heat(i_nH+1,i_T2  ) * W2H
+            fb = ctable%heat(i_nH,i_T2+1) * W1H + ctable%heat(i_nH+1,i_T2+1) * W2H
+            alpha = fa
+            beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+            gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+            heat = 10d0**(fa + alpha * yy + beta * yy2 + gamma * yy3)
+
+            fa = ctable%heat_prime(i_nH,i_T2  ) * W1H + ctable%heat_prime(i_nH+1,i_T2  ) * W2H
+            fb = ctable%heat_prime(i_nH,i_T2+1) * W1H + ctable%heat_prime(i_nH+1,i_T2+1) * W2H
+            alpha = fa
+            beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+            gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+            heat_prime = 10d0**(fa + alpha * yy + beta * yy2 + gamma * yy3)
 
            ! Compton cooling
-           cool_com=10d0**(ctable%cool_com(i_nH,i_T2  ))
-           cool_com_prime=10d0**(ctable%cool_com(i_nH,i_T2  ))
+            fa = ctable%cool_com(i_nH,i_T2  ) * W1H + ctable%cool_com(i_nH+1,i_T2  ) * W2H
+            fb = ctable%cool_com(i_nH,i_T2+1) * W1H + ctable%cool_com(i_nH+1,i_T2+1) * W2H
+            alpha = fa
+            beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+            gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+            cool_com = 10d0**(fa + alpha * yy + beta * yy2 + gamma * yy3)
+
+            fa = ctable%cool_com_prime(i_nH,i_T2  ) * W1H + ctable%cool_com_prime(i_nH+1,i_T2  ) * W2H
+            fb = ctable%cool_com_prime(i_nH,i_T2+1) * W1H + ctable%cool_com_prime(i_nH+1,i_T2+1) * W2H
+            alpha = fa
+            beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+            gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+            cool_com_prime = 10d0**(fa + alpha * yy + beta * yy2 + gamma * yy3)
 
            ! Compton heating
-           heat_com=10d0**(ctable%heat_com(i_nH,i_T2  ))
-           heat_com_prime=10d0**(ctable%heat_com_prime(i_nH,i_T2  ))
+            fa = ctable%heat_com(i_nH,i_T2  ) * W1H + ctable%heat_com(i_nH+1,i_T2  ) * W2H
+            fb = ctable%heat_com(i_nH,i_T2+1) * W1H + ctable%heat_com(i_nH+1,i_T2+1) * W2H
+            alpha = fa
+            beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+            gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+            heat_com = 10d0**(fa + alpha * yy + beta * yy2 + gamma * yy3)
+
+            fa = ctable%heat_com_prime(i_nH,i_T2  ) * W1H + ctable%heat_com_prime(i_nH+1,i_T2  ) * W2H
+            fb = ctable%heat_com_prime(i_nH,i_T2+1) * W1H + ctable%heat_com_prime(i_nH+1,i_T2+1) * W2H
+            alpha = fa
+            beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+            gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+            heat_com_prime = 10d0**(fa + alpha * yy + beta * yy2 + gamma * yy3)
 
            ! Metal cooling
-           metal=10d0**(ctable%metal(i_nH,i_T2  ))
-           metal_prime=10d0**(ctable%metal_prime(i_nH,i_T2  ))
+            fa = ctable%metal(i_nH,i_T2  ) * W1H + ctable%metal(i_nH+1,i_T2  ) * W2H
+            fb = ctable%metal(i_nH,i_T2+1) * W1H + ctable%metal(i_nH+1,i_T2+1) * W2H
+            alpha = fa
+            beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+            gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+            metal = 10d0**(fa + alpha * yy + beta * yy2 + gamma * yy3)
+
+            fa = ctable%metal_prime(i_nH,i_T2  ) * W1H + ctable%metal_prime(i_nH+1,i_T2  ) * W2H
+            fb = ctable%metal_prime(i_nH,i_T2+1) * W1H + ctable%metal_prime(i_nH+1,i_T2+1) * W2H
+            alpha = fa
+            beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+            gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+            metal_prime = 10d0**(fa + alpha * yy + beta * yy2 + gamma * yy3)
 
            ! Total net cooling
            lambda=cool+zzz*metal-heat+(cool_com-heat_com)/nH
@@ -191,9 +254,9 @@ module cooling_module
         real(kind=8)::boost
         real(kind=8)::facT,dlog_nH,dlog_T2
         real(kind=8)::metal,cool,cool_com
-        real(kind=8)::metal_prime,cool_prime,cool_com_prime,wcool
-        real(kind=8)::fa,fb,fprimea,fprimeb,alpha,beta,gamma
-        real(kind=8)::rgt,lft,tau
+        real(kind=8)::metal_prime,cool_prime,cool_com_prime
+        real(kind=8)::fa,fb,alpha,beta,gamma
+        real(kind=8)::tau,h,h2,h3,yy,yy2,yy3,W1H,W2H
         real(kind=8)::facH,zzz
 
         ! Compute radiation boost factor
@@ -206,25 +269,66 @@ module cooling_module
         ! Get the necessary values for the cell
         dlog_nH = dble(ctable%n1-1)/(ctable%nH(ctable%n1)-ctable%nH(1))
         dlog_T2 = dble(ctable%n2-1)/(ctable%T2(ctable%n2)-ctable%T2(1))
+        h = 1d0 / dlog_T2
+        h2 = h * h
+        h3 = h2 * h
         zzz = zsolar
         facH = MIN(MAX(log10(nH/boost),ctable%nH(1)),ctable%nH(ctable%n1))
         i_nH = MIN(MAX(int((facH-ctable%nH(1))*dlog_nH)+1,1),ctable%n1-1)
         facT=log10(T2)
         i_T2 = MIN(MAX(int((facT-ctable%T2(1))*dlog_T2)+1,1),ctable%n2-1)
         tau = T2
+        yy = facT - ctable%T2(i_T2)
+        yy2 = yy * yy
+        yy3 = yy2 * yy
+        W1H = (ctable%nH(i_nH+1)-facH)*dlog_nH
+        W2H = (facH-ctable%nH(i_nH  ))*dlog_nH
 
         if(facT.le.logT2max)then
            ! Cooling
-           cool=10d0**(ctable%cool(i_nH,i_T2  ))
-           cool_prime=10d0**(ctable%cool_prime(i_nH,i_T2  ))
+            fa = ctable%cool(i_nH,i_T2  ) * W1H + ctable%cool(i_nH+1,i_T2  ) * W2H
+            fb = ctable%cool(i_nH,i_T2+1) * W1H + ctable%cool(i_nH+1,i_T2+1) * W2H
+            alpha = fa
+            beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+            gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+            cool = 10d0**(fa + alpha * yy + beta * yy2 + gamma * yy3)
+
+            fa = ctable%cool_prime(i_nH,i_T2  ) * W1H + ctable%cool_prime(i_nH+1,i_T2  ) * W2H
+            fb = ctable%cool_prime(i_nH,i_T2+1) * W1H + ctable%cool_prime(i_nH+1,i_T2+1) * W2H
+            alpha = fa
+            beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+            gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+              cool_prime = 10d0**(fa + alpha * yy + beta * yy2 + gamma * yy3)
 
            ! Compton cooling
-           cool_com=10d0**(ctable%cool_com(i_nH,i_T2  ))
-           cool_com_prime=10d0**(ctable%cool_com(i_nH,i_T2  ))
+            fa = ctable%cool_com(i_nH,i_T2  ) * W1H + ctable%cool_com(i_nH+1,i_T2  ) * W2H
+            fb = ctable%cool_com(i_nH,i_T2+1) * W1H + ctable%cool_com(i_nH+1,i_T2+1) * W2H
+            alpha = fa
+            beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+            gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+            cool_com = 10d0**(fa + alpha * yy + beta * yy2 + gamma * yy3)
+
+            fa = ctable%cool_com_prime(i_nH,i_T2  ) * W1H + ctable%cool_com_prime(i_nH+1,i_T2  ) * W2H
+            fb = ctable%cool_com_prime(i_nH,i_T2+1) * W1H + ctable%cool_com_prime(i_nH+1,i_T2+1) * W2H
+            alpha = fa
+            beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+            gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+            cool_com_prime = 10d0**(fa + alpha * yy + beta * yy2 + gamma * yy3)
 
            ! Metal cooling
-           metal=10d0**(ctable%metal(i_nH,i_T2  ))
-           metal_prime=10d0**(ctable%metal_prime(i_nH,i_T2  ))
+            fa = ctable%metal(i_nH,i_T2  ) * W1H + ctable%metal(i_nH+1,i_T2  ) * W2H
+            fb = ctable%metal(i_nH,i_T2+1) * W1H + ctable%metal(i_nH+1,i_T2+1) * W2H
+            alpha = fa
+            beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+            gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+            metal = 10d0**(fa + alpha * yy + beta * yy2 + gamma * yy3)
+
+            fa = ctable%metal_prime(i_nH,i_T2  ) * W1H + ctable%metal_prime(i_nH+1,i_T2  ) * W2H
+            fb = ctable%metal_prime(i_nH,i_T2+1) * W1H + ctable%metal_prime(i_nH+1,i_T2+1) * W2H
+            alpha = fa
+            beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+            gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+            metal_prime = 10d0**(fa + alpha * yy + beta * yy2 + gamma * yy3)
 
            ! Total cooling
            lambda=cool+zzz*metal+cool_com/nH
@@ -249,9 +353,9 @@ module cooling_module
         real(kind=8)::boost
         real(kind=8)::facT,dlog_nH,dlog_T2
         real(kind=8)::heat,heat_com
-        real(kind=8)::heat_prime,heat_com_prime,wcool
-        real(kind=8)::fa,fb,fprimea,fprimeb,alpha,beta,gamma
-        real(kind=8)::rgt,lft,tau
+        real(kind=8)::heat_prime,heat_com_prime
+        real(kind=8)::fa,fb,alpha,beta,gamma
+        real(kind=8)::tau,h,h2,h3,yy,yy2,yy3,W1H,W2H
         real(kind=8)::facH,zzz
 
         ! Compute radiation boost factor
@@ -264,21 +368,51 @@ module cooling_module
         ! Get the necessary values for the cell
         dlog_nH = dble(ctable%n1-1)/(ctable%nH(ctable%n1)-ctable%nH(1))
         dlog_T2 = dble(ctable%n2-1)/(ctable%T2(ctable%n2)-ctable%T2(1))
+        h = 1d0 / dlog_T2
+        h2 = h * h
+        h3 = h2 * h
         zzz = zsolar
         facH = MIN(MAX(log10(nH/boost),ctable%nH(1)),ctable%nH(ctable%n1))
         i_nH = MIN(MAX(int((facH-ctable%nH(1))*dlog_nH)+1,1),ctable%n1-1)
         facT=log10(T2)
         i_T2 = MIN(MAX(int((facT-ctable%T2(1))*dlog_T2)+1,1),ctable%n2-1)
         tau = T2
+        yy = facT - ctable%T2(i_T2)
+        yy2 = yy * yy
+        yy3 = yy2 * yy
+        W1H = (ctable%nH(i_nH+1)-facH)*dlog_nH
+        W2H = (facH-ctable%nH(i_nH  ))*dlog_nH
 
         if(facT.le.logT2max)then
            ! Heating
-           heat=10d0**(ctable%heat(i_nH,i_T2  ))
-           heat_prime=10d0**(ctable%heat_prime(i_nH,i_T2  ))
+            fa = ctable%heat(i_nH,i_T2  ) * W1H + ctable%heat(i_nH+1,i_T2  ) * W2H
+            fb = ctable%heat(i_nH,i_T2+1) * W1H + ctable%heat(i_nH+1,i_T2+1) * W2H
+            alpha = fa
+            beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+            gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+            heat = 10d0**(fa + alpha * yy + beta * yy2 + gamma * yy3)
+
+            fa = ctable%heat_prime(i_nH,i_T2  ) * W1H + ctable%heat_prime(i_nH+1,i_T2  ) * W2H
+            fb = ctable%heat_prime(i_nH,i_T2+1) * W1H + ctable%heat_prime(i_nH+1,i_T2+1) * W2H
+            alpha = fa
+            beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+            gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+            heat_prime = 10d0**(fa + alpha * yy + beta * yy2 + gamma * yy3)
 
            ! Compton heating
-           heat_com=10d0**(ctable%heat_com(i_nH,i_T2  ))
-           heat_com_prime=10d0**(ctable%heat_com_prime(i_nH,i_T2  ))
+            fa = ctable%heat_com(i_nH,i_T2  ) * W1H + ctable%heat_com(i_nH+1,i_T2  ) * W2H
+            fb = ctable%heat_com(i_nH,i_T2+1) * W1H + ctable%heat_com(i_nH+1,i_T2+1) * W2H
+            alpha = fa
+            beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+            gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+            heat_com = 10d0**(fa + alpha * yy + beta * yy2 + gamma * yy3)
+
+            fa = ctable%heat_com_prime(i_nH,i_T2  ) * W1H + ctable%heat_com_prime(i_nH+1,i_T2  ) * W2H
+            fb = ctable%heat_com_prime(i_nH,i_T2+1) * W1H + ctable%heat_com_prime(i_nH+1,i_T2+1) * W2H
+            alpha = fa
+            beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+            gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+            heat_com_prime = 10d0**(fa + alpha * yy + beta * yy2 + gamma * yy3)
 
            ! Total heating
            lambda=heat+heat_com/nH
@@ -292,18 +426,19 @@ module cooling_module
         endif
     end subroutine solve_heating
 
-    subroutine solve_mu(nH,T2,zsolar,mu)
-        ! nH [H/cc], T2 [T/mu in Kelvin], Zsolar [metallicity in Zsun]
+    subroutine solve_mu(nH,T2,mu)
+        ! nH [H/cc], T2 [T/mu in Kelvin]
         implicit none
-        real(kind=8),intent(in)::nH,T2,zsolar
+        real(kind=8),intent(in)::nH,T2
         real(kind=8),intent(inout)::mu
 
         integer::i_nH,i_T2
         real(kind=8)::boost
         real(kind=8)::facT,dlog_nH,dlog_T2
         real(kind=8)::fa,fb,W1H,W2H
-        real(kind=8)::tau,W1T,W2T
-        real(kind=8)::facH,zzz
+        real(kind=8)::facH
+        real(kind=8)::alpha,beta,gamma,h,h2,h3
+        real(kind=8)::yy,yy2,yy3
 
         ! Compute radiation boost factor
         if(self_shielding)then
@@ -315,27 +450,31 @@ module cooling_module
         ! Get the necessary values for the cell
         dlog_nH = dble(ctable%n1-1)/(ctable%nH(ctable%n1)-ctable%nH(1))
         dlog_T2 = dble(ctable%n2-1)/(ctable%T2(ctable%n2)-ctable%T2(1))
-        zzz = zsolar
+        h = 1d0 / dlog_T2
+        h2 = h * h
+        h3 = h2 * h
         facH = MIN(MAX(log10(nH/boost),ctable%nH(1)),ctable%nH(ctable%n1))
         i_nH = MIN(MAX(int((facH-ctable%nH(1))*dlog_nH)+1,1),ctable%n1-1)
         facT=log10(T2)
         i_T2 = MIN(MAX(int((facT-ctable%T2(1))*dlog_T2)+1,1),ctable%n2-1)
-        tau = T2
-        W1H = (ctable%nH(i_nH+1)-facH)/dlog_nH
-        W2H = (facH-ctable%nH(i_nH  ))/dlog_nH
-        W1T = (ctable%T2(i_T2+1)-facT)/dlog_T2
-        W2T = (facT-ctable%T2(i_T2  ))/dlog_T2
-
+        yy = facT - ctable%T2(i_T2)
+        yy2 = yy * yy
+        yy3 = yy2 * yy
+        W1H = (ctable%nH(i_nH+1)-facH) * dlog_nH
+        W2H = (facH-ctable%nH(i_nH  )) * dlog_nH
 
         fa = ctable%mu(i_nH,i_T2  ) * w1H + ctable%mu(i_nH+1,i_T2  ) * w2H
         fb = ctable%mu(i_nH,i_T2+1) * w1H + ctable%mu(i_nH+1,i_T2+1) * w2H
-        mu = fa * W1T + fb * W2T
+        alpha = fa
+        beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+        gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+        mu = fa + alpha * yy + beta * yy2 + gamma * yy3
     end subroutine solve_mu
 
-    subroutine solve_mu_e(nH,T2,zsolar,mu_e,gas_fraction)
-        ! nH [H/cc], T2 [T/mu in Kelvin], Zsolar [metallicity in Zsun]
+    subroutine solve_mu_e(nH,T2,mu_e,gas_fraction)
+        ! nH [H/cc], T2 [T/mu in Kelvin]
         implicit none
-        real(kind=8),intent(in)::nH,T2,zsolar
+        real(kind=8),intent(in)::nH,T2
         real(kind=8),intent(inout)::mu_e
         real(kind=8),intent(in),optional::gas_fraction
 
@@ -343,9 +482,9 @@ module cooling_module
         real(kind=8)::boost
         real(kind=8)::facT,dlog_nH,dlog_T2
         real(kind=8)::fa,fb,W1H,W2H
-        real(kind=8)::tau,W1T,W2T
-        real(kind=8)::facH,zzz
-        real(kind=8)::electron_density,local_gas_fraction
+        real(kind=8)::h,h2,h3,yy,yy2,yy3
+        real(kind=8)::facH
+        real(kind=8)::electron_density,local_gas_fraction,alpha,beta,gamma
 
         local_gas_fraction = 1d0
         if (present(gas_fraction)) local_gas_fraction = gas_fraction
@@ -360,20 +499,25 @@ module cooling_module
         ! Get the necessary values for the cell
         dlog_nH = dble(ctable%n1-1)/(ctable%nH(ctable%n1)-ctable%nH(1))
         dlog_T2 = dble(ctable%n2-1)/(ctable%T2(ctable%n2)-ctable%T2(1))
-        zzz = zsolar
+        h = 1d0 / dlog_T2
+        h2 = h * h
+        h3 = h2 * h
         facH = MIN(MAX(log10(nH/boost),ctable%nH(1)),ctable%nH(ctable%n1))
         i_nH = MIN(MAX(int((facH-ctable%nH(1))*dlog_nH)+1,1),ctable%n1-1)
         facT=log10(T2)
         i_T2 = MIN(MAX(int((facT-ctable%T2(1))*dlog_T2)+1,1),ctable%n2-1)
-        tau = T2
-        W1H = (ctable%nH(i_nH+1)-facH)/dlog_nH
-        W2H = (facH-ctable%nH(i_nH  ))/dlog_nH
-        W1T = (ctable%T2(i_T2+1)-facT)/dlog_T2
-        W2T = (facT-ctable%T2(i_T2  ))/dlog_T2
+        yy = facT - ctable%T2(i_T2)
+        yy2 = yy * yy
+        yy3 = yy2 * yy
+        W1H = (ctable%nH(i_nH+1)-facH)*dlog_nH
+        W2H = (facH-ctable%nH(i_nH  ))*dlog_nH
 
         fa = ctable%n_spec(i_nH,i_T2  ,1) * w1H + ctable%n_spec(i_nH+1,i_T2  ,1) * w2H
         fb = ctable%n_spec(i_nH,i_T2+1,1) * w1H + ctable%n_spec(i_nH+1,i_T2+1,1) * w2H
-        electron_density = fa * W1T + fb * W2T
+        alpha = fa
+        beta = 3d0 * (fb - fa)/h2 - (2d0 *fa + fb)/h
+        gamma = (fa + fb)/h2 - 2d0 * (fb - fa)/h3
+        electron_density = fa + alpha * yy + beta * yy2 + gamma * yy3
         electron_density = 10d0**electron_density
         mu_e = nH / MAX(local_gas_fraction * XH * electron_density, tiny(1d0))
     end subroutine solve_mu_e

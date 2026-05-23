@@ -2042,9 +2042,9 @@ module maps
             
             ! Get camera resolution
             call get_map_size(cam,n_map)
-            dx = (bbox%xmax-bbox%xmin)/n_map(1)
+            dx = (bbox%xmax-bbox%xmin)/n_map(1) 
             dy = (bbox%ymax-bbox%ymin)/n_map(2)
-            dcell = (/dx,dy,0D0/)
+            dcell = (/dx * sim%boxlen,dy * sim%boxlen,0D0/)
     
             ! Allocate toto
             allocate(proj%map(1:proj%nfilter,1:proj%nvars,1:proj%nwvars,0:n_map(1)-1,0:n_map(2)-1))

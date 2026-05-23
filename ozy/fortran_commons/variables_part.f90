@@ -1216,6 +1216,7 @@ module part_commons
         ! Mass of the particle divided by the surface of the cell
         m = part_var_d(pvar%ids(1))
         sdensity = m / (dx%x*dx%y)
+        ! if (m*my_sim%unit_m*g2msun<1980d0) print*,'mass,surface: ',m*my_sim%unit_m*g2msun,(dx%x*dx%y)*(my_sim%unit_l*cm2kpc*my_sim%boxlen)**2
     end function sdensity
 
     subroutine check_dervar(vardict,varname,pvar,ok)
@@ -1732,7 +1733,7 @@ module part_commons
             age = (my_sim%time_simu-t)
             birth_date = (my_sim%time_tot+age)/(my_sim%h0*1d5/3.08d24)/(365.*24.*3600.*1d9)
         else
-            birth_date = part_var_d(pvar%ids(1))
+            birth_date = part_var_d(pvar%ids(1))*my_sim%unit_t/(365.*24.*3600.*1d9)
         end if
 
     end function birth_date
@@ -1876,11 +1877,16 @@ module part_commons
                 sfr_surface = 0d0
             end if
         else
-            birth_date = part_var_d(pvar%ids(1))
+            birth_date = part_var_d(pvar%ids(1))*my_sim%unit_t/(365.*24.*3600.*1d9)
             current_age_univ = my_sim%time_simu*my_sim%unit_t/(365.*24.*3600.*1d9)
             ! 3. If the particle is older than the indicator, the SFR is zero
             if (birth_date >= (current_age_univ - sfrind)) then
+                sfrind = sfrind / my_sim%unit_t * (365.*24.*3600.*1d9)
                 sfr_surface = part_var_d(pvar%ids(2)) / (dx%x*dx%y) / sfrind
+                ! if (part_var_d(pvar%ids(2))*my_sim%unit_m*g2msun<1980) then
+                !     print*,'mass,surface,sfrind:',part_var_d(pvar%ids(2))*my_sim%unit_m*g2msun,dx%x*dx%y*(my_sim%unit_l*my_sim%boxlen)**2*cm2kpc**2,sfrind*my_sim%unit_t/(365.*24.*3600.*1d9)
+                !     print*,'sfr_surface:',sfr_surface*my_sim%unit_m/((my_sim%unit_l*my_sim%boxlen)**2)/my_sim%unit_t*gscm22msunyrkpc2
+                ! endif
             else
                 sfr_surface = 0d0
             end if
@@ -2032,7 +2038,6 @@ module part_commons
             pvar%vtypes(2) = 1
             pvar%myfunction_d => sfr_surface
             pvar%num_suffix = dble(get_numeric_suffix(varname))/1D3
-            print*,get_numeric_suffix(varname),pvar%num_suffix
         case('sfr_density')
             ! Star formation rate
             pvar%type = 'derived'

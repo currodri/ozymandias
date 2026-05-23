@@ -88,6 +88,9 @@ module constants
   real(dbl),parameter::g2msun=5.02739933e-034
   ! Density
   real(dbl),parameter::gcm32msunpc3=1.47755759e+22
+  ! SFR
+  real(dbl),parameter::gs2msunyr=1.585e-26
+  real(dbl),parameter::gscm22msunyrkpc2=1.51112d17
   ! Distance
   real(dbl),parameter::cm2km=1d-5
   real(dbl),parameter::cm2pc=3.24078e-19
@@ -137,4 +140,6 @@ module constants
   ! Milky Way constants
   real(dbl),parameter :: ecr_sun=1.4d-12 ! CR energy density in the Solar neighbourhood (Boschini et al. 2020, erg/cm-3)
   real(dbl),parameter :: LgammaH=1.1d-28 ! Gamma-ray luminosity per H atom in the 0.5-5 GeV range (Casandjian 2015)
+  ! Constants for Yohan's version of dust simulations
+  real(dbl) :: SiOverSil=0.163d0
 end module constants

@@ -88,7 +88,7 @@ class Snapshot(object):
         pseudo_entropy_unit = (mp.to('kg').d**(5./3.)) * pressure_unit / (density_unit**(5./3.))
 
         # Code length
-        registry.add("code_length", base_value=length_unit * self._info['boxlen'], dimensions=length)
+        registry.add("code_length", base_value=length_unit, dimensions=length)
         # Code time
         registry.add("code_time", base_value=time_unit, dimensions=time)
         # Code density

@@ -18,10 +18,10 @@ else
 endif
 
 # Add a flag for the RTPRE
-RTPRE = 4
+RTPRE = 8
 
 # Add a flag for the UPRE
-UPRE = 4
+UPRE = 8
 
 #=======================================================================
 #                     additional flags

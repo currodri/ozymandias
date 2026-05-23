@@ -33,6 +33,10 @@ module hydro_commons
         procedure(myinterface),pointer,nopass :: myfunction
     end type hydro_var
 
+    integer, save :: sil_small_fraction_id = -1
+    integer, save :: sil_large_fraction_id = -1
+    real(dbl), parameter :: sil_over_silicon_mass_fraction = 0.163d0
+
     contains
 
     ! BINNING FUNCTIONS
@@ -1205,7 +1209,7 @@ module hydro_commons
         real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
 
         real(dbl) :: temperature
-        real(dbl) :: local_mu,T,nH,Z
+        real(dbl) :: local_mu,T,nH
 
         ! Gas temperature
         if (my_sim%rt) then
@@ -1220,8 +1224,7 @@ module hydro_commons
             ! TODO: This a fix only for some messed up CRMHD simulations!
             if (T<15d0) T = 15d0
             nH = var(0,hvar%ids(2)) * my_sim%nH
-            Z  = var(0,hvar%ids(3)) / 2D-2
-            call solve_mu(nH,T,Z,local_mu)
+            call solve_mu(nH,T,local_mu)
             temperature = var(0,hvar%ids(2)) / var(0,hvar%ids(1)) * local_mu
         end if
         if (temperature < 0d0) then
@@ -1323,7 +1326,7 @@ module hydro_commons
             if (T < 15d0) T = 15d0
             nH = var(0,hvar%ids(2)) * my_sim%nH
             Z = var(0,hvar%ids(3)) / 2D-2
-            call solve_mu(nH,T,Z,local_mu)
+            call solve_mu(nH,T,local_mu)
             T = var(0,hvar%ids(2)) / var(0,hvar%ids(1)) * local_mu
         end if
         T = T * my_sim%T2
@@ -1348,7 +1351,7 @@ module hydro_commons
 
         real(dbl) :: pseudo_entropy
 
-        real(dbl) :: local_mu,local_mu_e,P,T,rho,nH,Z
+        real(dbl) :: local_mu,local_mu_e,P,T,rho,nH
         real(dbl) :: metal_mass,dust_mass,gas_fraction
         integer :: i,first_dust,idx_thP,idx_xHII,idx_xHeII,idx_xHeIII
 
@@ -1371,7 +1374,7 @@ module hydro_commons
             idx_xHII = idx_thP - 3
             dust_mass = 0d0
             do i = first_dust, idx_xHII-1
-                if (hvar%ids(i) > 0) dust_mass = dust_mass + var(0,hvar%ids(i))
+                if (hvar%ids(i) > 0) dust_mass = dust_mass + corrected_dust_fraction(var(0,hvar%ids(i)),hvar%ids(i))
             end do
             gas_fraction = MAX(1d0 - metal_mass - dust_mass, tiny(1d0))
             local_mu = getMu(var(0,hvar%ids(idx_xHII)),var(0,hvar%ids(idx_xHeII)),var(0,hvar%ids(idx_xHeIII)))
@@ -1380,15 +1383,14 @@ module hydro_commons
             idx_thP = size(hvar%ids)
             dust_mass = 0d0
             do i = first_dust, idx_thP-1
-                if (hvar%ids(i) > 0) dust_mass = dust_mass + var(0,hvar%ids(i))
+                if (hvar%ids(i) > 0) dust_mass = dust_mass + corrected_dust_fraction(var(0,hvar%ids(i)),hvar%ids(i))
             end do
             gas_fraction = MAX(1d0 - metal_mass - dust_mass, tiny(1d0))
             T = var(0,hvar%ids(1)) / var(0,hvar%ids(idx_thP)) * my_sim%T2
             if (T < 15d0) T = 15d0
             nH = var(0,hvar%ids(1)) * gas_fraction * XH * my_sim%unit_d / mHydrogen
-            Z = metal_mass / 2D-2
-            call solve_mu(nH,T,Z,local_mu)
-            call solve_mu_e(nH,T,Z,local_mu_e,gas_fraction)
+            call solve_mu(nH,T,local_mu)
+            call solve_mu_e(nH,T,local_mu_e,gas_fraction)
         end if
         P = max(var(0,hvar%ids(idx_thP)), Tmin*var(0,hvar%ids(1)))
         pseudo_entropy = local_mu * (local_mu_e)**(gamma_gas-1d0) * P / (var(0,hvar%ids(1)) ** gamma_gas)
@@ -3171,7 +3173,7 @@ module hydro_commons
         ! 2. Add up the dust mass
         dust_mass = 0d0
         do i = first_dust, size(hvar%ids)
-            if (hvar%ids(i) > 0) dust_mass = dust_mass + var(0,hvar%ids(i))
+            if (hvar%ids(i) > 0) dust_mass = dust_mass + corrected_dust_fraction(var(0,hvar%ids(i)),hvar%ids(i))
         end do
 
         hydrogen_density = var(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass)
@@ -3212,7 +3214,7 @@ module hydro_commons
         dust_mass = 0d0
         idx_xHI = size(hvar%ids)
         do i = first_dust, idx_xHI-1
-            if (hvar%ids(i) > 0) dust_mass = dust_mass + var(0,hvar%ids(i))
+            if (hvar%ids(i) > 0) dust_mass = dust_mass + corrected_dust_fraction(var(0,hvar%ids(i)),hvar%ids(i))
         end do
 
         ! 3. Compute the HI density
@@ -3255,7 +3257,7 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         dust_mass = 0d0
         idx_xHII = size(hvar%ids)
         do i = first_dust, idx_xHII-1
-            if (hvar%ids(i) > 0) dust_mass = dust_mass + var(0,hvar%ids(i))
+            if (hvar%ids(i) > 0) dust_mass = dust_mass + corrected_dust_fraction(var(0,hvar%ids(i)),hvar%ids(i))
         end do
 
         ! 3. Compute the HI density
@@ -3299,7 +3301,7 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         idx_xHII = size(hvar%ids)
         idx_xHI = idx_xHII - 1
         do i = first_dust, idx_xHI-1
-            if (hvar%ids(i) > 0) dust_mass = dust_mass + var(0,hvar%ids(i))
+            if (hvar%ids(i) > 0) dust_mass = dust_mass + corrected_dust_fraction(var(0,hvar%ids(i)),hvar%ids(i))
         end do
 
         ! 3. Compute the xH2
@@ -3458,7 +3460,7 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         ! 2. Add up the dust mass
         dust_mass = 0d0
         do i = first_dust, size(hvar%ids)
-            if (hvar%ids(i) > 0) dust_mass = dust_mass + var(0,hvar%ids(i))
+            if (hvar%ids(i) > 0) dust_mass = dust_mass + corrected_dust_fraction(var(0,hvar%ids(i)),hvar%ids(i))
         end do
 
         ! 3. Compute the mass fraction of hydrogen
@@ -3944,14 +3946,14 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         if (my_sim%metallicity) then
             idust_end = size(hvar%ids) - 1
             do i = 1, max(0,idust_end)
-                total_dust_mass = total_dust_mass + var(0,hvar%ids(i))
+                total_dust_mass = total_dust_mass + corrected_dust_fraction(var(0,hvar%ids(i)),hvar%ids(i))
             end do
             if (size(hvar%ids) > 0) total_metal_mass = var(0,hvar%ids(size(hvar%ids)))
         else
             imetal_start = size(hvar%ids) - my_sim%nmetals + 1
             idust_end = imetal_start - 1
             do i = 1, max(0,idust_end)
-                total_dust_mass = total_dust_mass + var(0,hvar%ids(i))
+                total_dust_mass = total_dust_mass + corrected_dust_fraction(var(0,hvar%ids(i)),hvar%ids(i))
             end do
             do i = max(1,imetal_start), size(hvar%ids)
                 total_metal_mass = total_metal_mass + var(0,hvar%ids(i))
@@ -3980,9 +3982,105 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
 
         DTG = 0d0
         do i = 1, size(hvar%ids)
-            DTG = DTG + var(0,hvar%ids(i))
+            DTG = DTG + corrected_dust_fraction(var(0,hvar%ids(i)),hvar%ids(i))
         end do
     end function DTG
+
+    function fraction_smallC(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+
+        real(dbl) :: fraction_smallC
+        real(dbl) :: total_A_grain, total_grains
+
+        total_A_grain = var(0,hvar%ids(1))
+        total_grains = var(0,hvar%ids(1)) + var(0,hvar%ids(2)) + corrected_dust_fraction(var(0,hvar%ids(3)),hvar%ids(3)) + &
+                corrected_dust_fraction(var(0,hvar%ids(4)),hvar%ids(4))
+        fraction_smallC = total_A_grain / total_grains
+    end function fraction_smallC
+
+    function fraction_largeC(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+
+        real(dbl) :: fraction_largeC
+        real(dbl) :: total_A_grain, total_grains
+
+        total_A_grain = var(0,hvar%ids(2))
+        total_grains = var(0,hvar%ids(1)) + var(0,hvar%ids(2)) + corrected_dust_fraction(var(0,hvar%ids(3)),hvar%ids(3)) + &
+                corrected_dust_fraction(var(0,hvar%ids(4)),hvar%ids(4))
+        fraction_largeC = total_A_grain / total_grains
+    end function fraction_largeC
+
+    function fraction_smallSil(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+
+        real(dbl) :: fraction_smallSil
+        real(dbl) :: total_A_grain, total_grains
+
+        total_A_grain = corrected_dust_fraction(var(0,hvar%ids(3)),hvar%ids(3))
+        total_grains = var(0,hvar%ids(1)) + var(0,hvar%ids(2)) + corrected_dust_fraction(var(0,hvar%ids(3)),hvar%ids(3)) + &
+                corrected_dust_fraction(var(0,hvar%ids(4)),hvar%ids(4))
+        fraction_smallSil = total_A_grain / total_grains
+    end function fraction_smallSil
+
+    function fraction_largeSil(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+
+        real(dbl) :: fraction_largeSil
+        real(dbl) :: total_A_grain, total_grains
+
+        total_A_grain = corrected_dust_fraction(var(0,hvar%ids(4)),hvar%ids(4))
+        total_grains = var(0,hvar%ids(1)) + var(0,hvar%ids(2)) + corrected_dust_fraction(var(0,hvar%ids(3)),hvar%ids(3)) + &
+                corrected_dust_fraction(var(0,hvar%ids(4)),hvar%ids(4))
+        fraction_largeSil = total_A_grain / total_grains
+    end function fraction_largeSil
 
     function STL(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
@@ -4002,9 +4100,9 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         real(dbl) :: STL
         real(dbl) :: total_small_grains, total_large_grains
 
-        total_small_grains = var(0,hvar%ids(1)) + var(0,hvar%ids(3))
-        total_large_grains = var(0,hvar%ids(2)) + var(0,hvar%ids(4))
-        STL = total_small_grains / total_large_grains
+        total_small_grains = var(0,hvar%ids(1)) + corrected_dust_fraction(var(0,hvar%ids(3)),hvar%ids(3))
+        total_large_grains = var(0,hvar%ids(2)) + corrected_dust_fraction(var(0,hvar%ids(4)),hvar%ids(4))
+        STL = total_small_grains / (total_large_grains + total_small_grains)
     end function STL
 
     function CSR(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -4026,8 +4124,9 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         real(dbl) :: total_carbon, total_silicon
 
         total_carbon = var(0,hvar%ids(1)) + var(0,hvar%ids(2))
-        total_silicon = var(0,hvar%ids(3)) + var(0,hvar%ids(4))
-        CSR = total_carbon / total_silicon
+        total_silicon = corrected_dust_fraction(var(0,hvar%ids(3)),hvar%ids(3)) + &
+                corrected_dust_fraction(var(0,hvar%ids(4)),hvar%ids(4))
+        CSR = total_carbon / (total_silicon + total_carbon)
     end function CSR
 
     function qPAH(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -4048,7 +4147,8 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         real(dbl) :: qPAH
         real(dbl) :: total_dust, total_pah
 
-        total_dust = var(0,hvar%ids(1)) + var(0,hvar%ids(2)) + var(0,hvar%ids(3)) + var(0,hvar%ids(4)) + &
+        total_dust = var(0,hvar%ids(1)) + var(0,hvar%ids(2)) + corrected_dust_fraction(var(0,hvar%ids(3)),hvar%ids(3)) + &
+                 & corrected_dust_fraction(var(0,hvar%ids(4)),hvar%ids(4)) + &
                      & var(0,hvar%ids(5)) + var(0,hvar%ids(6))
         total_pah = var(0,hvar%ids(5)) + var(0,hvar%ids(6))
         qPAH = total_pah / total_dust
@@ -4388,7 +4488,7 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         idx_xHeII = idx_thP - 2
         idx_xHII = idx_thP - 3
         do i = first_dust, idx_xHII-1
-            if (hvar%ids(i) > 0) dust_mass = dust_mass + var(0,hvar%ids(i))
+            if (hvar%ids(i) > 0) dust_mass = dust_mass + corrected_dust_fraction(var(0,hvar%ids(i)),hvar%ids(i))
         end do
 
         ! 3. Compute nH and nHe
@@ -4425,7 +4525,7 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
 
     end function charging_gamma
 
-	function h2form_prism_ratio(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+    function h2form_prism_ratio(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
         type(sim_info),intent(in) :: my_sim
@@ -4444,7 +4544,8 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         real(dbl) :: dtg_mw,h2formation_prism,TK
 
         ! 1. Add up the dust mass
-        dtg_mw = (var(0,hvar%ids(1)) + var(0,hvar%ids(2)) + var(0,hvar%ids(3)) + var(0,hvar%ids(4)) &
+        dtg_mw = (var(0,hvar%ids(1)) + var(0,hvar%ids(2)) + corrected_dust_fraction(var(0,hvar%ids(3)),hvar%ids(3)) + &
+        & corrected_dust_fraction(var(0,hvar%ids(4)),hvar%ids(4)) &
         & + var(0,hvar%ids(5)) + var(0,hvar%ids(6))) / (1.d0/162.d0)
 
         ! 2. Compute the H2 formation rate on dust grains using the PRISM formula
@@ -4588,11 +4689,26 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         dust_ids(5) = vardict%get('SilSmall_fraction')
         dust_ids(6) = vardict%get('SilLarge_fraction')
 
+        sil_small_fraction_id = dust_ids(5)
+        sil_large_fraction_id = dust_ids(6)
+
         ndust = 0
         do i = 1, 6
             if (dust_ids(i) > 0) ndust = ndust + 1
         end do
     end subroutine set_optional_dust_ids
+
+    function corrected_dust_fraction(dust_fraction,dust_var_id)
+        implicit none
+        real(dbl),intent(in) :: dust_fraction
+        integer,intent(in) :: dust_var_id
+        real(dbl) :: corrected_dust_fraction
+
+        corrected_dust_fraction = dust_fraction
+        if (dust_var_id == sil_small_fraction_id .or. dust_var_id == sil_large_fraction_id) then
+            corrected_dust_fraction = corrected_dust_fraction / sil_over_silicon_mass_fraction
+        end if
+    end function corrected_dust_fraction
 
     subroutine append_present_ids(source,nsource,target,start_idx,nadded)
         implicit none
@@ -4650,6 +4766,9 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         integer, dimension(6) :: dust_ids
         logical :: need_dust, need_pahs
 
+        sil_small_fraction_id = vardict%get('SilSmall_fraction')
+        sil_large_fraction_id = vardict%get('SilLarge_fraction')
+
         need_dust = .false.
         need_pahs = .false.
           select case (trim(varname))
@@ -4658,7 +4777,8 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
               'PAHSmall_density','PAHLarge_density','xC_PAHSmall','xC_PAHLarge', &
               'CSmall_density','CLarge_density','SilSmall_density','SilLarge_density', &
               'PAHSmall_mass','PAHLarge_mass','CSmall_mass','CLarge_mass','SilSmall_mass', &
-              'SilLarge_mass')
+              'SilLarge_mass','fraction_smallC','fraction_largeC','fraction_smallSil', &
+              'fraction_largeSil')
             need_dust = .true.
         end select
         select case (trim(varname))
@@ -5914,27 +6034,65 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
             allocate(hvar%ids(ndust))
             call append_present_ids(dust_ids,6,hvar%ids,0,ndust)
             hvar%myfunction => DTG
-        case ('STL')
-            ! small-to-large grain mass ratio
+        case ('fraction_smallC')
+            ! smallC to total dust mass ratio
             hvar%type = 'derived'
-            hvar%name = 'STL'
-            allocate(hvar%ids(5))
+            hvar%name = 'fraction_smallC'
+            allocate(hvar%ids(4))
             hvar%ids(1) = vardict%get('CSmall_fraction')
             hvar%ids(2) = vardict%get('CLarge_fraction')
             hvar%ids(3) = vardict%get('SilSmall_fraction')
             hvar%ids(4) = vardict%get('SilLarge_fraction')
-            hvar%ids(5) = vardict%get('metallicity')
+            hvar%myfunction => fraction_smallC
+        case ('fraction_largeC')
+            ! largeC to total dust mass ratio
+            hvar%type = 'derived'
+            hvar%name = 'fraction_largeC'
+            allocate(hvar%ids(4))
+            hvar%ids(1) = vardict%get('CSmall_fraction')
+            hvar%ids(2) = vardict%get('CLarge_fraction')
+            hvar%ids(3) = vardict%get('SilSmall_fraction')
+            hvar%ids(4) = vardict%get('SilLarge_fraction')
+            hvar%myfunction => fraction_largeC
+        case ('fraction_smallSil')
+            ! smallSil to total dust mass ratio
+            hvar%type = 'derived'
+            hvar%name = 'fraction_smallSil'
+            allocate(hvar%ids(4))
+            hvar%ids(1) = vardict%get('CSmall_fraction')
+            hvar%ids(2) = vardict%get('CLarge_fraction')
+            hvar%ids(3) = vardict%get('SilSmall_fraction')
+            hvar%ids(4) = vardict%get('SilLarge_fraction')
+            hvar%myfunction => fraction_smallSil
+        case ('fraction_largeSil')
+            ! largeSil to total dust mass ratio
+            hvar%type = 'derived'
+            hvar%name = 'fraction_largeSil'
+            allocate(hvar%ids(4))
+            hvar%ids(1) = vardict%get('CSmall_fraction')
+            hvar%ids(2) = vardict%get('CLarge_fraction')
+            hvar%ids(3) = vardict%get('SilSmall_fraction')
+            hvar%ids(4) = vardict%get('SilLarge_fraction')
+            hvar%myfunction => fraction_largeSil
+        case ('STL')
+            ! small-to-large grain mass ratio
+            hvar%type = 'derived'
+            hvar%name = 'STL'
+            allocate(hvar%ids(4))
+            hvar%ids(1) = vardict%get('CSmall_fraction')
+            hvar%ids(2) = vardict%get('CLarge_fraction')
+            hvar%ids(3) = vardict%get('SilSmall_fraction')
+            hvar%ids(4) = vardict%get('SilLarge_fraction')
             hvar%myfunction => STL
         case ('CSR')
             ! carbon-to-silicate grain mass ratio
             hvar%type = 'derived'
             hvar%name = 'CSR'
-            allocate(hvar%ids(5))
+            allocate(hvar%ids(4))
             hvar%ids(1) = vardict%get('CSmall_fraction')
             hvar%ids(2) = vardict%get('CLarge_fraction')
             hvar%ids(3) = vardict%get('SilSmall_fraction')
             hvar%ids(4) = vardict%get('SilLarge_fraction')
-            hvar%ids(5) = vardict%get('metallicity')
             hvar%myfunction => CSR
         case ('qPAH')
             ! PAH-to-dust mass ratio

@@ -511,7 +511,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
         print('At least one variable needs radiative transfer!')
 
     # Setup camera details for the requested POV (Point of View)
-    boxlen = 1 #obj.simulation.boxsize.to('code_length').d   
+    boxlen = obj.simulation.boxsize.to('code_length').d   
     if use_snapshot:
         group.position = obj.array(mycentre[0],mycentre[1])
         window = obj.quantity(window[0],window[1]).in_units('code_length').d
@@ -776,7 +776,7 @@ def do_projection(group,vars,weight=['gas/density','star/cumulative'],map_max_si
     else:
         nsubs = 0 
     cam = obs_instruments.init_camera(centre,axis,up_vector,region_size/boxlen,region_axis,bulk,distance/boxlen,
-                                      far_cut_depth/boxlen,map_max_size-1,nsubs)
+                                      far_cut_depth/boxlen,map_max_size,nsubs)
     # Now give filters to camera Fortran type
     if remove_subs and nsubs>0:
         for i in range(0,nsubs):
