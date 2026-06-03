@@ -3457,6 +3457,44 @@ module hydro_commons
         hydrogen_density = var(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass)
     end function hydrogen_density
 
+    function hydrogen_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+
+        real(dbl) :: hydrogen_mass
+        real(dbl) :: metal_mass,dust_mass
+        integer :: i
+
+        ! 1. Add up the metal mass
+        metal_mass = 0d0
+        do i = 2, 10
+            metal_mass = metal_mass + var(0,hvar%ids(i))
+        end do
+
+        ! 2. Add up the dust mass
+        dust_mass = 0d0
+        do i = 11, 16
+            dust_mass = dust_mass + var(0,hvar%ids(i))
+        end do
+
+        hydrogen_mass = (var(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass)) * dx**3d0
+    end function hydrogen_mass
+
     function HI_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
         type(amr_info),intent(in) :: my_amr
@@ -3577,6 +3615,47 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
 
         H2_density = var(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass) * xH2
     end function H2_density
+
+function H2_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+
+        real(dbl) :: H2_mass
+        real(dbl) :: metal_mass,dust_mass,xH2
+        integer :: i
+
+        ! 1. Add up the metal mass
+        metal_mass = 0d0
+        do i = 2, 10
+            metal_mass = metal_mass + var(0,hvar%ids(i))
+        end do
+
+        ! 2. Add up the dust mass
+        dust_mass = 0d0
+        do i = 11, 16
+            dust_mass = dust_mass + var(0,hvar%ids(i))
+        end do
+
+        ! 3. Compute the xH2
+        xH2 = (1.d0 - var(0,hvar%ids(17)) - var(0,hvar%ids(18))) / 2d0
+
+        H2_mass = (var(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass) * xH2) * (dx**3d0)
+    end function H2_mass
 
     function xH2(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
@@ -3750,6 +3829,30 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
         Omassfraction = var(0,hvar%ids(2))
         oxygen_abundance = 12d0 + log10( Omassfraction / Hmassfraction / mOovermH)
     end function oxygen_abundance
+
+    function oxygen_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+        
+        real(dbl) :: oxygen_mass
+
+        oxygen_mass = var(0,hvar%ids(1)) * var(0,hvar%ids(2)) * (dx**3d0)
+    end function oxygen_mass
 
 
     ! DUST VARIABLES
@@ -4280,6 +4383,66 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
 
         CO_mass = ((var(0,hvar%ids(1)) * var(0,hvar%ids(2)) * dx) * dx) * dx
     end function CO_mass
+
+    function dust_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+
+        real(dbl) :: dust_density
+        real(dbl) :: total_dust_fraction
+
+        total_dust_fraction = var(0,hvar%ids(2)) + var(0,hvar%ids(3)) &
+                            & + var(0,hvar%ids(4)) + var(0,hvar%ids(5)) &
+                            & + var(0,hvar%ids(6)) + var(0,hvar%ids(7))
+        dust_density = var(0,hvar%ids(1)) * total_dust_fraction
+    end function dust_density
+
+    function dust_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
+        implicit none
+        type(amr_info),intent(in) :: my_amr
+        type(sim_info),intent(in) :: my_sim
+        type(rt_info),intent(in) :: my_rt
+        type(hydro_var), intent(in) :: hvar
+        type(region),intent(in)                       :: reg
+        real(dbl),intent(in)                       :: dx
+        type(vector),intent(in)        :: x
+        real(dbl),dimension(0:my_amr%twondim,1:my_sim%nvar),intent(in) :: var
+        integer,dimension(0:my_amr%twondim),intent(in) :: son
+        real(dbl),dimension(1:3,1:3),optional,intent(in) :: trans_matrix
+        real(dbl),dimension(0:my_amr%twondim,1:4),optional,intent(in) :: grav_var
+#if RTPRE==4
+        real(sgl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#elif RTPRE==8
+        real(dbl),dimension(0:my_amr%twondim,1:my_rt%nRTvar),optional,intent(in) :: rt_var
+#endif
+
+        real(dbl) :: dust_mass
+        real(dbl) :: total_dust_fraction
+
+        total_dust_fraction = var(0,hvar%ids(2)) + var(0,hvar%ids(3)) &
+                            & + var(0,hvar%ids(4)) + var(0,hvar%ids(5)) &
+                            & + var(0,hvar%ids(6)) + var(0,hvar%ids(7))
+        if (total_dust_fraction .ge. 1d0) then
+            print *, "Error: Total dust fraction cannot be greater than or equal to 1."
+            stop
+        end if
+        dust_mass = var(0,hvar%ids(1)) * total_dust_fraction * (dx*dx) * dx
+    end function dust_mass
 
     function DTM(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
         implicit none
@@ -5814,6 +5977,28 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
             hvar%ids(15) = vardict%get('SilSmall_fraction')
             hvar%ids(16) = vardict%get('SilLarge_fraction')
             hvar%myfunction => hydrogen_density
+        case ('hydrogen_mass')
+            ! Mass of the hydrogen gas
+            hvar%type = 'derived'
+            hvar%name = 'hydrogen_mass'
+            allocate(hvar%ids(16))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('iron_fraction')
+            hvar%ids(3) = vardict%get('oxygen_fraction')
+            hvar%ids(4) = vardict%get('carbon_fraction')
+            hvar%ids(5) = vardict%get('silicon_fraction')
+            hvar%ids(6) = vardict%get('magnesium_fraction')
+            hvar%ids(7) = vardict%get('sulfur_fraction')
+            hvar%ids(8) = vardict%get('nitrogen_fraction')
+            hvar%ids(9) = vardict%get('calcium_fraction')
+            hvar%ids(10) = vardict%get('neon_fraction')
+            hvar%ids(11) = vardict%get('PAHSmall_fraction')
+            hvar%ids(12) = vardict%get('PAHLarge_fraction')
+            hvar%ids(13) = vardict%get('CSmall_fraction')
+            hvar%ids(14) = vardict%get('CLarge_fraction')
+            hvar%ids(15) = vardict%get('SilSmall_fraction')
+            hvar%ids(16) = vardict%get('SilLarge_fraction')
+            hvar%myfunction => hydrogen_mass
         case ('HI_density')
             ! Density of the neutral hydrogen gas
             hvar%type = 'derived'
@@ -5884,6 +6069,30 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
             hvar%ids(17) = vardict%get('xHI')
             hvar%ids(18) = vardict%get('xHII')
             hvar%myfunction => H2_density
+        case ('H2_mass')
+            ! Mass of the molecular hydrogen gas
+            hvar%type = 'derived'
+            hvar%name = 'H2_mass'
+            allocate(hvar%ids(18))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('iron_fraction')
+            hvar%ids(3) = vardict%get('oxygen_fraction')
+            hvar%ids(4) = vardict%get('carbon_fraction')
+            hvar%ids(5) = vardict%get('silicon_fraction')
+            hvar%ids(6) = vardict%get('magnesium_fraction')
+            hvar%ids(7) = vardict%get('sulfur_fraction')
+            hvar%ids(8) = vardict%get('nitrogen_fraction')
+            hvar%ids(9) = vardict%get('calcium_fraction')
+            hvar%ids(10) = vardict%get('neon_fraction')
+            hvar%ids(11) = vardict%get('PAHSmall_fraction')
+            hvar%ids(12) = vardict%get('PAHLarge_fraction')
+            hvar%ids(13) = vardict%get('CSmall_fraction')
+            hvar%ids(14) = vardict%get('CLarge_fraction')
+            hvar%ids(15) = vardict%get('SilSmall_fraction')
+            hvar%ids(16) = vardict%get('SilLarge_fraction')
+            hvar%ids(17) = vardict%get('xHI')
+            hvar%ids(18) = vardict%get('xHII')
+            hvar%myfunction => H2_mass
         case ('xH2')
             ! Fraction of hydrogen in molecular form
             hvar%type = 'derived'
@@ -6108,6 +6317,14 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
             hvar%ids(1) = vardict%get('density')
             hvar%ids(2) = vardict%get('CO_fraction')
             hvar%myfunction => CO_mass
+        case ('oxygen_mass')
+            ! mass of the oxygen
+            hvar%type = 'derived'
+            hvar%name = 'oxygen_mass'
+            allocate(hvar%ids(2))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('oxygen_fraction')
+            hvar%myfunction => oxygen_mass
         case ('oxygen_abundance')
             ! Oxygen abundance 12+log(O/H)
             hvar%type = 'derived'
@@ -6129,6 +6346,32 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
             hvar%ids(14) = vardict%get('SilSmall_fraction')
             hvar%ids(15) = vardict%get('SilLarge_fraction')
             hvar%myfunction => oxygen_abundance
+        case ('dust_density')
+            ! Density of the dust
+            hvar%type = 'derived'
+            hvar%name = 'dust_density'
+            allocate(hvar%ids(7))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('CSmall_fraction')
+            hvar%ids(3) = vardict%get('CLarge_fraction')
+            hvar%ids(4) = vardict%get('SilSmall_fraction')
+            hvar%ids(5) = vardict%get('SilLarge_fraction')
+            hvar%ids(6) = vardict%get('PAHSmall_fraction')
+            hvar%ids(7) = vardict%get('PAHLarge_fraction')
+            hvar%myfunction => dust_density
+        case ('dust_mass')
+            ! Mass of the dust
+            hvar%type = 'derived'
+            hvar%name = 'dust_mass'
+            allocate(hvar%ids(7))
+            hvar%ids(1) = vardict%get('density')
+            hvar%ids(2) = vardict%get('CSmall_fraction')
+            hvar%ids(3) = vardict%get('CLarge_fraction')
+            hvar%ids(4) = vardict%get('SilSmall_fraction')
+            hvar%ids(5) = vardict%get('SilLarge_fraction')
+            hvar%ids(6) = vardict%get('PAHSmall_fraction')
+            hvar%ids(7) = vardict%get('PAHLarge_fraction')
+            hvar%myfunction => dust_mass
         case ('DTM')
             ! dust-to-metal mass ratio
             hvar%type = 'derived'
@@ -6293,19 +6536,19 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
             hvar%myfunction => charging_gamma
         case ('h2form_prism_ratio')
             ! Ratio of H2 formation from live dust to the scaling
-			! in the original PRISM model
-			hvar%type = 'derived'
-			hvar%name = 'h2form_prism_ratio'
-			allocate(hvar%ids(8))
-			hvar%ids(1) = vardict%get('CSmall_fraction')
-			hvar%ids(2) = vardict%get('CLarge_fraction')
-			hvar%ids(3) = vardict%get('SilSmall_fraction')
-			hvar%ids(4) = vardict%get('SilLarge_fraction')
-			hvar%ids(5) = vardict%get('PAHSmall_fraction')
-			hvar%ids(6) = vardict%get('PAHLarge_fraction')
-			hvar%ids(7) = vardict%get('cooling_temperature')
-			hvar%ids(8) = vardict%get('h2formation_rate')
-			hvar%myfunction => h2form_prism_ratio
+            ! in the original PRISM model
+            hvar%type = 'derived'
+            hvar%name = 'h2form_prism_ratio'
+            allocate(hvar%ids(8))
+            hvar%ids(1) = vardict%get('CSmall_fraction')
+            hvar%ids(2) = vardict%get('CLarge_fraction')
+            hvar%ids(3) = vardict%get('SilSmall_fraction')
+            hvar%ids(4) = vardict%get('SilLarge_fraction')
+            hvar%ids(5) = vardict%get('PAHSmall_fraction')
+            hvar%ids(6) = vardict%get('PAHLarge_fraction')
+            hvar%ids(7) = vardict%get('cooling_temperature')
+            hvar%ids(8) = vardict%get('h2formation_rate')
+            hvar%myfunction => h2form_prism_ratio
         case ('heatingfrac_peh')
             ! Fraction of total heating contributed by PEH
             hvar%type = 'derived'

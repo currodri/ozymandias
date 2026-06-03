@@ -743,7 +743,8 @@ module maps
         if (.not.allocated(proj%is_column_weight)) allocate(proj%is_column_weight(proj%nwvars))
         proj%is_column_weight = .false.
         do ii = 1, proj%nwvars
-            if (trim(proj%weightvars(ii)) == 'column') then
+            if (trim(proj%weightvars(ii)) == 'column' .or. &
+                & trim(proj%weightvars(ii)) == 'cumulative') then
                 proj%is_column_weight(ii) = .true.
             end if
         end do
@@ -1137,7 +1138,8 @@ module maps
                                             if (ok_filter) then
                                                 if (.not.grid(ilevel)%active) grid(ilevel)%active = .true.
                                                 weightvarloop: do iweight=1,proj%nwvars
-                                                    if (trim(proj%weightvars(iweight)) == 'counts') then
+                                                    if (trim(proj%weightvars(iweight)) == 'counts' .or. &
+                                                        & trim(proj%weightvars(iweight)) == 'cumulative') then
                                                         weight = 1D0
                                                     else if (trim(proj%weightvars(iweight)) == 'column') then
                                                         ! For column densities, weight is just the cell width dx (in code units)
@@ -1680,7 +1682,8 @@ module maps
                                             if (ok_filter) then
                                                 if (.not.grid(ilevel)%active) grid(ilevel)%active = .true.
                                                 weightvarloop: do iweight=1,proj%nwvars
-                                                    if (trim(proj%weightvars(iweight)) == 'counts') then
+                                                    if (trim(proj%weightvars(iweight)) == 'counts' .or. &
+                                                        & trim(proj%weightvars(iweight)) == 'cumulative') then
                                                         weight = 1D0
                                                     else if (trim(proj%weightvars(iweight)) == 'column') then
                                                         ! For column densities, weight is just the cell width dx (in code units)
