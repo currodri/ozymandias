@@ -70,12 +70,8 @@ module amr_integrator
         type(amr_region_attrs),intent(inout) :: attrs
         integer, intent(in) :: ifilt
         real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
-        real(dbl),dimension(0:amr%twondim,1:4),optional,intent(in) :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:amr%twondim,1:rtinfo%nRTvar),optional,intent(in) :: rt_var
-#elif RTPRE==8
-        real(dbl),dimension(0:amr%twondim,1:rtinfo%nRTvar),optional,intent(in) :: rt_var
-#endif
+        real(dbl),dimension(0:,:),optional,intent(in) :: grav_var
+        real(dbl),dimension(0:,:),optional,intent(in) :: rt_var
 
         ! Local variables
         integer :: i,j,ibin
@@ -349,16 +345,12 @@ module amr_integrator
             real(dbl),dimension(1:8,1:3) :: xc
             real(dbl),dimension(3,3) :: trans_matrix
             real(dbl),dimension(:,:),allocatable :: xg,x,xorig
-            real(dbl),dimension(:,:,:),allocatable :: var,grav_var
+            real(dbl),dimension(:,:,:),allocatable :: var
+            real(hydro_real_kind),dimension(:,:,:),allocatable :: grav_var
             real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
-#if RTPRE==4
-            real(sgl),dimension(:,:,:),allocatable :: rt_var
-            real(sgl),dimension(:,:),allocatable :: temprt_var
-#elif RTPRE==8
-            real(dbl),dimension(:,:,:),allocatable :: rt_var
+            real(rt_real_kind),dimension(:,:,:),allocatable :: rt_var
             real(dbl),dimension(:,:),allocatable :: temprt_var
-#endif
             integer,dimension(:,:),allocatable :: son
             integer,dimension(:),allocatable :: tempson
             logical,dimension(:),allocatable :: ref
@@ -634,7 +626,7 @@ module amr_integrator
 
                                         ! Gravitational acc
                                         if (attrs%use_gravity) then
-                                            gtemp = grav_var(i,ind,2:4)
+                                            gtemp = dble(grav_var(i,ind,2:4))
                                             call rotate_vector(gtemp,trans_matrix)
                                         endif
                                         allocate(tempvar(0:amr%twondim,sim%nvar))
@@ -644,17 +636,17 @@ module amr_integrator
                                         ! Just add central cell as we do not want neighbours
                                         tempvar(0,:) = var(i,ind,:)
                                         tempson(0)       = son(i,ind)
-                                        if (attrs%use_gravity) tempgrav_var(0,:) = grav_var(i,ind,:)
+                                        if (attrs%use_gravity) tempgrav_var(0,:) = dble(grav_var(i,ind,:))
                                         tempvar(0,ivx:ivz) = vtemp
                                         if (attrs%use_gravity) tempgrav_var(0,2:4) = gtemp
                                         if (attrs%use_rt) then
                                             do igroup=1,rtinfo%nGroups
                                                 igrp = 1 + (amr%ndim + 1) * (igroup - 1)
-                                                temprt_var(0,igrp) = rt_var(i,ind,igrp)
+                                                temprt_var(0,igrp) = dble(rt_var(i,ind,igrp))
                                                 fluxtemp = dble(rt_var(i,ind,igrp+1:igrp+amr%ndim))
                                                 call rotate_vector(fluxtemp,trans_matrix)
                                                 fluxtmp = fluxtemp
-                                                temprt_var(0,igrp+1:igrp+amr%ndim) = sngl(fluxtmp)
+                                                temprt_var(0,igrp+1:igrp+amr%ndim) = fluxtmp
                                             end do
                                         end if
                                         filterloop: do ifilt=1,attrs%nfilter
@@ -747,17 +739,12 @@ module amr_integrator
             real(dbl),dimension(:),allocatable :: xxg,son_dens
             real(dbl),dimension(:,:),allocatable :: x,xorig
             real(dbl),dimension(:,:),allocatable :: var
-            real(dbl),dimension(:,:),allocatable :: grav_var
+            real(hydro_real_kind),dimension(:,:),allocatable :: grav_var
             real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
             real(dbl),dimension(:,:),allocatable :: cellpos
-#if RTPRE==4
-            real(sgl),dimension(:,:),allocatable :: rt_var
-            real(sgl),dimension(:,:),allocatable :: temprt_var
-#elif RTPRE==8
-            real(dbl),dimension(:,:),allocatable :: rt_var
+            real(rt_real_kind),dimension(:,:),allocatable :: rt_var
             real(dbl),dimension(:,:),allocatable :: temprt_var
-#endif
             integer,dimension(:,:),allocatable :: nbor
             integer,dimension(:),allocatable :: son,tempson,iig
             integer,dimension(:),allocatable :: ind_cell,ind_cell2
@@ -1072,7 +1059,7 @@ module amr_integrator
 
                                     ! Gravitational acc --> ONLY FOR CENTRAL CELL
                                     if (attrs%use_gravity) then
-                                        gtemp = grav_var(ind_cell(i),2:4)
+                                        gtemp = dble(grav_var(ind_cell(i),2:4))
                                         call rotate_vector(gtemp,trans_matrix)
                                     endif
 
@@ -1088,25 +1075,25 @@ module amr_integrator
                                     ! Just correct central cell vectors for the region
                                     tempvar(0,:) = var(ind_nbor(1,0),:)
                                     tempson(0)       = son(ind_nbor(1,0))
-                                    if (attrs%use_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
+                                    if (attrs%use_gravity) tempgrav_var(0,:) = dble(grav_var(ind_nbor(1,0),:))
                                     tempvar(0,ivx:ivz) = vtemp
                                     if (attrs%use_gravity) tempgrav_var(0,2:4) = gtemp
                                     if (attrs%use_rt) then
                                         do igroup=1,rtinfo%nGroups
                                             igrp = 1 + (amr%ndim + 1) * (igroup - 1)
-                                            temprt_var(0,igrp) = rt_var(ind_nbor(1,0),igrp)
+                                            temprt_var(0,igrp) = dble(rt_var(ind_nbor(1,0),igrp))
                                             fluxtemp = dble(rt_var(ind_nbor(1,0),igrp+1:igrp+amr%ndim))
                                             call rotate_vector(fluxtemp,trans_matrix)
                                             fluxtmp = fluxtemp
-                                            temprt_var(0,igrp+1:igrp+amr%ndim) = sngl(fluxtmp)
+                                            temprt_var(0,igrp+1:igrp+amr%ndim) = fluxtmp
                                         end do
                                     end if
                                     do inbor=1,amr%twondim
                                         tempvar(inbor,:) = var(ind_nbor(1,inbor),:)
                                         tempson(inbor)       = son(ind_nbor(1,inbor))
-                                        if (attrs%use_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(1,inbor),:)
+                                        if (attrs%use_gravity) tempgrav_var(inbor,:) = dble(grav_var(ind_nbor(1,inbor),:))
                                         if (attrs%use_rt) then
-                                            temprt_var(inbor,:) = rt_var(ind_nbor(1,inbor),:)
+                                            temprt_var(inbor,:) = dble(rt_var(ind_nbor(1,inbor),:))
                                         end if
                                     end do
                                 

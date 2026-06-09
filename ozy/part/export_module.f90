@@ -27,7 +27,7 @@ module export_part
     contains
 
     subroutine part2skirt(repository,reg,filt,lmax,&
-                        &h,smoothmethod,sedmethod,outpath,&
+                        &smoothing_length,smoothmethod,sedmethod,outpath,&
                         &part_dict,part_vtypes)
         use vectors
         use coordinate_systems
@@ -39,7 +39,7 @@ module export_part
         type(region),intent(in) :: reg
         type(filter_part),intent(inout) :: filt
         integer,intent(in) :: lmax
-        real(dbl),intent(in) :: h
+        real(dbl),intent(in) :: smoothing_length
         character(100),intent(in) :: smoothmethod,sedmethod
         character(128),intent(in) :: outpath
         type(dictf90),intent(in),optional :: part_dict,part_vtypes
@@ -529,7 +529,7 @@ module export_part
         102 format('File includes ',I12,' DM particles')
     end subroutine part2disperse
 
-    subroutine part2file(repository,reg,filt,lmax,h,smoothmethod,outpath,&
+    subroutine part2file(repository,reg,filt,lmax,smoothing_length,smoothmethod,outpath,&
                         &part_dict,part_vtypes)
         use vectors
         use coordinate_systems
@@ -541,7 +541,7 @@ module export_part
         type(region),intent(in) :: reg
         type(filter_part),intent(inout) :: filt
         integer,intent(in) :: lmax
-        real(dbl),intent(in) :: h
+        real(dbl),intent(in) :: smoothing_length
         character(100),intent(in) :: smoothmethod
         character(128),intent(in) :: outpath
         type(dictf90),intent(in),optional :: part_dict,part_vtypes

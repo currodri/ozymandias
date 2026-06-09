@@ -4,8 +4,8 @@
 
 CC       = gcc
 #CC       = ifort
-#F90      = gfortran
-F90      = ifx
+F90      = gfortran
+#F90      = ifx
 #F90      =  /opt/intel/composer_xe_2015.3.187/bin/intel64/ifort
 PYTHON   = python
 
@@ -31,15 +31,18 @@ RTPRE = 4
 
 
 ifeq ($(F90),gfortran)
+	export MACOSX_DEPLOYMENT_TARGET=26.0
+	export CFLAGS += -mmacosx-version-min=26.0
+	export FFLAGS += -mmacosx-version-min=26.0
 	FPP      = gfortran -E
-	FPP_F90FLAGS = -x f95-cpp-input -fPIC
+	FPP_F90FLAGS = -x f95-cpp-input -fPIC # -mmacosx-version-min=15.4
 	ifeq ($(USE_HEALPIX),1)
-		HP_FLAGS = -L/Users/currodri/Documents/codes/Healpix_3.83/lib -I/Users/currodri/Documents/codes/Healpix_3.83/include -L/Users/currodri/Documents/codes/cfitsio-4.6.2/lib -I/Users/currodri/Documents/codes/cfitsio-4.6.2/include -lchealpix -lhealpix -lcfitsio
+		HP_FLAGS = -L/Users/currodri/Documents/codes/Healpix_3.83/lib -I/Users/currodri/Documents/codes/Healpix_3.83/include -L/Users/currodri/Documents/codes/cfitsio-4.6.2/lib -I/Users/currodri/Documents/codes/cfitsio-4.6.2/include -lchealpix -lhealpix -lcfitsio #-mmacosx-version-min=15.4
 	else
 		HP_FLAGS =
 	endif
-	F90FLAGS = -Ofast -cpp -fPIC -DIMASS -DRTPRE=${RTPRE} ${HEALPIX_DEFINE} -ffree-line-length-256 ${HP_FLAGS}
-	#F90FLAGS = -O0 -g -fbacktrace -cpp -fPIC -DIMASS -ffree-line-length-256 ${HP_FLAGS}    
+	F90FLAGS = -Ofast -cpp -fPIC -DIMASS -DRTPRE=${RTPRE} ${HEALPIX_DEFINE} -ffree-line-length-256 ${HP_FLAGS} ${FFLAGS}
+	#F90FLAGS = -O0 -g -fbacktrace -cpp -fPIC -DIMASS -ffree-line-length-256 ${HP_FLAGS} -DRTPRE=${RTPRE} ${HEALPIX_DEFINE}
 	FCOMP    = gfortran
     LIBS     =
 endif

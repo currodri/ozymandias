@@ -72,12 +72,8 @@ module filtering_hydro
         real(dbl), dimension(0:amr%twondim,1:sim%nvar), intent(in) :: cell_var
         integer,dimension(0:amr%twondim),intent(in) :: cell_son
         real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
-        real(dbl),dimension(0:amr%twondim,1:4),intent(in),optional :: grav_var
-#if RTPRE==4
-        real(sgl),dimension(0:amr%twondim,1:rtinfo%nRTvar),intent(in),optional :: rt_var
-#elif RTPRE==8
-        real(dbl),dimension(0:amr%twondim,1:rtinfo%nRTvar),intent(in),optional :: rt_var
-#endif
+        real(dbl),dimension(0:,:),intent(in),optional :: grav_var
+        real(dbl),dimension(0:,:),intent(in),optional :: rt_var
         integer :: i
         real(dbl) :: value,filt_value
 

@@ -4,8 +4,8 @@
 
 CC       = gcc
 #CC       = ifort
-#F90      = gfortran
-F90      = ifx
+F90      = gfortran
+#F90      = ifx
 #F90      =  /opt/intel/composer_xe_2015.3.187/bin/intel64/ifort
 PYTHON   = python
 
@@ -15,10 +15,13 @@ RTPRE = 4
 #                     additional flags
 #=======================================================================
 ifeq ($(F90),gfortran)
+	export MACOSX_DEPLOYMENT_TARGET=26.0
+	export CFLAGS += -mmacosx-version-min=26.0
+	export FFLAGS += -mmacosx-version-min=26.0
     FPP      = gfortran -E
-    FPP_F90FLAGS = -x f95-cpp-input -fPIC -g -fbacktrace -fcheck=all
-    F90FLAGS = -O0 -g -fbacktrace -fcheck=all -fPIC -cpp -ffree-line-length-256 -DIMASS 
-    F90FLAGS = -Ofast -fPIC -cpp -ffree-line-length-256 -DIMASS -DRTPRE=$(RTPRE)
+    FPP_F90FLAGS = -x f95-cpp-input -fPIC
+    F90FLAGS = -O0 -g -fbacktrace -fcheck=all -fPIC -cpp -ffree-line-length-256 -DIMASS -DRTPRE=${RTPRE} ${FFLAGS}
+    F90FLAGS = -Ofast -fPIC -cpp -ffree-line-length-256 -DIMASS -DRTPRE=$(RTPRE) ${FFLAGS}
     FCOMP    = gfortran
     LIBS     =
 endif
