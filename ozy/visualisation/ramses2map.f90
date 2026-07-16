@@ -669,8 +669,8 @@ module maps
         if (verbose) write(*,*)'Camera using lmin, lmax: ',cam%lmin,cam%lmax
         call get_bounding_box(cam,bbox)
         if (verbose) then
-            write(*,*)'Bounding box x: ',bbox%xmin,bbox%ymin
-            write(*,*)'Bounding box y: ',bbox%xmax,bbox%ymax
+            write(*,*)'Bounding box x: ',bbox%xmin,bbox%xmax
+            write(*,*)'Bounding box y: ',bbox%ymin,bbox%ymax
             write(*,*)'Bounding box z: ',bbox%zmin,bbox%zmax
         end if
         bbox%name = 'cube'

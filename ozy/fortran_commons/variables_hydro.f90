@@ -1209,6 +1209,9 @@ module hydro_commons
         ! Gas temperature
         temperature = var(0,hvar%ids(2)) / var(0,hvar%ids(1))
         if (temperature < 0d0) then
+            print*,'WARNING: negative temperature, setting to Tmin'
+            print*,'Pthermal = ',var(0,hvar%ids(2))
+            print*,'Density = ',var(0,hvar%ids(1))
             temperature = Tmin
         endif
     end function temperature
@@ -3063,22 +3066,8 @@ module hydro_commons
         real(dbl),dimension(0:,:),optional,intent(in) :: rt_var
 
         real(dbl) :: hydrogen_density
-        real(dbl) :: metal_mass,dust_mass
-        integer :: i
 
-        ! 1. Add up the metal mass
-        metal_mass = 0d0
-        do i = 2, 10
-            metal_mass = metal_mass + var(0,hvar%ids(i))
-        end do
-
-        ! 2. Add up the dust mass
-        dust_mass = 0d0
-        do i = 11, 16
-            dust_mass = dust_mass + var(0,hvar%ids(i))
-        end do
-
-        hydrogen_density = var(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass)
+        hydrogen_density = var(0,hvar%ids(1)) * var(0,hvar%ids(2))
     end function hydrogen_density
 
     function hydrogen_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -5371,23 +5360,9 @@ function H2_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var
             ! Density of the hydrogen gas
             hvar%type = 'derived'
             hvar%name = 'hydrogen_density'
-            allocate(hvar%ids(16))
+            allocate(hvar%ids(2))
             hvar%ids(1) = vardict%get('density')
-            hvar%ids(2) = vardict%get('iron_fraction')
-            hvar%ids(3) = vardict%get('oxygen_fraction')
-            hvar%ids(4) = vardict%get('carbon_fraction')
-            hvar%ids(5) = vardict%get('silicon_fraction')
-            hvar%ids(6) = vardict%get('magnesium_fraction')
-            hvar%ids(7) = vardict%get('sulfur_fraction')
-            hvar%ids(8) = vardict%get('nitrogen_fraction')
-            hvar%ids(9) = vardict%get('calcium_fraction')
-            hvar%ids(10) = vardict%get('neon_fraction')
-            hvar%ids(11) = vardict%get('PAHSmall_fraction')
-            hvar%ids(12) = vardict%get('PAHLarge_fraction')
-            hvar%ids(13) = vardict%get('CSmall_fraction')
-            hvar%ids(14) = vardict%get('CLarge_fraction')
-            hvar%ids(15) = vardict%get('SilSmall_fraction')
-            hvar%ids(16) = vardict%get('SilLarge_fraction')
+            hvar%ids(2) = vardict%get('hydrogen_fraction')
             hvar%myfunction => hydrogen_density
         case ('hydrogen_mass')
             ! Mass of the hydrogen gas
@@ -5788,7 +5763,7 @@ function H2_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var
             ! dust-to-metal mass ratio
             hvar%type = 'derived'
             hvar%name = 'DTM'
-            allocate(hvar%ids(17))
+            allocate(hvar%ids(16))
             hvar%ids(1) = vardict%get('CSmall_fraction')
             hvar%ids(2) = vardict%get('CLarge_fraction')
             hvar%ids(3) = vardict%get('SilSmall_fraction')
@@ -5802,10 +5777,9 @@ function H2_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var
             hvar%ids(11) = vardict%get('magnesium_fraction')
             hvar%ids(12) = vardict%get('neon_fraction')
             hvar%ids(13) = vardict%get('silicon_fraction')
-            hvar%ids(14) = vardict%get('calcium_fraction')
-            hvar%ids(15) = vardict%get('carbon_fraction')
-            hvar%ids(16) = vardict%get('sulfur_fraction')
-            hvar%ids(17) = vardict%get('CO_fraction')
+            hvar%ids(14) = vardict%get('carbon_fraction')
+            hvar%ids(15) = vardict%get('sulfur_fraction')
+            hvar%ids(16) = vardict%get('CO_fraction')
             hvar%myfunction => DTM
         case ('DTG')
             ! dust-to-gas mass ratio

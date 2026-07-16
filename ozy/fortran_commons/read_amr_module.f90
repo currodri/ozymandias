@@ -84,9 +84,10 @@ module io_ramses
         integer :: iIons=0
         integer :: rtdp=0
         real(dbl) :: X=0d0, Y=0d0
-        real(dbl) :: scale_np=0d0, scale_pf=0d0, rt_c_fraction=0d0
+        real(dbl) :: scale_np=0d0, scale_pf=0d0
         real(dbl) :: n_star=0d0, T2_star=0d0, g_star=0d0
         integer,dimension(:),allocatable :: spec2group
+        real(dbl),dimension(:),allocatable :: rt_c_fraction
         real(dbl),dimension(:),allocatable :: groupL0,groupL1,group_egy
         real(dbl),dimension(:,:),allocatable :: group_csn,group_cse
     end type rt_info
@@ -196,7 +197,7 @@ module io_ramses
         write(*,*)
         write(*,'("unit_np     =",E23.15)') rtinfo%scale_np
         write(*,'("unit_pf     =",E23.15)') rtinfo%scale_pf
-        write(*,'("rt_c_frac   =",E23.15)') rtinfo%rt_c_fraction
+        write(*,'("rt_c_frac   =",30(E23.15))') rtinfo%rt_c_fraction
         write(*,*)
         write(*,'("n_star      =",E23.15)') rtinfo%n_star
         write(*,'("T2_star     =",E23.15)') rtinfo%T2_star
@@ -1045,7 +1046,7 @@ module io_ramses
             inquire(file=cooling_file, exist=ok)
             if(ok) call read_cool(cooling_file)
             if (sim%cr) call get_Dcr(repository)
-            Tmin = 15d0 / sim%T2
+            Tmin = 1d0 / sim%T2
             cV = XH * cVHydrogen * mHydrogen / kBoltzmann
             lambda_crGH08 = 2.63d-16 * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
         endif
@@ -1087,12 +1088,15 @@ module io_ramses
         end if
 
         ! Initialize/clear any existing rtinfo arrays
+        if (allocated(rtinfo%rt_c_fraction)) deallocate(rtinfo%rt_c_fraction)
         if (allocated(rtinfo%spec2group)) deallocate(rtinfo%spec2group)
         if (allocated(rtinfo%groupL0)) deallocate(rtinfo%groupL0)
         if (allocated(rtinfo%groupL1)) deallocate(rtinfo%groupL1)
         if (allocated(rtinfo%group_egy)) deallocate(rtinfo%group_egy)
         if (allocated(rtinfo%group_csn)) deallocate(rtinfo%group_csn)
         if (allocated(rtinfo%group_cse)) deallocate(rtinfo%group_cse)
+
+        allocate(rtinfo%rt_c_fraction(amr%levelmin:amr%nlevelmax)) 
 
         do
             read(iunit,'(A)',iostat=ios) line
