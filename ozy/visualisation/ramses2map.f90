@@ -190,6 +190,7 @@ module obs_instruments
         xform_max = (/ (min(1D0,xform_max(i)), i=1,3) /)
 
         bbox%name = 'cube'
+        bbox%axis = cam%region_axis
         bbox%xmin = xform_min(1);bbox%ymin = xform_min(2);bbox%zmin = xform_min(3)
         bbox%xmax = xform_max(1);bbox%ymax = xform_max(2);bbox%zmax = xform_max(3)
     end subroutine get_bounding_box
