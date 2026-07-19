@@ -5,6 +5,7 @@ module part_profiles
     use geometrical_regions
     use stats_utils
     use cosmology
+    use omp_lib
 
     type profile_handler
         character(128) :: scaletype
@@ -196,12 +197,13 @@ module part_profiles
         character(128),intent(in),optional :: tag_file
         logical,intent(in),optional :: inverse_tag
 
-        logical :: ok_part,ok_filter,ok_tag
+        logical :: ok_part,ok_filter,ok_tag,ok_sub
         integer :: roterr
-        integer :: i,j,k,itag,ifilt
+        integer :: i,j,k,itag,ifilt,isub
         integer :: ipos,icpu,binpos
-        integer :: npart,npart2,nstar,ntag
+        integer :: npart,npart2,nstar,ntag,nsub
         integer :: ncpu2,ndim2
+        integer :: iunit_part
         real(dbl) :: distance,ytemp
         real(dbl),dimension(1:3,1:3) :: trans_matrix
         character(5) :: nchar,ncharcpu
@@ -274,17 +276,18 @@ module part_profiles
         ipos = INDEX(repository,'output_')
         nchar = repository(ipos+7:ipos+13)
         npart = 0
+        nsub = 0
         do k=1,amr%ncpu_read
             icpu = amr%cpu_list(k)
             call title(icpu,ncharcpu)
             nomfich=TRIM(repository)//'/part_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
-            open(unit=1,file=nomfich,status='old',form='unformatted')
-            read(1)ncpu2
-            read(1)ndim2
-            read(1)npart2
-            read(1)
-            read(1)nstar
-            close(1)
+            open(newunit=iunit_part,file=nomfich,status='old',form='unformatted')
+            read(iunit_part)ncpu2
+            read(iunit_part)ndim2
+            read(iunit_part)npart2
+            read(iunit_part)
+            read(iunit_part)nstar
+            close(iunit_part)
             npart=npart+npart2
         end do
         if (verbose) write(*,*)'Found ',npart,' particles.'
@@ -293,19 +296,25 @@ module part_profiles
         endif
 
         ! Compute binned variables
+!$OMP PARALLEL DO DEFAULT(SHARED) &
+!$OMP& PRIVATE(k, icpu, ncharcpu, nomfich, iunit_part, &
+!$OMP&         i, j, ifilt, isub, itag, binpos, distance, ytemp, &
+!$OMP&         ncpu2, ndim2, npart2, &
+!$OMP&         ok_part, ok_filter, ok_tag, ok_sub, part, xtemp, vtemp, ptype, &
+!$OMP&         m, age, met, imass, id, x, v)
         cpuloop: do k=1,amr%ncpu_read
             icpu = amr%cpu_list(k)
             call title(icpu,ncharcpu)
             nomfich=TRIM(repository)//'/part_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
-            open(unit=1,file=nomfich,status='old',form='unformatted')
-            read(1)ncpu2
-            read(1)ndim2
-            read(1)npart2
-            read(1)
-            read(1)
-            read(1)
-            read(1)
-            read(1)
+            open(newunit=iunit_part,file=nomfich,status='old',form='unformatted')
+            read(iunit_part)ncpu2
+            read(iunit_part)ndim2
+            read(iunit_part)npart2
+            read(iunit_part)
+            read(iunit_part)
+            read(iunit_part)
+            read(iunit_part)
+            read(iunit_part)
             allocate(m(1:npart2))
             if(nstar>0)then
                 allocate(age(1:npart2))
@@ -322,38 +331,38 @@ module part_profiles
 
             ! Read position
             do i=1,amr%ndim
-                read(1)m
+                read(iunit_part)m
                 x(1:npart2,i) = m/sim%boxlen
             end do
 
             ! Read velocity
             do i=1,amr%ndim
-                read(1)m
+                read(iunit_part)m
                 v(1:npart2,i) = m
             end do
 
             ! Read mass
-            read(1)m
+            read(iunit_part)m
             if (nstar>0) then
-                read(1)id
-                read(1) ! Skip level
+                read(iunit_part)id
+                read(iunit_part) ! Skip level
                 if (sim%family) then
-                    read(1) ! Skip family
+                    read(iunit_part) ! Skip family
 #ifndef IMASS
-                    read(1)part_tags
+                    read(iunit_part)part_tags
 #else
-                    read(1) ! Skip tags
+                    read(iunit_part) ! Skip tags
 #endif
                 endif
-                read(1)age
-                read(1)met
+                read(iunit_part)age
+                read(iunit_part)met
 #ifdef IMASS
-                read(1)imass
+                read(iunit_part)imass
 #endif
             elseif (present(tag_file) .and. nstar .eq. 0) then
-                read(1)id
+                read(iunit_part)id
             endif
-            close(1)
+            close(iunit_part)
 
             ! Project variables into map for particles
             ! of interest in the region
@@ -387,11 +396,25 @@ module part_profiles
                     part%met = 0D0
                     part%imass = 0D0
                 endif
+                ! If we are avoiding substructure, check whether we are safe
+                ok_sub = .true.
+                if (prof_data%nsubs>0) then
+                    do isub=1,prof_data%nsubs
+                        ok_sub = ok_sub .and. filter_sub(prof_data%subs(isub),x(i,:))
+                    end do
+                    if (.not.ok_sub) then
+!$OMP ATOMIC UPDATE
+                        nsub = nsub + 1
+                    end if
+                end if
+
                 ! Check if particle is inside the desired region
                 part%x = part%x - reg%centre
                 call rotate_vector(part%x,trans_matrix)
                 x(i,:) = part%x
                 call checkifinside(x(i,:),reg,ok_part,distance)
+                ok_part = ok_part .and. ok_sub
+
                 ! Check if tags are present for particles
                 if (present(tag_file) .and. ok_part) then
                     ok_tag = .false.      
@@ -416,7 +439,11 @@ module part_profiles
                                                 &trans_matrix,prof_data%scaletype,&
                                                 &prof_data%nbins,prof_data%xdata,&
                                                 &prof_data%linthresh,prof_data%zero_index,prof_data%xvarname)
-                            if (binpos.ne.0)  call bindata(reg,part,prof_data,trans_matrix,ifilt,binpos)
+                            if (binpos.ne.0) then
+!$OMP CRITICAL (prof_accum)
+                                call bindata(reg,part,prof_data,trans_matrix,ifilt,binpos)
+!$OMP END CRITICAL (prof_accum)
+                            end if
                         end if
                     end do
                 endif
@@ -428,6 +455,8 @@ module part_profiles
             if (nstar>0)deallocate(part_tags)
 #endif
         end do cpuloop
+!$OMP END PARALLEL DO
+        if (verbose) write(*,*)'Number of particles inside substructures: ',nsub
     end subroutine get_parts_onedprofile
 
     subroutine onedprofile(repository,reg,prof_data,lmax,tag_file,inverse_tag)

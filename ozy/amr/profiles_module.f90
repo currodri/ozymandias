@@ -25,6 +25,7 @@ module amr_profiles
     use filtering
     use geometrical_regions
     use stats_utils
+    use omp_lib
 
     type profile_handler
         character(128) :: scaletype
@@ -442,6 +443,7 @@ module amr_profiles
             integer :: tot_pos,tot_ref,tot_insubs,tot_sel
             integer,dimension(:),allocatable :: total_ncell
             integer :: nvarh
+            integer :: iunit_amr, iunit_hydro, iunit_grav
             integer :: roterr
             character(5) :: nchar,ncharcpu
             character(128) :: nomfich
@@ -467,14 +469,6 @@ module amr_profiles
             allocate(total_ncell(1:prof_data%nfilter))
             total_ncell = 0
 
-            allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
-            allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
-            if(amr%nboundary>0)allocate(ngridbound(1:amr%nboundary,1:amr%nlevelmax))
-            ! Compute hierarchy
-            do ilevel=1,amr%lmax
-                grid(ilevel)%ngrid = 0
-            end do
-
             trans_matrix = 0D0
             call new_z_coordinates(reg%axis,trans_matrix,roterr)
             if (roterr.eq.1) then
@@ -484,7 +478,21 @@ module amr_profiles
             ipos=INDEX(repository,'output_')
             nchar=repository(ipos+7:ipos+13)
             ! Loop over processor files
+!$OMP PARALLEL DO DEFAULT(SHARED) &
+!$OMP& PRIVATE(k, icpu, ncharcpu, nomfich, iunit_amr, iunit_hydro, iunit_grav, &
+!$OMP&         i, j, ilevel, ind, idim, ivar, ifilt, isub, inbor, ison, iskip, &
+!$OMP&         ix, iy, iz, ngrida, nx_full, ny_full, nz_full, nvarh, &
+!$OMP&         distance, dx, ytemp, xtemp, vtemp, gtemp, xc, &
+!$OMP&         ok_cell, ok_filter, ok_sub, binpos, ind_nbor, grid, &
+!$OMP&         ngridfile, ngridlevel, ngridbound, &
+!$OMP&         nbor, son, var, cellpos, grav_var, &
+!$OMP&         iig, xxg, ind_cell, x, xorig, ref, ind_cell2, &
+!$OMP&         tempvar, tempson, tempgrav_var) &
+!$OMP& REDUCTION(+:tot_pos, tot_ref, tot_insubs, tot_sel)
             cpuloop: do k=1,amr%ncpu_read
+                allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
+                allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
+                if(amr%nboundary>0) allocate(ngridbound(1:amr%nboundary,1:amr%nlevelmax))
                 icpu = amr%cpu_list(k)
                 call title(icpu,ncharcpu)
 
@@ -495,44 +503,44 @@ module amr_profiles
 
                 ! Open AMR file and skip header
                 nomfich = TRIM(repository)//'/amr_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
-                open(unit=10,file=nomfich,status='old',form='unformatted')
+                open(newunit=iunit_amr,file=nomfich,status='old',form='unformatted')
                 do i=1,21
-                    read(10) ! Skip header
+                    read(iunit_amr) ! Skip header
                 end do
                 ! Read grid numbers
-                read(10)ngridlevel
+                read(iunit_amr)ngridlevel
                 ngridfile(1:amr%ncpu,1:amr%nlevelmax) = ngridlevel
-                read(10) ! Skip
+                read(iunit_amr) ! Skip
                 if(amr%nboundary>0) then
                     do i=1,2
-                        read(10)
+                        read(iunit_amr)
                     end do
-                    read(10)ngridbound
+                    read(iunit_amr)ngridbound
                     ngridfile(amr%ncpu+1:amr%ncpu+amr%nboundary,1:amr%nlevelmax) = ngridbound
                 endif
-                read(10) ! Skip
+                read(iunit_amr) ! Skip
                 ! R. Teyssier: comment the single following line for old stuff
-                read(10)
+                read(iunit_amr)
                 if(TRIM(amr%ordering).eq.'bisection')then
                     do i=1,5
-                        read(10)
+                        read(iunit_amr)
                     end do
                 else
-                    read(10)
+                    read(iunit_amr)
                 endif
-                read(10)son(1:amr%ncoarse)
-                read(10)
-                read(10)
+                read(iunit_amr)son(1:amr%ncoarse)
+                read(iunit_amr)
+                read(iunit_amr)
 
                 ! Open HYDRO file and skip header
                 nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
-                open(unit=11,file=nomfich,status='old',form='unformatted')
-                read(11)
-                read(11)nvarh
-                read(11)
-                read(11)
-                read(11)
-                read(11)
+                open(newunit=iunit_hydro,file=nomfich,status='old',form='unformatted')
+                read(iunit_hydro)
+                read(iunit_hydro)nvarh
+                read(iunit_hydro)
+                read(iunit_hydro)
+                read(iunit_hydro)
+                read(iunit_hydro)
 
                 allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:nvarh))
                 allocate(cellpos(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:3))
@@ -542,11 +550,11 @@ module amr_profiles
                 if (read_gravity) then
                     ! Open GRAV file and skip header
                     nomfich=TRIM(repository)//'/grav_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
-                    open(unit=12,file=nomfich,status='old',form='unformatted')
-                    read(12) !ncpu
-                    read(12) !ndim
-                    read(12) !nlevelmax
-                    read(12) !nboundary 
+                    open(newunit=iunit_grav,file=nomfich,status='old',form='unformatted')
+                    read(iunit_grav) !ncpu
+                    read(iunit_grav) !ndim
+                    read(iunit_grav) !nlevelmax
+                    read(iunit_grav) !nboundary 
                     allocate(grav_var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:4))
                 endif
 
@@ -580,9 +588,9 @@ module amr_profiles
                             
                             
                             ! Read AMR data
-                            read(10) grid(ilevel)%ind_grid
-                            read(10) ! Skip next index
-                            read(10) ! Skip prev index
+                            read(iunit_amr) grid(ilevel)%ind_grid
+                            read(iunit_amr) ! Skip next index
+                            read(iunit_amr) ! Skip prev index
                             if(j.eq.icpu) then
                                 if (allocated(grid(ilevel)%real_ind)) deallocate(grid(ilevel)%real_ind)
                                 allocate(grid(ilevel)%real_ind(1:ngrida))
@@ -593,41 +601,41 @@ module amr_profiles
                             
                             ! Read grid center
                             do idim=1,amr%ndim
-                                read(10)xxg
+                                read(iunit_amr)xxg
                                 grid(ilevel)%xg(:,idim) = xxg(:)
                             end do
                             
-                            read(10) ! Skip father index
+                            read(iunit_amr) ! Skip father index
                             ! Read nbor index
                             do ind=1,amr%twondim
-                                read(10)iig
+                                read(iunit_amr)iig
                                 nbor(grid(ilevel)%ind_grid(:),ind) = iig(:)
                             end do
                             ! Read son index
                             do ind=1,amr%twotondim
                                 iskip = amr%ncoarse+(ind-1)*amr%ngridmax
-                                read(10)iig
+                                read(iunit_amr)iig
                                 son(grid(ilevel)%ind_grid(:)+iskip) = iig(:)
                             end do
                             ! Skip cpu map
                             do ind=1,amr%twotondim
-                                read(10)
+                                read(iunit_amr)
                             end do
 
                             ! Skip refinement map
                             do ind=1,amr%twotondim
-                                read(10)
+                                read(iunit_amr)
                             end do
                         endif
                         ! Read HYDRO data
-                        read(11)
-                        read(11)
+                        read(iunit_hydro)
+                        read(iunit_hydro)
                         if(ngrida>0)then
                             ! Read hydro variables
                             tndimloop: do ind=1,amr%twotondim
                                 iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                                 varloop: do ivar=1,nvarh
-                                    read(11)xxg
+                                    read(iunit_hydro)xxg
                                     do i=1,ngrida
                                         var(grid(ilevel)%ind_grid(i)+iskip,ivar) = xxg(i)
                                     end do
@@ -637,17 +645,17 @@ module amr_profiles
 
                         if (read_gravity) then
                             ! Read GRAV data
-                            read(12)
-                            read(12)
+                            read(iunit_grav)
+                            read(iunit_grav)
                             if(ngrida>0)then
                                 do ind=1,amr%twotondim
                                     iskip = amr%ncoarse+(ind-1)*amr%ngridmax
-                                    read(12)xxg
+                                    read(iunit_grav)xxg
                                     do i=1,ngrida
                                         grav_var(grid(ilevel)%ind_grid(i)+iskip,1) = xxg(i)
                                     end do
                                     do ivar=1,amr%ndim
-                                        read(12)xxg
+                                        read(iunit_grav)xxg
                                         do i=1,ngrida
                                             grav_var(grid(ilevel)%ind_grid(i)+iskip,ivar+1) = xxg(i)
                                         end do
@@ -671,10 +679,10 @@ module amr_profiles
 
                     end do domloop
                 end do levelloop1
-                close(10)
-                close(11)
+                close(iunit_amr)
+                close(iunit_hydro)
                 if (read_gravity) then
-                    close(12)
+                    close(iunit_grav)
                 end if
                 ! Loop over levels again now with arrays fully filled
                 levelloop2: do ilevel=1,amr%lmax
@@ -783,16 +791,27 @@ module amr_profiles
                                                                 & prof_data%xdata,prof_data%linthresh,&
                                                                 & prof_data%zero_index,prof_data%xvarname,&
                                                                 & tempgrav_var)
-                                                if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix,tempgrav_var)
+                                                if (binpos.ne.0) then
+!$OMP CRITICAL (prof_accum)
+                                                    call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix,tempgrav_var)
+!$OMP END CRITICAL (prof_accum)
+                                                end if
                                             else
                                                 call findbinpos(reg,xtemp,tempvar,tempson,&
                                                                 & dx,binpos,ytemp,trans_matrix,&
                                                                 & prof_data%scaletype,prof_data%nbins,&
                                                                 & prof_data%xdata,prof_data%linthresh,&
                                                                 & prof_data%zero_index,prof_data%xvarname)
-                                                if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix)
+                                                if (binpos.ne.0) then
+!$OMP CRITICAL (prof_accum)
+                                                    call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix)
+!$OMP END CRITICAL (prof_accum)
+                                                end if
                                             end if
-                                            if (binpos.ne.0)total_ncell(ifilt) = total_ncell(ifilt) + 1
+                                            if (binpos.ne.0) then
+!$OMP ATOMIC UPDATE
+                                                total_ncell(ifilt) = total_ncell(ifilt) + 1
+                                            end if
                                         end if
                                     end do
                                     deallocate(tempvar,tempson)
@@ -804,11 +823,13 @@ module amr_profiles
                     endif
                 end do levelloop2
                 deallocate(nbor,son,var,cellpos)
-
                 if (read_gravity) then
                     deallocate(grav_var)
                 end if
+                deallocate(ngridfile, ngridlevel)
+                if(amr%nboundary>0) deallocate(ngridbound)
             end do cpuloop
+!$OMP END PARALLEL DO
             if (verbose) then
                 write(*,*)'Total number of cells used (per filter): ', total_ncell
                 write(*,*)'Total number of cells in region and refined: ', tot_sel
@@ -830,6 +851,7 @@ module amr_profiles
             integer :: tot_pos,tot_ref,tot_insubs,tot_sel
             integer,dimension(:),allocatable :: total_ncell
             integer :: nvarh
+            integer :: iunit_amr, iunit_hydro, iunit_grav
             integer :: roterr
             character(5) :: nchar,ncharcpu
             character(128) :: nomfich
@@ -864,11 +886,6 @@ module amr_profiles
                 endif
             end do
 
-            ! Allocate grids
-            allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
-            allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
-            if(amr%nboundary>0)allocate(ngridbound(1:amr%nboundary,1:amr%nlevelmax))
-
             ! Compute linear transformation
             trans_matrix = 0D0
             call new_z_coordinates(reg%axis,trans_matrix,roterr)
@@ -881,61 +898,74 @@ module amr_profiles
             nchar=repository(ipos+7:ipos+13)
 
             ! Loop over processor files
+!$OMP PARALLEL DO DEFAULT(SHARED) &
+!$OMP& PRIVATE(k, icpu, ncharcpu, nomfich, iunit_amr, iunit_hydro, iunit_grav, &
+!$OMP&         i, j, ilevel, ind, idim, ivar, ifilt, isub, &
+!$OMP&         ix, iy, iz, ngrida, nx_full, ny_full, nz_full, nvarh, &
+!$OMP&         distance, dx, ytemp, xtemp, vtemp, gtemp, xc, &
+!$OMP&         ok_cell, ok_filter, ok_cell_each, ok_sub, binpos, &
+!$OMP&         ngridfile, ngridlevel, ngridbound, &
+!$OMP&         xg, son, var, x, xorig, ref, grav_var, &
+!$OMP&         tempvar, tempson, tempgrav_var) &
+!$OMP& REDUCTION(+:tot_pos, tot_ref, tot_insubs, tot_sel)
             cpuloop: do k=1,amr%ncpu_read
+                allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
+                allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
+                if(amr%nboundary>0) allocate(ngridbound(1:amr%nboundary,1:amr%nlevelmax))
                 icpu = amr%cpu_list(k)
                 call title(icpu,ncharcpu)
 
                 ! Open AMR file and skip header
                 nomfich = TRIM(repository)//'/amr_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
-                open(unit=10,file=nomfich,status='old',form='unformatted')
+                open(newunit=iunit_amr,file=nomfich,status='old',form='unformatted')
                 do i=1,21
-                    read(10) ! Skip header
+                    read(iunit_amr) ! Skip header
                 end do
                 ! Read grid numbers
-                read(10)ngridlevel
+                read(iunit_amr)ngridlevel
                 ngridfile(1:amr%ncpu,1:amr%nlevelmax) = ngridlevel
-                read(10) ! Skip
+                read(iunit_amr) ! Skip
                 if(amr%nboundary>0) then
                     do i=1,2
-                        read(10)
+                        read(iunit_amr)
                     end do
-                    read(10)ngridbound
+                    read(iunit_amr)ngridbound
                     ngridfile(amr%ncpu+1:amr%ncpu+amr%nboundary,1:amr%nlevelmax) = ngridbound
                 endif
-                read(10) ! Skip
+                read(iunit_amr) ! Skip
                 ! R. Teyssier: comment the single following line for old stuff
-                read(10)
+                read(iunit_amr)
                 if(TRIM(amr%ordering).eq.'bisection')then
                     do i=1,5
-                        read(10)
+                        read(iunit_amr)
                     end do
                 else
-                    read(10)
+                    read(iunit_amr)
                 endif
-                read(10)
-                read(10)
-                read(10)
+                read(iunit_amr)
+                read(iunit_amr)
+                read(iunit_amr)
 
                 ! Make sure that we are not trying to access to far in the refinement map…
                 call check_lmax(ngridfile)
                 ! Open HYDRO file and skip header
                 nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
-                open(unit=11,file=nomfich,status='old',form='unformatted')
-                read(11)
-                read(11)nvarh
-                read(11)
-                read(11)
-                read(11)
-                read(11)
+                open(newunit=iunit_hydro,file=nomfich,status='old',form='unformatted')
+                read(iunit_hydro)
+                read(iunit_hydro)nvarh
+                read(iunit_hydro)
+                read(iunit_hydro)
+                read(iunit_hydro)
+                read(iunit_hydro)
 
                 if (read_gravity) then
                     ! Open GRAV file and skip header
                     nomfich=TRIM(repository)//'/grav_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
-                    open(unit=12,file=nomfich,status='old',form='unformatted')
-                    read(12) !ncpu
-                    read(12) !ndim
-                    read(12) !nlevelmax
-                    read(12) !nboundary 
+                    open(newunit=iunit_grav,file=nomfich,status='old',form='unformatted')
+                    read(iunit_grav) !ncpu
+                    read(iunit_grav) !ndim
+                    read(iunit_grav) !nlevelmax
+                    read(iunit_grav) !nboundary 
                 endif
 
                 ! Loop over levels
@@ -971,55 +1001,55 @@ module amr_profiles
                         
                         ! Read AMR data
                         if (ngridfile(j,ilevel)>0) then
-                            read(10) ! Skip grid index
-                            read(10) ! Skip next index
-                            read(10) ! Skip prev index
+                            read(iunit_amr) ! Skip grid index
+                            read(iunit_amr) ! Skip next index
+                            read(iunit_amr) ! Skip prev index
 
                             ! Read grid center
                             do idim=1,amr%ndim
                                 if(j.eq.icpu)then
-                                    read(10)xg(:,idim)
+                                    read(iunit_amr)xg(:,idim)
                                 else
-                                    read(10)
+                                    read(iunit_amr)
                                 endif
                             end do
 
-                            read(10) ! Skip father index
+                            read(iunit_amr) ! Skip father index
                             do ind=1,2*amr%ndim
-                                read(10) ! Skip nbor index
+                                read(iunit_amr) ! Skip nbor index
                             end do
 
                             ! Read son index
                             do ind=1,amr%twotondim
                                 if(j.eq.icpu)then
-                                    read(10)son(:,ind)
+                                    read(iunit_amr)son(:,ind)
                                 else
-                                    read(10)
+                                    read(iunit_amr)
                                 end if
                             end do
 
                             ! Skip cpu map
                             do ind=1,amr%twotondim
-                                read(10)
+                                read(iunit_amr)
                             end do
 
                             ! Skip refinement map
                             do ind=1,amr%twotondim
-                                read(10)
+                                read(iunit_amr)
                             end do
                         endif
 
                         ! Read HYDRO data
-                        read(11)
-                        read(11)
+                        read(iunit_hydro)
+                        read(iunit_hydro)
                         if(ngridfile(j,ilevel)>0)then
                             ! Read hydro variables
                             tndimloop: do ind=1,amr%twotondim
                                 varloop: do ivar=1,nvarh
                                     if (j.eq.icpu) then
-                                        read(11)var(:,ind,ivar)
+                                        read(iunit_hydro)var(:,ind,ivar)
                                     else
-                                        read(11)
+                                        read(iunit_hydro)
                                     endif
                                 end do varloop
                             end do tndimloop
@@ -1027,20 +1057,20 @@ module amr_profiles
 
                         if (read_gravity) then
                             ! Read GRAV data
-                            read(12)
-                            read(12)
+                            read(iunit_grav)
+                            read(iunit_grav)
                             if(ngridfile(j,ilevel)>0)then
                                 do ind=1,amr%twotondim
                                     if (j.eq.icpu) then
-                                        read(12)grav_var(:,ind,1)
+                                        read(iunit_grav)grav_var(:,ind,1)
                                     else
-                                        read(12)
+                                        read(iunit_grav)
                                     end if
                                     do ivar=1,amr%ndim
                                         if (j.eq.icpu) then
-                                            read(12)grav_var(:,ind,ivar+1)
+                                            read(iunit_grav)grav_var(:,ind,ivar+1)
                                         else
-                                            read(12)
+                                            read(iunit_grav)
                                         end if
                                     end do
                                 end do
@@ -1128,16 +1158,27 @@ module amr_profiles
                                                                 & prof_data%xdata,prof_data%linthresh,&
                                                                 & prof_data%zero_index,prof_data%xvarname,&
                                                                 & tempgrav_var)
-                                                if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix,tempgrav_var)
+                                                if (binpos.ne.0) then
+!$OMP CRITICAL (prof_accum)
+                                                    call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix,tempgrav_var)
+!$OMP END CRITICAL (prof_accum)
+                                                end if
                                             else
                                                 call findbinpos(reg,xtemp,tempvar,tempson,&
                                                                 & dx,binpos,ytemp,trans_matrix,&
                                                                 & prof_data%scaletype,prof_data%nbins,&
                                                                 & prof_data%xdata,prof_data%linthresh,&
                                                                 & prof_data%zero_index,prof_data%xvarname)
-                                                if (binpos.ne.0) call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix)
+                                                if (binpos.ne.0) then
+!$OMP CRITICAL (prof_accum)
+                                                    call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix)
+!$OMP END CRITICAL (prof_accum)
+                                                end if
                                             end if
-                                            if (binpos.ne.0)total_ncell(ifilt) = total_ncell(ifilt) + 1
+                                            if (binpos.ne.0) then
+!$OMP ATOMIC UPDATE
+                                                total_ncell(ifilt) = total_ncell(ifilt) + 1
+                                            end if
                                         end if
                                     end do
                                     deallocate(tempvar,tempson)
@@ -1151,9 +1192,13 @@ module amr_profiles
                         end if
                     endif
                 end do levelloop
-                close(10)
-                close(11)
+                close(iunit_amr)
+                close(iunit_hydro)
+                if (read_gravity) close(iunit_grav)
+                deallocate(ngridfile, ngridlevel)
+                if(amr%nboundary>0) deallocate(ngridbound)
             end do cpuloop
+!$OMP END PARALLEL DO
         if (verbose) then
             write(*,*)'Total number of cells used (per filter): ', total_ncell
             write(*,*)'Total number of cells in region and refined: ', tot_sel
@@ -1223,10 +1268,11 @@ module amr_profiles
         integer ,dimension(1,0:amr%twondim) :: ind_nbor
         logical,dimension(:),allocatable :: ref
         type(level),dimension(1:100) :: grid
+        integer :: iunit_amr, iunit_hydro, iunit_grav
 
         allocate(total_ncell(1:prof_data%nfilter))
         total_ncell = 0
-        
+
         ! Check whether we need to read the gravity files
         read_gravity = .false.
         do ivar=1,prof_data%nzvar
@@ -1238,13 +1284,6 @@ module amr_profiles
             endif
         end do
 
-        allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
-        allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
-        if(amr%nboundary>0)allocate(ngridbound(1:amr%nboundary,1:amr%nlevelmax))
-        ! Compute hierarchy
-        do ilevel=1,amr%lmax
-            grid(ilevel)%ngrid = 0
-        end do
         trans_matrix = 0D0
         call new_z_coordinates(reg%axis,trans_matrix,roterr)
         if (roterr.eq.1) then
@@ -1254,7 +1293,20 @@ module amr_profiles
         ipos=INDEX(repository,'output_')
         nchar=repository(ipos+7:ipos+13)
         ! Loop over processor files
+!$OMP PARALLEL DO DEFAULT(SHARED) &
+!$OMP& PRIVATE(k, icpu, ncharcpu, nomfich, iunit_amr, iunit_hydro, iunit_grav, &
+!$OMP&         i, j, ilevel, ind, idim, ivar, ifilt, isub, inbor, ison, iskip, &
+!$OMP&         ix, iy, iz, ngrida, nx_full, ny_full, nz_full, nvarh, &
+!$OMP&         distance, dx, vartemp, xtemp, vtemp, gtemp, xc, &
+!$OMP&         ok_cell, ok_filter, ok_sub, xbinpos, ybinpos, ind_nbor, grid, xorig, &
+!$OMP&         ngridfile, ngridlevel, ngridbound, &
+!$OMP&         nbor, son, var, cellpos, grav_var, &
+!$OMP&         iig, xxg, ind_cell, x, ref, ind_cell2, &
+!$OMP&         tempvar, tempson, tempgrav_var)
         cpuloop: do k=1,amr%ncpu_read
+            allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
+            allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
+            if(amr%nboundary>0) allocate(ngridbound(1:amr%nboundary,1:amr%nlevelmax))
             icpu = amr%cpu_list(k)
             call title(icpu,ncharcpu)
 
@@ -1264,45 +1316,45 @@ module amr_profiles
             son = 0
             ! Open AMR file and skip header
             nomfich = TRIM(repository)//'/amr_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
-            open(unit=10,file=nomfich,status='old',form='unformatted')
+            open(newunit=iunit_amr,file=nomfich,status='old',form='unformatted')
             ! write(*,*)'Processing file '//TRIM(nomfich)
             do i=1,21
-                read(10) ! Skip header
+                read(iunit_amr) ! Skip header
             end do
             ! Read grid numbers
-            read(10)ngridlevel
+            read(iunit_amr)ngridlevel
             ngridfile(1:amr%ncpu,1:amr%nlevelmax) = ngridlevel
-            read(10) ! Skip
+            read(iunit_amr) ! Skip
             if(amr%nboundary>0) then
                 do i=1,2
-                    read(10)
+                    read(iunit_amr)
                 end do
-                read(10)ngridbound
+                read(iunit_amr)ngridbound
                 ngridfile(amr%ncpu+1:amr%ncpu+amr%nboundary,1:amr%nlevelmax) = ngridbound
             endif
-            read(10) ! Skip
+            read(iunit_amr) ! Skip
             ! R. Teyssier: comment the single following line for old stuff
-            read(10)
+            read(iunit_amr)
             if(TRIM(amr%ordering).eq.'bisection')then
                 do i=1,5
-                    read(10)
+                    read(iunit_amr)
                 end do
             else
-                read(10)
+                read(iunit_amr)
             endif
-            read(10)son(1:amr%ncoarse)
-            read(10)
-            read(10)
+            read(iunit_amr)son(1:amr%ncoarse)
+            read(iunit_amr)
+            read(iunit_amr)
 
             ! Open HYDRO file and skip header
             nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
-            open(unit=11,file=nomfich,status='old',form='unformatted')
-            read(11)
-            read(11)nvarh
-            read(11)
-            read(11)
-            read(11)
-            read(11)
+            open(newunit=iunit_hydro,file=nomfich,status='old',form='unformatted')
+            read(iunit_hydro)
+            read(iunit_hydro)nvarh
+            read(iunit_hydro)
+            read(iunit_hydro)
+            read(iunit_hydro)
+            read(iunit_hydro)
 
             allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:nvarh))
             allocate(cellpos(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:3))
@@ -1311,11 +1363,11 @@ module amr_profiles
             if (read_gravity) then
                 ! Open GRAV file and skip header
                 nomfich=TRIM(repository)//'/grav_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
-                open(unit=12,file=nomfich,status='old',form='unformatted')
-                read(12) !ncpu
-                read(12) !ndim
-                read(12) !nlevelmax
-                read(12) !nboundary 
+                open(newunit=iunit_grav,file=nomfich,status='old',form='unformatted')
+                read(iunit_grav) !ncpu
+                read(iunit_grav) !ndim
+                read(iunit_grav) !nlevelmax
+                read(iunit_grav) !nboundary 
                 allocate(grav_var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:4))
             endif
             ! Loop over levels
@@ -1347,9 +1399,9 @@ module amr_profiles
                         allocate(xxg(1:ngrida))
                         
                         ! Read AMR data
-                        read(10) grid(ilevel)%ind_grid
-                        read(10) ! Skip next index
-                        read(10) ! Skip prev index
+                        read(iunit_amr) grid(ilevel)%ind_grid
+                        read(iunit_amr) ! Skip next index
+                        read(iunit_amr) ! Skip prev index
                         if(j.eq.icpu) then
                             if (allocated(grid(ilevel)%real_ind)) deallocate(grid(ilevel)%real_ind)
                             allocate(grid(ilevel)%real_ind(1:ngrida))
@@ -1358,41 +1410,41 @@ module amr_profiles
                         end if
                         ! Read grid center
                         do idim=1,amr%ndim
-                            read(10)xxg
+                            read(iunit_amr)xxg
                             grid(ilevel)%xg(:,idim) = xxg(:)
                         end do
                         
-                        read(10) ! Skip father index
+                        read(iunit_amr) ! Skip father index
                         ! Read nbor index
                         do ind=1,amr%twondim
-                            read(10)iig
+                            read(iunit_amr)iig
                             nbor(grid(ilevel)%ind_grid(:),ind) = iig(:)
                         end do
                         ! Read son index
                         do ind=1,amr%twotondim
                             iskip = amr%ncoarse+(ind-1)*amr%ngridmax
-                            read(10)iig
+                            read(iunit_amr)iig
                             son(grid(ilevel)%ind_grid(:)+iskip) = iig(:)
                         end do
                         ! Skip cpu map
                         do ind=1,amr%twotondim
-                            read(10)
+                            read(iunit_amr)
                         end do
 
                         ! Skip refinement map
                         do ind=1,amr%twotondim
-                            read(10)
+                            read(iunit_amr)
                         end do
                     endif
                     ! Read HYDRO data
-                    read(11)
-                    read(11)
+                    read(iunit_hydro)
+                    read(iunit_hydro)
                     if(ngrida>0)then
                         ! Read hydro variables
                         tndimloop: do ind=1,amr%twotondim
                             iskip = amr%ncoarse+(ind-1)*amr%ngridmax
                             varloop: do ivar=1,nvarh
-                                read(11)xxg
+                                read(iunit_hydro)xxg
                                 var(grid(ilevel)%ind_grid(:)+iskip,ivar) = xxg(:)
                             end do varloop
                         end do tndimloop
@@ -1400,15 +1452,15 @@ module amr_profiles
 
                     if (read_gravity) then
                         ! Read GRAV data
-                        read(12)
-                        read(12)
+                        read(iunit_grav)
+                        read(iunit_grav)
                         if(ngrida>0)then
                             do ind=1,amr%twotondim
                                 iskip = amr%ncoarse+(ind-1)*amr%ngridmax
-                                read(12)xxg
+                                read(iunit_grav)xxg
                                 grav_var(grid(ilevel)%ind_grid(:)+iskip,1) = xxg(:)
                                 do ivar=1,amr%ndim
-                                    read(12)xxg
+                                    read(iunit_grav)xxg
                                     grav_var(grid(ilevel)%ind_grid(:)+iskip,ivar+1) = xxg(:)
                                 end do
                             end do
@@ -1428,10 +1480,10 @@ module amr_profiles
                     if (ngrida>0) deallocate(iig,xxg)
                 end do domloop
             end do levelloop1
-            close(10)
-            close(11)
+            close(iunit_amr)
+            close(iunit_hydro)
             if (read_gravity) then
-                close(12)
+                close(iunit_grav)
             end if
             ! Loop over levels again now with arrays fully filled
             levelloop2: do ilevel=1,amr%lmax
@@ -1523,6 +1575,7 @@ module amr_profiles
                                     end if
                                     if (ok_filter) then
                                         xbinpos = 0; ybinpos=0
+!$OMP ATOMIC UPDATE
                                         total_ncell(ifilt) = total_ncell(ifilt) + 1
                                         if (read_gravity) then
                                             call findbinpos(reg,xtemp,tempvar,tempson,&
@@ -1537,10 +1590,14 @@ module amr_profiles
                                                             &prof_data%nbins(2),prof_data%ydata,&
                                                             &prof_data%linthresh(2),prof_data%zero_index(2),&
                                                             &prof_data%yvarname,tempgrav_var)
-                                            if (xbinpos.ne.0.and.ybinpos.ne.0) call bindata_twod(reg,x(i,:),&
-                                                                                    &tempvar,tempson,dx,prof_data,&
-                                                                                    &xbinpos,ybinpos,ifilt,&
-                                                                                    &trans_matrix,tempgrav_var)
+                                            if (xbinpos.ne.0.and.ybinpos.ne.0) then
+!$OMP CRITICAL (prof_accum)
+                                                call bindata_twod(reg,x(i,:),&
+                                                                  &tempvar,tempson,dx,prof_data,&
+                                                                  &xbinpos,ybinpos,ifilt,&
+                                                                  &trans_matrix,tempgrav_var)
+!$OMP END CRITICAL (prof_accum)
+                                            end if
                                         else
                                             call findbinpos(reg,xtemp,tempvar,tempson,&
                                                             &dx,xbinpos,vartemp,trans_matrix,&
@@ -1554,10 +1611,14 @@ module amr_profiles
                                                             &prof_data%nbins(2),prof_data%ydata,&
                                                             &prof_data%linthresh(2),prof_data%zero_index(2),&
                                                             &prof_data%yvarname)
-                                            if (xbinpos.ne.0.and.ybinpos.ne.0) call bindata_twod(reg,x(i,:),&
-                                                                                    &tempvar,tempson,dx,prof_data,&
-                                                                                    &xbinpos,ybinpos,ifilt,&
-                                                                                    &trans_matrix)
+                                            if (xbinpos.ne.0.and.ybinpos.ne.0) then
+!$OMP CRITICAL (prof_accum)
+                                                call bindata_twod(reg,x(i,:),&
+                                                                  &tempvar,tempson,dx,prof_data,&
+                                                                  &xbinpos,ybinpos,ifilt,&
+                                                                  &trans_matrix)
+!$OMP END CRITICAL (prof_accum)
+                                            end if
                                         end if
                                     endif
                                 end do
@@ -1570,13 +1631,11 @@ module amr_profiles
                 endif
             end do levelloop2
             deallocate(nbor,son,var,cellpos)
-            close(10)
-            close(11)
-            if (read_gravity) then
-                close(12)
-                deallocate(grav_var)
-            end if
+            if (read_gravity) deallocate(grav_var)
+            deallocate(ngridfile, ngridlevel)
+            if(amr%nboundary>0) deallocate(ngridbound)
         end do cpuloop
+!$OMP END PARALLEL DO
         if (verbose) write(*,*)'Total number of cells used: ', total_ncell
     end subroutine get_cells_twodprofile
 end module amr_profiles

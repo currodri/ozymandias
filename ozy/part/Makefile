@@ -16,7 +16,7 @@ PYTHON   = python
 ifeq ($(F90),gfortran)
 	FPP      = gfortran -E
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC -g
-	F90FLAGS = -Ofast -fPIC -cpp -ffree-line-length-256 -DIMASS -DNOIFPORT
+	F90FLAGS = -Ofast -fPIC -cpp -ffree-line-length-256 -DIMASS -DNOIFPORT -fopenmp
     FCOMP    = gfortran
     LIBS     =
 endif
@@ -137,7 +137,7 @@ libsrc.a: ${LIBSRC_OBJECTS}
 
 _${PYTHON_MODN}.so: libsrc.a ${LIBSRC_FPP_FILES}
 	f90wrap -m ${PYTHON_MODN} ${LIBSRC_WRAP_FPP_FILES} -k ${KIND_MAP}
-	f2py-f90wrap --fcompiler=$(FCOMP) --build-dir . -c -m _${PYTHON_MODN} -L. -lsrc f90wrap*.f90
+	f2py-f90wrap --fcompiler=$(FCOMP) --build-dir . -c -m _${PYTHON_MODN} --f90flags="-fopenmp" -L. -lsrc f90wrap*.f90 -lgomp
 
 _${PYTHON_MODN}_pkg.so: libsrc.a ${LIBSRC_FPP_FILES}
 	f90wrap -m ${PYTHON_MODN}_pkg ${LIBSRC_WRAP_FPP_FILES} -k ${KIND_MAP} -P
