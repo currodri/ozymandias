@@ -339,6 +339,117 @@ module amr_profiles
         end do zvarloop
     end subroutine bindata_twod
 
+    ! Clone the structure of src into dst, allocating zeroed accumulator arrays.
+    ! Copies all metadata (bin edges, variable names, filter definitions) but
+    ! initialises all numeric accumulators to zero so dst can be used as a
+    ! thread-local accumulator that is later merged with merge_prof_handler.
+    subroutine clone_prof_handler_empty(src, dst)
+        implicit none
+        type(profile_handler), intent(in)    :: src
+        type(profile_handler), intent(inout) :: dst
+        integer :: ibin
+
+        dst%scaletype  = src%scaletype
+        dst%cr_st      = src%cr_st
+        dst%cr_heat    = src%cr_heat
+        dst%profdim    = src%profdim
+        dst%nfilter    = src%nfilter
+        dst%zero_index = src%zero_index
+        dst%xvarname   = src%xvarname
+        dst%nyvar      = src%nyvar
+        dst%nbins      = src%nbins
+        dst%nwvar      = src%nwvar
+        dst%nsubs      = 0
+        dst%Dcr        = src%Dcr
+        dst%linthresh  = src%linthresh
+
+        if (.not.allocated(dst%yvarnames)) allocate(dst%yvarnames(1:src%nyvar))
+        if (.not.allocated(dst%wvarnames)) allocate(dst%wvarnames(1:src%nwvar))
+        if (.not.allocated(dst%xdata))     allocate(dst%xdata(0:src%nbins))
+        if (.not.allocated(dst%ydata))     allocate(dst%ydata(1:src%nbins))
+        if (.not.allocated(dst%filters))   allocate(dst%filters(1:src%nfilter))
+
+        dst%yvarnames = src%yvarnames
+        dst%wvarnames = src%wvarnames
+        dst%xdata     = src%xdata
+        dst%filters   = src%filters
+
+        do ibin = 1, src%nbins
+            dst%ydata(ibin)%nbins   = src%ydata(ibin)%nbins
+            dst%ydata(ibin)%nvars   = src%ydata(ibin)%nvars
+            dst%ydata(ibin)%nwvars  = src%ydata(ibin)%nwvars
+            dst%ydata(ibin)%nfilter = src%ydata(ibin)%nfilter
+            call allocate_pdf(dst%ydata(ibin))
+            dst%ydata(ibin)%do_binning = src%ydata(ibin)%do_binning
+            dst%ydata(ibin)%varname    = src%ydata(ibin)%varname
+            dst%ydata(ibin)%scaletype  = src%ydata(ibin)%scaletype
+            dst%ydata(ibin)%wvarnames  = src%ydata(ibin)%wvarnames
+            dst%ydata(ibin)%linthresh  = src%ydata(ibin)%linthresh
+            dst%ydata(ibin)%bins       = src%ydata(ibin)%bins
+            dst%ydata(ibin)%zero_index = src%ydata(ibin)%zero_index
+        end do
+    end subroutine clone_prof_handler_empty
+
+    ! Merge thread-local accumulator local_ph into the shared global_ph.
+    ! All additive fields are summed; max/min are reduced correctly
+    ! (minv uses 0 as a sentinel for "no data seen yet").
+    subroutine merge_prof_handler(local_ph, global_ph)
+        implicit none
+        type(profile_handler), intent(in)    :: local_ph
+        type(profile_handler), intent(inout) :: global_ph
+        integer :: ibin, i, ifilt
+
+        do ibin = 1, global_ph%nbins
+            global_ph%ydata(ibin)%heights    = global_ph%ydata(ibin)%heights    + local_ph%ydata(ibin)%heights
+            global_ph%ydata(ibin)%totweights = global_ph%ydata(ibin)%totweights + local_ph%ydata(ibin)%totweights
+            global_ph%ydata(ibin)%total      = global_ph%ydata(ibin)%total      + local_ph%ydata(ibin)%total
+            global_ph%ydata(ibin)%nvalues    = global_ph%ydata(ibin)%nvalues    + local_ph%ydata(ibin)%nvalues
+            global_ph%ydata(ibin)%nout       = global_ph%ydata(ibin)%nout       + local_ph%ydata(ibin)%nout
+            global_ph%ydata(ibin)%maxv       = max(global_ph%ydata(ibin)%maxv, local_ph%ydata(ibin)%maxv)
+            do i = 1, global_ph%ydata(ibin)%nvars
+                do ifilt = 1, global_ph%ydata(ibin)%nfilter
+                    if (local_ph%ydata(ibin)%minv(i,ifilt) .ne. 0D0) then
+                        if (global_ph%ydata(ibin)%minv(i,ifilt) .eq. 0D0) then
+                            global_ph%ydata(ibin)%minv(i,ifilt) = local_ph%ydata(ibin)%minv(i,ifilt)
+                        else
+                            global_ph%ydata(ibin)%minv(i,ifilt) = min(global_ph%ydata(ibin)%minv(i,ifilt), &
+                                                                       local_ph%ydata(ibin)%minv(i,ifilt))
+                        end if
+                    end if
+                end do
+            end do
+        end do
+    end subroutine merge_prof_handler
+
+    ! Deallocate all allocatable components of ph (used after thread-local merge).
+    subroutine dealloc_prof_handler(ph)
+        implicit none
+        type(profile_handler), intent(inout) :: ph
+        integer :: ibin
+
+        do ibin = 1, ph%nbins
+            if (allocated(ph%ydata(ibin)%do_binning))  deallocate(ph%ydata(ibin)%do_binning)
+            if (allocated(ph%ydata(ibin)%maxv))        deallocate(ph%ydata(ibin)%maxv)
+            if (allocated(ph%ydata(ibin)%minv))        deallocate(ph%ydata(ibin)%minv)
+            if (allocated(ph%ydata(ibin)%bins))        deallocate(ph%ydata(ibin)%bins)
+            if (allocated(ph%ydata(ibin)%zero_index))  deallocate(ph%ydata(ibin)%zero_index)
+            if (allocated(ph%ydata(ibin)%linthresh))   deallocate(ph%ydata(ibin)%linthresh)
+            if (allocated(ph%ydata(ibin)%heights))     deallocate(ph%ydata(ibin)%heights)
+            if (allocated(ph%ydata(ibin)%wvarnames))   deallocate(ph%ydata(ibin)%wvarnames)
+            if (allocated(ph%ydata(ibin)%varname))     deallocate(ph%ydata(ibin)%varname)
+            if (allocated(ph%ydata(ibin)%scaletype))   deallocate(ph%ydata(ibin)%scaletype)
+            if (allocated(ph%ydata(ibin)%totweights))  deallocate(ph%ydata(ibin)%totweights)
+            if (allocated(ph%ydata(ibin)%total))       deallocate(ph%ydata(ibin)%total)
+            if (allocated(ph%ydata(ibin)%nvalues))     deallocate(ph%ydata(ibin)%nvalues)
+            if (allocated(ph%ydata(ibin)%nout))        deallocate(ph%ydata(ibin)%nout)
+        end do
+        if (allocated(ph%yvarnames)) deallocate(ph%yvarnames)
+        if (allocated(ph%wvarnames)) deallocate(ph%wvarnames)
+        if (allocated(ph%xdata))     deallocate(ph%xdata)
+        if (allocated(ph%ydata))     deallocate(ph%ydata)
+        if (allocated(ph%filters))   deallocate(ph%filters)
+    end subroutine dealloc_prof_handler
+
     subroutine renormalise_bins(prof)
         implicit none
         type(profile_handler),intent(inout) :: prof
@@ -465,6 +576,7 @@ module amr_profiles
             integer ,dimension(1,0:amr%twondim) :: ind_nbor
             logical,dimension(:),allocatable :: ref
             type(level),dimension(1:100) :: grid
+            type(profile_handler) :: local_prof
 
             allocate(total_ncell(1:prof_data%nfilter))
             total_ncell = 0
@@ -478,7 +590,7 @@ module amr_profiles
             ipos=INDEX(repository,'output_')
             nchar=repository(ipos+7:ipos+13)
             ! Loop over processor files
-!$OMP PARALLEL DO DEFAULT(SHARED) &
+!$OMP PARALLEL DEFAULT(SHARED) &
 !$OMP& PRIVATE(k, icpu, ncharcpu, nomfich, iunit_amr, iunit_hydro, iunit_grav, &
 !$OMP&         i, j, ilevel, ind, idim, ivar, ifilt, isub, inbor, ison, iskip, &
 !$OMP&         ix, iy, iz, ngrida, nx_full, ny_full, nz_full, nvarh, &
@@ -487,8 +599,9 @@ module amr_profiles
 !$OMP&         ngridfile, ngridlevel, ngridbound, &
 !$OMP&         nbor, son, var, cellpos, grav_var, &
 !$OMP&         iig, xxg, ind_cell, x, xorig, ref, ind_cell2, &
-!$OMP&         tempvar, tempson, tempgrav_var) &
-!$OMP& REDUCTION(+:tot_pos, tot_ref, tot_insubs, tot_sel)
+!$OMP&         tempvar, tempson, tempgrav_var, local_prof)
+            call clone_prof_handler_empty(prof_data, local_prof)
+!$OMP DO REDUCTION(+:tot_pos, tot_ref, tot_insubs, tot_sel)
             cpuloop: do k=1,amr%ncpu_read
                 allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
                 allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
@@ -792,9 +905,7 @@ module amr_profiles
                                                                 & prof_data%zero_index,prof_data%xvarname,&
                                                                 & tempgrav_var)
                                                 if (binpos.ne.0) then
-!$OMP CRITICAL (prof_accum)
-                                                    call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix,tempgrav_var)
-!$OMP END CRITICAL (prof_accum)
+                                                    call bindata(reg,x(i,:),tempvar,tempson,dx,local_prof,binpos,ifilt,trans_matrix,tempgrav_var)
                                                 end if
                                             else
                                                 call findbinpos(reg,xtemp,tempvar,tempson,&
@@ -803,9 +914,7 @@ module amr_profiles
                                                                 & prof_data%xdata,prof_data%linthresh,&
                                                                 & prof_data%zero_index,prof_data%xvarname)
                                                 if (binpos.ne.0) then
-!$OMP CRITICAL (prof_accum)
-                                                    call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix)
-!$OMP END CRITICAL (prof_accum)
+                                                    call bindata(reg,x(i,:),tempvar,tempson,dx,local_prof,binpos,ifilt,trans_matrix)
                                                 end if
                                             end if
                                             if (binpos.ne.0) then
@@ -829,7 +938,12 @@ module amr_profiles
                 deallocate(ngridfile, ngridlevel)
                 if(amr%nboundary>0) deallocate(ngridbound)
             end do cpuloop
-!$OMP END PARALLEL DO
+!$OMP END DO
+!$OMP CRITICAL (prof_accum)
+            call merge_prof_handler(local_prof, prof_data)
+!$OMP END CRITICAL (prof_accum)
+            call dealloc_prof_handler(local_prof)
+!$OMP END PARALLEL
             if (verbose) then
                 write(*,*)'Total number of cells used (per filter): ', total_ncell
                 write(*,*)'Total number of cells in region and refined: ', tot_sel
@@ -868,6 +982,7 @@ module amr_profiles
             integer,dimension(:,:),allocatable :: son
             integer,dimension(:),allocatable :: tempson
             logical,dimension(:),allocatable :: ref
+            type(profile_handler) :: local_prof
 
             allocate(total_ncell(1:prof_data%nfilter))
             total_ncell = 0
@@ -898,7 +1013,7 @@ module amr_profiles
             nchar=repository(ipos+7:ipos+13)
 
             ! Loop over processor files
-!$OMP PARALLEL DO DEFAULT(SHARED) &
+!$OMP PARALLEL DEFAULT(SHARED) &
 !$OMP& PRIVATE(k, icpu, ncharcpu, nomfich, iunit_amr, iunit_hydro, iunit_grav, &
 !$OMP&         i, j, ilevel, ind, idim, ivar, ifilt, isub, &
 !$OMP&         ix, iy, iz, ngrida, nx_full, ny_full, nz_full, nvarh, &
@@ -906,8 +1021,9 @@ module amr_profiles
 !$OMP&         ok_cell, ok_filter, ok_cell_each, ok_sub, binpos, &
 !$OMP&         ngridfile, ngridlevel, ngridbound, &
 !$OMP&         xg, son, var, x, xorig, ref, grav_var, &
-!$OMP&         tempvar, tempson, tempgrav_var) &
-!$OMP& REDUCTION(+:tot_pos, tot_ref, tot_insubs, tot_sel)
+!$OMP&         tempvar, tempson, tempgrav_var, local_prof)
+            call clone_prof_handler_empty(prof_data, local_prof)
+!$OMP DO REDUCTION(+:tot_pos, tot_ref, tot_insubs, tot_sel)
             cpuloop: do k=1,amr%ncpu_read
                 allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
                 allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
@@ -1159,9 +1275,7 @@ module amr_profiles
                                                                 & prof_data%zero_index,prof_data%xvarname,&
                                                                 & tempgrav_var)
                                                 if (binpos.ne.0) then
-!$OMP CRITICAL (prof_accum)
-                                                    call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix,tempgrav_var)
-!$OMP END CRITICAL (prof_accum)
+                                                    call bindata(reg,x(i,:),tempvar,tempson,dx,local_prof,binpos,ifilt,trans_matrix,tempgrav_var)
                                                 end if
                                             else
                                                 call findbinpos(reg,xtemp,tempvar,tempson,&
@@ -1170,9 +1284,7 @@ module amr_profiles
                                                                 & prof_data%xdata,prof_data%linthresh,&
                                                                 & prof_data%zero_index,prof_data%xvarname)
                                                 if (binpos.ne.0) then
-!$OMP CRITICAL (prof_accum)
-                                                    call bindata(reg,x(i,:),tempvar,tempson,dx,prof_data,binpos,ifilt,trans_matrix)
-!$OMP END CRITICAL (prof_accum)
+                                                    call bindata(reg,x(i,:),tempvar,tempson,dx,local_prof,binpos,ifilt,trans_matrix)
                                                 end if
                                             end if
                                             if (binpos.ne.0) then
@@ -1198,7 +1310,12 @@ module amr_profiles
                 deallocate(ngridfile, ngridlevel)
                 if(amr%nboundary>0) deallocate(ngridbound)
             end do cpuloop
-!$OMP END PARALLEL DO
+!$OMP END DO
+!$OMP CRITICAL (prof_accum)
+            call merge_prof_handler(local_prof, prof_data)
+!$OMP END CRITICAL (prof_accum)
+            call dealloc_prof_handler(local_prof)
+!$OMP END PARALLEL
         if (verbose) then
             write(*,*)'Total number of cells used (per filter): ', total_ncell
             write(*,*)'Total number of cells in region and refined: ', tot_sel
@@ -1269,6 +1386,9 @@ module amr_profiles
         logical,dimension(:),allocatable :: ref
         type(level),dimension(1:100) :: grid
         integer :: iunit_amr, iunit_hydro, iunit_grav
+        integer :: tid, iizvar, iiwvar, nthreads_zd
+        real(dbl) :: ytemp_zd, wtemp_zd
+        real(dbl), allocatable :: thread_zdata(:,:,:,:,:,:,:)
 
         allocate(total_ncell(1:prof_data%nfilter))
         total_ncell = 0
@@ -1292,6 +1412,13 @@ module amr_profiles
         endif
         ipos=INDEX(repository,'output_')
         nchar=repository(ipos+7:ipos+13)
+
+        nthreads_zd = omp_get_max_threads()
+        allocate(thread_zdata(0:nthreads_zd-1, prof_data%nfilter, &
+                              prof_data%nbins(1), prof_data%nbins(2), &
+                              prof_data%nzvar, prof_data%nwvar, 4))
+        thread_zdata = 0D0
+
         ! Loop over processor files
 !$OMP PARALLEL DO DEFAULT(SHARED) &
 !$OMP& PRIVATE(k, icpu, ncharcpu, nomfich, iunit_amr, iunit_hydro, iunit_grav, &
@@ -1302,7 +1429,8 @@ module amr_profiles
 !$OMP&         ngridfile, ngridlevel, ngridbound, &
 !$OMP&         nbor, son, var, cellpos, grav_var, &
 !$OMP&         iig, xxg, ind_cell, x, ref, ind_cell2, &
-!$OMP&         tempvar, tempson, tempgrav_var)
+!$OMP&         tempvar, tempson, tempgrav_var, &
+!$OMP&         tid, iizvar, iiwvar, ytemp_zd, wtemp_zd)
         cpuloop: do k=1,amr%ncpu_read
             allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
             allocate(ngridlevel(1:amr%ncpu,1:amr%nlevelmax))
@@ -1591,12 +1719,29 @@ module amr_profiles
                                                             &prof_data%linthresh(2),prof_data%zero_index(2),&
                                                             &prof_data%yvarname,tempgrav_var)
                                             if (xbinpos.ne.0.and.ybinpos.ne.0) then
-!$OMP CRITICAL (prof_accum)
-                                                call bindata_twod(reg,x(i,:),&
-                                                                  &tempvar,tempson,dx,prof_data,&
-                                                                  &xbinpos,ybinpos,ifilt,&
-                                                                  &trans_matrix,tempgrav_var)
-!$OMP END CRITICAL (prof_accum)
+                                                tid = omp_get_thread_num()
+                                                do iizvar=1,prof_data%nzvar
+                                                    call getvarvalue(reg,dx,xtemp,tempvar,tempson,&
+                                                                     &prof_data%zvarnames(iizvar),&
+                                                                     &ytemp_zd,trans_matrix,tempgrav_var)
+                                                    do iiwvar=1,prof_data%nwvar
+                                                        if (prof_data%wvarnames(iiwvar)=='counts'.or.&
+                                                           &prof_data%wvarnames(iiwvar)=='cumulative') then
+                                                            wtemp_zd = 1D0
+                                                        else
+                                                            call getvarvalue(reg,dx,xtemp,tempvar,tempson,&
+                                                                             &prof_data%wvarnames(iiwvar),wtemp_zd)
+                                                        end if
+                                                        thread_zdata(tid,ifilt,xbinpos,ybinpos,iizvar,iiwvar,1) = &
+                                                            thread_zdata(tid,ifilt,xbinpos,ybinpos,iizvar,iiwvar,1) + ytemp_zd*wtemp_zd
+                                                        thread_zdata(tid,ifilt,xbinpos,ybinpos,iizvar,iiwvar,2) = &
+                                                            thread_zdata(tid,ifilt,xbinpos,ybinpos,iizvar,iiwvar,2) + wtemp_zd
+                                                        thread_zdata(tid,ifilt,xbinpos,ybinpos,iizvar,iiwvar,3) = &
+                                                            thread_zdata(tid,ifilt,xbinpos,ybinpos,iizvar,iiwvar,3) + wtemp_zd**2
+                                                        thread_zdata(tid,ifilt,xbinpos,ybinpos,iizvar,iiwvar,4) = &
+                                                            thread_zdata(tid,ifilt,xbinpos,ybinpos,iizvar,iiwvar,4) + wtemp_zd*(ytemp_zd**2)
+                                                    end do
+                                                end do
                                             end if
                                         else
                                             call findbinpos(reg,xtemp,tempvar,tempson,&
@@ -1612,12 +1757,29 @@ module amr_profiles
                                                             &prof_data%linthresh(2),prof_data%zero_index(2),&
                                                             &prof_data%yvarname)
                                             if (xbinpos.ne.0.and.ybinpos.ne.0) then
-!$OMP CRITICAL (prof_accum)
-                                                call bindata_twod(reg,x(i,:),&
-                                                                  &tempvar,tempson,dx,prof_data,&
-                                                                  &xbinpos,ybinpos,ifilt,&
-                                                                  &trans_matrix)
-!$OMP END CRITICAL (prof_accum)
+                                                tid = omp_get_thread_num()
+                                                do iizvar=1,prof_data%nzvar
+                                                    call getvarvalue(reg,dx,xtemp,tempvar,tempson,&
+                                                                     &prof_data%zvarnames(iizvar),&
+                                                                     &ytemp_zd,trans_matrix)
+                                                    do iiwvar=1,prof_data%nwvar
+                                                        if (prof_data%wvarnames(iiwvar)=='counts'.or.&
+                                                           &prof_data%wvarnames(iiwvar)=='cumulative') then
+                                                            wtemp_zd = 1D0
+                                                        else
+                                                            call getvarvalue(reg,dx,xtemp,tempvar,tempson,&
+                                                                             &prof_data%wvarnames(iiwvar),wtemp_zd)
+                                                        end if
+                                                        thread_zdata(tid,ifilt,xbinpos,ybinpos,iizvar,iiwvar,1) = &
+                                                            thread_zdata(tid,ifilt,xbinpos,ybinpos,iizvar,iiwvar,1) + ytemp_zd*wtemp_zd
+                                                        thread_zdata(tid,ifilt,xbinpos,ybinpos,iizvar,iiwvar,2) = &
+                                                            thread_zdata(tid,ifilt,xbinpos,ybinpos,iizvar,iiwvar,2) + wtemp_zd
+                                                        thread_zdata(tid,ifilt,xbinpos,ybinpos,iizvar,iiwvar,3) = &
+                                                            thread_zdata(tid,ifilt,xbinpos,ybinpos,iizvar,iiwvar,3) + wtemp_zd**2
+                                                        thread_zdata(tid,ifilt,xbinpos,ybinpos,iizvar,iiwvar,4) = &
+                                                            thread_zdata(tid,ifilt,xbinpos,ybinpos,iizvar,iiwvar,4) + wtemp_zd*(ytemp_zd**2)
+                                                    end do
+                                                end do
                                             end if
                                         end if
                                     endif
@@ -1636,6 +1798,10 @@ module amr_profiles
             if(amr%nboundary>0) deallocate(ngridbound)
         end do cpuloop
 !$OMP END PARALLEL DO
+        do tid = 0, nthreads_zd - 1
+            prof_data%zdata = prof_data%zdata + thread_zdata(tid,:,:,:,:,:,:)
+        end do
+        deallocate(thread_zdata)
         if (verbose) write(*,*)'Total number of cells used: ', total_ncell
     end subroutine get_cells_twodprofile
 end module amr_profiles
