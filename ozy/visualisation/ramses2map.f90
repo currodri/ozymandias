@@ -368,9 +368,9 @@ module maps
         xconv = dble(n_sample(1))/dble(grid%imax - grid%imin + 1)
         yconv = dble(n_sample(2))/dble(grid%jmax - grid%jmin + 1)
 
-        ! Compute map pixel
-        ii_map(1) = int(dble(ix-grid%imin)*xconv)
-        ii_map(2) = int(dble(iy-grid%jmin)*yconv)
+        ! Compute map pixel (1-indexed: +1 so first cell maps to pixel 1, not 0)
+        ii_map(1) = int(dble(ix-grid%imin)*xconv) + 1
+        ii_map(2) = int(dble(iy-grid%jmin)*yconv) + 1
     end subroutine get_pos_map
 
     subroutine grid_projection(proj,cam,grid,nexp_factor)
@@ -430,11 +430,11 @@ module maps
             if (ksize.lt.halfsqrt2) then
                 ! Loop over projected pixels in ilevel
                 do iy = grid(ilevel)%jmin, grid(ilevel)%jmax
-                    xpix(2) = int(dble(iy-grid(ilevel)%jmin+1)*xconv)
+                    xpix(2) = int(dble(iy-grid(ilevel)%jmin)*yconv) + 1
                     if (xpix(2) .lt. 1) cycle
                     if (xpix(2) .gt. proj%n_sample(2)) cycle
                     do ix = grid(ilevel)%imin, grid(ilevel)%imax
-                        xpix(1) = int(dble(ix-grid(ilevel)%imin+1)*yconv)
+                        xpix(1) = int(dble(ix-grid(ilevel)%imin)*xconv) + 1
                         if (xpix(1) .lt. 1) cycle
                         if (xpix(1) .gt. proj%n_sample(1)) cycle
                         ! Get the index of cell in the map grid
@@ -471,11 +471,11 @@ module maps
                 call create_kfilter
                 ! Loop over projected pixels in ilevel
                 do iy = grid(ilevel)%jmin, grid(ilevel)%jmax
-                    xpix(2) = int(dble(iy-grid(ilevel)%jmin+1)*xconv)
+                    xpix(2) = int(dble(iy-grid(ilevel)%jmin)*yconv) + 1
                     if (xpix(2) .lt. 1) cycle
                     if (xpix(2) .gt. proj%n_sample(2)) cycle
                     do ix = grid(ilevel)%imin, grid(ilevel)%imax
-                        xpix(1) = int(dble(ix-grid(ilevel)%imin+1)*yconv)
+                        xpix(1) = int(dble(ix-grid(ilevel)%imin)*xconv) + 1
                         if (xpix(1) .lt. 1) cycle
                         if (xpix(1) .gt. proj%n_sample(1)) cycle
                         ! Compute kernel limits
@@ -623,9 +623,9 @@ module maps
         nx_full = 2**cam%lmax
         ny_full = 2**cam%lmax
         imin = int((bbox%xmin+bbox%centre%x)*dble(nx_full)) + 1
-        imax = int((bbox%xmax+bbox%centre%x)*dble(nx_full))
+        imax = int((bbox%xmax+bbox%centre%x)*dble(nx_full)) + 1
         jmin = int((bbox%ymin+bbox%centre%y)*dble(ny_full)) + 1
-        jmax = int((bbox%ymax+bbox%centre%y)*dble(ny_full))
+        jmax = int((bbox%ymax+bbox%centre%y)*dble(ny_full)) + 1
         filtlooplmax: do ifilt=1,proj%nfilter
             xloop: do ix = imin,imax
                 xmin = ((ix-0.5)/2**cam%lmax)
@@ -649,10 +649,10 @@ module maps
         end do filtlooplmax
 
         do i=1,proj%n_sample(1)
-            ix = int(dble(i)/dble(proj%n_sample(1))*dble(imax-imin+1))+imin
+            ix = int(dble(i-1)/dble(proj%n_sample(1))*dble(imax-imin+1))+imin
             ix = min(ix,imax)
             do j=1,proj%n_sample(2)
-                iy = int(dble(j)/dble(proj%n_sample(2))*dble(jmax-jmin+1))+jmin
+                iy = int(dble(j-1)/dble(proj%n_sample(2))*dble(jmax-jmin+1))+jmin
                 iy = min(iy,jmax)
                 filtloopmap: do ifilt=1,proj%nfilter
                     projvarloopmap: do ivar=1,proj%nvars
