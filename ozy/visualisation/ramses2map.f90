@@ -623,9 +623,9 @@ module maps
         nx_full = 2**cam%lmax
         ny_full = 2**cam%lmax
         imin = int((bbox%xmin+bbox%centre%x)*dble(nx_full)) + 1
-        imax = int((bbox%xmax+bbox%centre%x)*dble(nx_full)) + 1
+        imax = int((bbox%xmax+bbox%centre%x)*dble(nx_full))
         jmin = int((bbox%ymin+bbox%centre%y)*dble(ny_full)) + 1
-        jmax = int((bbox%ymax+bbox%centre%y)*dble(ny_full)) + 1
+        jmax = int((bbox%ymax+bbox%centre%y)*dble(ny_full))
         filtlooplmax: do ifilt=1,proj%nfilter
             xloop: do ix = imin,imax
                 xmin = ((ix-0.5)/2**cam%lmax)
