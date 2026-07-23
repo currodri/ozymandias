@@ -622,10 +622,10 @@ module maps
         ! Upload to maximum level (lmax)
         nx_full = 2**cam%lmax
         ny_full = 2**cam%lmax
-        imin = int((bbox%xmin+bbox%centre%x)*dble(nx_full)) + 1
-        imax = int((bbox%xmax+bbox%centre%x)*dble(nx_full))
-        jmin = int((bbox%ymin+bbox%centre%y)*dble(ny_full)) + 1
-        jmax = int((bbox%ymax+bbox%centre%y)*dble(ny_full))
+        imin = floor((bbox%xmin+bbox%centre%x)*dble(nx_full)) + 1
+        imax = floor((bbox%xmax+bbox%centre%x)*dble(nx_full))
+        jmin = floor((bbox%ymin+bbox%centre%y)*dble(ny_full)) + 1
+        jmax = floor((bbox%ymax+bbox%centre%y)*dble(ny_full))
         filtlooplmax: do ifilt=1,proj%nfilter
             xloop: do ix = imin,imax
                 xmin = ((ix-0.5)/2**cam%lmax)
@@ -633,8 +633,8 @@ module maps
                     ymin=((iy-0.5)/2**cam%lmax)
                     ilevelloop: do ilevel=cam%lmin,cam%lmax-1
                         ndom = 2**ilevel
-                        i = int(xmin*ndom)+1
-                        j = int(ymin*ndom)+1
+                        i = floor(xmin*dble(ndom))+1
+                        j = floor(ymin*dble(ndom))+1
                         weightvarlooplmax: do iweight=1,proj%nwvars
                             projvarlooplmax: do ivar=1,proj%nvars
                                 grid(cam%lmax)%cube(ifilt,ivar,iweight,ix,iy)=grid(cam%lmax)%cube(ifilt,ivar,iweight,ix,iy) + &
@@ -874,10 +874,10 @@ module maps
             do ilevel=1,amr%lmax
                 nx_full = 2**ilevel
                 ny_full = 2**ilevel
-                imin = int(cam_reg%xmin*dble(nx_full))+1
-                imax = int(cam_reg%xmax*dble(nx_full))+1
-                jmin = int(cam_reg%ymin*dble(ny_full))+1
-                jmax = int(cam_reg%ymax*dble(ny_full))+1
+                imin = floor(cam_reg%xmin*dble(nx_full))+1
+                imax = floor(cam_reg%xmax*dble(nx_full))+1
+                jmin = floor(cam_reg%ymin*dble(ny_full))+1
+                jmax = floor(cam_reg%ymax*dble(ny_full))+1
                 allocate(grid(ilevel)%cube(1:proj%nfilter,1:proj%nvars,1:proj%nwvars,imin:imax,jmin:jmax))
                 allocate(grid(ilevel)%map(1:proj%nfilter,1:proj%nwvars,imin:imax,jmin:jmax))
                 grid(ilevel)%cube(:,:,:,:,:) = 0D0
@@ -1124,8 +1124,8 @@ module maps
                                     ncells_sub = ncells_sub + merge(1,0,ok_cell.and..not.ok_sub)
                                 end if
                                 if (ok_cell) then
-                                    ix = int(xtemp%x*dble(nx_full)) + 1
-                                    iy = int(xtemp%y*dble(ny_full)) + 1
+                                    ix = floor(xtemp%x*dble(nx_full)) + 1
+                                    iy = floor(xtemp%y*dble(ny_full)) + 1
                                     geo_weight = (min(xtemp%z+dx/2d0,cam_reg%zmax)&
                                                     &-max(xtemp%z-dx/2d0,cam_reg%zmin))/dx
                                     geo_weight = min(1.0d0,max(geo_weight,0.0d0))
@@ -1655,8 +1655,8 @@ module maps
                                     ok_cell = ok_cell .and. ok_sub
                                 end if
                                 if (ok_cell) then
-                                    ix = int(xtemp%x*dble(nx_full)) + 1
-                                    iy = int(xtemp%y*dble(ny_full)) + 1
+                                    ix = floor(xtemp%x*dble(nx_full)) + 1
+                                    iy = floor(xtemp%y*dble(ny_full)) + 1
                                     geo_weight = (min(xtemp%z+dx/2.,bbox_abs%zmax)-max(xtemp%z-dx/2.,bbox_abs%zmin))/dx
                                     geo_weight = min(1.0d0,max(geo_weight,0.0d0))
                                     if( ix>=grid(ilevel)%imin.and.&
