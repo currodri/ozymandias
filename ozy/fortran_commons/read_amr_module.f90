@@ -610,7 +610,7 @@ module io_ramses
         integer :: i
         type(vector) :: v,L,B,vst
         type(basis) :: temp_basis
-        real(dbl) :: T,rho,cV,lambda,lambda_prime,ne,ecr,nH,Tmin,Dcr,vA,cs,sigma
+        real(dbl) :: T,rho,cV,lambda,lambda_prime,ne,ecr,nH,Tmin,Dcr,vA,cs,sigma,factG
         real(dbl) :: dxleft,dxright
         real(dbl) :: P_r,fg_r,r
         real(dbl) :: F_a,F_s,F_d,Fcr
@@ -779,6 +779,9 @@ module io_ramses
         case ('density')
             ! Density
             value = var(0,varIDs%density)
+        case ('nH')
+            ! Hydrogen number density
+            value = var(0,varIDs%density) * sim%nH
         case ('dust_mass')
             ! Dust mass
             value = (var(0,varIDs%dust_density) * var(0,varIDs%density) * (dx*dx)) * dx
@@ -977,6 +980,20 @@ module io_ramses
             ! Effective sound speed of the thermal and CR fluid mixture
             value = sqrt((gamma_gas * var(0,varIDs%thermal_pressure) + gamma_crs * var(0,varIDs%cr_pressure)) / &
                         & var(0,varIDs%density))
+        case ('jeans_isothermal')
+            ! Isothermal Jeans length: lambda_J = c_s,iso * sqrt(pi / (G * rho))
+            ! c_s,iso = sqrt(P_th / rho); G in code units via factG (RAMSES cosmological convention)
+            factG = 1d0
+            if (sim%cosmo) factG = 3d0/4d0/twopi*sim%omega_m*sim%aexp
+            cs = max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density)) / var(0,varIDs%density)
+            value = sqrt(pi * cs / (factG * var(0,varIDs%density)))
+        case ('xcr')
+            ! CR pressure fraction: Xcr = Pcr / Pth, per cell
+            if (sim%cr) then
+                value = var(0,varIDs%cr_pressure) / max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density))
+            else
+                value = 0d0
+            end if
         case ('rms_speed')
             ! RMS speed, ideal gas (Maxwellian distribution)
             value = sqrt(3d0 * (max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density)) / var(0,varIDs%density)))
@@ -1089,7 +1106,44 @@ module io_ramses
             if (T<15d0) T = 15d0
             nH = var(0,varIDs%density) * sim%nH
             call solve_net_cooling(nH,T,var(0,varIDs%metallicity)/2D-2,lambda,lambda_prime)
-            value = ((lambda * nH) * nH) * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
+            lambda_co = (lambda * nH) * nH ! [erg/s/cm^3]
+
+            if (sim%cr .and. sim%cr_st .and. sim%cr_heat) then
+                ! CR streaming heating
+                dxright = dx; dxleft = dx
+                if (son(1) .eq. 0) dxright = dxright * 1.5D0
+                if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
+                v%x = (var(2,varIDs%cr_pressure) - var(1,varIDs%cr_pressure)) / (dxright + dxleft)
+                dxright = dx; dxleft = dx
+                if (son(3) .eq. 0) dxright = dxright * 1.5D0
+                if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
+                v%y = (var(4,varIDs%cr_pressure) - var(3,varIDs%cr_pressure)) / (dxright + dxleft)
+                dxright = dx; dxleft = dx
+                if (son(5) .eq. 0) dxright = dxright * 1.5D0
+                if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
+                v%z = (var(6,varIDs%cr_pressure) - var(5,varIDs%cr_pressure)) / (dxright + dxleft)
+
+                B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+                vst = (B / sqrt(var(0,varIDs%density)))
+                lambda_st = abs(vst .DOT. v) * (sim%unit_p / sim%unit_t) ! [erg/s/cm^3]
+            else
+                lambda_st = 0D0
+            end if
+
+            if (sim%cr) then
+                ! Cosmic rays hadronic and Coulomb heating from Guo&Ho(2008)
+                ! (Assume fully ionised gas)
+                ! TODO: Update for RT! 
+                lambda = 2.63d-16 ! [erg/s/cm^3]
+                ne = var(0,varIDs%density) * sim%unit_d / mHydrogen 
+                ecr = var(0,varIDs%cr_pressure) / (gamma_crs - 1d0)
+                ecr = ecr * (sim%unit_d * ((sim%unit_l/sim%unit_t)**2))
+                lambda_cr = lambda * ne * ecr ! [erg/s/cm^3]
+            else
+                lambda_cr = 0D0
+            end if
+
+            value = (lambda_co - lambda_cr + lambda_st) * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
         case ('cooling_rate')
             ! Cooling rate taken from the cooling table in RAMSES output
             T = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * sim%T2
@@ -1475,6 +1529,25 @@ module io_ramses
             B = B / magnitude(B)
             v = v / magnitude(v)
             value = abs(v.dot.B)
+        case ('absgrad_crp_dotmag')
+            ! |cos(theta)| between CR pressure gradient and magnetic field unit vector
+            dxright = dx; dxleft = dx
+            if (son(1) .eq. 0) dxright = dxright * 1.5D0
+            if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
+            v%x = (var(2,varIDs%cr_pressure) - var(1,varIDs%cr_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(3) .eq. 0) dxright = dxright * 1.5D0
+            if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
+            v%y = (var(4,varIDs%cr_pressure) - var(3,varIDs%cr_pressure)) / (dxright + dxleft)
+            dxright = dx; dxleft = dx
+            if (son(5) .eq. 0) dxright = dxright * 1.5D0
+            if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
+            v%z = (var(6,varIDs%cr_pressure) - var(5,varIDs%cr_pressure)) / (dxright + dxleft)
+
+            B = 0.5d0 * (/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+            B = B / magnitude(B)
+            v = v / magnitude(v)
+            value = abs(v.dot.B)
         case ('grad_crprsphere')
             ! CR pressure gradient in the radial direction
             dxright = dx; dxleft = dx
@@ -1671,7 +1744,7 @@ module io_ramses
             v%z = (var(6,varIDs%cr_pressure) - var(5,varIDs%cr_pressure)) / (dxright + dxleft)
             B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
             vst = (B / sqrt(var(0,varIDs%density)))
-            value = abs(vst .DOT. v)
+            lambda_cr = abs(vst .DOT. v)
 
             ! Net cooling rate taken from the cooling table in RAMSES output
             T = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * sim%T2
@@ -1680,14 +1753,31 @@ module io_ramses
             nH = var(0,varIDs%density) * sim%nH
             call solve_net_cooling(nH,T,var(0,varIDs%metallicity)/2D-2,lambda,lambda_prime)
             lambda_co = ((lambda * nH) * nH) * ((sim%unit_t**3)/(sim%unit_d*(sim%unit_l**2)))
-            value = abs(value / lambda_co)
+            value = abs(lambda_cr / lambda_co)
+        case ('crheatcooling_ratio')
+            ! Ratio of CR Coulomb and hadronic heating rate to gas cooling rate
+            ! Cosmic rays hadronic and Coulomb heating from Guo&Ho(2008)
+            ! (Assume fully ionised gas)
+            lambda = 2.63d-16 ! [erg/s/cm^3]
+            ne = var(0,varIDs%density) * sim%unit_d / mHydrogen
+            ecr = var(0,varIDs%cr_pressure) / (gamma_crs - 1d0)
+            ecr = ecr * (sim%unit_d * ((sim%unit_l/sim%unit_t)**2))
+            lambda_cr = lambda * ne * ecr ! [erg/s/cm^3]
+
+            ! Net cooling rate taken from the cooling table in RAMSES output
+            T = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * sim%T2
+            ! TODO: This a fix only for some messed up CRMHD simulations!
+            if (T<15d0) T = 15d0
+            nH = var(0,varIDs%density) * sim%nH
+            call solve_net_cooling(nH,T,var(0,varIDs%metallicity)/2D-2,lambda,lambda_prime)
+            lambda_co = (lambda * nH) * nH
+            value = abs(lambda_cr / lambda_co)
         case ('total_coolingtime')
             !TODO: Check units!
             ! Net cooling rate taken from the cooling table in RAMSES output
             T = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * sim%T2 ! This is actually T/mu
-            if (T<15) T = 15
             nH = var(0,varIDs%density) * sim%nH
-            call solve_net_cooling(nH,T,var(0,varIDs%metallicity)/2D-2,lambda,lambda_prime)
+            call solve_net_cooling(nH,max(T,Tmin),var(0,varIDs%metallicity)/2D-2,lambda,lambda_prime)
             lambda_co = (lambda * nH) * nH ! [erg/s/cm^3]
 
             if (sim%cr .and. sim%cr_st .and. sim%cr_heat) then
@@ -1739,6 +1829,65 @@ module io_ramses
             else
                 ! Convert to code time unit
                 value = value / ((lambda_co - lambda_st - lambda_cr)/(sim%unit_p / sim%unit_t))
+            end if
+        case ('cooling_time')
+            ! Net cooling rate taken from the cooling table in RAMSES output
+            T = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * sim%T2 ! This is actually T/mu
+            nH = var(0,varIDs%density) * sim%nH
+            call solve_net_cooling(nH,max(T,Tmin),var(0,varIDs%metallicity)/2D-2,lambda,lambda_prime)
+            lambda_co = (lambda * nH) * nH ! [erg/s/cm^3]
+
+            ! Thermal energy
+            ! TODO: This a fix only for some messed up CRMHD simulations!
+            if (T<15d0) then
+                value = (Tmin * var(0,varIDs%density)) / (gamma_gas - 1d0)
+            else
+                value = var(0,varIDs%thermal_pressure) / (gamma_gas - 1d0)
+            end if
+
+            if (lambda_co<0d0) then
+                ! In the case the gas is effectively heated, the cooling time is basically large
+                value = 4.34d18 / sim%unit_t
+            else
+                ! Convert to code time unit
+                value = value / (lambda_co/(sim%unit_p / sim%unit_t))
+            end if
+        case ('cr_coolingtime')
+            ! Cosmic ray cooling time due to hadronic and Coulomb interactions
+            ! and streaming losses
+            ! (Assume fully ionised gas)
+            if (.not.sim%cr) then
+                value = 0d0
+            else
+                ! CR hadronic and Coulomb cooling from Guo&Ho(2008)
+                ! (Assume fully ionised gas)
+                lambda = 7.51d-16 ! [cm^3/s]
+                ne = var(0,varIDs%density) * sim%unit_d / mHydrogen 
+                ecr = var(0,varIDs%cr_pressure) / (gamma_crs - 1d0) * sim%unit_p
+                lambda_cr = lambda * ne * ecr ! [erg/s/cm^3]
+                if (sim%cr_st .and. sim%cr_heat) then
+                    ! CR streaming heating
+                    dxright = dx; dxleft = dx
+                    if (son(1) .eq. 0) dxright = dxright * 1.5D0
+                    if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
+                    v%x = (var(2,varIDs%cr_pressure) - var(1,varIDs%cr_pressure)) / (dxright + dxleft)
+                    dxright = dx; dxleft = dx
+                    if (son(3) .eq. 0) dxright = dxright * 1.5D0
+                    if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
+                    v%y = (var(4,varIDs%cr_pressure) - var(3,varIDs%cr_pressure)) / (dxright + dxleft)
+                    dxright = dx; dxleft = dx
+                    if (son(5) .eq. 0) dxright = dxright * 1.5D0
+                    if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
+                    v%z = (var(6,varIDs%cr_pressure) - var(5,varIDs%cr_pressure)) / (dxright + dxleft)
+
+                    B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+                    vst = (B / sqrt(var(0,varIDs%density)))
+                    lambda_st = abs(vst .DOT. v) * (sim%unit_p / sim%unit_t) ! [erg/s/cm^3]
+                else
+                    lambda_st = 0D0
+                end if
+                ! Convert to code time unit
+                value = ecr / (lambda_cr + lambda_st) / sim%unit_t
             end if
         case ('xHII')
             ! Hydrogen ionisation fraction
@@ -2418,9 +2567,8 @@ module io_ramses
             end if
             ! 2. Cooling time
             T = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * sim%T2 ! This is actually T/mu
-            if (T<15) T = 15
             nH = var(0,varIDs%density) * sim%nH
-            call solve_net_cooling(nH,T,var(0,varIDs%metallicity)/2D-2,lambda,lambda_prime)
+            call solve_net_cooling(nH,max(T,Tmin),var(0,varIDs%metallicity)/2D-2,lambda,lambda_prime)
             lambda_co = (lambda * nH) * nH ! [erg/s/cm^3]
 
             if (sim%cr .and. sim%cr_st .and. sim%cr_heat) then
@@ -2474,6 +2622,77 @@ module io_ramses
                 tcool = tcool / ((lambda_co - lambda_st - lambda_cr)/(sim%unit_p / sim%unit_t))
             end if
             value =  tcomp / tcool
+        case ('coolinflowtime_ratio')
+            ! Ratio of inflow time to cooling time
+            ! 1. Inflow time
+            v = (/var(0,varIDs%vx),var(0,varIDs%vy),var(0,varIDs%vz)/)
+            call spherical_basis_from_cartesian(x,temp_basis)
+            value = v.DOT.temp_basis%u(1)
+            if (value > 0d0) then
+                ! In the case the gas is outflowing, the timescale is just larger
+                ! than the age of the Universe in code time units
+                value = 4.34d18 / sim%unit_t
+            else
+                r = r_sphere(x)
+                value = r / abs(value)
+            end if
+            ! 2. Cooling time
+            T = var(0,varIDs%thermal_pressure) / var(0,varIDs%density) * sim%T2 ! This is actually T/mu
+            nH = var(0,varIDs%density) * sim%nH
+            call solve_net_cooling(nH,max(T,Tmin),var(0,varIDs%metallicity)/2D-2,lambda,lambda_prime)
+            lambda_co = (lambda * nH) * nH ! [erg/s/cm^3]
+
+            if (sim%cr .and. sim%cr_st .and. sim%cr_heat) then
+                ! CR streaming heating
+                dxright = dx; dxleft = dx
+                if (son(1) .eq. 0) dxright = dxright * 1.5D0
+                if (son(2) .eq. 0) dxleft = dxleft * 1.5D0
+                v%x = (var(2,varIDs%cr_pressure) - var(1,varIDs%cr_pressure)) / (dxright + dxleft)
+                dxright = dx; dxleft = dx
+                if (son(3) .eq. 0) dxright = dxright * 1.5D0
+                if (son(4) .eq. 0) dxleft = dxleft * 1.5D0
+                v%y = (var(4,varIDs%cr_pressure) - var(3,varIDs%cr_pressure)) / (dxright + dxleft)
+                dxright = dx; dxleft = dx
+                if (son(5) .eq. 0) dxright = dxright * 1.5D0
+                if (son(6) .eq. 0) dxleft = dxleft * 1.5D0
+                v%z = (var(6,varIDs%cr_pressure) - var(5,varIDs%cr_pressure)) / (dxright + dxleft)
+
+                B = 0.5 *(/(var(0,varIDs%Blx)+var(0,varIDs%Brx)),(var(0,varIDs%Bly)+var(0,varIDs%Bry)),(var(0,varIDs%Blz)+var(0,varIDs%Brz))/)
+                vst = (B / sqrt(var(0,varIDs%density)))
+                lambda_st = abs(vst .DOT. v) * (sim%unit_p / sim%unit_t) ! [erg/s/cm^3]
+            else
+                lambda_st = 0D0
+            end if
+
+            if (sim%cr) then
+                ! Cosmic rays hadronic and Coulomb heating from Guo&Ho(2008)
+                ! (Assume fully ionised gas)
+                ! TODO: Update for RT! 
+                lambda = 2.63d-16 ! [erg/s/cm^3]
+                ne = var(0,varIDs%density) * sim%unit_d / mHydrogen 
+                ecr = var(0,varIDs%cr_pressure) / (gamma_crs - 1d0)
+                ecr = ecr * (sim%unit_d * ((sim%unit_l/sim%unit_t)**2))
+                lambda_cr = lambda * ne * ecr ! [erg/s/cm^3]
+            else
+                lambda_cr = 0D0
+            end if
+
+            ! Thermal energy
+            ! TODO: This a fix only for some messed up CRMHD simulations!
+            if (T<15) then
+                tcool = (Tmin * var(0,varIDs%density)) / (gamma_gas - 1d0)
+            else
+                tcool = var(0,varIDs%thermal_pressure) / (gamma_gas - 1d0)
+            end if
+
+            if ((lambda_co - lambda_st - lambda_cr)<0d0) then
+                ! In the case the gas is effectively heated, the cooling time is basically large
+                tcool = 4.34d18 / sim%unit_t
+            else
+                ! Convert to code time unit
+                tcool = tcool / ((lambda_co - lambda_st - lambda_cr)/(sim%unit_p / sim%unit_t))
+            end if
+            value =  tcool / value
         case ('eff_FKmag')
             ! Enforce turbulence criterion + efficiency following Federrath & Klessen 2012
             star_maker = 'FKmag'
@@ -2603,6 +2822,14 @@ module io_ramses
         case ('mach_number')
             ! Mach number (velocity/sound speed) in the reference frame of the galaxy
             cs = sqrt(5D0/3d0 * (max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density)) / var(0,varIDs%density)))
+            v = tempvar(0,varIDs%vx:varIDs%vz)
+            value = magnitude(v)/cs
+        case ('effective_mach_number')
+            ! Effective Mach number (velocity/effective sound speed) in the reference frame of the galaxy
+            cs = sqrt(gamma_gas * (max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density)) / var(0,varIDs%density)))
+            if (sim%cr) then
+                cs = sqrt(cs**2d0 + (gamma_crs/gamma_gas * var(0,varIDs%cr_pressure) / max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density))))
+            end if
             v = tempvar(0,varIDs%vx:varIDs%vz)
             value = magnitude(v)/cs
         case default
