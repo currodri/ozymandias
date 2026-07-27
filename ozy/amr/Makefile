@@ -4,8 +4,8 @@
 
 CC       = gcc
 #CC       = ifort
-F90      = gfortran
-#F90      = ifx
+#F90      = gfortran
+F90      = ifx
 #F90      =  /opt/intel/composer_xe_2015.3.187/bin/intel64/ifort
 PYTHON   = python
 
