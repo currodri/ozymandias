@@ -3218,10 +3218,14 @@ function HII_density(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav
             dust_mass = dust_mass + var(0,hvar%ids(i))
         end do
 
-        ! 3. Compute the xH2
+        ! 3. Compute the xH2, i.e. n(H2)/n(H): the abundance of H2 molecules per
+        !    hydrogen nucleus.  (1 - xHI - xHII) is the fraction of hydrogen
+        !    nuclei locked in molecules under either RAMSES convention.
         xH2 = (1.d0 - var(0,hvar%ids(17)) - var(0,hvar%ids(18))) / 2d0
 
-        H2_density = var(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass) * xH2
+        ! 4. rho(H2) = n(H2) * 2*mH = 2 * xH2 * rho_H.  Note (1 - metals - dust)
+        !    is the H+He mass fraction, so multiply by XH to strip the helium.
+        H2_density = 2d0 * xH2 * var(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass) * XH
     end function H2_density
 
 function H2_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
@@ -3255,10 +3259,14 @@ function H2_mass(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var
             dust_mass = dust_mass + var(0,hvar%ids(i))
         end do
 
-        ! 3. Compute the xH2
+        ! 3. Compute the xH2, i.e. n(H2)/n(H): the abundance of H2 molecules per
+        !    hydrogen nucleus.  (1 - xHI - xHII) is the fraction of hydrogen
+        !    nuclei locked in molecules under either RAMSES convention.
         xH2 = (1.d0 - var(0,hvar%ids(17)) - var(0,hvar%ids(18))) / 2d0
 
-        H2_mass = (var(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass) * xH2) * (dx**3d0)
+        ! 4. M(H2) = 2 * xH2 * rho_H * dx^3.  Note (1 - metals - dust) is the
+        !    H+He mass fraction, so multiply by XH to strip the helium.
+        H2_mass = (2d0 * xH2 * var(0,hvar%ids(1)) * (1d0 - metal_mass - dust_mass) * XH) * (dx**3d0)
     end function H2_mass
 
     function xH2(my_amr,my_sim,my_rt,hvar,reg,dx,x,var,son,trans_matrix,grav_var,rt_var)
