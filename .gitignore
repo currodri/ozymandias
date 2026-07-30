@@ -4,6 +4,7 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
 */__pycache__/
+*/__pycache__/*
 *.py[cod]
 *$py.class
 *.pyc
@@ -176,6 +177,7 @@ f90wrap_*.f90
 *.c
 *o.d
 *.h
+*.f
 .f2py_f2cmap
 ozy/part/*_pkg
 ozy/amr/*_pkg

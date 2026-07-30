@@ -5,28 +5,34 @@
 CC       = gcc
 #CC       = ifort
 #F90      = gfortran
-F90      = ifort
+F90      = ifx
 #F90      =  /opt/intel/composer_xe_2015.3.187/bin/intel64/ifort
 PYTHON   = python
+
+RTPRE = 4
 
 #=======================================================================
 #                     additional flags
 #=======================================================================
 
 ifeq ($(F90),gfortran)
+	export MACOSX_DEPLOYMENT_TARGET=26.0
+	export CFLAGS += -mmacosx-version-min=26.0
+	export FFLAGS += -mmacosx-version-min=26.0
 	FPP      = gfortran -E
-	FPP_F90FLAGS = -x f95-cpp-input -fPIC
-	F90FLAGS = -O3 -fPIC -cpp -ffree-line-length-256 -DIMASS -DNOIFPORT
+    FPP_F90FLAGS = -x f95-cpp-input -fPIC
+    F90FLAGS = -O0 -g -fbacktrace -fcheck=all -fPIC -cpp -ffree-line-length-256 -DIMASS -DRTPRE=${RTPRE} ${FFLAGS} -DNOIFPORT
+    F90FLAGS = -Ofast -fPIC -cpp -ffree-line-length-256 -DIMASS -DRTPRE=$(RTPRE) ${FFLAGS} -DNOIFPORT
     FCOMP    = gfortran
     LIBS     =
 endif
 
-ifeq ($(F90),ifort)
+ifeq ($(F90),ifx)
 
 	FPP      = gfortran -E # gfortran f90wrap temp files only. not compilation
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
 	F90FLAGS = -O3 -cpp -fpscomp logicals -fPIC -DIMASS # use 1 and 0 for True and False
-	#F90FLAGS = -g -traceback -check bounds -cpp -fpscomp logicals -DIMASS -fPIC # use 1 and 0 for True and False
+	#F90FLAGS = -g -O0 -traceback -check bounds -cpp -fpscomp logicals -DIMASS -fPIC # use 1 and 0 for True and False
     FCOMP    = intelem # for f2py
     LIBS =
 endif
@@ -64,8 +70,8 @@ VPATH = ../fortran_commons
 #=======================================================================
 
 # names (without suffix), f90 sources
-LIBSRC_SOURCES = local utils linalg_module coordinates_module cooling_module \
- 				read_amr_module \
+LIBSRC_SOURCES = local utils dictionary_module linalg_module coordinates_module cooling_module \
+ 				read_amr_module variables_part statistics filtering_part\
 				cosmology_module profiles_module integrator_module \
 				export_module
 
@@ -83,9 +89,10 @@ LIBSRC_FPP_FILES = $(addsuffix .fpp,${LIBSRC_SOURCES})
 #=======================================================================
 
 # names (without suffix), f90 sources
-LIBSRC_WRAP_SOURCES = linalg_module coordinates_module read_amr_module \
-					cosmology_module profiles_module integrator_module \
-					export_module
+LIBSRC_WRAP_SOURCES = dictionary_module linalg_module coordinates_module cooling_module \
+ 				read_amr_module variables_part statistics filtering_part\
+				cosmology_module profiles_module integrator_module \
+				export_module
 
 # file names
 LIBSRC_WRAP_FILES = $(addsuffix .f90,${LIBSRC_WRAP_SOURCES})
@@ -108,15 +115,17 @@ LIBSRC_WRAP_FPP_FILES = $(addsuffix .fpp,${LIBSRC_WRAP_SOURCES})
 
 .PHONY: all clean
 
+%.o: %.mod
 
-all: _${PYTHON_MODN}.so _${PYTHON_MODN}_pkg.so
+all: _${PYTHON_MODN}_pkg.so
 
 
 clean:
-	-rm -f ${LIBSRC_OBJECTS} ${LIBSRC_FPP_FILES} libsrc.a _${PYTHON_MODN}*.so \
+	-rm -f ${LIBSRC_OBJECTS} ${LIBSRC_FPP_FILES} libsrc.a \
 	_${PYTHON_MODN}_pkg.so *.mod *.fpp f90wrap*.f90 f90wrap*.o *.o ${PYTHON_MODN}.py
 	-rm -rf ${PYTHON_MODN}_pkg/
 	-rm -rf src.*/ .f2py_f2cmap .libs/ __pycache__/
+	-rm *cpython*.so
 
 
 .f90.o:
@@ -133,11 +142,6 @@ clean:
 
 libsrc.a: ${LIBSRC_OBJECTS}
 	${LIBTOOL} $@ $?
-
-
-_${PYTHON_MODN}.so: libsrc.a ${LIBSRC_FPP_FILES}
-	f90wrap -m ${PYTHON_MODN} ${LIBSRC_WRAP_FPP_FILES} -k ${KIND_MAP}
-	f2py-f90wrap --fcompiler=$(FCOMP) --build-dir . -c -m _${PYTHON_MODN} -L. -lsrc f90wrap*.f90
 
 _${PYTHON_MODN}_pkg.so: libsrc.a ${LIBSRC_FPP_FILES}
 	f90wrap -m ${PYTHON_MODN}_pkg ${LIBSRC_WRAP_FPP_FILES} -k ${KIND_MAP} -P

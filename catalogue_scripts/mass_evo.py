@@ -16,7 +16,8 @@ import seaborn as sns
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
-sns.set(style="white")
+import resource
+sns.set_theme(style="white")
 plt.rcParams.update({
     "text.usetex": True,
     "font.family": "serif",
@@ -31,7 +32,7 @@ line_dict = {'cosmoNUThd':'royalblue',
                 'cosmoNUTcrmhd\_nost':'olive',
                 'cosmoNUTcrmhd\_noheat':'darkgoldenrod',
                 'cosmoNUTcrmhd\_3e29':'firebrick',
-                'cosmoNUTrticrmhd':'firebrick'}
+                'cosmoNUTrtcrmhd':'firebrick'}
 
 names = {'cosmoNUThd':'HD',
         'cosmoNUThd\_all\_cr10':'HDcr10',
@@ -41,8 +42,13 @@ names = {'cosmoNUThd':'HD',
         'cosmoNUTcrmhd\_nost':'nsCRMHD',
         'cosmoNUTcrmhd\_noheat':'nhCRMHD',
         'cosmoNUTcrmhd\_3e29':'3e29CRMHD',
-        'cosmoNUTrticrmhd':'RTCRiMHD'
+        'cosmoNUTrtcrmhd':'RTCRMHD'
         }
+def memory_usage():
+    """
+    Get the current memory usage of the process in gigabytes.
+    """
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1024 * 1024)
 
 if __name__ == '__main__':
 
@@ -416,14 +422,17 @@ if __name__ == '__main__':
                 except:
                     print('I have lost this galaxy in the snapshot %s'%ozyfile)
                     progind = -1
+                del sim
+            # Print the current memory usage in gigabytes
+            print(f"Memory usage: {memory_usage():.2f} GB")
 
             stellar_mass = galaxy_masses[::-1]
             gas_mass = galaxy_gas[::-1]
             cold_mass = galaxy_cold[::-1]
             time = galaxy_time[::-1]
-            axes[0].plot(time, stellar_mass, marker='o', markersize=2, label=names[args.model[i]], color=line_dict[args.model[i]])
-            axes[1].plot(time, gas_mass, marker='o', markersize=2, label=names[args.model[i]], color=line_dict[args.model[i]])
-            axes[1].plot(time, cold_mass, marker='v', markersize=2, linestyle='--', color=line_dict[args.model[i]], alpha=0.6)
+            axes[0].plot(time, stellar_mass, linewidth=3, label=names[args.model[i]], color=line_dict[args.model[i]])
+            axes[1].plot(time, gas_mass, linewidth=3, label=names[args.model[i]], color=line_dict[args.model[i]])
+            axes[1].plot(time, cold_mass, linewidth=2, linestyle='--', color=line_dict[args.model[i]], alpha=0.6)
             
         ax = axes[0]
         ax.set_xlabel(r'$t$ [Gyr]', fontsize=20)
@@ -476,7 +485,7 @@ if __name__ == '__main__':
         axR.set_xlabel(r'$z$', fontsize=20)
         axR.tick_params(labelsize=17)
     
-        axes[0].legend(loc='best', fontsize=14,frameon=False, ncol=len(args.model))
+        axes[0].legend(loc='best', fontsize=14,frameon=False, ncol=int(len(args.model)/2))
         fig.subplots_adjust(top=0.87, bottom=0.13,right=0.91,left=0.08,hspace=0.0,wspace=0.0)
         if args.NUT:
             args.ind = 'NUT'

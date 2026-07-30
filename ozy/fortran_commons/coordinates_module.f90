@@ -202,9 +202,9 @@ module geometrical_regions
     type region
         character(128) :: name
         type(vector) ::      centre,axis,bulk_velocity
-        real(dbl)                ::       xmin,xmax,ymin,ymax,zmin,zmax
-        real(dbl)                ::       rmin,rmax
-        real(dbl)                ::       angle
+        real(dbl)                ::       xmin=0.0,xmax=1.0,ymin=0.0,ymax=1.0,zmin=0.0,zmax=1.0
+        real(dbl)                ::       rmin=0.0,rmax=1.0
+        real(dbl)                ::       angle=6.283185307179586
         character(128)          ::       criteria_name
     end type region
 
@@ -444,5 +444,21 @@ module geometrical_regions
         ok = (reg%rmin <= distance.and.distance <= reg%rmax.and.&
                 &reg%angle >= abs(theta))
     end subroutine cone
+
+    logical function filter_sub(sub,cell_x)
+        implicit none
+        type(region),intent(in) :: sub
+        real(dbl),dimension(1:3), intent(in) :: cell_x
+        integer :: i
+        real(dbl) :: distance
+        real(dbl),dimension(1:3) :: pos
+
+        filter_sub = .True.
+
+        pos = cell_x - (/sub%centre%x,sub%centre%y,sub%centre%z/)
+
+        call checkifinside(pos,sub,filter_sub,distance)
+        filter_sub = .not.filter_sub
+    end function filter_sub
 
 end module geometrical_regions

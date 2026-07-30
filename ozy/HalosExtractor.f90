@@ -105,7 +105,7 @@ program HalosExtractor
      do_file=.false.
      inquire(file=trim(execFolder)//trim(filenameIn), exist=enquiref)
      if (no_rewrite) inquire(file=trim(execFolder)//trim(filenameOut), exist=enquirerf)
-     if ((enquiref.eq..true.).and.(enquirerf.eq..false.)) do_file=.true.
+     if ((enquiref.eqv..true.).and.(enquirerf.eqv..false.)) do_file=.true.
      ! Read and write halos
      if (do_file) then
         call check_working
@@ -126,7 +126,7 @@ program HalosExtractor
      do_file=.false.
      inquire(file=trim(execFolder)//trim(filenameIn), exist=enquiref)
      if (no_rewrite) inquire(file=trim(execFolder)//trim(filenameOut), exist=enquirerf)
-     if ((enquiref.eq..true.).and.(enquirerf.eq..false.)) do_file=.true.
+     if ((enquiref.eqv..true.).and.(enquirerf.eqv..false.)) do_file=.true.
      ! Read and write halos
      if (do_file) then
         call check_working
@@ -151,7 +151,7 @@ contains
 !############################################################################
 !############################################################################
   subroutine check_working
-    if (working.eq..false.) then
+    if (working.eqv..false.) then
        working=.true.
        write(*,'(": Be pacient: I have found some files and I am working...")')
     end if

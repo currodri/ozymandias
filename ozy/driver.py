@@ -1,10 +1,7 @@
 import os
-
 import ozy
-from ozy.progen import progen_build
 
-
-class Snapshot(object):
+class RAMSESSnapshot(object):
     """Class for tracking paths and data for simulation snapshots.
     """
     def __init__(self, snapdir, snapname, snapindex):
@@ -35,7 +32,7 @@ class Snapshot(object):
             return
         self._make_output_dir()
         
-        obj = ozy.OZY(self.snap)
+        obj = ozy.CosmoSnapshot(self.snap)
         obj.build_HaloMaker(**kwargs)
         obj.save(self.outfile)
         
@@ -44,7 +41,7 @@ class Snapshot(object):
 def print_art():
     from art import text2art
 
-    from ozy.__version__ import VERSION
+    from .__version__ import VERSION
     copywrite = '   (C) 2021 F. Rodriguez Montero'
     version   = '   Version %s' % VERSION
 
@@ -52,7 +49,8 @@ def print_art():
     print('\n%s\n%s\n%s\n' % (art, copywrite, version))
 
 def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
-          build_HaloMaker=True, extension='hdf5', prefix='ozy_', **kwargs):
+          build_HaloMaker=True, build_TreeMaker=False,
+          extension='hdf5', prefix='ozy_', **kwargs):
     """Driver function for running `ÒZYMANDIAS``on multiple snapshots.
     
     """
@@ -79,15 +77,16 @@ def drive(snapdirs, snapname, snapindexes, progen=False, skipran=False,
     snaps = []
     for snapdir in snapdirs:
         for snapindex in snapindexes:
-            snaps.append(Snapshot(snapdir, snapname, snapindex))
+            snaps.append(RAMSESSnapshot(snapdir, snapname, snapindex))
     
     if build_HaloMaker:
         rank_snaps = snaps[rank::nprocs]
         for snap in rank_snaps:
+            if skipran: print('Task # %d: Building HaloMaker for %s' % (rank, snap.snap))
             snap.build_HaloMaker(skipran, **kwargs)
-    
-    if progen:
-        ozy.progen.run_progen(snapdirs, snapname, snapindexes, prefix=prefix, extension=extension, **kwargs)
+
+    # if build_TreeMaker:
+
 
 if __name__ == '__main__':
     print_art()

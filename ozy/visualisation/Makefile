@@ -5,9 +5,20 @@
 CC       = gcc
 #CC       = ifort
 #F90      = gfortran
-F90      = ifort
+F90      = ifx
 #F90      =  /opt/intel/composer_xe_2015.3.187/bin/intel64/ifort
 PYTHON   = python
+
+# Enable Healpix support by default. To compile without Healpix set USE_HEALPIX=0
+USE_HEALPIX ?= 1
+ifeq ($(USE_HEALPIX),1)
+	HEALPIX_DEFINE = -DHAVE_HEALPIX
+else
+	HEALPIX_DEFINE =
+endif
+
+# Add a flag for the RTPRE
+RTPRE = 4
 
 #=======================================================================
 #                     additional flags
@@ -18,24 +29,40 @@ PYTHON   = python
 
 
 
+
 ifeq ($(F90),gfortran)
+	export MACOSX_DEPLOYMENT_TARGET=26.0
+	export CFLAGS += -mmacosx-version-min=26.0
+	export FFLAGS += -mmacosx-version-min=26.0
 	FPP      = gfortran -E
-	FPP_F90FLAGS = -x f95-cpp-input -fPIC
-	HP_FLAGS = -L/usr/local/shared/healpix/3.40/lib -I/usr/local/shared/healpix/3.40/include -lchealpix -lhealpix -lcfitsio
-	F90FLAGS = -O3 -cpp -fPIC -DIMASS -ffree-line-length-256 ${HP_FLAGS}
-    FCOMP    = gfortran
+	FPP_F90FLAGS = -x f95-cpp-input -fPIC # -mmacosx-version-min=15.4
+	ifeq ($(USE_HEALPIX),1)
+		HP_FLAGS = -L/Users/currodri/Documents/codes/Healpix_3.83/lib -I/Users/currodri/Documents/codes/Healpix_3.83/include -L/Users/currodri/Documents/codes/cfitsio-4.6.2/lib -I/Users/currodri/Documents/codes/cfitsio-4.6.2/include -lchealpix -lhealpix -lcfitsio #-mmacosx-version-min=15.4
+	else
+		HP_FLAGS =
+	endif
+	F90FLAGS = -Ofast -cpp -fPIC -DIMASS -DRTPRE=${RTPRE} ${HEALPIX_DEFINE} -ffree-line-length-256 ${HP_FLAGS} ${FFLAGS}
+	#F90FLAGS = -O0 -g -fbacktrace -cpp -fPIC -DIMASS -ffree-line-length-256 ${HP_FLAGS} -DRTPRE=${RTPRE} ${HEALPIX_DEFINE}
+	FCOMP    = gfortran
     LIBS     =
 endif
 
-ifeq ($(F90),ifort)
+
+ifeq ($(F90),ifx)
 	FPP      = gfortran -E # gfortran f90wrap temp files only. not compilation
 	FPP_F90FLAGS = -x f95-cpp-input -fPIC
-	HP_FLAGS = -L/softs/healpix/3.81-ifort-2022.1.2/lib -I/softs/healpix/3.81-ifort-2022.1.2/include -lchealpix -lhealpix -lcfitsio -liomp5
-	#F90FLAGS = -g -traceback -check bounds -cpp -fpscomp logicals -fPIC -DIMASS ${HP_FLAGS} # use 1 and 0 for True and False
-	F90FLAGS = -O3 -cpp -fpscomp logicals -fPIC -DIMASS ${HP_FLAGS} # use 1 and 0 for True and False
+	ifeq ($(USE_HEALPIX),1)
+		HP_FLAGS = -L/softs/healpix/3.82-ifx-2024.0/lib -I/softs/healpix/3.82-ifx-2024.0/include -lchealpix -lhealpix -lcfitsio -liomp5
+	else
+		HP_FLAGS =
+	endif
+	#F90FLAGS = -O0 -g -traceback -check bounds -cpp -fpscomp logicals -fPIC -DIMASS -DRTPRE=${RTPRE} ${HEALPIX_DEFINE} ${HP_FLAGS} # use 1 and 0 for True and False
+	F90FLAGS = -O3 -cpp -fpscomp logicals -fPIC -DIMASS -DRTPRE=${RTPRE} ${HEALPIX_DEFINE} ${HP_FLAGS} # use 1 and 0 for True and False
 	FCOMP    = intelem # for f2py
     LIBS =
 endif
+
+ 
 
 CFLAGS  = -fPIC #     ==> universal for ifort, gfortran, pgi
 
@@ -71,7 +98,8 @@ VPATH = ../fortran_commons
 
 # names (without suffix), f90 sources
 LIBSRC_SOURCES = local utils dictionary_module linalg_module coordinates_module \
-					cooling_module read_amr_module variables filtering \
+					cooling_module read_amr_module variables_hydro variables_part\
+					filtering_hydro filtering_part \
 					cosmology_module ramses2map #sunset
 
 # file names
@@ -89,7 +117,8 @@ LIBSRC_FPP_FILES = $(addsuffix .fpp,${LIBSRC_SOURCES})
 
 # names (without suffix), f90 sources
 LIBSRC_WRAP_SOURCES = dictionary_module linalg_module coordinates_module \
-						cooling_module read_amr_module variables filtering \
+						cooling_module read_amr_module variables_hydro variables_part \
+						filtering_hydro filtering_part \
 						cosmology_module ramses2map #sunset
 
 # file names
@@ -113,15 +142,18 @@ LIBSRC_WRAP_FPP_FILES = $(addsuffix .fpp,${LIBSRC_WRAP_SOURCES})
 
 .PHONY: all clean
 
+%.o: %.mod
 
-all: _${PYTHON_MODN}.so _${PYTHON_MODN}_pkg.so
+
+all: _${PYTHON_MODN}_pkg.so
 
 
 clean:
-	-rm -f ${LIBSRC_OBJECTS} ${LIBSRC_FPP_FILES} libsrc.a _${PYTHON_MODN}*.so \
+	-rm -f ${LIBSRC_OBJECTS} ${LIBSRC_FPP_FILES} libsrc.a \
 	_${PYTHON_MODN}_pkg.so *.mod *.fpp f90wrap*.f90 f90wrap*.o *.o ${PYTHON_MODN}.py
 	-rm -rf ${PYTHON_MODN}_pkg/
 	-rm -rf src.*/ .f2py_f2cmap .libs/ __pycache__/
+	-rm *cpython*.so
 
 
 .f90.o:
@@ -138,12 +170,6 @@ clean:
 
 libsrc.a: ${LIBSRC_OBJECTS}
 	${LIBTOOL} $@ $?
-
-
-_${PYTHON_MODN}.so: libsrc.a ${LIBSRC_FPP_FILES}
-	f90wrap -m ${PYTHON_MODN} ${LIBSRC_WRAP_FPP_FILES} -k ${KIND_MAP} -v
-	f2py-f90wrap --fcompiler=$(FCOMP) --build-dir . -c -m _${PYTHON_MODN} -L. \
-	-lsrc f90wrap*.f90 ${HP_FLAGS}
 
 _${PYTHON_MODN}_pkg.so: libsrc.a ${LIBSRC_FPP_FILES}
 	f90wrap -m ${PYTHON_MODN}_pkg ${LIBSRC_WRAP_FPP_FILES} -k ${KIND_MAP} -v -P

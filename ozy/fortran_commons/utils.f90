@@ -3,6 +3,123 @@ module utils
 
     contains
 
+    ! Subroutine to extract words from a line
+    subroutine get_word(line, start_pos, word)
+        implicit none
+        character(len=*), intent(in) :: line
+        integer, intent(inout) :: start_pos
+        character(len=50), intent(out) :: word
+        integer :: i, len_line
+
+        len_line = len_trim(line)
+        word = ""
+
+        ! Skip leading spaces
+        do while (start_pos <= len_line .and. line(start_pos:start_pos) == ' ')
+            start_pos = start_pos + 1
+        end do
+
+        ! Extract the word
+        i = 1
+        do while (start_pos <= len_line .and. line(start_pos:start_pos) /= ' ')
+            word(i:i) = line(start_pos:start_pos)
+            start_pos = start_pos + 1
+            i = i + 1
+        end do
+
+        ! Skip trailing spaces
+        do while (start_pos <= len_line .and. line(start_pos:start_pos) == ' ')
+            start_pos = start_pos + 1
+        end do
+
+    end subroutine get_word
+
+    function check_number_suffix(str) result(is_number)
+        implicit none
+        character(len=*), intent(in) :: str
+        logical :: is_number
+        integer :: i, len_str
+
+        is_number = .false.
+        len_str = len_trim(str)
+
+        ! Find last underscore ('_')
+        do i = len_str, 1, -1
+            if (str(i:i) == '_') then
+                ! Check if remaining substring contains only digits
+                if (i < len_str) then
+                    is_number = all_digits(str(i+1:len_str))
+                end if
+                exit
+            end if
+        end do
+    end function check_number_suffix
+
+    function all_digits(substr) result(is_digit)
+        implicit none
+        character(len=*), intent(in) :: substr
+        logical :: is_digit
+        integer :: j, len_sub
+
+        is_digit = .true.
+        len_sub = len_trim(substr)
+
+        ! Check each character is a digit
+        do j = 1, len_sub
+            if (index('0123456789', substr(j:j)) == 0) then
+                is_digit = .false.
+                exit
+            end if
+        end do
+    end function all_digits
+
+    function get_cleaned_string(str) result(cleaned_str)
+        implicit none
+        character(len=*), intent(in) :: str
+        character(len=len(str)) :: cleaned_str
+        integer :: i, len_str
+
+        cleaned_str = str  ! Default: same as input
+        len_str = len_trim(str)
+
+        ! Find last underscore ('_')
+        do i = len_str, 1, -1
+            if (str(i:i) == '_') then
+                ! Check if remaining substring contains only digits
+                if (i < len_str) then
+                    if (all_digits(str(i+1:len_str))) then
+                        cleaned_str = str(1:i-1)  ! Remove '_number' part
+                    end if
+                end if
+                exit
+            end if
+        end do
+    end function get_cleaned_string
+
+    function get_numeric_suffix(str) result(suffix_value)
+        implicit none
+        character(len=*), intent(in) :: str
+        integer :: suffix_value
+        integer :: i, len_str
+        character(len=32) :: suffix_str
+
+        suffix_value = -1  ! Default: not found
+        len_str = len_trim(str)
+
+        ! Search backward for last underscore
+        do i = len_str, 1, -1
+            if (str(i:i) == '_') then
+                if (i < len_str) then
+                    suffix_str = str(i+1:len_str)
+                    if (all_digits(suffix_str)) then
+                        read(suffix_str, *) suffix_value
+                    end if
+                end if
+                exit
+            end if
+        end do
+    end function get_numeric_suffix
+
     SUBROUTINE quick_sort_irg(list, order, n)
         IMPLICIT NONE
         ! Quick sort routine from:

@@ -4,10 +4,9 @@ from ozy.dict_variables import common_variables,grid_variables,particle_variable
 def unigrid_amr(obj, group=None, filter=None, lmax =0, n=[100,100,100], vars=['gas/density'], xmin=(0,'code_length'), xmax=(1,'code_length'), ymin=(0,'code_length'),
                  ymax=(1,'code_length'), zmin=(0,'code_length'), zmax=(1,'code_length'), angmom = np.array([0,0,1]), symlog=True):
     
-    from ozy.utils import init_region,init_filter
-    from ozy.group import create_new_group
+    from .utils import init_region,init_filter
+    from .group import create_new_group
 
-    from amr2 import filtering
     from amr2 import export_amr
 
     output_path = obj.simulation.fullpath
@@ -27,7 +26,7 @@ def unigrid_amr(obj, group=None, filter=None, lmax =0, n=[100,100,100], vars=['g
                                     zmin=zmin, zmax=zmax)
     # Get filter if not given
     if filter == None:
-        filt = filtering.filter()
+        filt = init_filter('none','none',group)
     
     # Get supported variables
     hydrovars = []
@@ -66,10 +65,10 @@ def export2skirt(obj, group=None, filter=None, lmax =0, var='dust_density', xmin
     
     import os
     import ozy
-    from ozy.utils import init_region,init_filter
-    from ozy.group import create_new_group
+    from .utils import init_region,init_filter
+    from .group import create_new_group
 
-    from part2 import filtering,export_part
+    from part2 import export_part
     from amr2 import export_amr
 
     output_path = obj.simulation.fullpath
@@ -92,7 +91,7 @@ def export2skirt(obj, group=None, filter=None, lmax =0, var='dust_density', xmin
 
     # Get filter if not given
     if filter == None:
-        filt = filtering.filter()
+        filt = init_filter('none','none',group)
     
     # Create name for output files
     outid = output_path.split('/')[-1][-5:]
@@ -121,10 +120,10 @@ def export2disperse(obj, group=None, filter=None, xmin=(0,'code_length'), xmax=(
 
     import os
     import ozy
-    from ozy.utils import init_region,init_filter
-    from ozy.group import create_new_group
+    from .utils import init_region,init_filter
+    from .group import create_new_group
 
-    from part2 import filtering,export_part
+    from part2 import export_part
 
     output_path = obj.simulation.fullpath
 
@@ -143,7 +142,7 @@ def export2disperse(obj, group=None, filter=None, xmin=(0,'code_length'), xmax=(
 
     # Get filter if not given
     if filter == None:
-        filt = filtering.filter()
+        filt = init_filter('none','none',group)
     
     # Create name for output files
     outid = output_path.split('/')[-1][-5:]
@@ -158,3 +157,52 @@ def export2disperse(obj, group=None, filter=None, xmin=(0,'code_length'), xmax=(
         export_part.part2disperse(output_path,selected_reg,filt,probability,partfile)
     elif not os.path.exists(partfile):
         export_part.part2disperse(output_path,selected_reg,filt,probability,partfile)
+        
+def basicexport2txt(obj, group=None, filter=None, lmax =0, var='dust_density', xmin=(0,'code_length'), xmax=(1,'code_length'), ymin=(0,'code_length'),
+                    ymax=(1,'code_length'), zmin=(0,'code_length'), zmax=(1,'code_length'),rmin=(0,'kpc'),rmax=(0.5,'code_length'), angmom = np.array([0,0,1]), 
+                    symlog=True, h=(30,'pc'), smoothmethod='constant',sedmethod='bruzual&charlot',recompute=False):
+    
+    import os
+    import ozy
+    from .utils import init_region,init_filter
+    from .group import create_new_group
+
+    from part2 import export_part
+    from amr2 import export_amr
+
+    output_path = obj.simulation.fullpath
+
+    # Initialise region
+    if group == None:
+        fake_obj = create_new_group('galaxy')
+        xcentre = 0.5*(obj.quantity(xmax[0],str(xmax[1])) + obj.quantity(xmin[0],str(xmin[1])))
+        ycentre = 0.5*(obj.quantity(ymax[0],str(ymax[1])) + obj.quantity(ymin[0],str(ymin[1])))
+        zcentre = 0.5*(obj.quantity(zmax[0],str(zmax[1])) + obj.quantity(zmin[0],str(zmin[1])))
+        fake_obj.position = obj.array([xcentre.d,ycentre.d,zcentre.d],'code_length')
+        fake_obj.angular_mom['total'] = angmom
+        selected_reg = init_region(fake_obj, 'basic_cube', xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax,
+                                    zmin=zmin, zmax=zmax)
+    else:
+        selected_reg = init_region(group, 'sphere', rmin=rmin, rmax=rmax)
+
+    # Convert smoothing length to the required units (kpc)
+    h = obj.quantity(h[0],h[1])
+
+    # Get filter if not given
+    if filter == None:
+        filt = init_filter('none','none',group)
+    
+    # Create name for output files
+    outid = output_path.split('/')[-1][-5:]
+    if group == None:
+        outname = os.getcwd()+'/snap_'+outid+'_noneobj'
+    else:
+        outname = os.getcwd()+'/snap_'+outid+'_gal'+str(group.ID)
+
+    # Perform particle export
+    partfile = outname + '_stars.txt'
+    if os.path.exists(partfile) and recompute:
+        export_part.part2file(output_path,selected_reg,filt,h.to('kpc').d,smoothmethod,partfile)
+    elif not os.path.exists(partfile):
+        export_part.part2file(output_path,selected_reg,filt,h.to('kpc').d,smoothmethod,partfile)
+

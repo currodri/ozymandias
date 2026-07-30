@@ -17,7 +17,7 @@ import subprocess
 from ozy.loader import Galaxy
 from unyt import G
 import ozy
-from ozy.phase_diagrams import compute_phase_diagram, \
+from ozy.multivariate_histograms import compute_phase_diagram, \
                                 plot_compare_phase_diagram, \
                                 plot_compare_stacked_pd
 from ozy.utils import closest_snap_z, find_neigh_snaps, get_tdyn
@@ -181,6 +181,7 @@ if __name__ == '__main__':
 
         for z in range(0, len(args.z)):
             pds = []
+            fields = []
             weights = []
             simfolders = []
             origfolder = os.getcwd()
@@ -263,6 +264,7 @@ if __name__ == '__main__':
                     rmin, rmax = (0.2, 'rvir'),(1.0, 'rvir')
                 elif args.region == 'shell_rvir':
                     rmin, rmax = (0.99, 'rvir'),(1.1, 'rvir')
+                fields.append(args.field.split('/')[1])
                 for n in range(0, len(neigh_snaps)):
                     sim = ozy.load(os.path.join(groupspath, neigh_snaps[n]))
                     if args.NUT:
@@ -319,7 +321,7 @@ if __name__ == '__main__':
             print('Now plotting...')
             namephase = '_'+args.xvar+'_'+args.yvar+'_'
             labels = [names[m] for m in args.model]
-            plot_compare_stacked_pd(pds,weights,args.field.split('/')[1],'compare_stacked_pd'+namephase+args.region+'_'+args.field.split('/')[1]+'_'+str(args.z[z]),
+            plot_compare_stacked_pd(pds,weights,fields,'compare_stacked_pd'+namephase+args.region+'_'+args.field.split('/')[1]+'_'+str(args.z[z]),
                                         weightvar=args.weight.split('/')[1],stats='mean',extra_labels=labels,
                                         doflows=args.doflows,do_sf=args.do_sf,layout=args.layout,gent=True)
             args.model = simfolders

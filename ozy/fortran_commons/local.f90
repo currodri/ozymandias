@@ -25,7 +25,7 @@ module local
 
 implicit none
 private
-public :: sgl,dbl,ish,irg,ilg
+public :: sgl,dbl,ish,irg,ilg,rt_real_kind,hydro_real_kind
 
 ! Define the "kind" parameters for single and double precision reals, 
 !> single precision real kind parameter
@@ -41,6 +41,39 @@ public :: sgl,dbl,ish,irg,ilg
 !> long integer kind parameter  
   integer,parameter                     :: ilg = SELECTED_INT_KIND(12)
 
+! Define the real kind used for radiation transfer arrays (rt_var).
+! Use the preprocessor macro RTPRE (set in the build) to pick single or
+! double precision for RT variables. Defining this alias here keeps
+! conditional preprocessing out of individual routine argument lists,
+! which helps tools like f90wrap/f2py parse consistent signatures.
+#if RTPRE==4
+  integer,parameter :: rt_real_kind = sgl
+#warning "RT variables compiled with SINGLE precision (RTPRE=4)"
+#elif RTPRE==8
+  integer,parameter :: rt_real_kind = dbl
+#warning "RT variables compiled with DOUBLE precision (RTPRE=8)"
+#else
+  integer,parameter :: rt_real_kind = dbl
+#warning "RT variables compiled with DOUBLE precision (default)"
+#endif
+
+! Define the real kind used for hydro arrays (hydro_var).
+! Use the preprocessor macro UPRE (set in the build) to pick single or
+! double precision for hydro variables. Defining this alias here keeps
+! conditional preprocessing out of individual routine argument lists,
+! which helps tools like f90wrap/f2py parse consistent signatures.
+#if UPRE==4
+  integer,parameter :: hydro_real_kind = sgl
+#warning "Hydro variables compiled with SINGLE precision (UPRE=4)"
+#elif UPRE==8
+  integer,parameter :: hydro_real_kind = dbl
+#warning "Hydro variables compiled with DOUBLE precision (UPRE=8)"
+#else
+  integer,parameter :: hydro_real_kind = dbl
+#warning "Hydro variables compiled with DOUBLE precision (default)"
+#endif
+
+
 end module local
 
 module constants
@@ -49,6 +82,7 @@ module constants
   ! Other constants
   real(dbl) :: pi=3.14159265359
   real(dbl) :: twopi = 6.283185307179586
+  real(dbl) :: halfsqrt2 = 0.7071067811865476
   real(dbl) :: smallc = 1D-10
   real(dbl) :: smallr = 1D-10
   ! Mass
@@ -84,8 +118,24 @@ module constants
   real(dbl),parameter :: cVHydrogen=1.4D8 !123746.76463754028 ! Specific heat capacity at constat volume, in erg/(K*g)
   real(dbl),parameter :: XH=0.76 ! Hydrogen fraction
   real(dbl),parameter :: YHe=0.24 ! Helium fraction
+  real(dbl),parameter :: mu=0.5882352941176471 ! Primordial, fully ionised mean molecular weight
   real(dbl),parameter :: gamma_gas=1.6666667   ! Always assuming monatomic adiabatic gas
   real(dbl),parameter :: gamma_cr=1.3333333   ! Cosmic rays assumed always relativistic
+  ! Elemental constants
+  real(dbl),parameter :: amu2g = 1.66054d-24       ! Atomic mass units in grams
+  real(dbl),parameter :: mH_amu = 1.007825d0       ! Hydrogen molecular weight [amu]
+  real(dbl),parameter :: mHe_amu = 4.002602d0      ! Helium molecular weight [amu]
+  real(dbl),parameter :: mO_amu = 15.9994d0        ! Oxygen molecular weight [amu]
+  real(dbl),parameter :: mC_amu = 12.0107d0        ! Carbon molecular weight [amu]
+  real(dbl),parameter :: mMg_amu = 24.305d0        ! Magnesium molecular weight [amu]
+  real(dbl),parameter :: mSi_amu = 28.0855d0       ! Silicon molecular weight [amu]
+  real(dbl),parameter :: mFe_amu = 55.854d0        ! Iron molecular weight [amu]
+  real(dbl),parameter :: mOovermH = 15.875d0       ! Oxygen to Hydrogen mass ratio [dimensionless]
+  ! Molecular constants
+  real(dbl),parameter :: CO_to_Cmass = 0.4288      ! CO to C mass [dimensionless]
   ! Cosmology
   real(dbl),parameter :: rhoc=1.8800000d-29   ! Critical density of the Universe (g cm-3)
+  ! Milky Way constants
+  real(dbl),parameter :: ecr_sun=1.4d-12 ! CR energy density in the Solar neighbourhood (Boschini et al. 2020, erg/cm-3)
+  real(dbl),parameter :: LgammaH=1.1d-28 ! Gamma-ray luminosity per H atom in the 0.5-5 GeV range (Casandjian 2015)
 end module constants

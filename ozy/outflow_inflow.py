@@ -5,7 +5,7 @@ import ozy
 from unyt import unyt_array,unyt_quantity
 from ozy.dict_variables import common_variables,grid_variables,particle_variables,get_code_units
 # TODO: Allow for parallel computation of flows.
-from amr2 import amr_integrator,stats_utils
+from amr2 import amr_integrator,stats_utils,io_ramses
 from ozy.utils import init_region,init_filter,structure_regions,get_code_bins,pdf_handler_to_stats
 blacklist = [
     'data','weightvars'
@@ -56,6 +56,7 @@ class GalacticFlow(object):
         self.region['rmin'] = self.obj.quantity(reg.rmin, 'code_length')
         self.region['rmax'] = self.obj.quantity(reg.rmax, 'code_length')
         self.region['r'] = self.obj.quantity(0.5*(reg.rmax+reg.rmin), 'code_length')
+        self.region['dr'] = self.obj.quantity(reg.rmax-reg.rmin, 'code_length')
     
     def _get_python_filter(self,filt):
         """Save the Frotran derived type as a dictionary inside the GalacticFlow class."""
@@ -71,16 +72,15 @@ class GalacticFlow(object):
                 cond_str = cond_var+'/'+cond_op+'/'+str(cond_value.d)+'/'+cond_units
                 self.filter['conditions'].append(cond_str)
 
-def get_flow_name(gf_group, gf, r):
+def get_flow_name(gf_group, gf, r, dr):
     """Create an individual galactic flow identifier name."""
     name = str(gf.type)
     name += '|'+str(gf.region['type'])
     name += '|'+str(r)
-    if name in gf_group:
-        name += '|new'
+    name += '|'+str(dr)
     return name
 
-def check_if_same_flow(hd,gf,r):
+def check_if_same_flow(hd,gf,r,dr):
     """This function looks at an OZY file for the flow data specified by gf for a particular object."""
     if gf.rm_subs:
         flow_key = '_data/flows_nosubs/'
@@ -92,11 +92,13 @@ def check_if_same_flow(hd,gf,r):
         check_type = (g.split('|')[0] == gf.type)
         check_region = (g.split('|')[1] == gf.region['type'])
         check_r = (g.split('|')[2] == str(r))
-        if check_type and check_region and check_r:
+        check_dr = (g.split('|')[3] == str(dr))
+        if check_type and check_region and check_r and check_dr:
+            # print(g, gf.type,gf.region['type'],str(r),str(dr))
             return True, g
     return False, 'none'
 
-def write_flow(obj,ozy_file,gf,r):
+def write_flow(obj,ozy_file,gf,r,dr,verbose=False):
     """This function writes the resulting flow data to the original OZY file."""
     f = h5py.File(ozy_file, 'r+')
     if gf.rm_subs:
@@ -110,7 +112,8 @@ def write_flow(obj,ozy_file,gf,r):
         flows = f[str(gf.group.type)+flow_key+str(gf.group._index)]
 
     # Clean data and save to dataset
-    gf_name = get_flow_name(flows,gf,r)
+    gf_name = get_flow_name(flows,gf,r,dr)
+    if verbose: print(f'Saving flow data {gf_name}...')
     hdgf = flows.create_group(gf_name)
     gf._serialise(hdgf)
 
@@ -129,11 +132,12 @@ def write_flow(obj,ozy_file,gf,r):
 def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'), 
                   rmax=(1.0,'rvir'),recompute=False,save=False,
                   separate_phases=True,remove_subs=False,
-                  pdf_bins=100):
+                  verbose=False,pdf_bins=100):
     """Function which computes the analysis of galaxy wide flows, including outflows,
         inflows or AGN feedback."""
 
     use_neigh = True
+    use_grav = True
 
     # Begin by setting up the necessary details of a given flow type
     if flow_type == 'outflow':
@@ -176,10 +180,13 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'),
         else:
             filt = init_filter(cond_strs='v_sphere_r/<=/0/km*s**-1',name='inflow',group=group)
     else:
-        raise ValueError("This type of galactic flow is not supported. Please check!")
+        raise ValueError(f"This type of galactic flow is not supported: {flow_type}. Please check!")
     
     d_key = str(int(100*0.5*(rmax[0]+rmin[0])))
     shell_width = reg.rmax-reg.rmin
+    width_key = str(round(100*(rmax[0]-rmin[0]),6))
+    width_key = width_key.replace('.', '_')
+    if verbose: print('width_key,shell_width: ',width_key,shell_width)
     shell_r = 0.5*(reg.rmax+reg.rmin)
 
     # Since the number of global quantities that can be computed
@@ -194,13 +201,13 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'),
     weight_names = ['cumulative','volume','momentum_sphere_r']
 
     if group.obj.simulation.physics['hydro']:
-        quantity_names += ['density','temperature',
-                            'momentum_sphere_r','v_sphere_r',
+        quantity_names += ['mass','density','temperature',
+                            'momentum_sphere_r','v_sphere_r','v_tangential',
                             'thermal_energy','thermal_energy_specific',
                             'grav_therpfrsphere','grav_therpfrspherepos',
                             'grav_therpfrsphereneg']
-        do_binning += [True,True,
-                        False,True,
+        do_binning += [False,True,True,
+                        False,True,True,
                         False,True,
                         True,True,
                         True]
@@ -244,24 +251,31 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'),
 
     # Check if flow data is already present and if it coincides with the new one
     f = h5py.File(ozy_file, 'r+')
-    gf_present, gf_key = check_if_same_flow(f,gf,d_key)
+    gf_present, gf_key = check_if_same_flow(f,gf,d_key,width_key)
+    gfp_keys = []
     if gf_present and recompute:
         if remove_subs:
             del f[str(gf.group.type)+'_data/flows_nosubs/'+str(gf.group._index)+'/'+str(gf_key)]
         else:
             del f[str(gf.group.type)+'_data/flows/'+str(gf.group._index)+'/'+str(gf_key)]
 
-        print('Overwriting flow data in %s_data'%group.type)
+        if verbose: print('Overwriting flow data in %s_data'%group.type)
     elif gf_present and not recompute:
-        print('Flow data with same details already present for galaxy %s. No overwritting!'%group._index)
+        if verbose: print('Flow data with same details (%s) already present for galaxy %s. No overwritting!'%(gf_key,group._index))
         group._init_flows()
         if remove_subs:
-            print('Removing substructure!')
+            if verbose: print('Removing substructure!')
             for i,g in enumerate(group.flows_nosubs):
+                gfp_keys.append(g.key)
                 if g.key ==gf_key:
                     selected_gf = i
                     break
-            return group.flows_nosubs[selected_gf]
+            try:
+                # print(ozy_file,gf_key,gfp_keys,group.flows_nosubs)
+                return group.flows_nosubs[selected_gf]
+            except:
+                print('Failed to recover old flow, so recomputing.')
+                del f[str(gf.group.type)+'_data/flows_nosubs/'+str(gf.group._index)+'/'+str(gf_key)]
         else:
             for i,g in enumerate(group.flows):
                 if g.key ==gf_key:
@@ -269,12 +283,12 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'),
                     break
             return group.flows[selected_gf]
     else:
-        print('Writing flow data in %s_data'%group.type)
+        if verbose: print('Writing flow data %s in %s_data'%(gf_key,group.type))
     f.close()
 
     # If substructre is removed, obtain regions
     if remove_subs:
-        print('Removing substructure!')
+        if verbose: print('Removing substructure!')
         subs = structure_regions(group, add_substructure=True, add_neighbours=False,
                             tidal_method='BT87_simple')
         nsubs = len(subs)
@@ -282,7 +296,7 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'),
         nsubs = 0
     
     # Begin integration
-    print('Performing integration')
+    if verbose: print('Performing integration')
     if separate_phases:
         # Initialise Fortran derived type with attributes
         glob_attrs = amr_integrator.amr_region_attrs()
@@ -291,19 +305,23 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'),
         glob_attrs.nfilter = len(filt)
         glob_attrs.nsubs = nsubs
         amr_integrator.allocate_amr_regions_attrs(glob_attrs)
-        for i in range(0, len(quantity_names)):
+        for i in range(0,len(quantity_names)):
             glob_attrs.varnames.T.view('S128')[i] = quantity_names[i].ljust(128)
-            glob_attrs.result[i].nbins = pdf_bins
-            glob_attrs.result[i].nfilter = len(filt)
-            glob_attrs.result[i].nwvars = len(weight_names)
-            glob_attrs.result[i].varname = quantity_names[i]
+        glob_attrs.result.nbins = pdf_bins
+        glob_attrs.result.nvars = len(quantity_names)
+        glob_attrs.result.nwvars = len(weight_names)
+        glob_attrs.result.nfilter = len(filt)
+        stats_utils.allocate_pdf(glob_attrs.result)
+        for i in range(0, len(quantity_names)):
             mybins = get_code_bins(group.obj,'gas/'+quantity_names[i],pdf_bins)
-            glob_attrs.result[i].scaletype = mybins[1]
-            stats_utils.allocate_pdf(glob_attrs.result[i])
-            glob_attrs.result[i].bins = mybins[0]
-            glob_attrs.result[i].do_binning = do_binning[i]
-            for j in range(0, len(weight_names)):
-                glob_attrs.result[i].wvarnames.T.view('S128')[j] = weight_names[j].ljust(128)
+            glob_attrs.result.varname.T.view('S128')[i] = quantity_names[i].ljust(128)
+            glob_attrs.result.scaletype.T.view('S128')[i] = mybins[1].ljust(128)
+            glob_attrs.result.bins[:,i] = mybins[0]
+            glob_attrs.result.do_binning[i] = do_binning[i]
+            glob_attrs.result.zero_index[i] = mybins[2]
+            glob_attrs.result.linthresh[i] = mybins[3]
+        for i in range(0, len(weight_names)):
+            glob_attrs.result.wvarnames.T.view('S128')[i] = weight_names[i].ljust(128)
 
         for i in range(0, glob_attrs.nfilter):
             glob_attrs.filters[i] = filt[i]
@@ -312,95 +330,93 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'),
             for i in range(0,nsubs):
                 glob_attrs.subs[i] = subs[i]
         
-        amr_integrator.integrate_region(output_path,reg,use_neigh,glob_attrs)
+        amr_integrator.integrate_region(output_path,reg,use_neigh,use_grav,glob_attrs)
         for i,f in enumerate(filt):
-            if f.name == 'all':
-                phase_name = ''
-            else:
-                phase_name = '_'+f.name.decode().split(' ')[0]
-            
+            phase_name = '_'+f.name.decode().split(' ')[0]
             # Assign results to galaxy object
             if group.obj.simulation.physics['hydro']:
-                print('Computing gas flow quantities')
-                gf.data['density_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[0],i)
-                gf.data['temperature_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[1],i)
+                if verbose: print('Computing gas flow quantities')
+                gf.data['mass_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.result.total[0,i,0,0], 'code_mass')
+                gf.data['density_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,1,i)
+                gf.data['temperature_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,2,i)
                 # Powell et al. (2011) method
                 # gf.data['massflow_rate_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.data[2,1,0]*4*np.pi*(shell_r**2), 'code_mass*code_velocity/code_length')
                 # My method
-                gf.data['massflow_rate_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.result[2].total[i,0,0]/shell_width, 'code_mass*code_velocity/code_length')
-                gf.data['v_sphere_r_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[3],i)
-                gf.data['thermal_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.result[4].total[i,0,0], 'code_mass * code_velocity**2')
-                gf.data['thermal_energy_specific_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[5],i)
-                gf.data['grav_therpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[6],i)
-                gf.data['grav_therpfrspherepos_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[7],i)
-                gf.data['grav_therpfrsphereneg_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[8],i)
-                print('Massflow rate for %s phase  '%phase_name+str(gf.data['massflow_rate_'+d_key+'rvir'+phase_name].in_units('Msun/yr')))
-                print('Thermal support for %s phase  '%phase_name+str(gf.data['grav_therpfrsphere_'+d_key+'rvir'+phase_name]))
-                print('Radial velocity flow-weighted for %s phase  '%phase_name+str(gf.data['v_sphere_r_'+d_key+'rvir'+phase_name].to('km/s')))
+                gf.data['massflow_rate_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.result.total[3,i,0,0]/shell_width, 'code_mass*code_velocity/code_length')
+                gf.data['v_sphere_r_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,4,i)
+                gf.data['v_tangential_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,5,i)
+                gf.data['thermal_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.result.total[6,i,0,0], 'code_mass * code_velocity**2')
+                gf.data['thermal_energy_specific_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,7,i)
+                gf.data['grav_therpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,8,i)
+                gf.data['grav_therpfrspherepos_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,9,i)
+                gf.data['grav_therpfrsphereneg_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,10,i)
+                if verbose: print('Massflow rate for %s phase  '%phase_name+str(gf.data['massflow_rate_'+d_key+'rvir'+phase_name].in_units('Msun/yr')))
+                if verbose: print('Thermal support for %s phase  '%phase_name+str(gf.data['grav_therpfrsphere_'+d_key+'rvir'+phase_name]))
+                if verbose: print('Radial velocity flow-weighted for %s phase  '%phase_name+str(gf.data['v_sphere_r_'+d_key+'rvir'+phase_name].to('km/s')))
                 if group.obj.simulation.physics['metals']:
-                    gf.data['metallicity_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[9],i)
+                    gf.data['metallicity_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,11,i)
             else:
                 # TODO: Change shape for this empty array   
                 gf.data['massflow_rate_'+d_key+'rvir'+phase_name] = group.obj.quantity(0.0, 'code_mass*code_velocity/code_length')
             
             if group.obj.simulation.physics['magnetic']:
-                print('Computing magnetic energies')
+                if verbose: print('Computing magnetic energies')
                 if group.obj.simulation.physics['metals']:
-                    gf.data['magnetic_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.result[10].total[i,0,0], 'code_mass * code_velocity**2')
-                    gf.data['magnetic_energy_specific_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[11],i)
-                    gf.data['grav_magpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[12],i)
-                    gf.data['grav_magpfrspherepos_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[13],i)
-                    gf.data['grav_magpfrsphereneg_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[14],i)
-                    print('Magnetic support for %s phase  '%phase_name+str(gf.data['grav_magpfrsphere_'+d_key+'rvir'+phase_name]))
+                    gf.data['magnetic_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.result.total[12,i,0,0], 'code_mass * code_velocity**2')
+                    gf.data['magnetic_energy_specific_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,13,i)
+                    gf.data['grav_magpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,14,i)
+                    gf.data['grav_magpfrspherepos_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,15,i)
+                    gf.data['grav_magpfrsphereneg_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,16,i)
+                    if verbose: print('Magnetic support for %s phase  '%phase_name+str(gf.data['grav_magpfrsphere_'+d_key+'rvir'+phase_name]))
                     if not group.obj.simulation.physics['cr']:
-                        gf.data['grav_totpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[15],i)
-                        gf.data['grav_totpfrspherepos_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[16],i)
-                        gf.data['grav_totpfrsphereneg_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[17],i)
-                        print('Total support for %s phase  '%phase_name+str(gf.data['grav_totpfrsphere_'+d_key+'rvir'+phase_name]))
+                        gf.data['grav_totpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,17,i)
+                        gf.data['grav_totpfrspherepos_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,18,i)
+                        gf.data['grav_totpfrsphereneg_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,19,i)
+                        if verbose: print('Total support for %s phase  '%phase_name+str(gf.data['grav_totpfrsphere_'+d_key+'rvir'+phase_name]))
                 else:
-                    stat_array = pdf_handler_to_stats(group.obj,glob_attrs.result[10],i)
-                    gf.data['magnetic_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.result[9].total[i,0,0], 'code_mass * code_velocity**2')
+                    stat_array = pdf_handler_to_stats(group.obj,glob_attrs.result[12],i)
+                    gf.data['magnetic_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.result.total[11,i,0,0], 'code_mass * code_velocity**2')
                     gf.data['magnetic_energy_specific_'+d_key+'rvir'+phase_name] = group.obj.array(stat_array, 'code_specific_energy')
-                    gf.data['grav_magpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[11],i)
-                    gf.data['grav_magpfrspherepos_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[12],i)
-                    gf.data['grav_magpfrsphereneg_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[13],i)
+                    gf.data['grav_magpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,13,i)
+                    gf.data['grav_magpfrspherepos_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,14,i)
+                    gf.data['grav_magpfrsphereneg_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,15,i)
                     if not group.obj.simulation.physics['cr']:
-                        gf.data['grav_totpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[14],i)
-                        gf.data['grav_totpfrspherepos_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[15],i)
-                        gf.data['grav_totpfrsphereneg_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[16],i)
+                        gf.data['grav_totpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,16,i)
+                        gf.data['grav_totpfrspherepos_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,17,i)
+                        gf.data['grav_totpfrsphereneg_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,18,i)
 
             if group.obj.simulation.physics['cr']:
-                print('Computing CR energies')
+                if verbose: print('Computing CR energies')
                 if group.obj.simulation.physics['metals']:
-                    gf.data['cr_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.result[15].total[i,0,0], 'code_mass * code_velocity**2')
-                    gf.data['cr_energy_specific_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[16],i)
-                    gf.data['grav_crpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[17],i)
-                    gf.data['grav_crpfrspherepos_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[18],i)
-                    gf.data['grav_crpfrsphereneg_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[19],i)
-                    print('CR support for %s phase  '%phase_name+str(gf.data['grav_crpfrsphere_'+d_key+'rvir'+phase_name]))
-                    print('CR support pos for %s phase  '%phase_name+str(gf.data['grav_crpfrspherepos_'+d_key+'rvir'+phase_name]))
-                    print('CR support neg for %s phase  '%phase_name+str(gf.data['grav_crpfrsphereneg_'+d_key+'rvir'+phase_name]))
-                    gf.data['grav_totpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[20],i)
-                    gf.data['grav_totpfrspherepos_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[21],i)
-                    gf.data['grav_totpfrsphereneg_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[22],i)
-                    print('Total support for %s phase  '%phase_name+str(gf.data['grav_totpfrsphere_'+d_key+'rvir'+phase_name]))
+                    gf.data['cr_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.result.total[17,i,0,0], 'code_mass * code_velocity**2')
+                    gf.data['cr_energy_specific_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,18,i)
+                    gf.data['grav_crpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,19,i)
+                    gf.data['grav_crpfrspherepos_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,20,i)
+                    gf.data['grav_crpfrsphereneg_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,21,i)
+                    if verbose: print('CR support for %s phase  '%phase_name+str(gf.data['grav_crpfrsphere_'+d_key+'rvir'+phase_name]))
+                    if verbose: print('CR support pos for %s phase  '%phase_name+str(gf.data['grav_crpfrspherepos_'+d_key+'rvir'+phase_name]))
+                    if verbose: print('CR support neg for %s phase  '%phase_name+str(gf.data['grav_crpfrsphereneg_'+d_key+'rvir'+phase_name]))
+                    gf.data['grav_totpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,22,i)
+                    gf.data['grav_totpfrspherepos_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,23,i)
+                    gf.data['grav_totpfrsphereneg_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,24,i)
+                    if verbose: print('Total support for %s phase  '%phase_name+str(gf.data['grav_totpfrsphere_'+d_key+'rvir'+phase_name]))
                 else:
-                    gf.data['cr_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.result[14].total[i,0,0], 'code_mass * code_velocity**2')
-                    gf.data['cr_energy_specific_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[15],i)
-                    gf.data['grav_crpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[16],i)
-                    gf.data['grav_crpfrspherepos_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[17],i)
-                    gf.data['grav_crpfrsphereneg_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[18],i)
-                    print('CR support for %s phase  '%phase_name+str(gf.data['grav_crpfrsphere_'+d_key+'rvir'+phase_name]))
-                    gf.data['grav_totpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[19],i)
-                    gf.data['grav_totpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[20],i)
-                    gf.data['grav_totpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[21],i)
-                    print('Total support for %s phase  '%phase_name+str(gf.data['grav_totpfrsphere_'+d_key+'rvir'+phase_name]))
+                    gf.data['cr_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.result.total[16,i,0,0], 'code_mass * code_velocity**2')
+                    gf.data['cr_energy_specific_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,17,i)
+                    gf.data['grav_crpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,18,i)
+                    gf.data['grav_crpfrspherepos_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,19,i)
+                    gf.data['grav_crpfrsphereneg_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,20,i)
+                    if verbose: print('CR support for %s phase  '%phase_name+str(gf.data['grav_crpfrsphere_'+d_key+'rvir'+phase_name]))
+                    gf.data['grav_totpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,21,i)
+                    gf.data['grav_totpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,22,i)
+                    gf.data['grav_totpfrsphere_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,23,i)
+                    if verbose: print('Total support for %s phase  '%phase_name+str(gf.data['grav_totpfrsphere_'+d_key+'rvir'+phase_name]))
 
             if group.obj.simulation.physics['rt']:
-                print('Computing ionisation fractions')
-                gf.data['xHII_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[nvar],i)
-                gf.data['xHeII_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[nvar+1],i)
-                gf.data['xHeIII_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[nvar+2],i)
+                if verbose: print('Computing ionisation fractions')
+                gf.data['xHII_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,nvar,i)
+                gf.data['xHeII_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,nvar+1,i)
+                gf.data['xHeIII_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result,nvar+2,i)
     else:
         # Initialise Fortran derived type with attributes
         # This object hold the following attributes:
@@ -440,7 +456,7 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'),
         phase_name = ''
         i = 0
         if group.obj.simulation.physics['hydro']:
-            print('Computing gas flow quantities')
+            if verbose: print('Computing gas flow quantities')
             stat_array = pdf_handler_to_stats(group.obj,glob_attrs.result[0],0)
             gf.data['density_'+d_key+'rvir'+phase_name] = group.obj.array(stat_array, 'code_density')
             stat_array = pdf_handler_to_stats(group.obj,glob_attrs.result[1],0)
@@ -456,9 +472,9 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'),
             gf.data['thermal_energy_specific_'+d_key+'rvir'+phase_name] = group.obj.array(stat_array, 'code_specific_energy')
             stat_array = pdf_handler_to_stats(group.obj,glob_attrs.result[6],0)
             gf.data['grav_therpfrsphere_'+d_key+'rvir'+phase_name] = group.obj.array(stat_array, 'dimensionless')
-            print('Massflow rate for %s phase  '%phase_name+str(gf.data['massflow_rate_'+d_key+'rvir'+phase_name].in_units('Msun/yr')))
-            print('Thermal support for %s phase  '%phase_name+str(gf.data['grav_therpfrsphere_'+d_key+'rvir'+phase_name]))
-            print('Radial velocity flow-weighted for %s phase  '%phase_name+str(gf.data['v_sphere_r_'+d_key+'rvir'+phase_name].to('km/s')))
+            if verbose: print('Massflow rate for %s phase  '%phase_name+str(gf.data['massflow_rate_'+d_key+'rvir'+phase_name].in_units('Msun/yr')))
+            if verbose: print('Thermal support for %s phase  '%phase_name+str(gf.data['grav_therpfrsphere_'+d_key+'rvir'+phase_name]))
+            if verbose: print('Radial velocity flow-weighted for %s phase  '%phase_name+str(gf.data['v_sphere_r_'+d_key+'rvir'+phase_name].to('km/s')))
             if group.obj.simulation.physics['metals']:
                 stat_array = pdf_handler_to_stats(group.obj,glob_attrs.result[7],)
                 gf.data['metallicity_'+d_key+'rvir'+phase_name] = stat_array
@@ -466,7 +482,7 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'),
             gf.data['massflow_rate_'+d_key+'rvir'+phase_name] = group.obj.quantity(0.0, 'code_mass*code_velocity/code_length')
         
         if group.obj.simulation.physics['magnetic']:
-            print('Computing magnetic energies')
+            if verbose: print('Computing magnetic energies')
             if group.obj.simulation.physics['metals']:
                 stat_array = pdf_handler_to_stats(group.obj,glob_attrs.result[9],i)
                 gf.data['magnetic_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.result[8].total[i,0,0], 'code_mass * code_velocity**2')
@@ -477,29 +493,29 @@ def compute_flows(group,ozy_file,flow_type,rmin=(0.0,'rvir'),
                 gf.data['magnetic_energy_specific_'+d_key+'rvir'+phase_name] = group.obj.array(stat_array, 'code_specific_energy')
 
         if group.obj.simulation.physics['cr']:
-            print('Computing CR energies')
+            if verbose: print('Computing CR energies')
             if group.obj.simulation.physics['metals']:
                 gf.data['cr_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.result[10].total[i,0,0], 'code_mass * code_velocity**2')
                 stat_array = pdf_handler_to_stats(group.obj,glob_attrs.result[11],i)
                 gf.data['cr_energy_specific_'+d_key+'rvir'+phase_name] = group.obj.array(stat_array, 'code_specific_energy')
                 stat_array = pdf_handler_to_stats(group.obj,glob_attrs.result[12],i)
                 gf.data['grav_crpfrsphere_'+d_key+'rvir'+phase_name] = group.obj.array(stat_array, 'dimensionless')
-                print('CR support for %s phase  '%phase_name+str(gf.data['grav_crpfrsphere_'+d_key+'rvir'+phase_name]))
+                if verbose: print('CR support for %s phase  '%phase_name+str(gf.data['grav_crpfrsphere_'+d_key+'rvir'+phase_name]))
             else:
                 gf.data['cr_energy_'+d_key+'rvir'+phase_name] = group.obj.quantity(glob_attrs.result[9].total[i,0,0], 'code_mass * code_velocity**2')
                 stat_array = pdf_handler_to_stats(group.obj,glob_attrs.result[10],i)
                 gf.data['cr_energy_specific_'+d_key+'rvir'+phase_name] = group.obj.array(stat_array, 'code_specific_energy')
                 stat_array = pdf_handler_to_stats(group.obj,glob_attrs.result[11],i)
                 gf.data['grav_crpfrsphere_'+d_key+'rvir'+phase_name] = group.obj.array(stat_array, 'dimensionless')
-                print('CR support for %s phase  '%phase_name+str(gf.data['grav_crpfrsphere_'+d_key+'rvir'+phase_name]))
+                if verbose: print('CR support for %s phase  '%phase_name+str(gf.data['grav_crpfrsphere_'+d_key+'rvir'+phase_name]))
 
         if group.obj.simulation.physics['rt']:
-            print('Computing ionisation fractions')
+            if verbose: print('Computing ionisation fractions')
             gf.data['xHII_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[nvar],i)
             gf.data['xHeII_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[nvar+1],i)
             gf.data['xHeIII_'+d_key+'rvir'+phase_name] = pdf_handler_to_stats(group.obj,glob_attrs.result[nvar+2],i)
 
     if save:
-        write_flow(group.obj, ozy_file, gf, d_key)
+        write_flow(group.obj, ozy_file, gf, d_key, width_key, verbose=verbose)
     
     return gf

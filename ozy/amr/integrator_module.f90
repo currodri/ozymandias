@@ -24,17 +24,20 @@ module amr_integrator
     use geometrical_regions
     use io_ramses
     use hydro_commons
-    use filtering
+    use filtering_hydro
     use stats_utils
     
     type amr_region_attrs
         integer :: nvars=1,nwvars=1
         integer :: nfilter=1,nsubs=0
+        integer :: tot_ref,tot_pos,tot_insubs
+        logical :: use_gravity=.false., use_rt=.false., use_neigh=.false.
+        integer,dimension(:),allocatable :: total_ncell
         character(128),dimension(:),allocatable :: varnames
         character(128),dimension(:),allocatable :: wvarnames
-        type(filter),dimension(:),allocatable :: filters
+        type(filter_hydro),dimension(:),allocatable :: filters
         type(region),dimension(:),allocatable :: subs
-        type(pdf_handler),dimension(:),allocatable :: result
+        type(pdf_handler) :: result
         type(hydro_var),dimension(:),allocatable :: vars
         type(hydro_var),dimension(:),allocatable :: wvars
     end type amr_region_attrs
@@ -45,16 +48,16 @@ module amr_integrator
         implicit none
         type(amr_region_attrs),intent(inout) :: attrs
 
-        if (.not.allocated(attrs%varnames)) allocate(attrs%varnames(attrs%nvars))
-        if (.not.allocated(attrs%wvarnames)) allocate(attrs%wvarnames(attrs%nwvars))
-        if (.not.allocated(attrs%vars))     allocate(attrs%vars(attrs%nvars))
-        if (.not.allocated(attrs%wvars))     allocate(attrs%wvars(attrs%nwvars))
-        if (.not.allocated(attrs%result))   allocate(attrs%result(attrs%nvars))
-        if (.not.allocated(attrs%filters))  allocate(attrs%filters(attrs%nfilter))
-        if (.not.allocated(attrs%subs).and.attrs%nsubs>0) allocate(attrs%subs(attrs%nsubs))     
+        if (.not.allocated(attrs%varnames)) allocate(attrs%varnames(1:attrs%nvars))
+        if (.not.allocated(attrs%wvarnames)) allocate(attrs%wvarnames(1:attrs%nwvars))
+        if (.not.allocated(attrs%vars))     allocate(attrs%vars(1:attrs%nvars))
+        if (.not.allocated(attrs%wvars))     allocate(attrs%wvars(1:attrs%nwvars))
+        if (.not.allocated(attrs%filters))  allocate(attrs%filters(1:attrs%nfilter))
+        if (.not.allocated(attrs%total_ncell)) allocate(attrs%total_ncell(1:attrs%nfilter))
+        if (.not.allocated(attrs%subs).and.attrs%nsubs>0) allocate(attrs%subs(1:attrs%nsubs))     
     end subroutine allocate_amr_regions_attrs
 
-    subroutine extract_data(reg,pos,cellvars,cellsons,cellsize,attrs,ifilt,trans_matrix,grav_var)
+    subroutine extract_data(reg,pos,cellvars,cellsons,cellsize,attrs,ifilt,trans_matrix,grav_var,rt_var)
         use vectors
         implicit none
 
@@ -67,109 +70,148 @@ module amr_integrator
         type(amr_region_attrs),intent(inout) :: attrs
         integer, intent(in) :: ifilt
         real(dbl),dimension(1:3,1:3),intent(in) :: trans_matrix
-        real(dbl),dimension(0:amr%twondim,1:4),optional,intent(in) :: grav_var
+        real(dbl),dimension(0:,:),optional,intent(in) :: grav_var
+        real(dbl),dimension(0:,:),optional,intent(in) :: rt_var
 
         ! Local variables
         integer :: i,j,ibin
-        real(dbl) :: ytemp,wtemp
+        real(dbl) :: ytemp,wtemp,ytemp2
         type(vector) :: x
 
         x = pos
-        varloop: do i=1,attrs%nvars
-            if (attrs%result(i)%do_binning) then
+        varloop: do i=1,attrs%result%nvars
+            if (attrs%result%do_binning(i)) then
                 ! Get variable
-                if (present(grav_var)) then
-                    call findbinpos(reg,x,cellvars,cellsons,cellsize,&
-                                    & ibin,ytemp,trans_matrix,attrs%result(i)%scaletype,&
-                                    & attrs%result(i)%nbins,attrs%result(i)%bins,&
+                if (present(grav_var) .and. present(rt_var)) then
+                    call findbinpos(amr,sim,rtinfo,reg,x,cellvars,cellsons,cellsize,&
+                                    & ibin,ytemp,trans_matrix,attrs%result%scaletype(i),&
+                                    & attrs%result%nbins,attrs%result%bins(:,i),&
+                                    & attrs%result%linthresh(i),attrs%result%zero_index(i),&
+                                    & attrs%vars(i),grav_var,rt_var)
+                else if (present(grav_var)) then
+                    call findbinpos(amr,sim,rtinfo,reg,x,cellvars,cellsons,cellsize,&
+                                    & ibin,ytemp,trans_matrix,attrs%result%scaletype(i),&
+                                    & attrs%result%nbins,attrs%result%bins(:,i),&
+                                    & attrs%result%linthresh(i),attrs%result%zero_index(i),&
                                     & attrs%vars(i),grav_var)
+                else if (present(rt_var)) then
+                    call findbinpos(amr,sim,rtinfo,reg,x,cellvars,cellsons,cellsize,&
+                                    & ibin,ytemp,trans_matrix,attrs%result%scaletype(i),&
+                                    & attrs%result%nbins,attrs%result%bins(:,i),&
+                                    & attrs%result%linthresh(i),attrs%result%zero_index(i),&
+                                    & attrs%vars(i),rtvars=rt_var)
                 else
-                    call findbinpos(reg,x,cellvars,cellsons,cellsize,&
-                                    & ibin,ytemp,trans_matrix,attrs%result(i)%scaletype,&
-                                    & attrs%result(i)%nbins,attrs%result(i)%bins,&
+                    call findbinpos(amr,sim,rtinfo,reg,x,cellvars,cellsons,cellsize,&
+                                    & ibin,ytemp,trans_matrix,attrs%result%scaletype(i),&
+                                    & attrs%result%nbins,attrs%result%bins(:,i),&
+                                    & attrs%result%linthresh(i),attrs%result%zero_index(i),&
                                     & attrs%vars(i))
                 end if
                 if (ytemp.eq.0d0) cycle
                 ! Get min and max
-                if (attrs%result(i)%minv(ifilt).eq.0D0) then
-                    attrs%result(i)%minv(ifilt) = ytemp ! Just to make sure that the initial min is not zero
+                if (attrs%result%minv(i,ifilt).eq.0D0) then
+                    attrs%result%minv(i,ifilt) = ytemp ! Just to make sure that the initial min is not zero
                 else
-                    attrs%result(i)%minv(ifilt) = min(ytemp,attrs%result(i)%minv(ifilt))    ! Min value
+                    attrs%result%minv(i,ifilt) = min(ytemp,attrs%result%minv(i,ifilt))    ! Min value
                 endif
-                attrs%result(i)%maxv(ifilt) = max(ytemp,attrs%result(i)%maxv(ifilt))    ! Max value
+                attrs%result%maxv(i,ifilt) = max(ytemp,attrs%result%maxv(i,ifilt))    ! Max value
+                attrs%result%nvalues(i,ifilt) = attrs%result%nvalues(i,ifilt) + 1
                 
-                wvarloop1: do j=1,attrs%nwvars
-                    ! Get weights
-                    if (attrs%wvarnames(j)=='counts') then
-                        wtemp =  1D0
-                    else if (attrs%wvarnames(j)=='cumulative') then
-                        wtemp = ytemp
-                    else
-                        if (present(grav_var)) then
-                            wtemp = attrs%wvars(j)%myfunction(amr,sim,attrs%wvars(j),reg,cellsize,x,&
-                                                                cellvars,cellsons,trans_matrix,grav_var)
+                if (ibin.gt.0) then
+                    wvarloop1: do j=1,attrs%result%nwvars
+                        ! Get weights
+                        ytemp2 = ytemp
+                        if (trim(attrs%result%wvarnames(j))=='counts') then
+                            wtemp =  1D0
+                        else if (trim(attrs%result%wvarnames(j))=='cumulative') then
+                            wtemp = ytemp2
                         else
-                            wtemp = attrs%wvars(j)%myfunction(amr,sim,attrs%wvars(j),reg,cellsize,x,&
+                            if (present(grav_var) .and. present(rt_var)) then
+                                wtemp = attrs%wvars(j)%myfunction(amr,sim,rtinfo,attrs%wvars(j),reg,cellsize,x,&
+                                                                    cellvars,cellsons,trans_matrix,grav_var,rt_var)
+                            else if (present(grav_var)) then
+                                wtemp = attrs%wvars(j)%myfunction(amr,sim,rtinfo,attrs%wvars(j),reg,cellsize,x,&
+                                                                cellvars,cellsons,trans_matrix,grav_var)
+                            else if (present(rt_var)) then
+                                wtemp = attrs%wvars(j)%myfunction(amr,sim,rtinfo,attrs%wvars(j),reg,cellsize,x,&
+                                                                cellvars,cellsons,trans_matrix,rt_var=rt_var)
+                            else
+                                wtemp = attrs%wvars(j)%myfunction(amr,sim,rtinfo,attrs%wvars(j),reg,cellsize,x,&
                                                                 cellvars,cellsons,trans_matrix)
+                            endif
                         endif
-                    endif
-                    
-                    ! Save to PDFs
-                    if (ibin.gt.0) then
-                        attrs%result(i)%heights(ifilt,j,ibin) = attrs%result(i)%heights(ifilt,j,ibin) + wtemp ! Weight to the PDF bin
-                        attrs%result(i)%totweights(ifilt,j) = attrs%result(i)%totweights(ifilt,j) + wtemp       ! Weight
-                    end if
+                        
+                        ! Save to PDFs
+                        attrs%result%heights(i,ifilt,j,ibin) = attrs%result%heights(i,ifilt,j,ibin) + wtemp ! Weight to the PDF bin
+                        attrs%result%totweights(i,ifilt,j) = attrs%result%totweights(i,ifilt,j) + wtemp       ! Weight
 
-                    ! Now do it for the case of no binning (old integration method)
-                    ! Get weights
-                    if (attrs%wvarnames(j)=='counts') then
-                        wtemp =  1D0
-                        ytemp = 1D0
-                    else if (attrs%wvarnames(j)=='cumulative') then
-                        wtemp = 1D0
-                    endif
-                    
-                    ! Save to attrs
-                    attrs%result(i)%total(ifilt,j,1) = attrs%result(i)%total(ifilt,j,1) + ytemp*wtemp ! Value (weighted or not)
-                    attrs%result(i)%total(ifilt,j,2) = attrs%result(i)%total(ifilt,j,2) + wtemp       ! Weight
-                end do wvarloop1
+                        ! Now do it for the case of no binning (old integration method)
+                        ! Get weights
+                        if (trim(attrs%result%wvarnames(j))=='counts') then
+                            wtemp =  1D0
+                            ytemp2 = 1D0
+                        else if (trim(attrs%result%wvarnames(j))=='cumulative') then
+                            wtemp = 1D0
+                        endif
+                        
+                        ! Save to attrs
+                        attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) + ytemp2*wtemp ! Value (weighted or not)
+                        attrs%result%total(i,ifilt,j,2) = attrs%result%total(i,ifilt,j,2) + wtemp       ! Weight
+                    end do wvarloop1
+                else
+                    attrs%result%nout(i,ifilt) = attrs%result%nout(i,ifilt) + 1
+                end if
             else
                 ! Get variable
-                if (present(grav_var)) then
-                    ytemp = attrs%vars(i)%myfunction(amr,sim,attrs%vars(i),reg,cellsize,x,&
+                if (present(grav_var) .and. present(rt_var)) then
+                    ytemp = attrs%vars(i)%myfunction(amr,sim,rtinfo,attrs%vars(i),reg,cellsize,x,&
+                                                        cellvars,cellsons,trans_matrix,grav_var,rt_var)
+                else if (present(grav_var)) then
+                    ytemp = attrs%vars(i)%myfunction(amr,sim,rtinfo,attrs%vars(i),reg,cellsize,x,&
                                                         cellvars,cellsons,trans_matrix,grav_var)
+                else if (present(rt_var)) then
+                    ytemp = attrs%vars(i)%myfunction(amr,sim,rtinfo,attrs%vars(i),reg,cellsize,x,&
+                                                        cellvars,cellsons,trans_matrix,rt_var=rt_var)
                 else
-                    ytemp = attrs%vars(i)%myfunction(amr,sim,attrs%vars(i),reg,cellsize,x,&
+                    ytemp = attrs%vars(i)%myfunction(amr,sim,rtinfo,attrs%vars(i),reg,cellsize,x,&
                                                         cellvars,cellsons,trans_matrix)
                 end if
                 ! Get min and max
-                if (attrs%result(i)%minv(ifilt).eq.0D0) then
-                    attrs%result(i)%minv(ifilt) = ytemp ! Just to make sure that the initial min is not zero
+                if (attrs%result%minv(i,ifilt).eq.0D0) then
+                    attrs%result%minv(i,ifilt) = ytemp ! Just to make sure that the initial min is not zero
                 else
-                    attrs%result(i)%minv(ifilt) = min(ytemp,attrs%result(i)%minv(ifilt))    ! Min value
+                    attrs%result%minv(i,ifilt) = min(ytemp,attrs%result%minv(i,ifilt))    ! Min value
                 endif
-                attrs%result(i)%maxv(ifilt) = max(ytemp,attrs%result(i)%maxv(ifilt))    ! Max value
+                attrs%result%maxv(i,ifilt) = max(ytemp,attrs%result%maxv(i,ifilt))    ! Max value
+                attrs%result%nvalues(i,ifilt) = attrs%result%nvalues(i,ifilt) + 1
 
-                wvarloop2: do j=1,attrs%nwvars
+                wvarloop2: do j=1,attrs%result%nwvars
                     ! Get weights
-                    if (attrs%wvarnames(j)=='counts') then
+                    ytemp2 = ytemp
+                    if (trim(attrs%result%wvarnames(j))=='counts') then
                         wtemp =  1D0
-                        ytemp = 1D0
-                    else if (attrs%wvarnames(j)=='cumulative') then
+                        ytemp2 = 1D0
+                    else if (trim(attrs%result%wvarnames(j))=='cumulative') then
                         wtemp = 1D0
                     else
-                        if (present(grav_var)) then
-                            wtemp = attrs%wvars(j)%myfunction(amr,sim,attrs%wvars(j),reg,cellsize,x,&
+                        if (present(grav_var) .and. present(rt_var)) then
+                            wtemp = attrs%wvars(j)%myfunction(amr,sim,rtinfo,attrs%wvars(j),reg,cellsize,x,&
+                                                                cellvars,cellsons,trans_matrix,grav_var,rt_var)
+                        else if (present(grav_var)) then
+                            wtemp = attrs%wvars(j)%myfunction(amr,sim,rtinfo,attrs%wvars(j),reg,cellsize,x,&
                                                                 cellvars,cellsons,trans_matrix,grav_var)
+                        else if (present(rt_var)) then
+                            wtemp = attrs%wvars(j)%myfunction(amr,sim,rtinfo,attrs%wvars(j),reg,cellsize,x,&
+                                                                cellvars,cellsons,trans_matrix,rt_var=rt_var)
                         else
-                            wtemp = attrs%wvars(j)%myfunction(amr,sim,attrs%wvars(j),reg,cellsize,x,&
+                            wtemp = attrs%wvars(j)%myfunction(amr,sim,rtinfo,attrs%wvars(j),reg,cellsize,x,&
                                                                 cellvars,cellsons,trans_matrix)
                         endif
                     endif
                     
                     ! Save to attrs
-                    attrs%result(i)%total(ifilt,j,1) = attrs%result(i)%total(ifilt,j,1) + ytemp*wtemp ! Value (weighted or not)
-                    attrs%result(i)%total(ifilt,j,2) = attrs%result(i)%total(ifilt,j,2) + wtemp       ! Weight
+                    attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) + ytemp2*wtemp ! Value (weighted or not)
+                    attrs%result%total(i,ifilt,j,2) = attrs%result%total(i,ifilt,j,2) + wtemp       ! Weight
                 end do wvarloop2
             end if
         end do varloop
@@ -184,18 +226,18 @@ module amr_integrator
         ! Local variables
         integer :: i,j,ifilt
         filterloop: do ifilt=1,attrs%nfilter
-            varloop: do i=1,attrs%nvars
-                if (attrs%result(i)%do_binning) then
-                    wvarloop1: do j=1,attrs%nwvars
-                        if (attrs%wvarnames(j) /= 'cumulative' .and. attrs%wvarnames(j) /= 'counts') then
-                            attrs%result(i)%heights(ifilt,j,:) = attrs%result(i)%heights(ifilt,j,:) / attrs%result(i)%totweights(ifilt,j)
-                            attrs%result(i)%total(ifilt,j,1) = attrs%result(i)%total(ifilt,j,1) / attrs%result(i)%total(ifilt,j,2)
+            varloop: do i=1,attrs%result%nvars
+                if (attrs%result%do_binning(i)) then
+                    wvarloop1: do j=1,attrs%result%nwvars
+                        if (trim(attrs%result%wvarnames(j)) /= 'cumulative' .and. trim(attrs%result%wvarnames(j)) /= 'counts') then
+                            attrs%result%heights(i,ifilt,j,:) = attrs%result%heights(i,ifilt,j,:) / attrs%result%totweights(i,ifilt,j)
+                            attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) / attrs%result%total(i,ifilt,j,2)
                         endif
                     end do wvarloop1
                 else
-                    wvarloop2: do j=1,attrs%result(i)%nwvars
-                        if (attrs%wvarnames(j) /= 'cumulative' .and. attrs%wvarnames(j) /= 'counts') then
-                            attrs%result(i)%total(ifilt,j,1) = attrs%result(i)%total(ifilt,j,1) / attrs%result(i)%total(ifilt,j,2)
+                    wvarloop2: do j=1,attrs%result%nwvars
+                        if (trim(attrs%result%wvarnames(j)) /= 'cumulative' .and. trim(attrs%result%wvarnames(j)) /= 'counts') then
+                            attrs%result%total(i,ifilt,j,1) = attrs%result%total(i,ifilt,j,1) / attrs%result%total(i,ifilt,j,2)
                         endif
                     end do wvarloop2
                 end if
@@ -203,7 +245,7 @@ module amr_integrator
         end do filterloop
     end subroutine renormalise
 
-    subroutine integrate_region(repository,reg,use_neigh,attrs,vardict)
+    subroutine integrate_region(repository,reg,attrs,lmax,lmin,vardict)
         use vectors
         use coordinate_systems
         implicit none
@@ -211,23 +253,25 @@ module amr_integrator
         ! Input/output variables
         character(128),intent(in) :: repository
         type(region),intent(inout) :: reg
-        logical, intent(in) :: use_neigh
         type(amr_region_attrs),intent(inout) :: attrs
+        integer, intent(in),optional :: lmax,lmin
         type(dictf90),intent(in),optional :: vardict
 
         integer :: ivx,ivy,ivz
         integer :: ii
 
-        ! Obtain details of the hydro variables stored
-        call read_hydrofile_descriptor(repository)
-
         ! Initialise parameters of the AMR structure and simulation attributes
         call init_amr_read(repository)
-        amr%lmax = amr%nlevelmax
+        if(present(lmax)) amr%lmax = max(min(lmax,amr%nlevelmax),1)
+        if(present(lmin)) amr%lmin = max(1,min(lmin,amr%lmax))
+        if (verbose) write(*,*)'lmax:',amr%lmax,' lmin:',amr%lmin
+        
+        ! Obtain details of the hydro variables stored
+        if (.not.present(vardict)) call read_hydrofile_descriptor(repository)
 
         ! Compute the Hilbert curve
         call get_cpu_map(reg)
-        write(*,*)'ncpu_read:',amr%ncpu_read
+        if (verbose) write(*,*)'ncpu_read:',amr%ncpu_read
 
         ! Set up hydro variables quicklook tools
         if (present(vardict)) then
@@ -236,7 +280,7 @@ module amr_integrator
             ! hydro descriptor file (RAMSES)
             call get_var_tools(vardict,attrs%nvars,attrs%varnames,attrs%vars)
 
-            ! Do it now for the weighted variables
+            ! Do it now for the weight variables
             call get_var_tools(vardict,attrs%nwvars,attrs%wvarnames,attrs%wvars)
             
             ! We also do it for the filter variables
@@ -268,8 +312,8 @@ module amr_integrator
         end if
 
         ! Choose type if integrator
-        if (use_neigh) then
-            write(*,*)'Loading neighbours...'
+        if (attrs%use_neigh) then
+            if (verbose) write(*,*)'Loading neighbours...'
             call integrate_region_neigh
         else
             call integrate_region_fast
@@ -286,39 +330,36 @@ module amr_integrator
             ! Specific variables for this subroutine
             integer :: i,j,k
             integer :: ipos,icpu,ilevel,ind,idim,ivar,ifilt,isub
+            integer :: igroup,igrp
             integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
-            integer :: tot_pos,tot_ref,total_ncell
-            integer :: nvarh
+            integer :: tot_pos,tot_ref,tot_insubs
             integer :: roterr
             character(5) :: nchar,ncharcpu
             character(128) :: nomfich
             real(dbl) :: distance,dx
-            type(vector) :: xtemp,vtemp,gtemp
-            logical :: ok_cell,ok_filter,ok_cell_each,ok_sub,read_gravity
+            type(vector) :: xtemp,vtemp,gtemp,fluxtemp
+            real(dbl),dimension(1:3) :: fluxtmp
+            logical :: ok_cell,ok_filter,ok_cell_each,ok_sub
+            integer,dimension(:),allocatable :: total_ncell 
             integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
             real(dbl),dimension(1:8,1:3) :: xc
             real(dbl),dimension(3,3) :: trans_matrix
             real(dbl),dimension(:,:),allocatable :: xg,x,xorig
-            real(dbl),dimension(:,:,:),allocatable :: var,grav_var
+            real(dbl),dimension(:,:,:),allocatable :: var
+            real(hydro_real_kind),dimension(:,:,:),allocatable :: grav_var
             real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
+            real(rt_real_kind),dimension(:,:,:),allocatable :: rt_var
+            real(dbl),dimension(:,:),allocatable :: temprt_var
             integer,dimension(:,:),allocatable :: son
             integer,dimension(:),allocatable :: tempson
             logical,dimension(:),allocatable :: ref
 
-            total_ncell = 0
+            allocate(total_ncell(1:attrs%nfilter))
+            total_ncell(:) = 0
             tot_pos = 0
             tot_ref = 0
-
-            ! Check whether we need to read the gravity files
-            read_gravity = .false.
-            do ivar=1,attrs%nvars
-                if (attrs%varnames(ivar)(1:4) .eq. 'grav') then
-                    read_gravity = .true.
-                    write(*,*)'Reading gravity files...'
-                    exit
-                endif
-            end do
+            tot_insubs = 0
 
             ! Allocate grids
             allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
@@ -378,13 +419,13 @@ module amr_integrator
                 nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
                 open(unit=11,file=nomfich,status='old',form='unformatted')
                 read(11)
-                read(11)nvarh
+                read(11)sim%nvar
                 read(11)
                 read(11)
                 read(11)
                 read(11)
 
-                if (read_gravity) then
+                if (attrs%use_gravity) then
                     ! Open GRAV file and skip header
                     nomfich=TRIM(repository)//'/grav_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
                     open(unit=12,file=nomfich,status='old',form='unformatted')
@@ -393,6 +434,18 @@ module amr_integrator
                     read(12) !nlevelmax
                     read(12) !nboundary 
                 endif
+
+                if (attrs%use_rt) then
+                    ! Open RT file and skip header
+                    nomfich=TRIM(repository)//'/rt_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+                    open(unit=13,file=nomfich,status='old',form='unformatted')
+                    read(13) !ncpu
+                    read(13) !nrtvar
+                    read(13) !ndim
+                    read(13) !nlevelmax
+                    read(13) !nboundary
+                    read(13) !gamma
+                end if
 
                 ! Loop over levels
                 levelloop: do ilevel=1,amr%lmax
@@ -415,11 +468,12 @@ module amr_integrator
                     if(ngrida>0) then
                         allocate(xg (1:ngrida,1:amr%ndim))
                         allocate(son(1:ngrida,1:amr%twotondim))
-                        allocate(var(1:ngrida,1:amr%twotondim,1:nvarh))
+                        allocate(var(1:ngrida,1:amr%twotondim,1:sim%nvar))
                         allocate(x  (1:ngrida,1:amr%ndim))
                         allocate(xorig(1:ngrida,1:amr%ndim))
                         allocate(ref(1:ngrida))
-                        if (read_gravity)allocate(grav_var(1:ngrida,1:amr%twotondim,1:4))
+                        if (attrs%use_gravity)allocate(grav_var(1:ngrida,1:amr%twotondim,1:4))
+                        if (attrs%use_rt) allocate(rt_var(1:ngrida,1:amr%twotondim,1:rtinfo%nRTvar))
                     endif
 
                     ! Loop over domains
@@ -471,7 +525,7 @@ module amr_integrator
                         if(ngridfile(j,ilevel)>0)then
                             ! Read hydro variables
                             tndimloop: do ind=1,amr%twotondim
-                                varloop: do ivar=1,nvarh
+                                varloop: do ivar=1,sim%nvar
                                     if (j.eq.icpu) then
                                         read(11)var(:,ind,ivar)
                                     else
@@ -481,7 +535,7 @@ module amr_integrator
                             end do tndimloop
                         endif
 
-                        if (read_gravity) then
+                        if (attrs%use_gravity) then
                             ! Read GRAV data
                             read(12)
                             read(12)
@@ -502,6 +556,23 @@ module amr_integrator
                                 end do
                             end if
                         end if
+
+                        if (attrs%use_rt) then
+                            ! Read RT data
+                            read(13)
+                            read(13)
+                            if(ngridfile(j,ilevel)>0)then
+                                do ind=1,amr%twotondim
+                                    rtvarloop: do ivar=1,rtinfo%nRTvar
+                                        if (j.eq.icpu) then
+                                            read(13)rt_var(:,ind,ivar)
+                                        else
+                                            read(13)
+                                        end if
+                                    end do rtvarloop
+                                end do
+                            end if
+                        end if
                     end do domloop
 
                     ! Finally, get to every cell
@@ -519,6 +590,7 @@ module amr_integrator
                             ! Check if cell is refined
                             do i=1,ngrida
                                 ref(i) = son(i,ind)>0.and.ilevel<amr%lmax
+                                if (.not.ref(i))tot_ref = tot_ref + 1
                             end do
                             xorig  = x
                             ngridaloop: do i=1,ngrida
@@ -531,15 +603,19 @@ module amr_integrator
                                 call checkifinside(x(i,:),reg,ok_cell,distance)
 
                                 ! If we are avoiding substructure, check whether we are safe
+                                if (ok_cell)tot_pos = tot_pos + 1
                                 if (attrs%nsubs>0) then
                                     ok_sub = .true.
                                     do isub=1,attrs%nsubs
                                         ok_sub = ok_sub .and. filter_sub(attrs%subs(isub),xorig(i,:))
                                     end do
+                                    if (.not.ok_sub) tot_insubs = tot_insubs + 1
                                     ok_cell = ok_cell .and. ok_sub
                                 end if
-                                if (ok_cell) then
-                                    ! Transform position to galaxy frame
+                                ! If cell is inside region, not inside a substructure
+                                ! and it is a leaf cell, we can extract data
+                                if (ok_cell.and.(.not.ref(i))) then
+                                        ! Transform position to galaxy frame
                                         xtemp = xorig(i,:)
                                         xtemp = xtemp - reg%centre
                                         call rotate_vector(xtemp,trans_matrix)
@@ -549,33 +625,54 @@ module amr_integrator
                                         call rotate_vector(vtemp,trans_matrix)
 
                                         ! Gravitational acc
-                                        if (read_gravity) then
-                                            gtemp = grav_var(i,ind,2:4)
+                                        if (attrs%use_gravity) then
+                                            gtemp = dble(grav_var(i,ind,2:4))
                                             call rotate_vector(gtemp,trans_matrix)
                                         endif
-                                        allocate(tempvar(0:amr%twondim,nvarh))
+                                        allocate(tempvar(0:amr%twondim,sim%nvar))
                                         allocate(tempson(0:amr%twondim))
-                                        if (read_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
+                                        if (attrs%use_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
+                                        if (attrs%use_rt) allocate(temprt_var(0:amr%twondim,1:rtinfo%nRTvar))
                                         ! Just add central cell as we do not want neighbours
                                         tempvar(0,:) = var(i,ind,:)
                                         tempson(0)       = son(i,ind)
-                                        if (read_gravity) tempgrav_var(0,:) = grav_var(i,ind,:)
+                                        if (attrs%use_gravity) tempgrav_var(0,:) = dble(grav_var(i,ind,:))
                                         tempvar(0,ivx:ivz) = vtemp
-                                        if (read_gravity) tempgrav_var(0,2:4) = gtemp
-                                        if (ok_cell)tot_pos = tot_pos + 1
-                                        if (.not.ref(i))tot_ref = tot_ref + 1
+                                        if (attrs%use_gravity) tempgrav_var(0,2:4) = gtemp
+                                        if (attrs%use_rt) then
+                                            do igroup=1,rtinfo%nGroups
+                                                igrp = 1 + (amr%ndim + 1) * (igroup - 1)
+                                                temprt_var(0,igrp) = dble(rt_var(i,ind,igrp))
+                                                fluxtemp = dble(rt_var(i,ind,igrp+1:igrp+amr%ndim))
+                                                call rotate_vector(fluxtemp,trans_matrix)
+                                                fluxtmp = fluxtemp
+                                                temprt_var(0,igrp+1:igrp+amr%ndim) = fluxtmp
+                                            end do
+                                        end if
                                         filterloop: do ifilt=1,attrs%nfilter
-                                            if (read_gravity) then
+                                            if (attrs%use_gravity.and.attrs%use_rt) then
+                                                ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx,tempvar,&
+                                                                        &tempson,trans_matrix,tempgrav_var,temprt_var)
+                                            else if (attrs%use_gravity) then
                                                 ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx,tempvar,&
                                                                         &tempson,trans_matrix,tempgrav_var)
+                                            else if (attrs%use_rt) then
+                                                ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx,tempvar,&
+                                                                        &tempson,trans_matrix, rt_var=temprt_var)
                                             else
                                                 ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx,tempvar,&
                                                                         &tempson,trans_matrix)
                                             end if
-                                            ok_cell_each= ok_cell.and..not.ref(i).and.ok_filter
+                                            ok_cell_each= ok_cell.and.ok_filter
                                             if (ok_cell_each) then
-                                                total_ncell = total_ncell + 1
-                                                if (read_gravity) then
+                                                total_ncell(ifilt) = total_ncell(ifilt) + 1
+                                                if (attrs%use_gravity.and.attrs%use_rt) then
+                                                    call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt,trans_matrix, &
+                                                                    & tempgrav_var,temprt_var)
+                                                else if (attrs%use_rt) then
+                                                    call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt,trans_matrix, &
+                                                                    & rt_var=temprt_var)
+                                                else if (attrs%use_gravity) then
                                                     call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt,trans_matrix,tempgrav_var)
                                                 else
                                                     call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt,trans_matrix)
@@ -583,26 +680,37 @@ module amr_integrator
                                             endif
                                         end do filterloop
                                         deallocate(tempvar,tempson)
-                                        if (read_gravity) deallocate(tempgrav_var)
+                                        if (attrs%use_gravity) deallocate(tempgrav_var)
+                                        if (attrs%use_rt) deallocate(temprt_var)
                                 end if
                             end do ngridaloop
                         end do cellloop
                         deallocate(xg,son,var,ref,x,xorig)
-                        if (read_gravity) then
+                        if (attrs%use_gravity) then
                             deallocate(grav_var)
+                        end if
+                        if (attrs%use_rt) then
+                            deallocate(rt_var)
                         end if
                     endif
                 end do levelloop
                 close(10)
                 close(11)
+                if (attrs%use_gravity) close(12)
+                if (attrs%use_rt) close(13)
             end do cpuloop
 
             ! Finally just renormalise for weighted quantities
             call renormalise(attrs)
+            attrs%total_ncell = total_ncell
+            attrs%tot_ref = tot_ref
+            attrs%tot_pos = tot_pos
+            attrs%tot_insubs = tot_insubs
 
-            write(*,*)'Total number of cells used: ', total_ncell
-            write(*,*)'Total number of cells refined: ', tot_ref
-            write(*,*)'Total number of cells in region: ', tot_pos
+            if (verbose) write(*,*)'Total number of cells used: ', total_ncell
+            if (verbose) write(*,*)'Total number of cells refined: ', tot_ref
+            if (verbose) write(*,*)'Total number of cells in region: ', tot_pos
+            if (verbose) write(*,*)'Total number of cells in substructures: ', tot_insubs
 
         end subroutine integrate_region_fast
 
@@ -614,26 +722,29 @@ module amr_integrator
             ! Specific variables for this subroutine
             integer :: i,j,k
             integer :: ipos,icpu,ilevel,ind,idim,ivar,ifilt,iskip,inbor,ison,isub
+            integer :: igroup,igrp
             integer :: ix,iy,iz,ngrida,nx_full,ny_full,nz_full
-            integer :: tot_pos,tot_ref,total_ncell,tot_insubs
-            integer :: tot_sel
-            integer :: nvarh
+            integer :: tot_pos,tot_ref,tot_insubs
             integer :: roterr
             character(5) :: nchar,ncharcpu
             character(128) :: nomfich
             real(dbl) :: distance,dx
-            type(vector) :: xtemp,vtemp,gtemp
-            logical :: ok_cell,ok_filter,ok_cell_each,read_gravity,ok_sub
+            type(vector) :: xtemp,vtemp,gtemp,fluxtemp
+            real(dbl),dimension(1:3) :: fluxtmp
+            logical :: ok_cell,ok_filter,ok_cell_each,ok_sub
+            integer,dimension(:),allocatable :: total_ncell 
             integer,dimension(:,:),allocatable :: ngridfile,ngridlevel,ngridbound
             real(dbl),dimension(1:8,1:3) :: xc
             real(dbl),dimension(1:3,1:3) :: trans_matrix
             real(dbl),dimension(:),allocatable :: xxg,son_dens
             real(dbl),dimension(:,:),allocatable :: x,xorig
             real(dbl),dimension(:,:),allocatable :: var
-            real(dbl),dimension(:,:),allocatable :: grav_var
+            real(hydro_real_kind),dimension(:,:),allocatable :: grav_var
             real(dbl),dimension(:,:),allocatable :: tempvar
             real(dbl),dimension(:,:),allocatable :: tempgrav_var
             real(dbl),dimension(:,:),allocatable :: cellpos
+            real(rt_real_kind),dimension(:,:),allocatable :: rt_var
+            real(dbl),dimension(:,:),allocatable :: temprt_var
             integer,dimension(:,:),allocatable :: nbor
             integer,dimension(:),allocatable :: son,tempson,iig
             integer,dimension(:),allocatable :: ind_cell,ind_cell2
@@ -641,24 +752,13 @@ module amr_integrator
             logical,dimension(:),allocatable :: ref
             type(level),dimension(1:100) :: grid
 
-            total_ncell = 0
+            allocate(total_ncell(1:attrs%nfilter))
+            total_ncell(:) = 0
             tot_pos = 0
             tot_ref = 0
             tot_insubs = 0
-            tot_sel = 0
 
             allocate(ind_nbor(1,0:amr%twondim))
-
-            ! Check whether we need to read the gravity files
-            read_gravity = .false.
-            do ivar=1,attrs%nvars
-                if (attrs%varnames(ivar)(1:4) .eq. 'grav' .or.&
-                & trim(attrs%varnames(ivar)) .eq. 'neighbour_accuracy') then
-                    read_gravity = .true.
-                    write(*,*)'Reading gravity files...'
-                    exit
-                endif
-            end do
 
             ! Allocate grids
             allocate(ngridfile(1:amr%ncpu+amr%nboundary,1:amr%nlevelmax))
@@ -724,16 +824,16 @@ module amr_integrator
                 nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
                 open(unit=11,file=nomfich,status='old',form='unformatted')
                 read(11)
-                read(11)nvarh
+                read(11)sim%nvar
                 read(11)
                 read(11)
                 read(11)
                 read(11)
-                allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:nvarh))
+                allocate(var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:sim%nvar))
                 allocate(cellpos(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:3))
                 cellpos = 0d0; var = 0d0
                 
-                if (read_gravity) then
+                if (attrs%use_gravity) then
                     ! Open GRAV file and skip header
                     nomfich=TRIM(repository)//'/grav_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
                     open(unit=12,file=nomfich,status='old',form='unformatted')
@@ -743,6 +843,18 @@ module amr_integrator
                     read(12) !nboundary 
                     allocate(grav_var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:4))
                 endif
+                if (attrs%use_rt) then
+                    ! Open RT file and skip header
+                    nomfich=TRIM(repository)//'/rt_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+                    open(unit=13,file=nomfich,status='old',form='unformatted')
+                    read(13) !ncpu
+                    read(13) !nrtvar
+                    read(13) !ndim
+                    read(13) !nlevelmax
+                    read(13) !nboundary
+                    read(13) !gamma
+                    allocate(rt_var(1:amr%ncoarse+amr%twotondim*amr%ngridmax,1:rtinfo%nRTvar))
+                end if
 
                 ! Loop over levels
                 levelloop1: do ilevel=1,amr%lmax
@@ -818,14 +930,28 @@ module amr_integrator
                             ! Read hydro variables
                             tndimloop: do ind=1,amr%twotondim
                                 iskip = amr%ncoarse+(ind-1)*amr%ngridmax
-                                varloop: do ivar=1,nvarh
+                                varloop: do ivar=1,sim%nvar
                                     read(11)xxg
                                     var(grid(ilevel)%ind_grid(:)+iskip,ivar) = xxg(:)
                                 end do varloop
                             end do tndimloop
                         endif
 
-                        if (read_gravity) then
+                        if (attrs%use_rt) then
+                            read(13)
+                            read(13)
+                            if(ngrida>0)then
+                                tndimloop_rt: do ind=1,amr%twotondim
+                                    iskip = amr%ncoarse+(ind-1)*amr%ngridmax
+                                    rtvarloop: do ivar=1,rtinfo%nRTvar
+                                        read(13)xxg
+                                        rt_var(grid(ilevel)%ind_grid(:)+iskip,ivar) = xxg(:)
+                                    end do rtvarloop
+                                end do tndimloop_rt
+                            end if
+                        end if
+
+                        if (attrs%use_gravity) then
                             ! Read GRAV data
                             read(12)
                             read(12)
@@ -858,8 +984,11 @@ module amr_integrator
                 end do levelloop1
                 close(10)
                 close(11)
-                if (read_gravity) then
+                if (attrs%use_gravity) then
                     close(12)
+                end if
+                if (attrs%use_rt) then
+                    close(13)
                 end if
                 ! Loop over levels again now with arrays fully filled
                 levelloop2: do ilevel=1,amr%lmax
@@ -893,6 +1022,7 @@ module amr_integrator
                             ! Check if cell is refined
                             do i=1,ngrida
                                 ref(i) = son(ind_cell(i))>0.and.ilevel<amr%lmax
+                                if (.not.ref(i))tot_ref = tot_ref + 1
                             end do
 
                             xorig  = x
@@ -904,40 +1034,9 @@ module amr_integrator
                                 call rotate_vector(xtemp,trans_matrix)
                                 x(i,:) = xtemp
                                 call checkifinside(x(i,:),reg,ok_cell,distance)
-                                
-                                ! Velocity transformed --> ONLY FOR CENTRAL CELL
-                                vtemp = var(ind_cell(i),ivx:ivz)
-                                vtemp = vtemp - reg%bulk_velocity
-                                call rotate_vector(vtemp,trans_matrix)
 
-                                ! Gravitational acc --> ONLY FOR CENTRAL CELL
-                                if (read_gravity) then
-                                    gtemp = grav_var(ind_cell(i),2:4)
-                                    call rotate_vector(gtemp,trans_matrix)
-                                endif
-
-                                ! Get neighbours
-                                allocate(ind_cell2(1))
-                                ind_cell2(1) = ind_cell(i)
-                                call getnbor(son,nbor,ind_cell2,ind_nbor,1)
-                                deallocate(ind_cell2)
-                                allocate(tempvar(0:amr%twondim,nvarh))
-                                allocate(tempson(0:amr%twondim))
-                                if (read_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
-                                ! Just correct central cell vectors for the region
-                                tempvar(0,:) = var(ind_nbor(1,0),:)
-                                tempson(0)       = son(ind_nbor(1,0))
-                                if (read_gravity) tempgrav_var(0,:) = grav_var(ind_nbor(1,0),:)
-                                tempvar(0,ivx:ivz) = vtemp
-                                if (read_gravity) tempgrav_var(0,2:4) = gtemp
-                                do inbor=1,amr%twondim
-                                    tempvar(inbor,:) = var(ind_nbor(1,inbor),:)
-                                    tempson(inbor)       = son(ind_nbor(1,inbor))
-                                    if (read_gravity) tempgrav_var(inbor,:) = grav_var(ind_nbor(1,inbor),:)
-                                end do
                                 ! If we are avoiding substructure, check whether we are safe
                                 if (ok_cell)tot_pos = tot_pos + 1
-                                if (.not.ref(i))tot_ref = tot_ref + 1
                                 if (attrs%nsubs>0) then
                                     ok_sub = .true.
                                     do isub=1,attrs%nsubs
@@ -946,27 +1045,99 @@ module amr_integrator
                                     if (.not.ok_sub) tot_insubs = tot_insubs + 1
                                     ok_cell = ok_cell .and. ok_sub
                                 end if
-                                if(ok_cell.and..not.ref(i))tot_sel = tot_sel + 1
-                                filterloop: do ifilt=1,attrs%nfilter
-                                    if (read_gravity) then
-                                        ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx,tempvar,&
-                                                                &tempson,trans_matrix,tempgrav_var)
-                                    else
-                                        ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx,tempvar,&
-                                                                &tempson,trans_matrix)
-                                    end if
-                                    ok_cell_each= ok_cell.and..not.ref(i).and.ok_filter
-                                    if (ok_cell_each) then
-                                        if (ifilt.eq.1) total_ncell = total_ncell + 1
-                                        if (read_gravity) then
-                                            call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt,trans_matrix,tempgrav_var)
-                                        else
-                                            call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt,trans_matrix)
-                                        endif
+                                ! If cell is inside region, not inside a substructure
+                                ! and it is a leaf cell, we can extract data
+                                if (ok_cell.and.(.not.ref(i))) then
+                                    ! Transform position to galaxy frame
+                                    xtemp = xorig(i,:)
+                                    xtemp = xtemp - reg%centre
+                                    call rotate_vector(xtemp,trans_matrix)
+                                    ! Velocity transformed --> ONLY FOR CENTRAL CELL
+                                    vtemp = var(ind_cell(i),ivx:ivz)
+                                    vtemp = vtemp - reg%bulk_velocity
+                                    call rotate_vector(vtemp,trans_matrix)
+
+                                    ! Gravitational acc --> ONLY FOR CENTRAL CELL
+                                    if (attrs%use_gravity) then
+                                        gtemp = dble(grav_var(ind_cell(i),2:4))
+                                        call rotate_vector(gtemp,trans_matrix)
                                     endif
-                                end do filterloop
-                                deallocate(tempvar,tempson)
-                                if (read_gravity) deallocate(tempgrav_var)
+
+                                    ! Get neighbours
+                                    allocate(ind_cell2(1))
+                                    ind_cell2(1) = ind_cell(i)
+                                    call getnbor(son,nbor,ind_cell2,ind_nbor,1)
+                                    deallocate(ind_cell2)
+                                    allocate(tempvar(0:amr%twondim,sim%nvar))
+                                    allocate(tempson(0:amr%twondim))
+                                    if (attrs%use_gravity) allocate(tempgrav_var(0:amr%twondim,1:4))
+                                    if (attrs%use_rt) allocate(temprt_var(0:amr%twondim,1:rtinfo%nRTvar))
+                                    ! Just correct central cell vectors for the region
+                                    tempvar(0,:) = var(ind_nbor(1,0),:)
+                                    tempson(0)       = son(ind_nbor(1,0))
+                                    if (attrs%use_gravity) tempgrav_var(0,:) = dble(grav_var(ind_nbor(1,0),:))
+                                    tempvar(0,ivx:ivz) = vtemp
+                                    if (attrs%use_gravity) tempgrav_var(0,2:4) = gtemp
+                                    if (attrs%use_rt) then
+                                        do igroup=1,rtinfo%nGroups
+                                            igrp = 1 + (amr%ndim + 1) * (igroup - 1)
+                                            temprt_var(0,igrp) = dble(rt_var(ind_nbor(1,0),igrp))
+                                            fluxtemp = dble(rt_var(ind_nbor(1,0),igrp+1:igrp+amr%ndim))
+                                            call rotate_vector(fluxtemp,trans_matrix)
+                                            fluxtmp = fluxtemp
+                                            temprt_var(0,igrp+1:igrp+amr%ndim) = fluxtmp
+                                        end do
+                                    end if
+                                    do inbor=1,amr%twondim
+                                        tempvar(inbor,:) = var(ind_nbor(1,inbor),:)
+                                        tempson(inbor)       = son(ind_nbor(1,inbor))
+                                        if (attrs%use_gravity) tempgrav_var(inbor,:) = dble(grav_var(ind_nbor(1,inbor),:))
+                                        if (attrs%use_rt) then
+                                            temprt_var(inbor,:) = dble(rt_var(ind_nbor(1,inbor),:))
+                                        end if
+                                    end do
+                                
+                                    filterloop: do ifilt=1,attrs%nfilter
+                                        if (attrs%use_gravity) then
+                                            ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx,tempvar,&
+                                                                    &tempson,trans_matrix,tempgrav_var)
+                                        else
+                                            ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx,tempvar,&
+                                                                    &tempson,trans_matrix)
+                                        end if
+                                        if (attrs%use_gravity.and.attrs%use_rt) then
+                                            ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
+                                                                    &tempson,trans_matrix,tempgrav_var,temprt_var)
+                                        else if (attrs%use_gravity) then
+                                            ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
+                                                                    &tempson,trans_matrix,tempgrav_var)
+                                        else if (attrs%use_rt) then
+                                            ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
+                                                                    &tempson,trans_matrix, rt_var=temprt_var)
+                                        else
+                                            ok_filter = filter_cell(reg,attrs%filters(ifilt),xtemp,dx*sim%boxlen,tempvar,&
+                                                                    &tempson,trans_matrix)
+                                        end if
+                                        ok_cell_each= ok_cell.and.ok_filter
+                                        if (ok_cell_each) then
+                                            total_ncell(ifilt) = total_ncell(ifilt) + 1
+                                            if (attrs%use_gravity.and.attrs%use_rt) then
+                                                call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt,trans_matrix, &
+                                                                & tempgrav_var,temprt_var)
+                                            else if (attrs%use_rt) then
+                                                call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt,trans_matrix, &
+                                                                & rt_var=temprt_var)
+                                            else if (attrs%use_gravity) then
+                                                call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt,trans_matrix,tempgrav_var)
+                                            else
+                                                call extract_data(reg,x(i,:),tempvar,tempson,dx,attrs,ifilt,trans_matrix)
+                                            endif
+                                        endif
+                                    end do filterloop
+                                    deallocate(tempvar,tempson)
+                                    if (attrs%use_gravity) deallocate(tempgrav_var)
+                                    if (attrs%use_rt) deallocate(temprt_var)
+                                end if
                             end do ngridaloop
                         end do cellloop
                         deallocate(ref,x,ind_cell,xorig)
@@ -975,20 +1146,27 @@ module amr_integrator
                 deallocate(nbor,son,var,cellpos)
                 close(10)
                 close(11)
-                if (read_gravity) then
+                if (attrs%use_gravity) then
                     close(12)
                     deallocate(grav_var)
+                end if
+                if (attrs%use_rt) then
+                    close(13)
+                    deallocate(rt_var)
                 end if
             end do cpuloop
 
             ! Finally just renormalise for weighted quantities
             call renormalise(attrs)
+            attrs%total_ncell = total_ncell
+            attrs%tot_ref = tot_ref
+            attrs%tot_pos = tot_pos
+            attrs%tot_insubs = tot_insubs
 
-            write(*,*)'Total number of cells used: ', total_ncell
-            write(*,*)'Total number of cells in region and refined: ', tot_sel
-            write(*,*)'Total number of cells refined: ', tot_ref
-            write(*,*)'Total number of cells in region: ', tot_pos
-            write(*,*)'Total number of cells in substructures: ', tot_insubs
+            if (verbose) write(*,*)'Total number of cells used: ', total_ncell
+            if (verbose) write(*,*)'Total number of cells refined: ', tot_ref
+            if (verbose) write(*,*)'Total number of cells in region: ', tot_pos
+            if (verbose) write(*,*)'Total number of cells in substructures: ', tot_insubs
 
         end subroutine integrate_region_neigh
     end subroutine integrate_region
