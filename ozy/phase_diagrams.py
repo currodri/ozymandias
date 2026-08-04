@@ -9,6 +9,7 @@ from ozy.dict_variables import common_variables,grid_variables,particle_variable
 # TODO: Allow for parallel computation of phase diagrams.
 from joblib import Parallel, delayed
 from amr2 import vectors
+from amr2 import io_ramses
 from amr2 import geometrical_regions as geo
 from amr2 import amr_profiles as amrprofmod
 
@@ -92,6 +93,9 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,minval,maxva
     if len(nbins) != 2 or not isinstance(nbins,list):
         print('Number of bins should be given for both x and y axis. No more, no less!')
         exit
+        
+    if verbose:
+        io_ramses.activate_verbose()
     remove_all = False
     if remove_subs =='all':
         remove_all = True
@@ -221,30 +225,22 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,minval,maxva
         if pd_present:
             group._init_phase_diagrams()
             if remove_subs:
-                for i,p in enumerate(group.phase_diagrams_nosubs):
-                    if p.key == pd_key:
-                        selected_pd = i
-                        break
-                pd_temp = group.phase_diagrams_nosubs[selected_pd]
-                # TODO: This should be done for all type of variables, not just hydro
-                for pd_field in pd.zvars['hydro']:
-                    if not pd_field in pd_temp.zvars['hydro']:
-                        if verbose: print('Recomputing phase-diagram because of missing requested variables!')
-                        recompute = True
-                        pds_fr.append(True)
-                        break
+                pd_list = group.phase_diagrams_nosubs
             else:
-                for i,p in enumerate(group.phase_diagrams):
-                    if p.key == pd_key:
-                        selected_pd = i
-                        break
-                pd_temp = group.phase_diagrams[selected_pd]
-                # TODO: This should be done for all type of variables, not just hydro
+                pd_list = group.phase_diagrams
+            selected_pd = next((i for i,p in enumerate(pd_list) if p.key == pd_key), None)
+            if selected_pd is None:
+                # Key found in HDF5 but not in loaded list — force recompute.
+                # Do NOT append here; the if pd_present and recompute: block below
+                # handles both the HDF5 deletion and the pds_fr append.
+                recompute = True
+                if verbose: print('Phase diagram key mismatch after _init_phase_diagrams(); forcing recompute.')
+            else:
+                pd_temp = pd_list[selected_pd]
                 for pd_field in pd.zvars['hydro']:
-                    if not pd_field in pd_temp.zvars['hydro']:
-                        if verbose: print('Recomputing phase-diagram because of missing requested variables!')
+                    if pd_field not in pd_temp.zvars['hydro']:
+                        if verbose: print('Recomputing phase-diagram because of missing requested variables!: ', pd_field)
                         recompute = True
-                        pds_fr.append(True)
                         break
         if pd_present and recompute:
             if remove_subs:
@@ -257,17 +253,21 @@ def compute_phase_diagram(group,ozy_file,xvar,yvar,zvars,weightvars,minval,maxva
             if verbose: print('Phase diagram data with same details already present for galaxy %s. No overwritting!'%group._index)
             group._init_phase_diagrams()
             if remove_subs:
-                for i,p in enumerate(group.phase_diagrams_nosubs):
-                    if p.key == pd_key:
-                        selected_pd = i
-                        break
-                pds_fr.append(group.phase_diagrams_nosubs[selected_pd])
+                pd_list = group.phase_diagrams_nosubs
             else:
-                for i,p in enumerate(group.phase_diagrams):
-                    if p.key == pd_key:
-                        selected_pd = i
-                        break
-                pds_fr.append(group.phase_diagrams[selected_pd])
+                pd_list = group.phase_diagrams
+            selected_pd = next((i for i,p in enumerate(pd_list) if p.key == pd_key), None)
+            if selected_pd is None:
+                # elif branch won't re-enter the if pd_present and recompute: block,
+                # so handle deletion and append explicitly here.
+                if verbose: print('Phase diagram key mismatch after _init_phase_diagrams(); forcing recompute.')
+                if remove_subs:
+                    del f[str(pd.group.type)+'_data/phase_diagrams_nosubs/'+str(group._index)+'/'+str(pd_key)]
+                else:
+                    del f[str(pd.group.type)+'_data/phase_diagrams/'+str(group._index)+'/'+str(pd_key)]
+                pds_fr.append(True)
+            else:
+                pds_fr.append(pd_list[selected_pd])
         else:
             pds_fr.append(True)
             if verbose: print('Writing phase diagram data in %s_data'%group.type)

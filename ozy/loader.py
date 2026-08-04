@@ -184,7 +184,7 @@ class GalacticFlow:
                         self.data[j] = unyt_array(data[j][()], unit, registry=self.obj.unit_registry)
 
 class OZY:
-    def __init__(self, filename, read_mode='r'):
+    def __init__(self, filename, read_mode='r', skip_derived=False):
         self._ds = None
         self.data_file = os.path.abspath(filename)
         self.snapname = self.data_file.split('/')[-1]
@@ -196,6 +196,44 @@ class OZY:
         self.ozy = hd.attrs['ozy']
         self.unit_registry = UnitRegistry.from_json(
             hd.attrs['unit_registry_json'])
+        
+        if not "code_pseudo_entropy" in self.unit_registry.lut:
+            from .utils import get_mu, get_electron_mu
+            from unyt.dimensions import length,mass,time,temperature,dimensionless,magnetic_field_cgs
+            from unyt import mp,kb,erg,K,g
+            _X = 0.76  # H fraction, hardcoded
+            _Y = 0.24  # He fraction, hardcoded
+            mean_molecular_weight_factor = get_mu(_X, _Y)
+            electron_molecular_weight_factor = get_electron_mu(_X, _Y)
+            length_unit = self.unit_registry["code_length"][0]
+            density_unit= self.unit_registry["code_density"][0]
+            time_unit   = self.unit_registry["code_time"][0]
+            velocity_unit = length_unit / time_unit
+            s_entropy_unit = 1.4e+8 * erg / K / g
+            s_entropy_unit = float(s_entropy_unit.to('m**2/s**2/K').d)
+            pressure_unit= density_unit * (length_unit / time_unit) ** 2
+            magnetic_unit = np.sqrt(4. *np.pi) * length_unit * (density_unit**0.5) / time_unit
+            pseudo_entropy_unit = (mp.to('kg').d**(5./3.)) * mean_molecular_weight_factor \
+                * electron_molecular_weight_factor**(2./3.) * pressure_unit / (density_unit**(5./3.))
+            temperature_unit = velocity_unit ** 2 * mp.to('kg').d * mean_molecular_weight_factor / kb.to('kg*m**2/(K*s**2)').d
+            del self.unit_registry.lut["code_specific_entropy"]
+            del self.unit_registry.lut["code_magnetic"]
+            del self.unit_registry.lut["code_temperature"]
+            self.unit_registry.add("code_pseudo_entropy",
+                                   base_value=pseudo_entropy_unit,
+                                   dimensions=mass*(length**4)/(time**2))
+            self.unit_registry.add("code_specific_entropy",
+                                   base_value=s_entropy_unit,
+                                   dimensions=(length**2)/(temperature*time**2))
+            self.unit_registry.add("code_magnetic",
+                                   base_value=magnetic_unit,
+                                   dimensions=magnetic_field_cgs)
+            self.unit_registry.add("code_magnetic_standard", 
+                                   base_value=np.sqrt(4*np.pi)*magnetic_unit, 
+                                    dimensions=magnetic_field_cgs)
+            self.unit_registry.add("code_temperature",
+                                   base_value=temperature_unit,
+                                   dimensions=temperature)
 
         # Load the simulation attributes.
         self.simulation = SimulationAttributes()
@@ -264,78 +302,79 @@ class OZY:
             self.galaxies = LazyList(self.ngalaxies,
                                         lambda i: Galaxy(self, i))
 
-            if 'galaxy_data/profiles' in hd:
-                self.have_profiles = True
-                prof_indices = []
-                prof_keys = []
-                for k in hd['galaxy_data/profiles'].keys():
-                    for j in hd['galaxy_data/profiles/'+k].keys():
-                        prof_indices.append(int(k))
-                        prof_keys.append(j)
-                self._galaxy_profile_index_list = LazyList(
-                    len(prof_indices), lambda i: int(prof_indices[i])
-                )
-                self._galaxy_profiles = [Profile(self,int(prof_indices[i]),'galaxy', prof_keys[i],hd,False) for i in range(0, len(prof_indices))]
-            if 'galaxy_data/profiles_nosubs' in hd:
-                self.have_profiles_nosubs = True
-                prof_nosubs_indices = []
-                prof_nosubs_keys = []
-                for k in hd['galaxy_data/profiles_nosubs'].keys():
-                    for j in hd['galaxy_data/profiles_nosubs/'+k].keys():
-                        prof_nosubs_indices.append(int(k))
-                        prof_nosubs_keys.append(j)
-                self._galaxy_profile_nosubs_index_list = LazyList(
-                    len(prof_nosubs_indices), lambda i: int(prof_nosubs_indices[i])
-                )
-                self._galaxy_profiles_nosubs = [Profile(self,int(prof_nosubs_indices[i]),'galaxy', prof_nosubs_keys[i],hd,True) for i in range(0, len(prof_nosubs_indices))]
-            if 'galaxy_data/phase_diagrams' in hd:
-                self.have_phase_diagrams = True
-                pd_indices = []
-                pd_keys = []
-                for k in hd['galaxy_data/phase_diagrams'].keys():
-                    for j in hd['galaxy_data/phase_diagrams/'+k].keys():
-                        pd_indices.append(int(k))
-                        pd_keys.append(j)
-                self._galaxy_phasediag_index_list = LazyList(
-                    len(pd_indices), lambda i: int(pd_indices[i])
-                )
-                self._galaxy_phasediag = [PhaseDiagram(self,int(pd_indices[i]),'galaxy', pd_keys[i],hd,False) for i in range(0, len(pd_indices))]
-            if 'galaxy_data/phase_diagrams_nosubs' in hd:
-                self.have_phase_diagrams_nosubs = True
-                pd_nosubs_indices = []
-                pd_nosubs_keys = []
-                for k in hd['galaxy_data/phase_diagrams_nosubs'].keys():
-                    for j in hd['galaxy_data/phase_diagrams_nosubs/'+k].keys():
-                        pd_nosubs_indices.append(int(k))
-                        pd_nosubs_keys.append(j)
-                self._galaxy_phasediag_nosubs_index_list = LazyList(
-                    len(pd_nosubs_indices), lambda i: int(pd_nosubs_indices[i])
-                )
-                self._galaxy_phasediag_nosubs = [PhaseDiagram(self,int(pd_nosubs_indices[i]),'galaxy', pd_nosubs_keys[i],hd,True) for i in range(0, len(pd_nosubs_indices))]
-            if 'galaxy_data/flows' in hd:
-                self.have_flows = True
-                gf_indices = []
-                gf_keys = []
-                for k in hd['galaxy_data/flows'].keys():
-                    for j in hd['galaxy_data/flows/'+k].keys():
-                        gf_indices.append(int(k))
-                        gf_keys.append(j)
-                self._galaxy_flows_index_list = LazyList(
-                    len(gf_indices), lambda i: int(gf_indices[i])
-                )
-                self._galaxy_flows = [GalacticFlow(self,int(gf_indices[i]),'galaxy',gf_keys[i],hd,False) for i in range(0, len(gf_indices))]
-            if 'galaxy_data/flows_nosubs' in hd:
-                self.have_flows_nosubs = True
-                gf_nosubs_indices = []
-                gf_nosubs_keys = []
-                for k in hd['galaxy_data/flows_nosubs'].keys():
-                    for j in hd['galaxy_data/flows_nosubs/'+k].keys():
-                        gf_nosubs_indices.append(int(k))
-                        gf_nosubs_keys.append(j)
-                self._galaxy_flows_nosubs_index_list = LazyList(
-                    len(gf_nosubs_indices), lambda i: int(gf_nosubs_indices[i])
-                )
-                self._galaxy_flows_nosubs = [GalacticFlow(self,int(gf_nosubs_indices[i]),'galaxy',gf_nosubs_keys[i],hd,True) for i in range(0, len(gf_nosubs_indices))]
+            if not skip_derived:
+                if 'galaxy_data/profiles' in hd:
+                    self.have_profiles = True
+                    prof_indices = []
+                    prof_keys = []
+                    for k in hd['galaxy_data/profiles'].keys():
+                        for j in hd['galaxy_data/profiles/'+k].keys():
+                            prof_indices.append(int(k))
+                            prof_keys.append(j)
+                    self._galaxy_profile_index_list = LazyList(
+                        len(prof_indices), lambda i: int(prof_indices[i])
+                    )
+                    self._galaxy_profiles = [Profile(self,int(prof_indices[i]),'galaxy', prof_keys[i],hd,False) for i in range(0, len(prof_indices))]
+                if 'galaxy_data/profiles_nosubs' in hd:
+                    self.have_profiles_nosubs = True
+                    prof_nosubs_indices = []
+                    prof_nosubs_keys = []
+                    for k in hd['galaxy_data/profiles_nosubs'].keys():
+                        for j in hd['galaxy_data/profiles_nosubs/'+k].keys():
+                            prof_nosubs_indices.append(int(k))
+                            prof_nosubs_keys.append(j)
+                    self._galaxy_profile_nosubs_index_list = LazyList(
+                        len(prof_nosubs_indices), lambda i: int(prof_nosubs_indices[i])
+                    )
+                    self._galaxy_profiles_nosubs = [Profile(self,int(prof_nosubs_indices[i]),'galaxy', prof_nosubs_keys[i],hd,True) for i in range(0, len(prof_nosubs_indices))]
+                if 'galaxy_data/phase_diagrams' in hd:
+                    self.have_phase_diagrams = True
+                    pd_indices = []
+                    pd_keys = []
+                    for k in hd['galaxy_data/phase_diagrams'].keys():
+                        for j in hd['galaxy_data/phase_diagrams/'+k].keys():
+                            pd_indices.append(int(k))
+                            pd_keys.append(j)
+                    self._galaxy_phasediag_index_list = LazyList(
+                        len(pd_indices), lambda i: int(pd_indices[i])
+                    )
+                    self._galaxy_phasediag = [PhaseDiagram(self,int(pd_indices[i]),'galaxy', pd_keys[i],hd,False) for i in range(0, len(pd_indices))]
+                if 'galaxy_data/phase_diagrams_nosubs' in hd:
+                    self.have_phase_diagrams_nosubs = True
+                    pd_nosubs_indices = []
+                    pd_nosubs_keys = []
+                    for k in hd['galaxy_data/phase_diagrams_nosubs'].keys():
+                        for j in hd['galaxy_data/phase_diagrams_nosubs/'+k].keys():
+                            pd_nosubs_indices.append(int(k))
+                            pd_nosubs_keys.append(j)
+                    self._galaxy_phasediag_nosubs_index_list = LazyList(
+                        len(pd_nosubs_indices), lambda i: int(pd_nosubs_indices[i])
+                    )
+                    self._galaxy_phasediag_nosubs = [PhaseDiagram(self,int(pd_nosubs_indices[i]),'galaxy', pd_nosubs_keys[i],hd,True) for i in range(0, len(pd_nosubs_indices))]
+                if 'galaxy_data/flows' in hd:
+                    self.have_flows = True
+                    gf_indices = []
+                    gf_keys = []
+                    for k in hd['galaxy_data/flows'].keys():
+                        for j in hd['galaxy_data/flows/'+k].keys():
+                            gf_indices.append(int(k))
+                            gf_keys.append(j)
+                    self._galaxy_flows_index_list = LazyList(
+                        len(gf_indices), lambda i: int(gf_indices[i])
+                    )
+                    self._galaxy_flows = [GalacticFlow(self,int(gf_indices[i]),'galaxy',gf_keys[i],hd,False) for i in range(0, len(gf_indices))]
+                if 'galaxy_data/flows_nosubs' in hd:
+                    self.have_flows_nosubs = True
+                    gf_nosubs_indices = []
+                    gf_nosubs_keys = []
+                    for k in hd['galaxy_data/flows_nosubs'].keys():
+                        for j in hd['galaxy_data/flows_nosubs/'+k].keys():
+                            gf_nosubs_indices.append(int(k))
+                            gf_nosubs_keys.append(j)
+                    self._galaxy_flows_nosubs_index_list = LazyList(
+                        len(gf_nosubs_indices), lambda i: int(gf_nosubs_indices[i])
+                    )
+                    self._galaxy_flows_nosubs = [GalacticFlow(self,int(gf_nosubs_indices[i]),'galaxy',gf_nosubs_keys[i],hd,True) for i in range(0, len(gf_nosubs_indices))]
     
         hd.close()
         del hd
@@ -488,13 +527,27 @@ class Galaxy(Group):
                 if profile_index == self._index:
                     profile = self.obj._galaxy_profiles[p]
                     self.profiles.append(profile)
-                
+
         self.profiles_nosubs = []
         if self.obj.have_profiles_nosubs:
             for p,profile_index in enumerate(self.obj._galaxy_profile_nosubs_index_list):
                 if profile_index == self._index:
                     profile = self.obj._galaxy_profiles_nosubs[p]
                     self.profiles_nosubs.append(profile)
+
+        if not self.obj.have_profiles and not self.obj.have_profiles_nosubs:
+            # Lazy fallback: OZY was loaded with skip_derived=True so profiles weren't
+            # pre-loaded into the object. Read just this galaxy's profiles on demand.
+            gal_key = str(self._index)
+            with h5py.File(self.obj.data_file, 'r') as hd:
+                if 'galaxy_data/profiles/' + gal_key in hd:
+                    for prof_key in hd['galaxy_data/profiles/' + gal_key].keys():
+                        self.profiles.append(
+                            Profile(self.obj, self._index, 'galaxy', prof_key, hd, False))
+                if 'galaxy_data/profiles_nosubs/' + gal_key in hd:
+                    for prof_key in hd['galaxy_data/profiles_nosubs/' + gal_key].keys():
+                        self.profiles_nosubs.append(
+                            Profile(self.obj, self._index, 'galaxy', prof_key, hd, True))
     
     def _init_phase_diagrams(self):
         self.phase_diagrams = []
@@ -728,5 +781,5 @@ class Cloud(Group):
         
 
 # FINALLY, the function that we want!
-def load(filename):
-    return OZY(filename)
+def load(filename, skip_derived=False):
+    return OZY(filename, skip_derived=skip_derived)

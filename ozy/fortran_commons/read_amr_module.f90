@@ -989,11 +989,7 @@ module io_ramses
             value = sqrt(pi * cs / (factG * var(0,varIDs%density)))
         case ('xcr')
             ! CR pressure fraction: Xcr = Pcr / Pth, per cell
-            if (sim%cr) then
-                value = var(0,varIDs%cr_pressure) / max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density))
-            else
-                value = 0d0
-            end if
+            value = var(0,varIDs%cr_pressure) / max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density))
         case ('rms_speed')
             ! RMS speed, ideal gas (Maxwellian distribution)
             value = sqrt(3d0 * (max(var(0,varIDs%thermal_pressure), Tmin*var(0,varIDs%density)) / var(0,varIDs%density)))

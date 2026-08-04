@@ -442,7 +442,9 @@ module maps
         ! Finally, normalise using the saved weights
         filtloopmap: do ifilt=1,proj%nfilter
             projvarloopmap: do ivar=1,proj%nvars
-                proj%map(ifilt,ivar,:,:)=proj%map(ifilt,ivar,:,:)/proj%weights(ifilt,:,:)
+                if (trim(proj%weightvar) /= 'column') then
+                    proj%map(ifilt,ivar,:,:)=proj%map(ifilt,ivar,:,:)/proj%weights(ifilt,:,:)
+                end if
             end do projvarloopmap
         end do filtloopmap
         
@@ -568,7 +570,11 @@ module maps
                 iy = min(iy,jmax)
                 filtloopmap: do ifilt=1,proj%nfilter
                     projvarloopmap: do ivar=1,proj%nvars
-                        proj%map(ifilt,ivar,i,j)=grid(cam%lmax)%cube(ifilt,ivar,ix,iy)/grid(cam%lmax)%map(ifilt,ix,iy)
+                        if (trim(proj%weightvar) /= 'column') then
+                            proj%map(ifilt,ivar,i,j)=grid(cam%lmax)%cube(ifilt,ivar,ix,iy)/grid(cam%lmax)%map(ifilt,ix,iy)
+                        else 
+                            proj%map(ifilt,ivar,i,j)=grid(cam%lmax)%cube(ifilt,ivar,ix,iy)
+                        end if
                     end do projvarloopmap
                 end do filtloopmap
             end do
@@ -950,7 +956,11 @@ module maps
                                             if (ok_filter) then
                                                 if (.not.grid(ilevel)%active) grid(ilevel)%active = .true.
                                                 weight = 1D0
-                                                if (trim(proj%weightvar) /= 'counts') then
+                                                if (trim(proj%weightvar) == 'cumulative') then
+                                                    weight = 1D0
+                                                else if (trim(proj%weightvar) == 'column') then
+                                                    weight = dx
+                                                else if (trim(proj%weightvar) /= 'counts') then
                                                     if (read_gravity) then 
                                                         call getvarvalue(bbox,dx,xtemp,tempvar,tempson,proj%weightvar,rho,trans_matrix,tempgrav_var)
                                                     else
@@ -1395,7 +1405,11 @@ module maps
                                             if (ok_filter) then
                                                 if (.not.grid(ilevel)%active) grid(ilevel)%active = .true.
                                                 weight = 1D0
-                                                if (trim(proj%weightvar) /= 'counts') then
+                                                if (trim(proj%weightvar) == 'cumulative') then
+                                                    weight = 1D0
+                                                else if (trim(proj%weightvar) == 'column') then
+                                                    weight = dx
+                                                else if (trim(proj%weightvar) /= 'counts') then
                                                     if (read_gravity) then 
                                                         call getvarvalue(bbox,dx,xtemp,tempvar,tempson,proj%weightvar,rho,trans_matrix,tempgrav_var)
                                                     else

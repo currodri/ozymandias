@@ -201,6 +201,13 @@ def get_tdyn(galaxy,cgm=False):
             tdyn = 2*np.pi*np.sqrt(r**3/(G*Mtot))
         return tdyn
 
+def _read_snap_redshift(path):
+    """Read only the redshift from an ozy HDF5 file without loading all galaxy/halo data."""
+    import h5py
+    with h5py.File(path, 'r') as f:
+        return float(f['simulation_attributes'].attrs['redshift'])
+
+
 def find_neigh_snaps(simfolder,orig_snap,trange,minsnaps=3,returnweight=False):
     """
     This function searches for the closest snapshots
@@ -211,7 +218,6 @@ def find_neigh_snaps(simfolder,orig_snap,trange,minsnaps=3,returnweight=False):
     TODO: Use 3 snaps as a minimum
     """
     import glob
-    import random
     from astropy.cosmology import FlatLambdaCDM
     import ozy
 
@@ -222,38 +228,40 @@ def find_neigh_snaps(simfolder,orig_snap,trange,minsnaps=3,returnweight=False):
     snapshots.sort(key=lambda x: int(x[-5:]))
     iorig = snapshots.index(orig_snap)
 
-    # Get time of original snapshot
+    # Load the original snapshot once for cosmo params only — skip profiles/phase_diagrams/flows
     ozy_orig = 'ozy_%05d.hdf5'%(int(snapshots[iorig][-5:]))
-    sim = ozy.load('Groups/'+ozy_orig)
-    cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
-                                    Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
+    sim = ozy.load('Groups/'+ozy_orig, skip_derived=True)
+    cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter,
+                          Ob0=sim.simulation.omega_baryon, Tcmb0=2.73)
     t_orig = cosmo.age(sim.simulation.redshift).value
+    del sim
+
+    # Per-call cache: {ozy_name -> thubble} avoids re-reading snaps that appear as
+    # both sim[i] and prev/next neighbours of adjacent iterations.
+    _time_cache = {ozy_orig: t_orig}
+
+    def _get_snap_time(ozy_name):
+        if ozy_name not in _time_cache:
+            z = _read_snap_redshift('Groups/' + ozy_name)
+            _time_cache[ozy_name] = cosmo.age(z).value
+        return _time_cache[ozy_name]
 
     neigh_snaps = []
     weights = []
     times = []
+
     # Find the snapshots just below the original one
     for i in range(iorig-1,0,-1):
         try:
             ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[i][-5:]))
-            sim = ozy.load('Groups/'+ozy_name)
-            cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
-                                            Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
-            thubble = cosmo.age(sim.simulation.redshift).value
+            thubble = _get_snap_time(ozy_name)
             try:
                 next_ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[i-1][-5:]))
-                next_sim = ozy.load('Groups/'+next_ozy_name)
-                next_cosmo = FlatLambdaCDM(H0=next_sim.simulation.hubble_constant, Om0=next_sim.simulation.omega_matter, 
-                                                Ob0=next_sim.simulation.omega_baryon,Tcmb0=2.73)
-                t_next = cosmo.age(next_sim.simulation.redshift).value
+                t_next = _get_snap_time(next_ozy_name)
             except:
                 t_next = t_orig - 0.5*trange
             prev_ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[i+1][-5:]))
-            prev_sim = ozy.load('Groups/'+prev_ozy_name)
-            prev_cosmo = FlatLambdaCDM(H0=prev_sim.simulation.hubble_constant, Om0=prev_sim.simulation.omega_matter, 
-                                            Ob0=prev_sim.simulation.omega_baryon,Tcmb0=2.73)
-            t_prev = cosmo.age(prev_sim.simulation.redshift).value
-            del sim
+            t_prev = _get_snap_time(prev_ozy_name)
             if t_orig - thubble <= 0.5*trange and t_orig > thubble:
                 neigh_snaps.append(ozy_name)
                 tup = 0.5*(t_prev - thubble)
@@ -271,46 +279,30 @@ def find_neigh_snaps(simfolder,orig_snap,trange,minsnaps=3,returnweight=False):
                 break
         except:
             print('Missing neighbour snapshot: ',ozy_name)
-        
+
     # Add original snapshot
     neigh_snaps.append(ozy_orig)
     next_ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[iorig-1][-5:]))
-    next_sim = ozy.load('Groups/'+next_ozy_name)
-    next_cosmo = FlatLambdaCDM(H0=next_sim.simulation.hubble_constant, Om0=next_sim.simulation.omega_matter, 
-                                    Ob0=next_sim.simulation.omega_baryon,Tcmb0=2.73)
-    t_next = cosmo.age(next_sim.simulation.redshift).value
+    t_next = _get_snap_time(next_ozy_name)
     prev_ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[iorig+1][-5:]))
-    prev_sim = ozy.load('Groups/'+prev_ozy_name)
-    prev_cosmo = FlatLambdaCDM(H0=prev_sim.simulation.hubble_constant, Om0=prev_sim.simulation.omega_matter, 
-                                    Ob0=prev_sim.simulation.omega_baryon,Tcmb0=2.73)
-    t_prev = cosmo.age(prev_sim.simulation.redshift).value
-    # And compute the weight of the original/middle snapshot
+    t_prev = _get_snap_time(prev_ozy_name)
     tup = 0.5*(t_prev - t_orig)
     tdown = 0.5*(t_orig - t_next)
     weights.append(tup+tdown)
     times.append(t_orig)
     indexorig = len(weights)
+
     # And do the same for just above the original one
     for i in range(iorig+1,len(snapshots),1):
         ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[i][-5:]))
-        sim = ozy.load('Groups/'+ozy_name)
-        cosmo = FlatLambdaCDM(H0=sim.simulation.hubble_constant, Om0=sim.simulation.omega_matter, 
-                                        Ob0=sim.simulation.omega_baryon,Tcmb0=2.73)
-        thubble = cosmo.age(sim.simulation.redshift).value
+        thubble = _get_snap_time(ozy_name)
         try:
             prev_ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[i+1][-5:]))
-            prev_sim = ozy.load('Groups/'+prev_ozy_name)
-            prev_cosmo = FlatLambdaCDM(H0=prev_sim.simulation.hubble_constant, Om0=prev_sim.simulation.omega_matter, 
-                                            Ob0=prev_sim.simulation.omega_baryon,Tcmb0=2.73)
-            t_prev = cosmo.age(prev_sim.simulation.redshift).value
+            t_prev = _get_snap_time(prev_ozy_name)
         except:
             t_prev = t_orig + 0.5*trange
         next_ozy_name = 'ozy_%05d.hdf5'%(int(snapshots[i-1][-5:]))
-        next_sim = ozy.load('Groups/'+next_ozy_name)
-        next_cosmo = FlatLambdaCDM(H0=next_sim.simulation.hubble_constant, Om0=next_sim.simulation.omega_matter, 
-                                        Ob0=next_sim.simulation.omega_baryon,Tcmb0=2.73)
-        t_next = cosmo.age(next_sim.simulation.redshift).value
-        del sim
+        t_next = _get_snap_time(next_ozy_name)
         if thubble - t_orig <= 0.5*trange and t_orig < thubble:
             neigh_snaps.append(ozy_name)
             tdown = 0.5*(thubble - t_next)
@@ -325,7 +317,7 @@ def find_neigh_snaps(simfolder,orig_snap,trange,minsnaps=3,returnweight=False):
                 weights.append(tup)
                 times.append(thubble)
             break
-    
+
     # And just go back to original place
     os.chdir(presentpath)
 
@@ -561,6 +553,11 @@ def structure_regions(group, position=None, radius=None,
 
     if isinstance(rmax, tuple):
         rmax = group.obj.quantity(rmax[0],rmax[1])
+
+    # Save caller-provided values before the substructure loop can overwrite them
+    _caller_position = position
+    _caller_radius = radius
+
     # If asked for substructure, obtain the substructure of the host halo
     subs_counter = 0
     if add_substructure:
@@ -568,49 +565,54 @@ def structure_regions(group, position=None, radius=None,
         for s in subs:
             # Get halo galaxies
             sub_gals = s.galaxies
-            position = s.position
+            sub_position = s.position
             mysub = s
             if len(sub_gals) != 0:
                 for sg in sub_gals:
                     if sg.central:
-                        position = sg.position
+                        sub_position = sg.position
                         mysub = sg
-            distance = group.position - position
+            distance = group.position - sub_position
             d = group.obj.quantity(np.linalg.norm(distance.to('kpc').d),'kpc')
-            if s.npart >= 1000 and d.to('kpc')<=rmax.to('kpc'):
+            if d.to('kpc')<=rmax.to('kpc'):
                 try:
-                    tr  = s.radius[tidal_method]
+                    tr = s.radius[tidal_method]
+                    if tr.d == 0.0:
+                        raise ValueError('Cached tidal radius is zero')
                 except:
-                    tr = tidal_radius(myhalo,s,method=tidal_method)
+                    # tidal_radius() requires a working particle integration; fall back
+                    # to the subhalo virial radius for low-npart halos where the cache
+                    # was never populated
+                    tr = s.virial_quantities['radius']
+                tr = 2.0 * tr
                 mysubs.append(init_region(mysub,'sphere',rmax=(tr.to('kpc'),'kpc'),
                             rmin=(0,'kpc')))
                 subs_counter += 1
-                
+
     # If asked for every structure in the halo finder, just add all
     if add_all:
         halos = group.obj.halos
         for h in halos:
-            if h.npart >= 1000:
-                r = h.virial_quantities['radius']
-                mysubs.append(init_region(h,'sphere',rmax=(r.to('kpc'),'kpc'),
-                            rmin=(0,'kpc')))
-                
+            r = 2.0 * h.virial_quantities['radius']
+            mysubs.append(init_region(h,'sphere',rmax=(r.to('kpc'),'kpc'),
+                        rmin=(0,'kpc')))
+
     # This looks for what virial spheres of other halos intersect with the
     # one provided. If position and radius are given, they're computed for
     # that instead of the group center and virial radius
     inter_counter = 0
     if add_intersections:
-        if isinstance(position,unyt_array):
-            position = group.position
-        if isinstance(rmax,unyt_quantity):
-            radius = rmax
+        _pos    = _caller_position if _caller_position is not None else group.position
+        _radius = _caller_radius   if _caller_radius   is not None else group.virial_quantities['radius']
+        if not isinstance(_radius, unyt_quantity):
+            _radius = group.obj.quantity(float(_radius), 'code_length')
         halos = group.obj.halos
         for h in halos:
-            distance = position - h.position
+            distance = _pos - h.position
             d = group.obj.quantity(np.linalg.norm(distance.to('kpc').d),'kpc')
-            rsum = radius + h.virial_quantities['radius']
+            rsum = _radius + h.virial_quantities['radius']
             if h.npart >= 1000 and rsum.to('kpc') >= d.to('kpc') and h.ID != myhalo.ID:
-                r = h.virial_quantities['radius']
+                r = 3.0 * h.virial_quantities['radius']
                 mysubs.append(init_region(h,'sphere',rmax=(r.to('kpc'),'kpc'),
                             rmin=(0,'kpc')))
                 inter_counter += 1
@@ -1416,8 +1418,17 @@ def pdf_handler_to_stats(obj,pdf_obj,ivar,ifilt,verbose=False):
                 stats_array[i,2] = new_sigma
             stats_array[i,5:] = np.array([pdf_obj.minv[ivar,ifilt],pdf_obj.maxv[ivar,ifilt]])
             if verbose and pdf_obj.nout[ivar,ifilt]/pdf_obj.nvalues[ivar,ifilt]>0.1: 
+                plt_def = plotting_dictionary[varname]
+                minv = obj.quantity(pdf_obj.minv[ivar,ifilt],code_units)
+                maxv = obj.quantity(pdf_obj.maxv[ivar,ifilt],code_units)
+                if scaletype == 'log_even':
+                    minpdf = obj.quantity(10**pdf_obj.bins[0,ivar],code_units)
+                    maxpdf = obj.quantity(10**pdf_obj.bins[-1,ivar],code_units)
+                else:
+                    minpdf = obj.quantity(pdf_obj.bins[0,ivar],code_units)
+                    maxpdf = obj.quantity(pdf_obj.bins[-1,ivar],code_units)
                 print(f'Found points outside of PDF range for {varname}: {pdf_obj.nout[ivar,ifilt]}/{pdf_obj.nvalues[ivar,ifilt]}') 
-                print(f'Range of values vs PDF limits: {xmin} - {xmax}, {x[0]} - {x[-1]}')
+                print(f'Range of values vs PDF limits: {minv.to(plt_def["units"])} - {maxv.to(plt_def["units"])} (real), {minpdf.to(plt_def["units"])} - {maxpdf.to(plt_def["units"])} (used)')
         else:
             stats_array[i,:] = pdf_obj.total[ivar,ifilt,i,0]
     stats_array = obj.array(stats_array,code_units)
@@ -1485,6 +1496,7 @@ def get_code_bins(obj,varname,nbins=100,logscale=True,
     var_type = varname.split('/')[0]
     var_name = varname.split('/')[1]
     ok_var = False
+    in_common = False
     if var_type == 'gas':
         if var_name in common_variables or var_name in grid_variables:
                 ok_var = True
@@ -1501,12 +1513,18 @@ def get_code_bins(obj,varname,nbins=100,logscale=True,
             else:
                 raise KeyError('This star variable is not supported. Please check!')
         else:
-            if var_name in common_variables or var_name in particle_variables:
+            if var_name in common_variables:
+                in_common = True
+                ok_var = True
+            elif var_name in particle_variables:
                 ok_var = True
             else:
                 raise KeyError('This star variable is not supported. Please check!')
     elif var_type == 'dm':
-        if var_name in common_variables or var_name in particle_variables:
+        if var_name in common_variables:
+            in_common = True
+            ok_var = True
+        elif var_name in particle_variables:
             ok_var = True
         else:
             raise KeyError('This DM variable is not supported. Please check!')
@@ -1516,7 +1534,7 @@ def get_code_bins(obj,varname,nbins=100,logscale=True,
         exit
 
     # If everything is fine, we go and compute the bin edges
-    if varname.split('/')[0] == 'star' or varname.split('/')[0] == 'dm':
+    if (varname.split('/')[0] == 'star' or varname.split('/')[0] == 'dm') and not in_common:
         plotting_def = plotting_dictionary[varname.split('/')[0]+'_'+varname.split('/')[1]]
     else:
         plotting_def = plotting_dictionary[varname.split('/')[1]]

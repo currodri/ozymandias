@@ -102,7 +102,10 @@ class Projection(object):
                                 field_str = field.split('/')[0] + '_' + field.split('/')[1]
                             else:
                                 field_str = field.split('/')[1]
-                            units = plotting_dictionary[field_str]['units']                            
+                            units = plotting_dictionary[field_str]['units']
+                        if self.weight[0] == 'column':
+                            code_units += '*code_length'
+                            units += '*cm'                       
                         temp_map = self.group.obj.array(imap[i],code_units)
                         # first_unit = True
                         # make_div = False

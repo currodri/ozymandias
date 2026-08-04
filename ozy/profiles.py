@@ -10,9 +10,11 @@ from ozy.utils import init_region,init_filter,pdf_handler_to_stats
 from ozy.dict_variables import (common_variables, get_code_units,
                                 grid_variables, particle_variables)
 from amr2 import amr_profiles as amrprofmod
+from amr2 import io_ramses as io_amr
 from amr2 import stats_utils
 from amr2 import geometrical_regions as geo
 from part2 import part_profiles as partprofmod
+from part2 import io_ramses as io_part
 
 blacklist = [
     'yvars','weightvars','data','xdata','ydata'
@@ -103,15 +105,18 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,minval,maxval,linthresh
     if not isinstance(xvar, str):
         if verbose: print('Single x variable 1D profile supported!')
         exit
+    if verbose:
+        # Set the Fortran tools verbosity
+        io_amr.activate_verbose()
+        io_part.activate_verbose()
     nfilter = len(filter_name)
     profs = []
+    remove_all = (remove_subs == 'all')
+    if remove_all:
+        remove_subs = True
     for i in range(0, nfilter):
         prof = Profile(group)
         prof.nbins = nbins
-        remove_all = False
-        if remove_subs =='all':
-            remove_all = True
-            remove_subs = True
         use_neigh=False
         prof.rm_subs = remove_subs
         prof.xvar = xvar
@@ -246,16 +251,24 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,minval,maxval,linthresh
             group._init_profiles()
             if remove_subs:
                 if verbose: print('Removing substructure!')
+                selected_prof = None
                 for j,p in enumerate(group.profiles_nosubs):
                     if p.key == prof_key:
                         selected_prof = j
                         break
+                if selected_prof is None:
+                    raise KeyError(f'Profile key {prof_key!r} not found in profiles_nosubs for galaxy {group._index}. '
+                                   f'Available keys: {[p.key for p in group.profiles_nosubs]}')
                 profs_fr.append(group.profiles_nosubs[selected_prof])
             else:
+                selected_prof = None
                 for j,p in enumerate(group.profiles):
                     if p.key == prof_key:
                         selected_prof = j
                         break
+                if selected_prof is None:
+                    raise KeyError(f'Profile key {prof_key!r} not found in profiles for galaxy {group._index}. '
+                                   f'Available keys: {[p.key for p in group.profiles]}')
                 profs_fr.append(group.profiles[selected_prof])
         elif save:
             profs_fr.append(True)
@@ -269,11 +282,7 @@ def compute_profile(group,ozy_file,xvar,yvars,weightvars,minval,maxval,linthresh
         else:
             return profs_fr[0]
     
-    # If substructre is removed, obtain regions
-    remove_all = False
-    if remove_subs == 'all':
-        remove_all = True
-        remove_subs = True
+    # If substructure is removed, obtain regions
     if remove_all:
         subs = structure_regions(group, add_substructure=True, add_neighbours=False,
                                     add_intersections=True,position=enclosing_sphere_p,
